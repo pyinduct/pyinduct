@@ -41,5 +41,7 @@ output/*/index.html
 
 # Sphinx
 docs/_build
+
+# Sublime
 pyinduct.sublime-workspace
 pyinduct.sublime-project
