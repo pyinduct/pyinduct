@@ -9,20 +9,10 @@ Tests for `pyinduct` module.
 """
 
 import unittest
-
-from pyinduct import pyinduct
-
-
-class TestPyinduct(unittest.TestCase):
-
-    def setUp(self):
-        pass
-
-    def test_something(self):
-        pass
-
-    def tearDown(self):
-        pass
+import test_function
 
 if __name__ == '__main__':
-    unittest.main()
+    pass
+    # initial_function_suite = test_initial_function.suite
+    # all_tests = unittest.TestSuite([initial_function_suite])
+    # unittest.TextTestRunner().run(all_tests)
