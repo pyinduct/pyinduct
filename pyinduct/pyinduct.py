@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 import numpy as np
-import scipy as sp
+from scipy import integrate
 
 class EvalData:
     """
@@ -28,78 +28,71 @@ class Function:
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
 
-    def __init__(self, function_data, domain=None, nonzero=None):
-        if callable(function_data):
-            self._analytic_handle = function_data
-            if domain is None:
-                raise ValueError("No domain given")
-            self.domain = domain
-            self.continuous = True
-        elif isinstance(function_data, EvalData):
-            self._numerical_data = function_data
-            self.domain = function_data.input_data
-            self.continuous = False
-        else:
-            raise TypeError("Given data type not supported")
+    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf)):
+        if not callable(eval_handle):
+            raise TypeError("Callable object has to be provided as function_handle")
+        self._function_handle = eval_handle
 
-        if nonzero is None:
-            # pretty useless, though
-            self._nonzero_area = [()]
-        elif nonzero is True:
-            # convenience since nonzero everywhere in domain
-            self._nonzero_area = domain
-        else:
-            self._nonzero_area = nonzero
-
-    @property
-    def nonzero(self):
-        """
-        :return: list of tuples tha represent domains where phi(z) is nonzero
-        """
-        return self._nonzero_area
+        for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
+            if not isinstance(val, list):
+                if isinstance(val, tuple):
+                    val = [val]
+                else:
+                    raise TypeError("List of tuples has to be provided for {0}".format(kw))
+            setattr(self, kw, sorted([(min(interval), max(interval))for interval in val], key=lambda x: x[0]))
 
     def __call__(self, *args):
         """
         handle that is used to evaluate the function on a given point
-        :param z: input location
+        :param args: function parameter
         :return: function value
         """
-        if hasattr(self, "_analytic_handle"):
-            return self._analytic_handle(*args)
-        elif not self.continuous:
-            multi_idx = []
-            for idx, arg in enumerate(args):
-                value_idx = np.where(self._numerical_data.input_data[idx] == arg)
-                if value_idx[0].size == 0:
-                    raise ValueError("Value cannot be provided!")
-                multi_idx.append(value_idx)
+        in_domain = False
+        for interval in self.domain:
+            # TODO support multi dimensional access
+            if interval[0] <= args[0] <= interval[1]:
+                in_domain = True
+                break
 
-            return self._numerical_data.output_data[multi_idx]
+        if not in_domain:
+            raise ValueError("Function evaluated outside its domain!")
+
+        return self._function_handle(*args)
 
 
-def inner_product(first, second):
+class LagrangeFirstOrder(Function):
     """
-    calculates the inner product of two functions
-    :param first: function
-    :param second: function
-    :return: inner product
+    Implementation of an lagrangian test function of order 1
+      ^
+    1-|         ^
+      |        /|\
+    1-|       / | \
+      |      /  |  \
+    0-|-----/   |   \-------------------------> z
+            |   |   |
+          start,top,end
     """
-    if not isinstance(first, Function) or not isinstance(second, Function):
-        raise TypeError("Wrong type supplied must be a pyinduct.Function")
+    def __init__(self, start, top, end):
+        if not start < top < end:
+            raise ValueError("Input data is nonsense")
 
-    # TODO remember not only 1d possible here!
-    limits = domain_intersection(first.domain, second.domain)
-    result = 0
-    for lim in limits:
-        if first.continuous and second.continuous:
-            # use quad
-            f = lambda z: first(z)*second(z)
-            res = sp.integrate.quad(f, lim[0], lim[1])
+        Function.__init__(self, self._lagrange1st, domain=(start, end), nonzero=(start, end))
+        self._start = start
+        self._top = top
+        self._end = end
+
+    def _lagrange1st(self, z):
+        if z < self._start or z > self._end:
+            return 0
+        elif self._start <= z <= self._top:
+            return (z - self._start) / (self._top - self._start)
         else:
-            # use simpson (discrete)
-            res = np.integrate.simps()
-        result += res
+            return (self._top - z) / (self._end - self._top) + 1
 
+    # @staticmethod
+    # TODO implement correct one
+    # def quad_int():
+    #     return 2/3
 
 def domain_intersection(first, second):
     """
@@ -114,8 +107,6 @@ def domain_intersection(first, second):
         second = [second]
 
     intersection = []
-    start = None
-    end = None
     first_idx = 0
     second_idx = 0
     last_first_idx = 0
@@ -132,9 +123,9 @@ def domain_intersection(first, second):
                 raise ValueError("Intervals not ordered!")
 
         if first[first_idx][0] > first[first_idx][1]:
-            raise ValueError("Interval Boundaries given in wrong order")
+            raise ValueError("Interval boundaries given in wrong order")
         if second[second_idx][0] > second[second_idx][1]:
-            raise ValueError("Interval Boundaries given in wrong order")
+            raise ValueError("Interval boundaries given in wrong order")
 
         # backup for interval order check
         last_first_idx = first_idx
@@ -163,6 +154,70 @@ def domain_intersection(first, second):
             second_idx += 1
 
         # complete domain found
-        intersection.append((start, end))
+        if not np.isclose(start, end):
+            intersection.append((start, end))
 
     return intersection
+
+def inner_product(first, second):
+    """
+    calculates the inner product of two functions
+    :param first: function
+    :param second: function
+    :return: inner product
+    """
+    if not isinstance(first, Function) or not isinstance(second, Function):
+        raise TypeError("Wrong type supplied must be a pyinduct.Function")
+
+    # TODO remember not only 1d possible here!
+    limits = domain_intersection(first.domain, second.domain)
+    nonzero = domain_intersection(first.nonzero, second.nonzero)
+    areas = domain_intersection(limits, nonzero)
+
+    # try some shortcuts
+    if first == second:
+        if hasattr(first, "quad_int"):
+            return first.quad_int()
+
+    if type(first) is type(second):
+        # TODO let Function handle product
+        pass
+
+    result = 0
+    for area in areas:
+        f = lambda z: first(z)*second(z)
+        res = integrate.quad(f, area[0], area[1])
+        result += res[0]
+
+    return result
+
+def project_on_test_functions(func, test_funcs):
+    """
+    projects given function on testfunctions
+    :param func:
+    :param test_funcs:
+    :return: weights
+    """
+    if not isinstance(func, Function):
+        raise TypeError("Only pyinduct.Function accepted")
+    if isinstance(test_funcs, list):
+        if not isinstance(test_funcs[0], Function):
+            raise TypeError("Only pyinduct.Function accepted")
+    elif not isinstance(test_funcs, Function):
+            raise TypeError("Only pyinduct.Function accepted")
+    else:
+        test_funcs = [test_funcs]
+
+    # <x(z, t), phi_i(z)>
+    n = len(test_funcs)
+    inner_products = np.zeros(n)
+    for idx, test_func in enumerate(test_funcs):
+        inner_products[idx] = inner_product(func, test_func)
+
+    scale_mat = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            scale_mat[i, j] = inner_product(test_funcs[i], test_funcs[j])
+
+    weights = np.dot(np.linalg.inv(scale_mat), inner_products)
+    return weights
