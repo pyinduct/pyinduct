@@ -9,7 +9,7 @@ Tests for `pyinduct` module.
 """
 
 import unittest
-import test_function
+import test_core
 
 if __name__ == '__main__':
     pass

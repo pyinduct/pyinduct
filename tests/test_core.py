@@ -5,7 +5,7 @@ __author__ = 'stefan'
 import unittest
 import numpy as np
 
-from pyinduct import pyinduct
+from pyinduct import core
 
 import pyqtgraph as pg
 
@@ -14,22 +14,22 @@ class FunctionTestCase(unittest.TestCase):
         pass
 
     def test_init(self):
-        self.assertRaises(TypeError, pyinduct.Function, 42)
-        pyinduct.Function(np.sin)
+        self.assertRaises(TypeError, core.Function, 42)
+        core.Function(np.sin)
 
         for kwarg in ["domain", "nonzero"]:
             # some nice but wrong variants
             for val in ["4-2", dict(start=1, stop=2), [1, 2]]:
-                self.assertRaises(TypeError, pyinduct.Function, np.sin, **{kwarg: val})
+                self.assertRaises(TypeError, core.Function, np.sin, **{kwarg: val})
 
             # a correct one
-            pyinduct.Function(np.sin, **{kwarg: (0, 10)})
-            pyinduct.Function(np.sin, **{kwarg: [(0, 3), (5, 10)]})
+            core.Function(np.sin, **{kwarg: (0, 10)})
+            core.Function(np.sin, **{kwarg: [(0, 3), (5, 10)]})
 
             # check sorting
-            p = pyinduct.Function(np.sin, **{kwarg: (0, -10)})
+            p = core.Function(np.sin, **{kwarg: (0, -10)})
             self.assertEqual(getattr(p, kwarg), [(-10, 0)])
-            p = pyinduct.Function(np.sin, **{kwarg: [(5, 0), (-10, -5)]})
+            p = core.Function(np.sin, **{kwarg: [(5, 0), (-10, -5)]})
             self.assertEqual(getattr(p, kwarg), [(-10, -5), (0, 5)])
 
             if kwarg == "domain":
@@ -95,12 +95,12 @@ class FunctionTestCase(unittest.TestCase):
 
 class LagrangeFirstOrderTestCase(unittest.TestCase):
     def test_init(self):
-        self.assertRaises(ValueError, pyinduct.LagrangeFirstOrder, 0, 5, 0)
-        self.assertRaises(ValueError, pyinduct.LagrangeFirstOrder, 0, 5, 5)
-        self.assertRaises(ValueError, pyinduct.LagrangeFirstOrder, 0, 0, 5)
+        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 5, 0)
+        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 5, 5)
+        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 0, 5)
 
     def test_rest(self):
-        p1 = pyinduct.LagrangeFirstOrder(0, 1, 2)
+        p1 = core.LagrangeFirstOrder(0, 1, 2)
         self.assertEqual(p1.domain, [(0, 2)])
         self.assertEqual(p1.nonzero, [(0, 2)])
         self.assertEqual(p1(0), 0)
@@ -119,52 +119,52 @@ class IntersectionTestCase(unittest.TestCase):
 
     def test_wrong_arguments(self):
         # interval bounds not sorted
-        self.assertRaises(ValueError, pyinduct.domain_intersection, (3, 2), (1, 3))
+        self.assertRaises(ValueError, core.domain_intersection, (3, 2), (1, 3))
         # intervals not sorted
-        self.assertRaises(ValueError, pyinduct.domain_intersection, [(4, 5), (1, 2)], (1, 3))
+        self.assertRaises(ValueError, core.domain_intersection, [(4, 5), (1, 2)], (1, 3))
         # intervals useless
-        self.assertRaises(ValueError, pyinduct.domain_intersection, [(4, 5), (5, 6)], (1, 3))
+        self.assertRaises(ValueError, core.domain_intersection, [(4, 5), (5, 6)], (1, 3))
 
     def test_easy_intersections(self):
-        self.assertEqual(pyinduct.domain_intersection((0, 2), (1, 3)), [(1, 2)])
-        self.assertEqual(pyinduct.domain_intersection((0, 1), (1, 3)), [])
-        self.assertEqual(pyinduct.domain_intersection((3, 5), (1, 3)), [])
-        self.assertEqual(pyinduct.domain_intersection((3, 5), (1, 4)), [(3, 4)])
-        self.assertEqual(pyinduct.domain_intersection((3, 5), (1, 6)), [(3, 5)])
-        self.assertEqual(pyinduct.domain_intersection((3, 5), (6, 7)), [])
+        self.assertEqual(core.domain_intersection((0, 2), (1, 3)), [(1, 2)])
+        self.assertEqual(core.domain_intersection((0, 1), (1, 3)), [])
+        self.assertEqual(core.domain_intersection((3, 5), (1, 3)), [])
+        self.assertEqual(core.domain_intersection((3, 5), (1, 4)), [(3, 4)])
+        self.assertEqual(core.domain_intersection((3, 5), (1, 6)), [(3, 5)])
+        self.assertEqual(core.domain_intersection((3, 5), (6, 7)), [])
 
     def test_complex_intersections(self):
-        self.assertEqual(pyinduct.domain_intersection([(0, 2), (3, 5)], (3, 4)), [(3, 4)])
-        self.assertEqual(pyinduct.domain_intersection([(0, 2), (3, 5)], (1, 4)), [(1, 2), (3, 4)])
-        self.assertEqual(pyinduct.domain_intersection((1, 4), [(0, 2), (3, 5)]), [(1, 2), (3, 4)])
-        self.assertEqual(pyinduct.domain_intersection([(1, 3), (4, 6)], [(0, 2), (3, 5)]), [(1, 2), (4, 5)])
-        self.assertEqual(pyinduct.domain_intersection([(-10, -4), (2, 5), (10, 17)], [(-20, -5), (3, 5), (7, 23)]),
+        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (3, 4)), [(3, 4)])
+        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (1, 4)), [(1, 2), (3, 4)])
+        self.assertEqual(core.domain_intersection((1, 4), [(0, 2), (3, 5)]), [(1, 2), (3, 4)])
+        self.assertEqual(core.domain_intersection([(1, 3), (4, 6)], [(0, 2), (3, 5)]), [(1, 2), (4, 5)])
+        self.assertEqual(core.domain_intersection([(-10, -4), (2, 5), (10, 17)], [(-20, -5), (3, 5), (7, 23)]),
                          [(-10, -5), (3, 5)], (10, 17))
 
 class InnerProductTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.f1 = pyinduct.Function(lambda x: 1, domain=(0, 10))
-        self.f2 = pyinduct.Function(lambda x: 2, domain=(0, 5))
-        self.f3 = pyinduct.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
-        self.f4 = pyinduct.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2+1e-1))
+        self.f1 = core.Function(lambda x: 1, domain=(0, 10))
+        self.f2 = core.Function(lambda x: 2, domain=(0, 5))
+        self.f3 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
+        self.f4 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2+1e-1))
 
-        self.f5 = pyinduct.LagrangeFirstOrder(0, 1, 2)
-        self.f6 = pyinduct.LagrangeFirstOrder(1, 2, 3)
-        self.f7 = pyinduct.LagrangeFirstOrder(2, 3, 4)
+        self.f5 = core.LagrangeFirstOrder(0, 1, 2)
+        self.f6 = core.LagrangeFirstOrder(1, 2, 3)
+        self.f7 = core.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
-        self.assertAlmostEqual(pyinduct.inner_product(self.f1, self.f2), 10)
-        self.assertAlmostEqual(pyinduct.inner_product(self.f1, self.f3), 2)
+        self.assertAlmostEqual(core.inner_product(self.f1, self.f2), 10)
+        self.assertAlmostEqual(core.inner_product(self.f1, self.f3), 2)
 
     def test_nonzero(self):
-        self.assertAlmostEqual(pyinduct.inner_product(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core.inner_product(self.f1, self.f4), 2e-1)
 
     def test_lagrange(self):
-        self.assertAlmostEqual(pyinduct.inner_product(self.f5, self.f7), 0)
-        self.assertAlmostEqual(pyinduct.inner_product(self.f5, self.f6), 1/6)
-        self.assertAlmostEqual(pyinduct.inner_product(self.f7, self.f6), 1/6)
-        self.assertAlmostEqual(pyinduct.inner_product(self.f5, self.f5), 2/3)
+        self.assertAlmostEqual(core.inner_product(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core.inner_product(self.f5, self.f6), 1/6)
+        self.assertAlmostEqual(core.inner_product(self.f7, self.f6), 1/6)
+        self.assertAlmostEqual(core.inner_product(self.f5, self.f5), 2/3)
 
 class ProjectionTest(unittest.TestCase):
 
@@ -175,30 +175,30 @@ class ProjectionTest(unittest.TestCase):
         self.nodes = np.linspace(start, end, node_cnt)
         dz = (end - start) / (node_cnt-1)
 
-        self.test_function = pyinduct.LagrangeFirstOrder(start, (end-start)/2, end)
-        self.test_functions = [pyinduct.LagrangeFirstOrder(self.nodes[i]-dz, self.nodes[i], self.nodes[i]+dz)
+        self.test_function = core.LagrangeFirstOrder(start, (end-start)/2, end)
+        self.test_functions = [core.LagrangeFirstOrder(self.nodes[i]-dz, self.nodes[i], self.nodes[i]+dz)
                                for i in range(len(self.nodes))]
 
         # "real" functions
         self.z_values = np.linspace(start, end, 1e2*node_cnt)  # because we are smarter
-        self.funcs = [pyinduct.Function(lambda x: x**2),
-                      pyinduct.Function(lambda x: np.sin(x))
+        self.funcs = [core.Function(lambda x: x**2),
+                      core.Function(lambda x: np.sin(x))
                       ]
         self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
 
     def test_types(self):
-        self.assertRaises(TypeError, pyinduct.project_on_test_functions, 1, 2)
-        self.assertRaises(TypeError, pyinduct.project_on_test_functions, np.sin, np.sin)
+        self.assertRaises(TypeError, core.project_on_test_functions, 1, 2)
+        self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
 
     def test_sin_on_lag1st(self):
         weights = []
         # quadratic function
-        weight = pyinduct.project_on_test_functions(self.funcs[0], self.test_function)
-        weights.append(pyinduct.project_on_test_functions(self.funcs[0], self.test_functions))
+        weight = core.project_on_test_functions(self.funcs[0], self.test_function)
+        weights.append(core.project_on_test_functions(self.funcs[0], self.test_functions))
         # self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes], atol=0.5))
 
         # trig function
-        weights.append(pyinduct.project_on_test_functions(self.funcs[1], self.test_functions))
+        weights.append(core.project_on_test_functions(self.funcs[1], self.test_functions))
         # self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=0.5))
 
         self.app = pg.QtGui.QApplication([])
