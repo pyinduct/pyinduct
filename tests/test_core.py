@@ -5,7 +5,7 @@ __author__ = 'stefan'
 import unittest
 import numpy as np
 
-from pyinduct import core
+from pyinduct import core, utils
 
 import pyqtgraph as pg
 
@@ -15,7 +15,10 @@ class FunctionTestCase(unittest.TestCase):
 
     def test_init(self):
         self.assertRaises(TypeError, core.Function, 42)
-        core.Function(np.sin)
+        p = core.Function(np.sin)
+        # default kwargs
+        self.assertEqual(p.domain, [(-np.inf, np.inf)])
+        self.assertEqual(p.nonzero, [(-np.inf, np.inf)])
 
         for kwarg in ["domain", "nonzero"]:
             # some nice but wrong variants
@@ -95,23 +98,43 @@ class FunctionTestCase(unittest.TestCase):
 
 class LagrangeFirstOrderTestCase(unittest.TestCase):
     def test_init(self):
-        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 5, 0)
-        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 5, 5)
-        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 0, 5)
+        self.assertRaises(ValueError, core.LagrangeFirstOrder, 1, 0, 0)
+        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 1, 0)
 
-    def test_rest(self):
-        p1 = core.LagrangeFirstOrder(0, 1, 2)
-        self.assertEqual(p1.domain, [(0, 2)])
-        self.assertEqual(p1.nonzero, [(0, 2)])
-        self.assertEqual(p1(0), 0)
+    def test_edge_cases(self):
+        p1 = core.LagrangeFirstOrder(0, 0, 1)
+        self.assertEqual(p1.domain, [(-np.inf, np.inf)])
+        self.assertEqual(p1.nonzero, [(0, 1)])
+        self.assertEqual(p1(-.5), 0)
+        self.assertEqual(p1(0), 1)
         self.assertEqual(p1(0.5), 0.5)
-        self.assertEqual(p1(1), 1)
-        self.assertEqual(p1(1.5), .5)
-        self.assertEqual(p1(2), 0)
+        self.assertEqual(p1(1), 0)
+        self.assertEqual(p1(1.5), 0)
 
-        self.assertRaises(ValueError, p1, -1e3)
-        self.assertRaises(ValueError, p1, 1e3)
+        p2 = core.LagrangeFirstOrder(0, 1, 1)
+        self.assertEqual(p2.domain, [(-np.inf, np.inf)])
+        self.assertEqual(p2.nonzero, [(0, 1)])
+        self.assertEqual(p2(-.5), 0)
+        self.assertEqual(p2(0), 0)
+        self.assertEqual(p2(0.5), 0.5)
+        self.assertEqual(p2(1), 1)
+        self.assertEqual(p2(1.5), 0)
 
+    def test_interior_case(self):
+        p2 = core.LagrangeFirstOrder(0, 1, 2)
+        self.assertEqual(p2.domain, [(-np.inf, np.inf)])
+        self.assertEqual(p2.nonzero, [(0, 2)])
+        self.assertEqual(p2(0), 0)
+        self.assertEqual(p2(0.5), 0.5)
+        self.assertEqual(p2(1), 1)
+        self.assertEqual(p2(1.5), .5)
+        self.assertEqual(p2(2), 0)
+
+        # verify equality to zero anywhere outside of nonzero
+        self.assertEqual(p2(-1e3), 0)
+        self.assertEqual(p2(1e3), 0)
+
+        # integral over whole nonzero area of self**2
         # self.assertEqual(p1.quad_int(), 2/3)
 
 
@@ -166,7 +189,52 @@ class InnerProductTestCase(unittest.TestCase):
         self.assertAlmostEqual(core.inner_product(self.f7, self.f6), 1/6)
         self.assertAlmostEqual(core.inner_product(self.f5, self.f5), 2/3)
 
+
 class ProjectionTest(unittest.TestCase):
+
+    def setUp(self):
+        interval = (0, 10)
+        node_cnt = 10
+        self.nodes, self.test_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
+
+        # "real" functions
+        self.z_values = np.linspace(interval[0], interval[1], 1e2*node_cnt)  # because we are smarter
+        self.funcs = [core.Function(lambda x: 2*x),
+                      core.Function(lambda x: x**2),
+                      core.Function(lambda x: np.sin(x))
+                      ]
+        self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
+
+    def test_types(self):
+        self.assertRaises(TypeError, core.project_on_test_functions, 1, 2)
+        self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
+
+    def test_projection_on_lag1st(self):
+        weights = []
+
+        # linear function -> should be fitted exactly
+        weight = core.project_on_test_functions(self.funcs[0], self.test_functions[0])  # convenience wrapper
+        weights.append(core.project_on_test_functions(self.funcs[0], self.test_functions))
+        self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes]))
+
+        # quadratic function -> should be fitted somehow close
+        weights.append(core.project_on_test_functions(self.funcs[1], self.test_functions))
+        self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=.5))
+
+        # trig function -> will be crappy
+        weights.append(core.project_on_test_functions(self.funcs[2], self.test_functions))
+
+        self.app = pg.QtGui.QApplication([])
+        for idx, w in enumerate(weights):
+            pw = pg.plot(title="Weights {0}".format(idx))
+            pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
+            pw.plot(x=self.nodes, y=w, pen="b")
+
+        self.app.exec_()
+
+
+@unittest.skip
+class BackProjectionTest(unittest.TestCase):
 
     def setUp(self):
         start = 0
@@ -181,16 +249,15 @@ class ProjectionTest(unittest.TestCase):
 
         # "real" functions
         self.z_values = np.linspace(start, end, 1e2*node_cnt)  # because we are smarter
-        self.funcs = [core.Function(lambda x: x**2),
-                      core.Function(lambda x: np.sin(x))
+        self.funcs = [core.Function(lambda x: 2*x),
                       ]
         self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
 
     def test_types(self):
-        self.assertRaises(TypeError, core.project_on_test_functions, 1, 2)
+        self.assertRaises(TypeError, core.back_project_from_test_functions, 1, 2)
         self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
 
-    def test_sin_on_lag1st(self):
+    def test_projection_on_lag1st(self):
         weights = []
         # quadratic function
         weight = core.project_on_test_functions(self.funcs[0], self.test_function)
@@ -201,11 +268,10 @@ class ProjectionTest(unittest.TestCase):
         weights.append(core.project_on_test_functions(self.funcs[1], self.test_functions))
         # self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=0.5))
 
-        self.app = pg.QtGui.QApplication([])
-        for idx, w in enumerate(weights):
-            pw = pg.plot(title="Weights {0}".format(idx))
-            pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
-            pw.plot(x=self.nodes, y=w, pen="b")
-
-        self.app.exec_()
-
+        # self.app = pg.QtGui.QApplication([])
+        # for idx, w in enumerate(weights):
+        #     pw = pg.plot(title="Weights {0}".format(idx))
+        #     pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
+        #     pw.plot(x=self.nodes, y=w, pen="b")
+        #
+        # self.app.exec_()

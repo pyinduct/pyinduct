@@ -55,21 +55,51 @@ class LagrangeFirstOrder(Function):
           start,top,end
     """
     def __init__(self, start, top, end):
-        if not start < top < end:
-            raise ValueError("Input data is nonsense")
+        if not start <= top <= end or start == end:
+            raise ValueError("Input data is nonsense, see Definition.")
 
-        Function.__init__(self, self._lagrange1st, domain=(start, end), nonzero=(start, end))
+        if start == top:
+            Function.__init__(self, self._lagrange1st_border_left, nonzero=(start, end))
+        elif top == end:
+            Function.__init__(self, self._lagrange1st_border_right, nonzero=(start, end))
+        else:
+            Function.__init__(self, self._lagrange1st_interior, nonzero=(start, end))
+
         self._start = start
         self._top = top
         self._end = end
+        # speed
+        self._a = self._top - self._start
+        self._b = self._end - self._top
 
-    def _lagrange1st(self, z):
+    def _lagrange1st_border_left(self, z):
+        """
+        left border equation for lagrange 1st order
+        """
+        if z < self._top or z >= self._end:
+            return 0
+        else:
+            return (self._top - z) / self._b + 1
+
+    def _lagrange1st_border_right(self, z):
+        """
+        right border equation for lagrange 1st order
+        """
+        if z <= self._start or z > self._end:
+            return 0
+        else:
+            return (z - self._start) / self._a
+
+    def _lagrange1st_interior(self, z):
+        """
+        interior equations for lagrange 1st order
+        """
         if z < self._start or z > self._end:
             return 0
         elif self._start <= z <= self._top:
-            return (z - self._start) / (self._top - self._start)
+            return (z - self._start) / self._a
         else:
-            return (self._top - z) / (self._end - self._top) + 1
+            return (self._top - z) / self._b + 1
 
     # @staticmethod
     # TODO implement correct one
@@ -162,7 +192,7 @@ def inner_product(first, second):
             return first.quad_int()
 
     if type(first) is type(second):
-        # TODO let Function handle product
+        # TODO let Function Class handle product
         pass
 
     result = 0
@@ -173,6 +203,14 @@ def inner_product(first, second):
 
     return result
 
+    # if isinstance(test_funcs, list):
+    #     if not isinstance(test_funcs[0], Function):
+    #         raise TypeError("Only pyinduct.Function accepted")
+    #     test_funcs = np.asarray(test_funcs)
+    # elif not isinstance(test_funcs, Function):
+    #         raise TypeError("Only pyinduct.Function accepted")
+    # else:
+    #     test_funcs = np.asarray([test_funcs])
 def project_on_test_functions(func, test_funcs):
     """
     projects given function on testfunctions
@@ -181,26 +219,39 @@ def project_on_test_functions(func, test_funcs):
     :return: weights
     """
     if not isinstance(func, Function):
-        raise TypeError("Only pyinduct.Function accepted")
-    if isinstance(test_funcs, list):
-        if not isinstance(test_funcs[0], Function):
-            raise TypeError("Only pyinduct.Function accepted")
-    elif not isinstance(test_funcs, Function):
-            raise TypeError("Only pyinduct.Function accepted")
-    else:
-        test_funcs = [test_funcs]
+        raise TypeError("Only pyinduct.Function accepted as 'func'")
 
-    # <x(z, t), phi_i(z)>
-    n = len(test_funcs)
+    if isinstance(test_funcs, Function):  # convenience case
+        test_funcs = np.asarray([test_funcs])
+
+    if not isinstance(test_funcs, np.ndarray):
+        raise TypeError("Only numpy.ndarray accepted as 'test_funcs'")
+
+    # TODO perform this somewhere else
+    handle = np.vectorize(inner_product)
+
+    # compute <x(z, t), phi_i(z)>
+    projections = handle(func, test_funcs)
+
+    # compute <phi_j(z), phi_i(z)> for 0 < i, j < n
+    n = test_funcs.shape[0]
     i, j = np.mgrid[0:n, 0:n]
-    inner_products = np.zeros(n)
-    for idx, test_func in enumerate(test_funcs):
-        inner_products[idx] = inner_product(func, test_func)
+    funcs_i = test_funcs[i]
+    funcs_j = test_funcs[j]
+    scale_mat = handle(funcs_i, funcs_j)
 
-    scale_mat = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            scale_mat[i, j] = inner_product(test_funcs[i], test_funcs[j])
+    return np.dot(np.linalg.inv(scale_mat), projections)
 
-    weights = np.dot(np.linalg.inv(scale_mat), inner_products)
-    return weights
+
+def back_project_from_test_functions(weights, test_funcs):
+    """
+    build handle for function that was expressed in test functions with weights
+    :param weights:
+    :param test_funcs:
+    :return: evaluation handle
+    """
+    if weights.shape[0] == test_funcs.shape[0]:
+        raise ValueError("Lengths of weights and test functions do not match!")
+
+    eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in weights.shape[0]])
+    return eval_handle
