@@ -194,7 +194,7 @@ class ProjectionTest(unittest.TestCase):
 
     def setUp(self):
         interval = (0, 10)
-        node_cnt = 10
+        node_cnt = 11
         self.nodes, self.test_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
 
         # "real" functions
@@ -205,7 +205,7 @@ class ProjectionTest(unittest.TestCase):
                       ]
         self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
 
-    def test_types(self):
+    def test_types_projection(self):
         self.assertRaises(TypeError, core.project_on_test_functions, 1, 2)
         self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
 
@@ -213,7 +213,7 @@ class ProjectionTest(unittest.TestCase):
         weights = []
 
         # linear function -> should be fitted exactly
-        weight = core.project_on_test_functions(self.funcs[0], self.test_functions[0])  # convenience wrapper
+        weight = core.project_on_test_functions(self.funcs[0], self.test_functions[1])  # convenience wrapper
         weights.append(core.project_on_test_functions(self.funcs[0], self.test_functions))
         self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes]))
 
@@ -224,54 +224,24 @@ class ProjectionTest(unittest.TestCase):
         # trig function -> will be crappy
         weights.append(core.project_on_test_functions(self.funcs[2], self.test_functions))
 
-        self.app = pg.QtGui.QApplication([])
-        for idx, w in enumerate(weights):
-            pw = pg.plot(title="Weights {0}".format(idx))
-            pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
-            pw.plot(x=self.nodes, y=w, pen="b")
+        if 0:
+            self.app = pg.QtGui.QApplication([])
+            for idx, w in enumerate(weights):
+                pw = pg.plot(title="Weights {0}".format(idx))
+                pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
+                pw.plot(x=self.nodes, y=w, pen="b")
 
-        self.app.exec_()
+            self.app.exec_()
 
-
-@unittest.skip
-class BackProjectionTest(unittest.TestCase):
-
-    def setUp(self):
-        start = 0
-        end = 10
-        node_cnt = 100
-        self.nodes = np.linspace(start, end, node_cnt)
-        dz = (end - start) / (node_cnt-1)
-
-        self.test_function = core.LagrangeFirstOrder(start, (end-start)/2, end)
-        self.test_functions = [core.LagrangeFirstOrder(self.nodes[i]-dz, self.nodes[i], self.nodes[i]+dz)
-                               for i in range(len(self.nodes))]
-
-        # "real" functions
-        self.z_values = np.linspace(start, end, 1e2*node_cnt)  # because we are smarter
-        self.funcs = [core.Function(lambda x: 2*x),
-                      ]
-        self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
-
-    def test_types(self):
+    def test_types_back_projection(self):
         self.assertRaises(TypeError, core.back_project_from_test_functions, 1, 2)
-        self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
+        self.assertRaises(TypeError, core.back_project_from_test_functions, 1.0, np.sin)
 
-    def test_projection_on_lag1st(self):
-        weights = []
-        # quadratic function
-        weight = core.project_on_test_functions(self.funcs[0], self.test_function)
-        weights.append(core.project_on_test_functions(self.funcs[0], self.test_functions))
-        # self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes], atol=0.5))
+    @unittest.skip("not done yet")
+    def test_back_projection_from_lagrange_1st(self):
+        vec_real_func = np.vectorize(self.funcs[0])
+        real_weights = vec_real_func(self.nodes)
+        func_handle = core.back_project_from_test_functions(real_weights, self.test_functions)
+        vec_approx_func = np.vectorize(func_handle)
+        self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
 
-        # trig function
-        weights.append(core.project_on_test_functions(self.funcs[1], self.test_functions))
-        # self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=0.5))
-
-        # self.app = pg.QtGui.QApplication([])
-        # for idx, w in enumerate(weights):
-        #     pw = pg.plot(title="Weights {0}".format(idx))
-        #     pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
-        #     pw.plot(x=self.nodes, y=w, pen="b")
-        #
-        # self.app.exec_()
