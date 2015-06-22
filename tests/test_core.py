@@ -1,13 +1,10 @@
 from __future__ import division
-
-__author__ = 'stefan'
-
 import unittest
 import numpy as np
-
+import pyqtgraph as pg
 from pyinduct import core, utils
 
-import pyqtgraph as pg
+__author__ = 'stefan'
 
 class FunctionTestCase(unittest.TestCase):
     def setUp(self):
@@ -42,58 +39,6 @@ class FunctionTestCase(unittest.TestCase):
             else:
                 # TODO check if nonzero check generates warning
                 pass
-
-    # def test_numeric(self):
-    #     z_start = 0
-    #     z_end = 1
-    #     t_start = 0
-    #     t_end = 5
-    #     z_step = 0.01
-    #     t_step = 0.01
-    #     self.t_values = np.arange(t_start, t_end + t_step, t_step)
-    #     self.z_values = np.arange(z_start, z_end + z_step, z_step)
-    #
-    #     # 1d tests
-    #     self.test_data_1d = np.sin(self.z_values)
-    #     self.func_data_1d = pyinduct.EvalData([self.z_values], self.test_data_1d)
-    #
-    #     # 2d tests
-    #     # self.tt, self.zz = np.meshgrid(self.t_values, self.z_values, sparse=True)
-    #     # self.test_data_2d = np.sin(self.zz) * self.tt
-    #     # self.func_data_2d = pyinduct.EvalData([self.z_values, self.t_values], self.test_data_2d)
-
-    # def test_eval(self):
-    #     phi = pyinduct.Function(np.sin, domain=(0, np.pi))
-    #     it = np.nditer(self.z_values, flags=['f_index'])
-    #     while not it.finished:
-    #         self.assertEqual(phi(it[0]), self.test_data_1d[it.index])
-    #         it.iternext()
-    #
-    # def test_numeric_wo_data(self):
-    #     self.assertRaises(TypeError, pyinduct.Function, self.test_data_1d)
-    #
-    # def test_numeric_1d(self):
-    #     phi = pyinduct.Function(self.func_data_1d)
-    #     it = np.nditer(self.z_values, flags=['f_index'])
-    #     while not it.finished:
-    #         self.assertEqual(phi(it[0]), self.test_data_1d[it.index])
-    #         it.iternext()
-    #
-    #     # test one that is for sure not in
-    #     self.assertRaises(ValueError, phi, 1e10)
-    #
-    # def test_numeric_2d(self):
-    #     phi = pyinduct.Function(self.func_data_2d)
-    #     itz = np.nditer(self.zz, flags=['f_index'])
-    #     itt = np.nditer(self.tt, flags=['f_index'])
-    #     while not itz.finished:
-    #         while not itt.finished:
-    #             self.assertEqual(phi(itz[0], itt[0]), self.test_data_2d[itz.index, itt.index])
-    #             itt.iternext()
-    #         itz.iternext()
-    #
-    #     # test one that is for sure not in
-    #     self.assertRaises(ValueError, phi, 1e10, -1e10)
 
 
 class LagrangeFirstOrderTestCase(unittest.TestCase):
@@ -270,22 +215,15 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
         self.src_approx_handle = np.vectorize(core.back_project_from_test_functions(self.src_weights,
                                                                                     self.src_test_funcs))
-        # approximation by sin(w*x)
-        self.trig_test_funcs = np.array([core.Function(lambda x: np.sin(1*x), domain=(0, 1)),
-                                         core.Function(lambda x: np.sin(2*x), domain=(0, 1)),
-                                         ])
 
-        # TODO investigate this interresting problem.
-        funcs_a = [lambda x: 1*x, lambda x: 2*x]
-        funcs_b = [lambda x: w*x for w in range(1, 3)]
-        for idx in range(2):
-            print("index {0}".format(idx))
-            for val in range(10):
-                print("{0}:\t a={1},\t b={2}".format(val, funcs_a[idx](val), funcs_b[idx](val)))
-                print("\ta==b? \t {0}".format(funcs_a[idx](val)==funcs_b[idx](val)))
+        # approximation by sin(w*x)
+        def trig_factory(freq):
+            def func(x):
+                return np.sin(freq*x)
+            return func
+        self.trig_test_funcs = np.array([core.Function(trig_factory(w), domain=(0, 1)) for w in range(1, 3)])
 
     def test_lag1st_to_trig(self):
-        # TODO think of some non visual testcases
         # scalar case
         dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
         dest_approx_handle_s = np.vectorize(core.back_project_from_test_functions(dest_weight, self.trig_test_funcs[0]))
@@ -293,17 +231,23 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
         dest_approx_handle = np.vectorize(core.back_project_from_test_functions(dest_weights, self.trig_test_funcs))
+        error = np.sum(np.power(
+            np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
+            2))
+        # should fit pretty nice
+        self.assertLess(error, 1e-2)
 
         if 1:
             self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="change projection base")
             i1 = pw.plot(x=self.z_values, y=self.real_func_handle(self.z_values), pen="r")
-            i2 = pw.plot(x=self.z_values, y=self.src_approx_handle(self.z_values), pen=pg.mkPen("g", style=pg.QtCore.Qt.DashLine))
+            i2 = pw.plot(x=self.z_values, y=self.src_approx_handle(self.z_values),
+                         pen=pg.mkPen("g", style=pg.QtCore.Qt.DashLine))
             i3 = pw.plot(x=self.z_values, y=dest_approx_handle_s(self.z_values), pen="b")
             i4 = pw.plot(x=self.z_values, y=dest_approx_handle(self.z_values), pen="c")
             legend = pw.addLegend()
             legend.addItem(i1, "f(x) = x")
             legend.addItem(i2, "2x Lagrange1st")
             legend.addItem(i3, "sin(x)")
-            legend.addItem(i4, "sin(wx) with w from [1, {0}]".format(dest_weights.shape[0]))
+            legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
             self.app.exec_()
