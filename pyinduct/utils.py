@@ -5,7 +5,7 @@ from core import Function, LagrangeFirstOrder
 
 def cure_interval(test_function_class, interval, node_count=None, element_length=None):
     """
-    Uses given testfunctions to cure a given interval with either node_count nodes or with
+    Uses given test functions to cure a given interval with either node_count nodes or with
     elements of element_length
     :param interval:
     :param test_function_class:

@@ -225,6 +225,7 @@ class ProjectionTest(unittest.TestCase):
         weights.append(core.project_on_test_functions(self.funcs[2], self.test_functions))
 
         if 0:
+            # since test function are lagrange1st order, plotting the results is fairly easy
             self.app = pg.QtGui.QApplication([])
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
@@ -237,7 +238,6 @@ class ProjectionTest(unittest.TestCase):
         self.assertRaises(TypeError, core.back_project_from_test_functions, 1, 2)
         self.assertRaises(TypeError, core.back_project_from_test_functions, 1.0, np.sin)
 
-    @unittest.skip("not done yet")
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.funcs[0])
         real_weights = vec_real_func(self.nodes)
@@ -245,3 +245,10 @@ class ProjectionTest(unittest.TestCase):
         vec_approx_func = np.vectorize(func_handle)
         self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
 
+        if 0:
+            # lines should exactly match
+            self.app = pg.QtGui.QApplication([])
+            pw = pg.plot(title="back projected linear function")
+            pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
+            pw.plot(x=self.z_values, y=vec_approx_func(self.z_values), pen="b")
+            self.app.exec_()

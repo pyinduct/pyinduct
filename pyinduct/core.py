@@ -127,6 +127,7 @@ def domain_intersection(first, second):
     last_second_upper = None
 
     while first_idx < len(first) and second_idx < len(second):
+        # TODO remove interval and boundary checking? should be done before
         if last_first_upper is not None and first_idx is not last_first_idx:
             if last_first_upper >= first[first_idx][0]:
                 raise ValueError("Intervals not ordered!")
@@ -261,5 +262,5 @@ def back_project_from_test_functions(weights, test_funcs):
     if weights.shape[0] is not test_funcs.shape[0]:
         raise ValueError("Lengths of weights and test functions do not match!")
 
-    eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in weights.shape[0]])
+    eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in range(weights.shape[0])])
     return eval_handle
