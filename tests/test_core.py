@@ -252,3 +252,47 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=vec_approx_func(self.z_values), pen="b")
             self.app.exec_()
+
+    def test_types_change_projection_base(self):
+        self.assertRaises(TypeError, core.change_projection_base, 1, np.sin, np.cos)
+
+
+class ChangeProjectionBaseTest(unittest.TestCase):
+    def setUp(self):
+        # real function
+        self.z_values = np.linspace(0, 1, 1e3)
+        self.real_func = core.Function(lambda x: x)
+        self.real_func_handle = np.vectorize(self.real_func)
+
+        # approximation by lag1st
+        self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
+        self.src_weights = core.project_on_test_functions(self.real_func, self.src_test_funcs)
+        self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
+        self.src_approx_handle = np.vectorize(core.back_project_from_test_functions(self.src_weights,
+                                                                                    self.src_test_funcs))
+        # approximation by sin(w*x)
+        self.trig_test_funcs = np.array([core.Function(lambda x: np.sin(w*x), domain=(0, 1)) for w in range(1, 3)])
+
+    def test_lag1st_to_trig(self):
+        # TODO think of some non visual testcases
+        # scalar case
+        dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
+        dest_approx_handle_s = np.vectorize(core.back_project_from_test_functions(dest_weight, self.trig_test_funcs[0]))
+
+        # standard case
+        dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
+        dest_approx_handle = np.vectorize(core.back_project_from_test_functions(dest_weights, self.trig_test_funcs))
+
+        if 1:
+            self.app = pg.QtGui.QApplication([])
+            pw = pg.plot(title="change projection base")
+            i1 = pw.plot(x=self.z_values, y=self.real_func_handle(self.z_values), pen="r")
+            i2 = pw.plot(x=self.z_values, y=self.src_approx_handle(self.z_values), pen=pg.mkPen("g", style=pg.QtCore.Qt.DashLine))
+            i3 = pw.plot(x=self.z_values, y=dest_approx_handle_s(self.z_values), pen="b")
+            i4 = pw.plot(x=self.z_values, y=dest_approx_handle(self.z_values), pen="c")
+            legend = pw.addLegend()
+            legend.addItem(i1, "f(x) = x")
+            legend.addItem(i2, "2x Lagrange1st")
+            legend.addItem(i3, "sin(x)")
+            legend.addItem(i4, "sin(wx)")
+            self.app.exec_()

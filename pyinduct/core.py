@@ -204,6 +204,17 @@ def inner_product(first, second):
 
     return result
 
+def inner_product_v(first, second):
+    """
+    vectorized version of inner_product
+    :param first: numpy.ndarray of function
+    :param second: numpy.ndarray of function
+    :return: numpy.nadarray of inner product
+    """
+    if "handle" not in inner_product_v.__dict__:
+        inner_product_v.handle = np.vectorize(inner_product)
+    return inner_product_v.handle(first, second)
+
     # if isinstance(test_funcs, list):
     #     if not isinstance(test_funcs[0], Function):
     #         raise TypeError("Only pyinduct.Function accepted")
@@ -264,3 +275,48 @@ def back_project_from_test_functions(weights, test_funcs):
 
     eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in range(weights.shape[0])])
     return eval_handle
+
+
+def change_projection_base(src_weights, src_test_funcs, dest_test_funcs):
+    """
+    converts given weights that form an approximation using src_test_functions to the best possible fit using
+    dest_test_functions.
+    :param src_weights: original weights (np.ndarray)
+    :param src_test_funcs: original test functions (np.ndarray)
+    :param dest_test_funcs: target test functions (np.ndarray)
+    :return: target weights
+    """
+    if isinstance(src_weights, float):
+        src_weights = np.asarray([src_weights])
+    if isinstance(src_test_funcs, Function):
+        src_test_funcs = np.asarray([src_test_funcs])
+    if isinstance(dest_test_funcs, Function):
+        dest_test_funcs = np.asarray([dest_test_funcs])
+
+    if not isinstance(src_weights, np.ndarray) or not isinstance(src_test_funcs, np.ndarray) \
+            or not isinstance(dest_test_funcs, np.ndarray):
+        raise TypeError("Only numpy.ndarray accepted as input")
+
+    if src_weights.shape[0] != src_test_funcs.shape[0]:
+        raise ValueError("Lengths of original weights and original test functions do not match!")
+
+    n = src_test_funcs.shape[0]
+    m = dest_test_funcs.shape[0]
+
+    # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
+    i, j = np.mgrid[0:n, 0:m]
+    funcs_i = src_test_funcs[i]
+    funcs_j = dest_test_funcs[j]
+    t_mat = inner_product_v(funcs_i, funcs_j)
+
+    # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
+    i, j = np.mgrid[0:m, 0:m]
+    funcs_i = dest_test_funcs[i]
+    funcs_j = dest_test_funcs[j]
+    r_mat = inner_product_v(funcs_i, funcs_j)
+
+    # compute V matrix: T*inv(R)
+    v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
+
+    # compute target weights: x_tilde*V
+    return np.dot(src_weights, v_mat)
