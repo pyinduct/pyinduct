@@ -246,7 +246,7 @@ class ProjectionTest(unittest.TestCase):
         self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if 0:
-            # lines should exactly match
+            # lines should match exactly
             self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="back projected linear function")
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")

@@ -259,7 +259,7 @@ def back_project_from_test_functions(weights, test_funcs):
     if not isinstance(weights, np.ndarray) or not isinstance(test_funcs, np.ndarray):
         raise TypeError("Only numpy ndarrays accepted as input")
 
-    if weights.shape[0] is not test_funcs.shape[0]:
+    if weights.shape[0] != test_funcs.shape[0]:
         raise ValueError("Lengths of weights and test functions do not match!")
 
     eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in range(weights.shape[0])])
