@@ -172,7 +172,7 @@ def domain_intersection(first, second):
 
     return intersection
 
-def inner_product(first, second):
+def _dot_product_l2(first, second):
     """
     calculates the inner product of two functions
     :param first: function
@@ -204,25 +204,20 @@ def inner_product(first, second):
 
     return result
 
-def inner_product_v(first, second):
+def dot_product(first, second):
+    return np.inner(first, second)
+
+def dot_product_l2(first, second):
     """
-    vectorized version of inner_product
+    vectorized version of dot_product
     :param first: numpy.ndarray of function
     :param second: numpy.ndarray of function
     :return: numpy.nadarray of inner product
     """
-    if "handle" not in inner_product_v.__dict__:
-        inner_product_v.handle = np.vectorize(inner_product)
-    return inner_product_v.handle(first, second)
+    if "handle" not in dot_product_l2.__dict__:
+        dot_product_l2.handle = np.vectorize(_dot_product_l2)
+    return dot_product_l2.handle(first, second)
 
-    # if isinstance(test_funcs, list):
-    #     if not isinstance(test_funcs[0], Function):
-    #         raise TypeError("Only pyinduct.Function accepted")
-    #     test_funcs = np.asarray(test_funcs)
-    # elif not isinstance(test_funcs, Function):
-    #         raise TypeError("Only pyinduct.Function accepted")
-    # else:
-    #     test_funcs = np.asarray([test_funcs])
 def project_on_test_functions(func, test_funcs):
     """
     projects given function on testfunctions
@@ -240,7 +235,7 @@ def project_on_test_functions(func, test_funcs):
         raise TypeError("Only numpy.ndarray accepted as 'test_funcs'")
 
     # TODO perform this somewhere else
-    handle = np.vectorize(inner_product)
+    handle = np.vectorize(dot_product_l2)
 
     # compute <x(z, t), phi_i(z)>
     projections = handle(func, test_funcs)
@@ -307,13 +302,13 @@ def change_projection_base(src_weights, src_test_funcs, dest_test_funcs):
     i, j = np.mgrid[0:n, 0:m]
     funcs_i = src_test_funcs[i]
     funcs_j = dest_test_funcs[j]
-    t_mat = inner_product_v(funcs_i, funcs_j)
+    t_mat = dot_product_l2(funcs_i, funcs_j)
 
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
     i, j = np.mgrid[0:m, 0:m]
     funcs_i = dest_test_funcs[i]
     funcs_j = dest_test_funcs[j]
-    r_mat = inner_product_v(funcs_i, funcs_j)
+    r_mat = dot_product_l2(funcs_i, funcs_j)
 
     # compute V matrix: T*inv(R)
     v_mat = np.dot(t_mat, np.linalg.inv(r_mat))

@@ -6,6 +6,8 @@ from pyinduct import core, utils
 
 __author__ = 'stefan'
 
+show_plots = False
+
 class FunctionTestCase(unittest.TestCase):
     def setUp(self):
         pass
@@ -109,7 +111,7 @@ class IntersectionTestCase(unittest.TestCase):
         self.assertEqual(core.domain_intersection([(-10, -4), (2, 5), (10, 17)], [(-20, -5), (3, 5), (7, 23)]),
                          [(-10, -5), (3, 5)], (10, 17))
 
-class InnerProductTestCase(unittest.TestCase):
+class DotProductL2TestCase(unittest.TestCase):
 
     def setUp(self):
         self.f1 = core.Function(lambda x: 1, domain=(0, 10))
@@ -122,17 +124,17 @@ class InnerProductTestCase(unittest.TestCase):
         self.f7 = core.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
-        self.assertAlmostEqual(core.inner_product(self.f1, self.f2), 10)
-        self.assertAlmostEqual(core.inner_product(self.f1, self.f3), 2)
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f3), 2)
 
     def test_nonzero(self):
-        self.assertAlmostEqual(core.inner_product(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core.inner_product(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core.inner_product(self.f5, self.f6), 1/6)
-        self.assertAlmostEqual(core.inner_product(self.f7, self.f6), 1/6)
-        self.assertAlmostEqual(core.inner_product(self.f5, self.f5), 2/3)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1/6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1/6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2/3)
 
 
 class ProjectionTest(unittest.TestCase):
@@ -169,7 +171,7 @@ class ProjectionTest(unittest.TestCase):
         # trig function -> will be crappy
         weights.append(core.project_on_test_functions(self.funcs[2], self.test_functions))
 
-        if 0:
+        if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
             self.app = pg.QtGui.QApplication([])
             for idx, w in enumerate(weights):
@@ -190,7 +192,7 @@ class ProjectionTest(unittest.TestCase):
         vec_approx_func = np.vectorize(func_handle)
         self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
 
-        if 0:
+        if show_plots:
             # lines should match exactly
             self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="back projected linear function")
@@ -203,6 +205,7 @@ class ProjectionTest(unittest.TestCase):
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
+
     def setUp(self):
         # real function
         self.z_values = np.linspace(0, 1, 1e3)
@@ -237,7 +240,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # should fit pretty nice
         self.assertLess(error, 1e-2)
 
-        if 1:
+        if show_plots:
             self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="change projection base")
             i1 = pw.plot(x=self.z_values, y=self.real_func_handle(self.z_values), pen="r")
