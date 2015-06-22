@@ -271,7 +271,18 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.src_approx_handle = np.vectorize(core.back_project_from_test_functions(self.src_weights,
                                                                                     self.src_test_funcs))
         # approximation by sin(w*x)
-        self.trig_test_funcs = np.array([core.Function(lambda x: np.sin(w*x), domain=(0, 1)) for w in range(1, 3)])
+        self.trig_test_funcs = np.array([core.Function(lambda x: np.sin(1*x), domain=(0, 1)),
+                                         core.Function(lambda x: np.sin(2*x), domain=(0, 1)),
+                                         ])
+
+        # TODO investigate this interresting problem.
+        funcs_a = [lambda x: 1*x, lambda x: 2*x]
+        funcs_b = [lambda x: w*x for w in range(1, 3)]
+        for idx in range(2):
+            print("index {0}".format(idx))
+            for val in range(10):
+                print("{0}:\t a={1},\t b={2}".format(val, funcs_a[idx](val), funcs_b[idx](val)))
+                print("\ta==b? \t {0}".format(funcs_a[idx](val)==funcs_b[idx](val)))
 
     def test_lag1st_to_trig(self):
         # TODO think of some non visual testcases
@@ -294,5 +305,5 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i1, "f(x) = x")
             legend.addItem(i2, "2x Lagrange1st")
             legend.addItem(i3, "sin(x)")
-            legend.addItem(i4, "sin(wx)")
+            legend.addItem(i4, "sin(wx) with w from [1, {0}]".format(dest_weights.shape[0]))
             self.app.exec_()
