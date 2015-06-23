@@ -44,7 +44,7 @@ class Function:
 
 class LagrangeFirstOrder(Function):
     """
-    Implementation of an lagrangian test function of order 1
+    Implementation of an lagrangian initial function of order 1
       ^
     1-|         ^
       |        /|\
@@ -205,6 +205,12 @@ def _dot_product_l2(first, second):
     return result
 
 def dot_product(first, second):
+    """
+    calculates the inner product of the scalars
+    :param first:
+    :param second:
+    :return:
+    """
     return np.inner(first, second)
 
 def dot_product_l2(first, second):
@@ -218,96 +224,96 @@ def dot_product_l2(first, second):
         dot_product_l2.handle = np.vectorize(_dot_product_l2)
     return dot_product_l2.handle(first, second)
 
-def project_on_test_functions(func, test_funcs):
+def project_on_initial_functions(func, initial_funcs):
     """
-    projects given function on testfunctions
-    :param func:
-    :param test_funcs:
+    projects given function on a new basis
+    :param func: function the approximate
+    :param initial_funcs: initial functions
     :return: weights
     """
     if not isinstance(func, Function):
         raise TypeError("Only pyinduct.Function accepted as 'func'")
 
-    if isinstance(test_funcs, Function):  # convenience case
-        test_funcs = np.asarray([test_funcs])
+    if isinstance(initial_funcs, Function):  # convenience case
+        initial_funcs = np.asarray([initial_funcs])
 
-    if not isinstance(test_funcs, np.ndarray):
-        raise TypeError("Only numpy.ndarray accepted as 'test_funcs'")
+    if not isinstance(initial_funcs, np.ndarray):
+        raise TypeError("Only numpy.ndarray accepted as 'initial_funcs'")
 
     # TODO perform this somewhere else
     handle = np.vectorize(dot_product_l2)
 
     # compute <x(z, t), phi_i(z)>
-    projections = handle(func, test_funcs)
+    projections = handle(func, initial_funcs)
 
     # compute <phi_j(z), phi_i(z)> for 0 < i, j < n
-    n = test_funcs.shape[0]
+    n = initial_funcs.shape[0]
     i, j = np.mgrid[0:n, 0:n]
-    funcs_i = test_funcs[i]
-    funcs_j = test_funcs[j]
+    funcs_i = initial_funcs[i]
+    funcs_j = initial_funcs[j]
     scale_mat = handle(funcs_i, funcs_j)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
 
-def back_project_from_test_functions(weights, test_funcs):
+def back_project_from_initial_functions(weights, initial_funcs):
     """
     build handle for function that was expressed in test functions with weights
     :param weights:
-    :param test_funcs:
+    :param initial_funcs:
     :return: evaluation handle
     """
     if isinstance(weights, float):
         weights = np.asarray([weights])
-    if isinstance(test_funcs, Function):
-        test_funcs = np.asarray([test_funcs])
+    if isinstance(initial_funcs, Function):
+        initial_funcs = np.asarray([initial_funcs])
 
-    if not isinstance(weights, np.ndarray) or not isinstance(test_funcs, np.ndarray):
+    if not isinstance(weights, np.ndarray) or not isinstance(initial_funcs, np.ndarray):
         raise TypeError("Only numpy ndarrays accepted as input")
 
-    if weights.shape[0] != test_funcs.shape[0]:
-        raise ValueError("Lengths of weights and test functions do not match!")
+    if weights.shape[0] != initial_funcs.shape[0]:
+        raise ValueError("Lengths of weights and initial_funcs do not match!")
 
-    eval_handle = lambda z: sum([weights[i]*test_funcs[i](z) for i in range(weights.shape[0])])
+    eval_handle = lambda z: sum([weights[i]*initial_funcs[i](z) for i in range(weights.shape[0])])
     return eval_handle
 
 
-def change_projection_base(src_weights, src_test_funcs, dest_test_funcs):
+def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
     """
     converts given weights that form an approximation using src_test_functions to the best possible fit using
     dest_test_functions.
     :param src_weights: original weights (np.ndarray)
-    :param src_test_funcs: original test functions (np.ndarray)
-    :param dest_test_funcs: target test functions (np.ndarray)
+    :param src_initial_funcs: original test functions (np.ndarray)
+    :param dest_initial_funcs: target test functions (np.ndarray)
     :return: target weights
     """
     if isinstance(src_weights, float):
         src_weights = np.asarray([src_weights])
-    if isinstance(src_test_funcs, Function):
-        src_test_funcs = np.asarray([src_test_funcs])
-    if isinstance(dest_test_funcs, Function):
-        dest_test_funcs = np.asarray([dest_test_funcs])
+    if isinstance(src_initial_funcs, Function):
+        src_initial_funcs = np.asarray([src_initial_funcs])
+    if isinstance(dest_initial_funcs, Function):
+        dest_initial_funcs = np.asarray([dest_initial_funcs])
 
-    if not isinstance(src_weights, np.ndarray) or not isinstance(src_test_funcs, np.ndarray) \
-            or not isinstance(dest_test_funcs, np.ndarray):
+    if not isinstance(src_weights, np.ndarray) or not isinstance(src_initial_funcs, np.ndarray) \
+            or not isinstance(dest_initial_funcs, np.ndarray):
         raise TypeError("Only numpy.ndarray accepted as input")
 
-    if src_weights.shape[0] != src_test_funcs.shape[0]:
+    if src_weights.shape[0] != src_initial_funcs.shape[0]:
         raise ValueError("Lengths of original weights and original test functions do not match!")
 
-    n = src_test_funcs.shape[0]
-    m = dest_test_funcs.shape[0]
+    n = src_initial_funcs.shape[0]
+    m = dest_initial_funcs.shape[0]
 
     # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
     i, j = np.mgrid[0:n, 0:m]
-    funcs_i = src_test_funcs[i]
-    funcs_j = dest_test_funcs[j]
+    funcs_i = src_initial_funcs[i]
+    funcs_j = dest_initial_funcs[j]
     t_mat = dot_product_l2(funcs_i, funcs_j)
 
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
     i, j = np.mgrid[0:m, 0:m]
-    funcs_i = dest_test_funcs[i]
-    funcs_j = dest_test_funcs[j]
+    funcs_i = dest_initial_funcs[i]
+    funcs_j = dest_initial_funcs[j]
     r_mat = dot_product_l2(funcs_i, funcs_j)
 
     # compute V matrix: T*inv(R)

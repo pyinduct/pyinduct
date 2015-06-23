@@ -111,6 +111,7 @@ class IntersectionTestCase(unittest.TestCase):
         self.assertEqual(core.domain_intersection([(-10, -4), (2, 5), (10, 17)], [(-20, -5), (3, 5), (7, 23)]),
                          [(-10, -5), (3, 5)], (10, 17))
 
+
 class DotProductL2TestCase(unittest.TestCase):
 
     def setUp(self):
@@ -142,7 +143,7 @@ class ProjectionTest(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         node_cnt = 11
-        self.nodes, self.test_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
+        self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 1e2*node_cnt)  # because we are smarter
@@ -153,23 +154,23 @@ class ProjectionTest(unittest.TestCase):
         self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
 
     def test_types_projection(self):
-        self.assertRaises(TypeError, core.project_on_test_functions, 1, 2)
-        self.assertRaises(TypeError, core.project_on_test_functions, np.sin, np.sin)
+        self.assertRaises(TypeError, core.project_on_initial_functions, 1, 2)
+        self.assertRaises(TypeError, core.project_on_initial_functions, np.sin, np.sin)
 
     def test_projection_on_lag1st(self):
         weights = []
 
         # linear function -> should be fitted exactly
-        weight = core.project_on_test_functions(self.funcs[0], self.test_functions[1])  # convenience wrapper
-        weights.append(core.project_on_test_functions(self.funcs[0], self.test_functions))
+        weight = core.project_on_initial_functions(self.funcs[0], self.initial_functions[1])  # convenience wrapper
+        weights.append(core.project_on_initial_functions(self.funcs[0], self.initial_functions))
         self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes]))
 
         # quadratic function -> should be fitted somehow close
-        weights.append(core.project_on_test_functions(self.funcs[1], self.test_functions))
+        weights.append(core.project_on_initial_functions(self.funcs[1], self.initial_functions))
         self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=.5))
 
         # trig function -> will be crappy
-        weights.append(core.project_on_test_functions(self.funcs[2], self.test_functions))
+        weights.append(core.project_on_initial_functions(self.funcs[2], self.initial_functions))
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
@@ -182,13 +183,13 @@ class ProjectionTest(unittest.TestCase):
             self.app.exec_()
 
     def test_types_back_projection(self):
-        self.assertRaises(TypeError, core.back_project_from_test_functions, 1, 2)
-        self.assertRaises(TypeError, core.back_project_from_test_functions, 1.0, np.sin)
+        self.assertRaises(TypeError, core.back_project_from_initial_functions, 1, 2)
+        self.assertRaises(TypeError, core.back_project_from_initial_functions, 1.0, np.sin)
 
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.funcs[0])
         real_weights = vec_real_func(self.nodes)
-        func_handle = core.back_project_from_test_functions(real_weights, self.test_functions)
+        func_handle = core.back_project_from_initial_functions(real_weights, self.initial_functions)
         vec_approx_func = np.vectorize(func_handle)
         self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
 
@@ -199,9 +200,6 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=vec_approx_func(self.z_values), pen="b")
             self.app.exec_()
-
-    def test_types_change_projection_base(self):
-        self.assertRaises(TypeError, core.change_projection_base, 1, np.sin, np.cos)
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
@@ -214,9 +212,9 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
         # approximation by lag1st
         self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
-        self.src_weights = core.project_on_test_functions(self.real_func, self.src_test_funcs)
+        self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
-        self.src_approx_handle = np.vectorize(core.back_project_from_test_functions(self.src_weights,
+        self.src_approx_handle = np.vectorize(core.back_project_from_initial_functions(self.src_weights,
                                                                                     self.src_test_funcs))
 
         # approximation by sin(w*x)
@@ -226,14 +224,17 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             return func
         self.trig_test_funcs = np.array([core.Function(trig_factory(w), domain=(0, 1)) for w in range(1, 3)])
 
+    def test_types_change_projection_base(self):
+        self.assertRaises(TypeError, core.change_projection_base, 1, np.sin, np.cos)
+
     def test_lag1st_to_trig(self):
         # scalar case
         dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
-        dest_approx_handle_s = np.vectorize(core.back_project_from_test_functions(dest_weight, self.trig_test_funcs[0]))
+        dest_approx_handle_s = np.vectorize(core.back_project_from_initial_functions(dest_weight, self.trig_test_funcs[0]))
 
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
-        dest_approx_handle = np.vectorize(core.back_project_from_test_functions(dest_weights, self.trig_test_funcs))
+        dest_approx_handle = np.vectorize(core.back_project_from_initial_functions(dest_weights, self.trig_test_funcs))
         error = np.sum(np.power(
             np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
             2))
