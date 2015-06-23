@@ -3,6 +3,7 @@ __author__ = 'stefan'
 import numpy as np
 from core import Function, LagrangeFirstOrder
 
+
 def cure_interval(test_function_class, interval, node_count=None, element_length=None):
     """
     Uses given test functions to cure a given interval with either node_count nodes or with

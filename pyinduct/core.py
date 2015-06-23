@@ -1,7 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
+from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy import integrate
+
+def sanitize_input(input_object, allowed_type):
+    """
+    sanitizes input data
+    :param input_object:
+    :param allowed_type:
+    :return:
+    """
+    if isinstance(input_object, allowed_type):
+        input_object = np.asarray([input_object()])
+
+    # test if input is an array of type allowed_type.
+    if isinstance(input_object, np.ndarray):
+        if not isinstance(input_object[0, ...], allowed_type):
+            raise TypeError("Only objects of type {0} accepted.".format(allowed_type(allowed_type)))
+
+    return input_object
 
 
 class Function:
@@ -105,6 +123,60 @@ class LagrangeFirstOrder(Function):
     # TODO implement correct one
     # def quad_int():
     #     return 2/3
+
+
+class FunctionVector:
+    """
+    class that implements vectors of function and scalars to cope with situations where distributed as well as
+    concentrated elements have to be provided
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self, members):
+        self.__members = members
+
+    @abstractmethod
+    def scalar_product(first, second):
+        """
+        define how the scalar product is defined between certain FunctionVectors.
+        Implementations must be static
+        """
+        pass
+
+class SimpleFunctionVector(FunctionVector):
+    """
+    implementation of the "simple" distributed case, only one member which is a Function
+    """
+    def __init__(self, function):
+        if not isinstance(function, Function):
+            raise TypeError("Only Function objects accepted as function")
+        FunctionVector.__init__(self, function)
+
+    @staticmethod
+    def scalar_product(first, second):
+        return dot_product_l2(first, second)
+
+class ComposedFunctionVector(FunctionVector):
+    """
+    implementation of composite function vector. One Function Member and one scalar member
+    """
+    def __init__(self, function, scalar):
+        if not isinstance(function, Function):
+            raise TypeError("Only Function objects accepted as function")
+        if not isinstance(scalar, (int, long, float)):
+            raise TypeError("Only int or float objects accepted as scalar")
+
+        FunctionVector.__init__(self, [function, scalar])
+
+    @staticmethod
+    def scalar_product(first, second):
+        """
+        special way the scalar product of this composite vector is calculated
+        """
+        first = sanitize_input(first, ComposedFunctionVector)
+        second = sanitize_input(second, ComposedFunctionVector)
+        return dot_product_l2(first, second) + dot_product_l2(first, second)
+
 
 def domain_intersection(first, second):
     """
