@@ -12,12 +12,14 @@ def sanitize_input(input_object, allowed_type):
     :return:
     """
     if isinstance(input_object, allowed_type):
-        input_object = np.asarray([input_object()])
-
-    # test if input is an array of type allowed_type.
-    if isinstance(input_object, np.ndarray):
-        if not isinstance(input_object[0, ...], allowed_type):
-            raise TypeError("Only objects of type {0} accepted.".format(allowed_type(allowed_type)))
+        input_object = np.asarray([input_object])
+    elif isinstance(input_object, np.ndarray):
+        # test if input is an array of type allowed_type.
+        for obj in np.nditer(input_object, flags=["refs_ok"]):
+            if not isinstance(np.asscalar(obj), allowed_type):
+                raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
+    else:
+        raise TypeError("input must be of type: numpy.ndarray")
 
     return input_object
 
@@ -28,10 +30,15 @@ class Function:
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
 
-    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf)):
+    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
         if not callable(eval_handle):
-            raise TypeError("Callable object has to be provided as function_handle")
+            raise TypeError("callable has to be provided as function_handle")
         self._function_handle = eval_handle
+
+        for der_handle in derivative_handles:
+            if not callable(der_handle):
+                raise TypeError("callable has to be provided as member of derivative_handles")
+        self._derivative_handles = derivative_handles
 
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
             if not isinstance(val, list):
@@ -41,23 +48,43 @@ class Function:
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval))for interval in val], key=lambda x: x[0]))
 
-    def __call__(self, *args):
+    def _check_domain(self, value):
         """
-        handle that is used to evaluate the function on a given point
-        :param args: function parameter
-        :return: function value
+        checks if value fits into domain
+        :param value: point where function shall be evaluated
+        :raises: ValueError if value not in domain
         """
         in_domain = False
         for interval in self.domain:
             # TODO support multi dimensional access
-            if interval[0] <= args[0] <= interval[1]:
+            if interval[0] <= value <= interval[1]:
                 in_domain = True
                 break
 
         if not in_domain:
             raise ValueError("Function evaluated outside its domain!")
 
+    def __call__(self, *args):
+        """
+        handle that is used to evaluate the function on a given point
+        :param args: function parameter
+        :return: function value
+        """
+        self._check_domain(args[0])
         return self._function_handle(*args)
+
+    def derivative(self, order=1):
+        """
+        factory method that is used to evaluate the spatial derivative of this function
+        """
+        if not isinstance(order, int):
+            raise TypeError("only integer allowed as derivation order")
+        if order < 0 or order >= len(self._derivative_handles):
+            raise ValueError("function cannot be differentiated that often.")
+
+        derivative = Function(self._derivative_handles[order-1], domain=self.domain, nonzero=self.nonzero,
+                              derivative_handles=self._derivative_handles[order:])
+        return derivative
 
 
 class LagrangeFirstOrder(Function):
@@ -77,15 +104,19 @@ class LagrangeFirstOrder(Function):
             raise ValueError("Input data is nonsense, see Definition.")
 
         if start == top:
-            Function.__init__(self, self._lagrange1st_border_left, nonzero=(start, end))
+            Function.__init__(self, self._lagrange1st_border_left,
+                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_border_left])
         elif top == end:
-            Function.__init__(self, self._lagrange1st_border_right, nonzero=(start, end))
+            Function.__init__(self, self._lagrange1st_border_right,
+                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_border_right])
         else:
-            Function.__init__(self, self._lagrange1st_interior, nonzero=(start, end))
+            Function.__init__(self, self._lagrange1st_interior,
+                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_interior])
 
         self._start = start
         self._top = top
         self._end = end
+
         # speed
         self._a = self._top - self._start
         self._b = self._end - self._top
@@ -118,6 +149,35 @@ class LagrangeFirstOrder(Function):
             return (z - self._start) / self._a
         else:
             return (self._top - z) / self._b + 1
+
+    def _der_lagrange1st_border_left(self, z):
+        """
+        left border equation for lagrange 1st order
+        """
+        if z < self._top or z >= self._end:
+            return 0
+        else:
+            return -z / self._b
+
+    def _der_lagrange1st_border_right(self, z):
+        """
+        right border equation for lagrange 1st order
+        """
+        if z <= self._start or z > self._end:
+            return 0
+        else:
+            return z / self._a
+
+    def _der_lagrange1st_interior(self, z):
+        """
+        interior equations for lagrange 1st order
+        """
+        if z < self._start or z > self._end or z == self._top:
+            return 0
+        elif self._start <= z < self._top:
+            return z / self._a
+        else:
+            return -z / self._b
 
     # @staticmethod
     # TODO implement correct one
@@ -252,7 +312,7 @@ def _dot_product_l2(first, second):
     :return: inner product
     """
     if not isinstance(first, Function) or not isinstance(second, Function):
-        raise TypeError("Wrong type supplied must be a pyinduct.Function")
+        raise TypeError("Wrong type(s) supplied both must be a {0}".format(Function))
 
     # TODO remember not only 1d possible here!
     limits = domain_intersection(first.domain, second.domain)
@@ -296,6 +356,35 @@ def dot_product_l2(first, second):
         dot_product_l2.handle = np.vectorize(_dot_product_l2)
     return dot_product_l2.handle(first, second)
 
+def calculate_function_matrix_differential(functions_a, functions_b, derivative_order_a, derivative_order_b):
+    """
+    see calculate function matrix, except for the circumstance that derivatives of given order will be used
+    :param functions_a:
+    :param functions_b:
+    :param derivative_order_a:
+    :param derivative_order_b:
+    :return:
+    """
+    der_a = np.asarray([func.derivative(derivative_order_a) for func in functions_a])
+    der_b = np.asarray([func.derivative(derivative_order_b) for func in functions_b])
+    return calculate_function_matrix(der_a, der_b)
+
+def calculate_function_matrix(functions_a, functions_b):
+    """
+    calculates a matrix whose elements are the scalar products of each element from funcs_a and funcs_b.
+    So aij = <funcs_ai, funcs_bj>
+    :param functions_a: array of functions
+    :param functions_b: array of functions
+    :return: matrix
+    """
+    funcs_a = sanitize_input(functions_a, Function)
+    funcs_b = sanitize_input(functions_b, Function)
+
+    i, j = np.mgrid[0:funcs_a.shape[0], 0:funcs_b.shape[0]]
+    funcs_i = funcs_a[i]
+    funcs_j = funcs_b[j]
+    return dot_product_l2(funcs_i, funcs_j)
+
 def project_on_initial_functions(func, initial_funcs):
     """
     projects given function on a new basis
@@ -313,6 +402,7 @@ def project_on_initial_functions(func, initial_funcs):
         raise TypeError("Only numpy.ndarray accepted as 'initial_funcs'")
 
     # TODO perform this somewhere else
+    # TODO change is done, correct this function
     handle = np.vectorize(dot_product_l2)
 
     # compute <x(z, t), phi_i(z)>

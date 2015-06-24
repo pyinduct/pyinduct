@@ -37,10 +37,8 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
         nodes = np.arange(start, end + element_length, element_length)
         node_count = nodes.shape[0]
 
-    test_functions = []
-    np.array((node_count,), dtype=object)
-    test_functions.append(LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length))
-    test_functions.append(LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1]))
+    test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
+                      LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
     for i in range(1, node_count-1):
         test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
                                                      nodes[i],

@@ -6,7 +6,14 @@ from pyinduct import core, utils
 
 __author__ = 'stefan'
 
-show_plots = False
+show_plots = True
+
+class SanitizeInputTest(unittest.TestCase):
+
+    def test_scalar(self):
+        self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
+        core.sanitize_input(1, int)
+        core.sanitize_input(1.0, float)
 
 class FunctionTestCase(unittest.TestCase):
     def setUp(self):
