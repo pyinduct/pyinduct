@@ -6,30 +6,40 @@ from core import Function, sanitize_input, calculate_function_matrix_differentia
 
 __author__ = 'Stefan Ecklebe'
 
+class Placeholder(object):
+    """
+    class that works as an placeholder for functions that are later substituted
+    """
+    def __init__(self, location=None):
+        if location is not None:
+            if location and not isinstance(location, (int, long, float)):
+                raise TypeError("location must be a number")
+        self.location = location
 
-class TestFunction(object):
+class TestFunction(Placeholder):
     """
     class that works as a placeholder for test-functions in an equation
     """
-    def __init__(self, order=0):
+    def __init__(self, order=0, location=None):
+        Placeholder.__init__(self, location)
         self.order = order
 
 
-class Input(object):
+class Input(Placeholder):
     """
     class that works as a placeholder for the input of a system
     """
-    pass
+    def __init__(self, order=0):
+        Placeholder.__init__(self)
+        self.order = order
 
 
-class Factor(object):
+class FieldVariable(object):
     """
-    class that represents multiplicative terms with the systems field variable x(z, t).
-    factors can be placeholders like TestFunction or input.
-    since differentiation may occur, order can provide information about which derivative of the field variable the
-    factor belongs to.
+    class that represents terms of the systems field variable x(z, t).
+    since differentiation may occur, order can provide information about which derivative of the field variable.
     """
-    def __init__(self, order, factor, location=None):
+    def __init__(self, order, location=None):
         """
         :param : order tuple of temporal_order and spatial_order
         :param : factor
@@ -37,74 +47,91 @@ class Factor(object):
         """
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
+        if any([True for n in order if n < 0]):
+            raise ValueError("derivative orders must be positive")
         if sum(order) > 2:
             raise ValueError("only derivatives of order one and two supported")
-        if not isinstance(factor, (TestFunction, Input)):
-            raise TypeError("Only scalars or Functions accepted")
         if location is not None:
             if location and not isinstance(location, (int, long, float)):
                 raise TypeError("location must be a number")
 
         self.order = order
-        self.factor = factor
         self.location = location
 
-class TemporalFactor(Factor):
-    def __init__(self, order, factor, location=None):
-        Factor.__init__(self, (order, 0), factor, location=location)
+# TODO add IndexedFactor, to represent fitting factor for every TestFunction
+
+class TemporalDerivedFieldVariable(FieldVariable):
+    def __init__(self, order, location=None):
+        FieldVariable.__init__(self, (order, 0), location=location)
 
 
-class SpatialFactor(Factor):
-    def __init__(self, order, factor, location=None):
-        Factor.__init__(self, (0, order), factor, location=location)
+class SpatialDerivedFieldVariable(FieldVariable):
+    def __init__(self, order, location=None):
+        FieldVariable.__init__(self, (0, order), location=location)
 
 
-class MixedFactor(Factor):
-    def __init__(self, factor, location=None):
-        Factor.__init__(self, (1, 1), factor, location=location)
+class MixedDerivedFieldVariable(FieldVariable):
+    def __init__(self, location=None):
+        FieldVariable.__init__(self, (1, 1), location=location)
 
+class Product:
+    """
+    represents a product
+    """
+    def __init__(self, a, b):
+        if not isinstance(a, (FieldVariable, Placeholder)) or not isinstance(b, (FieldVariable, Placeholder)):
+            raise TypeError("argument not allowed in product")
+        self.args = [a, b]
+
+    def get_arg_by_class(self, cls):
+        """
+        extract element from product that is an instance of cls
+        :return:
+        """
+        return [elem for elem in self.args if isinstance(elem, cls)]
 
 class WeakEquationTerm:
     """
     base class for all accepted terms in a weak formulation
     """
+    __metaclass__ = ABCMeta
 
-    def __init__(self, scale):
+    def __init__(self, scale, arg):
         if not isinstance(scale, (int, long, float)):
             raise TypeError("only numbers allowed as scale.")
+        if not isinstance(arg, (Placeholder, FieldVariable, Product)):
+            raise TypeError("argument not supported.")
 
         self.scale = scale
+        self.arg = arg
 
 class ScalarTerm(WeakEquationTerm):
     """
     class that represents a scalar term in a weak equation
     """
-    def __init__(self, factor, scale=1.0):
-        WeakEquationTerm.__init__(self, scale)
-        if not isinstance(factor, Factor):
-            raise TypeError("input not supported")
-        self.factor = factor
+    def __init__(self, argument, scale=1.0):
+        WeakEquationTerm.__init__(self, scale, argument)
 
 class IntegralTerm(WeakEquationTerm):
     """
     Class that represents an integral term in a weak equation
     """
     def __init__(self, integrand, limits, scale=1.0):
-        WeakEquationTerm.__init__(self, scale)
-        if not isinstance(integrand, Factor):
-            raise TypeError("integrand must be of type Factor, otherwise compute it yourself!")
-        if integrand.location is not None:
-            raise ValueError("cannot integrate if integrand has to be evaluated first.")
+        WeakEquationTerm.__init__(self, scale, integrand)
+
+        # TODO recurse down all possibly nested products and look whether location is set
+        if not isinstance(integrand, Product):
+            if integrand.location is not None:
+                raise ValueError("cannot integrate if integrand has to be evaluated first.")
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
-
-        self.integrand = integrand
         self.limits = limits
 
 
 class SpatialIntegralTerm(IntegralTerm):
     def __init__(self, integrand, limits, scale=1.0):
         IntegralTerm.__init__(self, integrand, limits, scale)
+
 
 
 class WeakFormulation:
@@ -136,13 +163,13 @@ class WeakFormulation:
         :param test_functions: functional base which is used to minimize error
         :return: simulation.ODESystem
         """
-        init_funcs = sanitize_input(initial_functions, Function)
-        test_funcs = sanitize_input(test_functions, Function)
+        self.init_funcs = sanitize_input(initial_functions, Function)
+        self.test_funcs = sanitize_input(test_functions, Function)
 
-        if init_funcs.shape != test_funcs.shape:
+        if self.init_funcs.shape != self.test_funcs.shape:
             raise ValueError("dimensions of init- and test-functions do not match.")
 
-        dim = init_funcs.shape[0]
+        dim = self.init_funcs.shape[0]
         self._f = np.zeros((dim,))
         self._E = [np.zeros((dim, dim)) for i in range(3)]
 
@@ -155,38 +182,70 @@ class WeakFormulation:
         # handle each term
         for term in self._terms:
             if isinstance(term, ScalarTerm):
-                pass
+                # TODO move cases from Product case into functions and add them below
+                if isinstance(term.arg, Product):
+                    funcs = term.arg.get_arg_by_class(TestFunction)
+                    ders = term.arg.get_arg_by_class(FieldVariable)
+                    ins = term.arg.get_arg_by_class(Input)
+
+                    if len(ders) == 1:
+                        temp_order = ders[0].order[0]
+                        spat_order = ders[0].order[1]
+                        der_loc = ders[0].location
+                        # TODO handle Input as well
+                        if len(funcs) == 1:
+                            func_loc = funcs[0].location
+                            if der_loc is None or func_loc is None:
+                                raise ValueError("scalar term mus be evaluated, should be an integral otherwise.")
+                            test_der_order = funcs[0].order
+                            result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
+                                                                            spat_order, test_der_order,
+                                                                            locations=(der_loc, func_loc))
+                        else:
+                            raise NotImplementedError
+                        self._E[temp_order] += result*term.scale
+                    elif len(ins) == 1:
+                        # since product contains two elements and a FieldDerivative was not in, other one is TestFunc
+                        assert len(funcs) == 1
+                        func_loc = funcs[0].location
+                        if func_loc is None:
+                            raise ValueError("scalar term mus be evaluated, should be an integral otherwise.")
+                        test_der_order = funcs[0].order
+                        result = np.asarray([func.derivative(test_der_order)(func_loc) for func in self.test_funcs])
+                        self._f += result*term.scale
+                    else:
+                        raise NotImplementedError
+                else:
+                    raise NotImplementedError
+
             elif isinstance(term, IntegralTerm):
-                temp_order = term.integrand.order[0]
-                spat_order = term.integrand.order[1]
-                # TODO Input, Factor
+                # TODO move cases from Product case into functions and add them below
+                if isinstance(term.arg, Product):
+                    funcs = term.arg.get_arg_by_class(TestFunction)
+                    ders = term.arg.get_arg_by_class(FieldVariable)
+                    ins = term.arg.get_arg_by_class(Input)
 
-                if isinstance(term.integrand.factor, TestFunction):
-                    test_der_order = term.integrand.factor.order
-                    result = term.scale * calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
-                                                                                 spat_order,
-                                                                                 test_der_order)
-                self._E[temp_order] += result
+                    if len(ders) == 1:
+                        temp_order = ders[0].order[0]
+                        spat_order = ders[0].order[1]
+                        # TODO handle Input as well
+                        if len(funcs) == 1:
+                            test_der_order = funcs[0].order
+                            result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
+                                                                            spat_order, test_der_order)
+                        else:
+                            raise NotImplementedError
+                        self._E[temp_order] += result*term.scale
+                    else:
+                        raise NotImplementedError
 
-    def _handle_temporal_term(self, term):
-        """
-        converts terms that contain temporal derivatives into state space matrices
-        :param term:
-        :return:
-        """
-        result = None
-        if isinstance(term, IntegralTerm):
-            if isinstance(term.integrand, Factor):
-                order = term.integrand.order
-                if isinstance(term.integrand.factor, TestFunction):
-                    test_der_order = term.integrand.factor.order
-                    result = term.scale*calculate_function_matrix_differential(self.init_funcs, self.test_funcs, 0,
-                                                                     test_der_order)
-                # TODO Input, Factor
-
-                self._E[order] += result
+        print("f:")
+        print(self._f)
+        print("EO:")
+        print(self._E[0])
+        print("E1:")
+        print(self._E[1])
+        print("E2:")
+        print(self._E[2])
 
 
-
-    def _handle_spatial_term(self, term):
-        pass

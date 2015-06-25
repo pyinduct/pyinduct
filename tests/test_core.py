@@ -6,7 +6,7 @@ from pyinduct import core, utils
 
 __author__ = 'stefan'
 
-show_plots = True
+show_plots = False
 
 class SanitizeInputTest(unittest.TestCase):
 
@@ -49,6 +49,15 @@ class FunctionTestCase(unittest.TestCase):
                 # TODO check if nonzero check generates warning
                 pass
 
+    def test_derivative(self):
+        f = core.Function(np.sin, derivative_handles=[np.cos])
+        self.assertRaises(ValueError, f.derivative, -1)  # stupid derivative
+        self.assertRaises(ValueError, f.derivative, 2)  # unknown derivative
+        d0 = f.derivative(0)
+        self.assertEqual(f, d0)
+        d1 = f.derivative(1)
+        self.assertEqual(d1._function_handle, np.cos)
+        self.assertRaises(ValueError, d1.derivative, 1)  # unknown derivative
 
 class LagrangeFirstOrderTestCase(unittest.TestCase):
     def test_init(self):
@@ -91,6 +100,38 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         # integral over whole nonzero area of self**2
         # self.assertEqual(p1.quad_int(), 2/3)
 
+class MatrixFunctionTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
+
+    def test_functional_call(self):
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 0)
+        real_result = np.array([[1/3, 1/6], [1/6, 1/3]])
+        self.assertTrue(np.allclose(res, real_result))
+
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 0)
+        real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
+        self.assertTrue(np.allclose(res, real_result))
+
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 1)
+        real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
+        self.assertTrue(np.allclose(res, real_result))
+
+        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=9)
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
+        print(res)
+        real_result = np.array([[1, -1], [-1, 1]])
+        self.assertTrue(np.allclose(res, real_result))
+
+    def test_scalar_call(self):
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0,  0, locations=(0.5, 0.5))
+        real_result = np.array([[1/4, 1/4], [1/4, 1/4]])
+        self.assertTrue(np.allclose(res, real_result))
+
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
+        real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
+        self.assertTrue(np.allclose(res, real_result))
 
 class IntersectionTestCase(unittest.TestCase):
 

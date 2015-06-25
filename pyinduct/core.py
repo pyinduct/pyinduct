@@ -79,7 +79,9 @@ class Function:
         """
         if not isinstance(order, int):
             raise TypeError("only integer allowed as derivation order")
-        if order < 0 or order >= len(self._derivative_handles):
+        if order == 0:
+            return self
+        if order < 0 or order > len(self._derivative_handles):
             raise ValueError("function cannot be differentiated that often.")
 
         derivative = Function(self._derivative_handles[order-1], domain=self.domain, nonzero=self.nonzero,
@@ -157,7 +159,7 @@ class LagrangeFirstOrder(Function):
         if z < self._top or z >= self._end:
             return 0
         else:
-            return -z / self._b
+            return -1 / self._b
 
     def _der_lagrange1st_border_right(self, z):
         """
@@ -166,7 +168,7 @@ class LagrangeFirstOrder(Function):
         if z <= self._start or z > self._end:
             return 0
         else:
-            return z / self._a
+            return 1 / self._a
 
     def _der_lagrange1st_interior(self, z):
         """
@@ -175,9 +177,9 @@ class LagrangeFirstOrder(Function):
         if z < self._start or z > self._end or z == self._top:
             return 0
         elif self._start <= z < self._top:
-            return z / self._a
+            return -1 / self._a
         else:
-            return -z / self._b
+            return 1 / self._b
 
     # @staticmethod
     # TODO implement correct one
@@ -324,8 +326,8 @@ def _dot_product_l2(first, second):
         if hasattr(first, "quad_int"):
             return first.quad_int()
 
+    # TODO let Function Class handle product
     if type(first) is type(second):
-        # TODO let Function Class handle product
         pass
 
     result = 0
@@ -356,18 +358,41 @@ def dot_product_l2(first, second):
         dot_product_l2.handle = np.vectorize(_dot_product_l2)
     return dot_product_l2.handle(first, second)
 
-def calculate_function_matrix_differential(functions_a, functions_b, derivative_order_a, derivative_order_b):
+def calculate_function_matrix_differential(functions_a, functions_b,
+                                           derivative_order_a, derivative_order_b, locations=None):
     """
-    see calculate function matrix, except for the circumstance that derivatives of given order will be used
+    see calculate function matrix, except for the circumstance that derivatives of given order will be used and the
+    derivatives can be evaluated at location before calculation. (save integral computation)
     :param functions_a:
     :param functions_b:
     :param derivative_order_a:
     :param derivative_order_b:
+    :param locations: points to evaluate
     :return:
     """
     der_a = np.asarray([func.derivative(derivative_order_a) for func in functions_a])
     der_b = np.asarray([func.derivative(derivative_order_b) for func in functions_b])
-    return calculate_function_matrix(der_a, der_b)
+    if locations is None:
+        return calculate_function_matrix(der_a, der_b)
+    else:
+        if not isinstance(locations, tuple) or len(locations) != 2:
+            raise TypeError("only tuples of len 2 allowed for locations.")
+
+        vals_a = np.asarray([der(locations[0]) for der in der_a])
+        vals_b = np.asarray([der(locations[1]) for der in der_b])
+        return calculate_scalar_matrix(vals_a, vals_b.T)
+
+def calculate_scalar_matrix(values_a, values_b):
+    """
+    helper function to calculate a matrix of scalars
+    :param values_a:
+    :param values_b:
+    :return:
+    """
+    i, j = np.mgrid[0:values_a.shape[0], 0:values_b.shape[0]]
+    vals_i = values_a[i]
+    vals_j = values_b[j]
+    return np.multiply(vals_i, vals_j)
 
 def calculate_function_matrix(functions_a, functions_b):
     """
@@ -401,19 +426,11 @@ def project_on_initial_functions(func, initial_funcs):
     if not isinstance(initial_funcs, np.ndarray):
         raise TypeError("Only numpy.ndarray accepted as 'initial_funcs'")
 
-    # TODO perform this somewhere else
-    # TODO change is done, correct this function
-    handle = np.vectorize(dot_product_l2)
-
     # compute <x(z, t), phi_i(z)>
-    projections = handle(func, initial_funcs)
+    projections = dot_product_l2(func, initial_funcs)
 
     # compute <phi_j(z), phi_i(z)> for 0 < i, j < n
-    n = initial_funcs.shape[0]
-    i, j = np.mgrid[0:n, 0:n]
-    funcs_i = initial_funcs[i]
-    funcs_j = initial_funcs[j]
-    scale_mat = handle(funcs_i, funcs_j)
+    scale_mat = calculate_function_matrix(initial_funcs, initial_funcs)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
@@ -467,16 +484,10 @@ def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
     m = dest_initial_funcs.shape[0]
 
     # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-    i, j = np.mgrid[0:n, 0:m]
-    funcs_i = src_initial_funcs[i]
-    funcs_j = dest_initial_funcs[j]
-    t_mat = dot_product_l2(funcs_i, funcs_j)
+    t_mat = calculate_function_matrix(src_initial_funcs, dest_initial_funcs)
 
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
-    i, j = np.mgrid[0:m, 0:m]
-    funcs_i = dest_initial_funcs[i]
-    funcs_j = dest_initial_funcs[j]
-    r_mat = dot_product_l2(funcs_i, funcs_j)
+    r_mat = calculate_function_matrix(dest_initial_funcs, dest_initial_funcs)
 
     # compute V matrix: T*inv(R)
     v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
