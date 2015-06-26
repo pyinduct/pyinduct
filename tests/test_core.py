@@ -118,10 +118,13 @@ class MatrixFunctionTestCase(unittest.TestCase):
         real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
         self.assertTrue(np.allclose(res, real_result))
 
-        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=9)
         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-        print(res)
         real_result = np.array([[1, -1], [-1, 1]])
+        self.assertTrue(np.allclose(res, real_result))
+
+        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=3)
+        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
+        real_result = np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])
         self.assertTrue(np.allclose(res, real_result))
 
     def test_scalar_call(self):

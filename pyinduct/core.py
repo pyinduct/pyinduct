@@ -177,9 +177,9 @@ class LagrangeFirstOrder(Function):
         if z < self._start or z > self._end or z == self._top:
             return 0
         elif self._start <= z < self._top:
-            return -1 / self._a
+            return 1 / self._a
         else:
-            return 1 / self._b
+            return -1 / self._b
 
     # @staticmethod
     # TODO implement correct one
