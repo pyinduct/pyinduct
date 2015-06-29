@@ -6,16 +6,14 @@ from pyinduct import core as cr, simulation as sim, utils as ut
 
 __author__ = 'Stefan Ecklebe'
 
+# TODO Test for Placeholders
 
-class TestFactor(unittest.TestCase):
+class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
         pass
 
-    def test_factor(self):
-        f = sim.TestFunction()
-        i = sim.Input()
-
+    def test_FieldVariable(self):
         # Factor (Base)
         self.assertRaises(TypeError, sim.FieldVariable, [0, 0])  # list instead of tuple
         self.assertRaises(ValueError, sim.FieldVariable, (3, 0))  # order too high
@@ -27,6 +25,7 @@ class TestFactor(unittest.TestCase):
         self.assertEqual(7, a.location)
 
     def test_TemporalDerivativeFactor(self):
+        # TODO
         pass
         # # TemporalDerivativeFactor
         # self.assertRaises(TypeError, sim.TemporalDerivativeFactor, "high order", "about five")
@@ -54,17 +53,30 @@ class TestFactor(unittest.TestCase):
         # self.assertEqual(7, a.factor)
         # self.assertEqual(None, a.location)
 
+class ProductTest(unittest.TestCase):
+    def setUp(self):
+        u = cr.Function(np.sin)
+        self.input = sim.Input(u)
+        self.funcs = sim.TestFunctions(u)
+        self.field_var = sim.FieldVariable()
+
     def test_product(self):
-        self.assertRaises(TypeError, sim.Product, cr.Function, cr.Function)
-        sim.Product(sim.Input(), sim.Input())
-        sim.Product(sim.Input(), sim.TestFunction())
-        sim.Product(sim.Input(), sim.TemporalDerivedFieldVariable(1))
+        self.assertRaises(TypeError, sim.Product, cr.Function, cr.Function)  # only Placeholders allowed
+        p1 = sim.Product(self.input, self.funcs)
+        p2 = sim.Product(self.funcs, self.field_var)
+
+        # test methods
+        self.assertEqual(p1.get_arg_by_class(sim.Input), [self.input])
+        self.assertEqual(p1.get_arg_by_class(sim.TestFunctions), [self.funcs])
+        self.assertEqual(p2.get_arg_by_class(sim.TestFunctions), [self.funcs])
+        self.assertEqual(p2.get_arg_by_class(sim.FieldVariable), [self.field_var])
 
 class WeakTermsTest(unittest.TestCase):
 
     def setUp(self):
-        self.input = sim.Input()
-        self.test_func = sim.TestFunction()
+        u = cr.Function(np.sin)
+        self.input = sim.Input(u)
+        self.test_func = sim.TestFunctions(u)
         self.xdt = sim.TemporalDerivedFieldVariable(1)
         self.xdz_at1 = sim.SpatialDerivedFieldVariable(1, 1)
         self.prod = sim.Product(self.input, self.xdt)
@@ -106,26 +118,99 @@ class WeakTermsTest(unittest.TestCase):
 class WeakFormulationTest(unittest.TestCase):
 
     def setUp(self):
-        self.u = sim.Input()
-        self.input_term = sim.ScalarTerm(sim.Product(sim.FieldVariable((0, 0)), self.u))
-        self.phi = sim.ScalarTerm(sim.TestFunction())
-        self.int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunction()), (0, 1))
-        self.int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunction(order=1)), (0, 1))
+        # create all possible kinds of input variables
+        self.u = sim.Input()  # control input
+        self.phi = sim.TestFunctions()  # eigenfunction or something else
+        self.input_term = sim.ScalarTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), self.u))
+        self.func_term = sim.ScalarTerm(sim.TestFunctions())
+        self.field_term = sim.FieldVariable()
+        self.field_term_at1 = sim.FieldVariable(location=1)
+        self.int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), (0, 1))
+        self.int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), (0, 1))
+        self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
 
-    def test_weak_form(self):
+    def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
+        wf = sim.WeakFormulation(self.input_term)  # scalar case
+
+    def test_Input_term(self):
         wf = sim.WeakFormulation(self.input_term)
+        wf.parse_input(self.ini_funcs, self.ini_funcs)
+
+    def test_TestFunction_term(self):
+        wf = sim.WeakFormulation(self.func_term)
+        wf.parse_input(self.ini_funcs, self.ini_funcs)
+
+    def test_FieldVariable_term(self):
+        wf = sim.WeakFormulation(self.field_term)
+        wf.parse_input(self.ini_funcs, self.ini_funcs)
+
         wf = sim.WeakFormulation([self.input_term, self.phi, self.int1, self.int2])
         func = cr.Function(np.sin, derivative_handles=[np.cos], domain=(0, 1))
-        # wf.create_ode_system(func, func)
+        wf.parse_input(func, func)
+        # TODO add real results
 
-    def test_WeakFormulation_string(self):
+    def test_modal_from(self):
+        pass
+
+class StateSpaceTests(unittest.TestCase):
+
+    def setUp(self):
         # enter string with mass equations
         interval = (0, 1)
-        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunction()), interval)
-        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(2, location=0), sim.TestFunction(location=0)))
-        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunction(order=1)), interval)
-        s2 = sim.ScalarTerm(sim.Product(sim.Input(), sim.TestFunction(location=1)), -1)
+        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), interval)
+        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(2, location=0), sim.TestFunctions(location=0)))
+        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), interval)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(), sim.TestFunctions(location=1)), -1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
-        string_pde.create_ode_system(ini_funcs, ini_funcs)
+        self.e_mats, self.f_vec = string_pde.parse_input(ini_funcs, ini_funcs)
+
+    def test_convert_to_state_space(self):
+        A, B = sim.convert_to_state_space(self.e_mats, self.f_vec)
+        self.assertTrue(np.allclose(A, np.array([[0, 0, 0, 1, 0, 0],
+                                                [0, 0, 0, 0, 1, 0],
+                                                [0, 0, 0, 0, 0, 1],
+                                                [-2.25, 3, -.75, 0, 0, 0],
+                                                [7.5, -18, 10.5, 0, 0, 0],
+                                                [-3.75, 21, -17.25, 0, 0, 0]])))
+        self.assertTrue(np.allclose(B, np.array([0, 0, 0, 0.125, -1.75, 6.875])))
+
+
+class StringMassTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_it(self):
+        # example case which the user will have to perform
+
+        # enter string with mass equations
+        interval = (0, 1)
+        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), interval)
+        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(2, location=0), sim.TestFunctions(location=0)))
+        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), interval)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(), sim.TestFunctions(location=1)), -1)
+
+        # cure interval
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+
+        # derive sate-space system
+        string_pde = sim.WeakFormulation([int1, s1, int2, s2])
+        e_mats, f_vec = string_pde.parse_input(ini_funcs, ini_funcs)
+        # TODO assert check
+
+        A, B = sim.convert_to_state_space(e_mats, f_vec)
+
+        # derive initial conditions and simulate system
+        def x0(z):
+            return 0
+
+        def input_handle(t):
+            return np.sin(t)
+
+        start_state = cr.Function(x0)
+        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
+        q0 = np.zeros(2*len(initial_weights))
+        q0[0:len(initial_weights)] = initial_weights
+        sim.simulate_system(A, B, input_handle, q0, (0, 10))

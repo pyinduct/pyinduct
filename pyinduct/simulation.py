@@ -1,37 +1,55 @@
 from __future__ import division
 from abc import ABCMeta, abstractmethod
 import numpy as np
-import sympy as sp
+from scipy.integrate import ode
 from core import Function, sanitize_input, calculate_function_matrix_differential
 
 __author__ = 'Stefan Ecklebe'
 
 class Placeholder(object):
     """
-    class that works as an placeholder for functions that are later substituted
+    class that works as an placeholder for terms that are later substituted
     """
-    def __init__(self, location=None):
+    def __init__(self, order=0, location=None):
+        """
+        :param order how many derivations are to be applied before evaluation
+        :param location to evaluate at before further computation
+        """
+        if not isinstance(order, int) or order < 0:
+            raise ValueError("invalid derivative order.")
+        self.order = order
+
         if location is not None:
             if location and not isinstance(location, (int, long, float)):
                 raise TypeError("location must be a number")
         self.location = location
 
-class TestFunction(Placeholder):
+
+class Scalars(Placeholder):
+    """
+    placeholder for scalars that will be replaced later
+    """
+    def __init__(self, values):
+        Placeholder.__init__(self)
+        self.values = sanitize_input(values, (int, long, float))
+
+
+class TestFunctions(Placeholder):
     """
     class that works as a placeholder for test-functions in an equation
     """
-    def __init__(self, order=0, location=None):
-        Placeholder.__init__(self, location)
-        self.order = order
+    def __init__(self, functions, order=0, location=None):
+        Placeholder.__init__(self, order, location)
+        self.functions = sanitize_input(functions, Function)
 
 
 class Input(Placeholder):
     """
     class that works as a placeholder for the input of a system
     """
-    def __init__(self, order=0):
+    def __init__(self, function, order=0):
         Placeholder.__init__(self)
-        self.order = order
+        self.function = sanitize_input(function, Function)
 
 
 class FieldVariable(object):
@@ -39,7 +57,7 @@ class FieldVariable(object):
     class that represents terms of the systems field variable x(z, t).
     since differentiation may occur, order can provide information about which derivative of the field variable.
     """
-    def __init__(self, order, location=None):
+    def __init__(self, order=(0, 0), location=None):
         """
         :param : order tuple of temporal_order and spatial_order
         :param : factor
@@ -133,7 +151,6 @@ class SpatialIntegralTerm(IntegralTerm):
         IntegralTerm.__init__(self, integrand, limits, scale)
 
 
-
 class WeakFormulation:
     """
     this class represents the weak formulation of a spatial problem.
@@ -149,42 +166,33 @@ class WeakFormulation:
             if not isinstance(term, WeakEquationTerm):
                 raise TypeError("Only WeakEquationTerm(s) are accepted.")
 
-        self._terms = terms
-        self.init_funcs = None
-        self.test_funcs = None
-        self._E = None
-        self._f = None
+        self.terms = terms
 
-    def create_ode_system(self, initial_functions, test_functions):
+
+def _parse_weak_formulation(weak_form):
         """
         creates an ode system for the weights x_i based on the weak formulation.
         General assumption is that x is expressed as generalized fourier series using initial_functions and weights x_i.
-        :param initial_functions: functions that are used to construct the solution
-        :param test_functions: functional base which is used to minimize error
         :return: simulation.ODESystem
         """
-        self.init_funcs = sanitize_input(initial_functions, Function)
-        self.test_funcs = sanitize_input(test_functions, Function)
+        if not isinstance(weak_form, WeakFormulation):
+            raise TypeError("only able to parse WeakFormulation")
 
-        if self.init_funcs.shape != self.test_funcs.shape:
-            raise ValueError("dimensions of init- and test-functions do not match.")
+        # if self.init_funcs.shape != self.test_funcs.shape:
+        #     raise ValueError("dimensions of init- and test-functions do not match.")
 
-        dim = self.init_funcs.shape[0]
-        self._f = np.zeros((dim,))
-        self._E = [np.zeros((dim, dim)) for i in range(3)]
+        f_vector = None
+        e_matrices = []
 
-        # fill elementary matrices
-        self._interpret_terms()
+        # self._f = np.zeros((dim,))
+        # self._E = [np.zeros((dim, dim)) for i in range(3)]
 
-        # convert into state space form
-
-    def _interpret_terms(self):
         # handle each term
-        for term in self._terms:
+        for term in weak_form.terms:
             if isinstance(term, ScalarTerm):
                 # TODO move cases from Product case into functions and add them below
                 if isinstance(term.arg, Product):
-                    funcs = term.arg.get_arg_by_class(TestFunction)
+                    funcs = term.arg.get_arg_by_class(TestFunctions)
                     ders = term.arg.get_arg_by_class(FieldVariable)
                     ins = term.arg.get_arg_by_class(Input)
 
@@ -221,7 +229,7 @@ class WeakFormulation:
             elif isinstance(term, IntegralTerm):
                 # TODO move cases from Product case into functions and add them below
                 if isinstance(term.arg, Product):
-                    funcs = term.arg.get_arg_by_class(TestFunction)
+                    funcs = term.arg.get_arg_by_class(TestFunctions)
                     ders = term.arg.get_arg_by_class(FieldVariable)
                     ins = term.arg.get_arg_by_class(Input)
 
@@ -239,13 +247,77 @@ class WeakFormulation:
                     else:
                         raise NotImplementedError
 
-        print("f:")
-        print(self._f)
-        print("EO:")
-        print(self._E[0])
-        print("E1:")
-        print(self._E[1])
-        print("E2:")
-        print(self._E[2])
+            if False:
+                print("f:")
+                print(self._f)
+                print("EO:")
+                print(self._E[0])
+                print("E1:")
+                print(self._E[1])
+                print("E2:")
+                print(self._E[2])
 
 
+def convert_to_state_space(coefficient_matrices, input_matrix):
+    """
+    takes a list of matrices that form a system of odes of order n.
+      converts it into a ode system of order 1
+    :param coefficient_matrices: list of len n
+    :param input_matrix: numpy.ndarray
+    :return: tuple of (A, B)
+    """
+    n = len(coefficient_matrices)
+    en_mat = coefficient_matrices[-1]
+    rank_en_mat = np.linalg.matrix_rank(en_mat)
+    if rank_en_mat != max(en_mat.shape) or en_mat.shape[0] != en_mat.shape[1]:
+        raise ValueError("singular matrix provided")
+
+    dim_x = en_mat.shape[0]  # length of the weight vector
+    en_inv = np.linalg.inv(en_mat)
+
+    new_dim = (n-1)*dim_x  # dimension of the new system
+    a_mat = np.zeros((new_dim, new_dim))
+
+    # compose new system matrix
+    for idx, mat in enumerate(coefficient_matrices):
+        if idx < n-1:
+            if 0 < idx:
+                # add integrator chain
+                a_mat[(idx-1)*dim_x:idx*dim_x, idx*dim_x:(idx+1)*dim_x] = np.eye(dim_x)
+            # add last row
+            a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
+
+    b_vec = np.zeros((new_dim, ))
+    b_vec[-dim_x:] = np.dot(en_inv, -input_matrix)
+
+    return a_mat, b_vec
+
+def simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
+    """
+    wrapper to simulate a system given in state space form: q_dot = A*q + B*u
+    :param system_matrix: A
+    :param input_vector: B
+    :param input_handle: function handle to evaluate input
+    :param time_interval: tuple of t_start an t_end
+    :return:
+    """
+    q = []
+    t = []
+
+    def _rhs(t, q, a_mat, b_vec, u):
+        q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t))
+
+    r = ode(_rhs).set_integrator("vode", max_step=t_step)
+    r.set_f_params(system_matrix, input_vector, input_handle)
+    r.set_initial_value(initial_state, time_interval[0])
+
+    while r.successful() and r.t < time_interval[1]:
+        t.append(r.t)
+        q.append(r.integrate(r.t + t_step))
+
+    # create results
+    t = np.array(t)
+    q = np.array(q)
+
+    return t, q
+    q = q[:, :self._nodes.shape[0]]
