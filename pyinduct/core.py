@@ -19,7 +19,7 @@ def sanitize_input(input_object, allowed_type):
             if not isinstance(np.asscalar(obj), allowed_type):
                 raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
     else:
-        raise TypeError("input must be of type: numpy.ndarray")
+        raise TypeError("input must be (an numpy.ndarray of) {0}".format(allowed_type))
 
     return input_object
 

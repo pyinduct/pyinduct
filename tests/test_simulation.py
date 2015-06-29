@@ -11,16 +11,16 @@ __author__ = 'Stefan Ecklebe'
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
 
     def test_FieldVariable(self):
         # Factor (Base)
-        self.assertRaises(TypeError, sim.FieldVariable, [0, 0])  # list instead of tuple
-        self.assertRaises(ValueError, sim.FieldVariable, (3, 0))  # order too high
-        self.assertRaises(ValueError, sim.FieldVariable, (0, 3))  # order too high
-        self.assertRaises(ValueError, sim.FieldVariable, (2, 2))  # order too high
-        self.assertRaises(ValueError, sim.FieldVariable, (-1, 3))  # order negative
-        a = sim.FieldVariable((0, 0), 7)
+        self.assertRaises(TypeError, sim.FieldVariable, self.ini_funcs, [0, 0])  # list instead of tuple
+        self.assertRaises(ValueError, sim.FieldVariable, self.ini_funcs, (3, 0))  # order too high
+        self.assertRaises(ValueError, sim.FieldVariable, self.ini_funcs, (0, 3))  # order too high
+        self.assertRaises(ValueError, sim.FieldVariable, self.ini_funcs, (2, 2))  # order too high
+        self.assertRaises(ValueError, sim.FieldVariable, self.ini_funcs, (-1, 3))  # order negative
+        a = sim.FieldVariable(self.ini_funcs, (0, 0), 7)
         self.assertEqual((0, 0), a.order)
         self.assertEqual(7, a.location)
 
@@ -55,10 +55,11 @@ class FieldVariableTest(unittest.TestCase):
 
 class ProductTest(unittest.TestCase):
     def setUp(self):
-        u = cr.Function(np.sin)
-        self.input = sim.Input(u)
-        self.funcs = sim.TestFunctions(u)
-        self.field_var = sim.FieldVariable()
+        self.input = sim.Input(np.sin)
+        phi = cr.Function(np.sin)
+        self.funcs = sim.TestFunctions(phi)
+        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
+        self.field_var = sim.FieldVariable(self.ini_funcs)
 
     def test_product(self):
         self.assertRaises(TypeError, sim.Product, cr.Function, cr.Function)  # only Placeholders allowed
@@ -74,11 +75,12 @@ class ProductTest(unittest.TestCase):
 class WeakTermsTest(unittest.TestCase):
 
     def setUp(self):
-        u = cr.Function(np.sin)
-        self.input = sim.Input(u)
-        self.test_func = sim.TestFunctions(u)
-        self.xdt = sim.TemporalDerivedFieldVariable(1)
-        self.xdz_at1 = sim.SpatialDerivedFieldVariable(1, 1)
+        self.input = sim.Input(np.sin)
+        self.phi = cr.Function(lambda x: 2*x)
+        self.test_func = sim.TestFunctions(self.phi)
+        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
+        self.xdt = sim.TemporalDerivedFieldVariable(self.ini_funcs, 1)
+        self.xdz_at1 = sim.SpatialDerivedFieldVariable(self.ini_funcs, 1, 1)
         self.prod = sim.Product(self.input, self.xdt)
 
     def test_WeakEquationTerm(self):
@@ -117,38 +119,56 @@ class WeakTermsTest(unittest.TestCase):
 
 class WeakFormulationTest(unittest.TestCase):
 
-    def setUp(self):
-        # create all possible kinds of input variables
-        self.u = sim.Input()  # control input
-        self.phi = sim.TestFunctions()  # eigenfunction or something else
-        self.input_term = sim.ScalarTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), self.u))
-        self.func_term = sim.ScalarTerm(sim.TestFunctions())
-        self.field_term = sim.FieldVariable()
-        self.field_term_at1 = sim.FieldVariable(location=1)
-        self.int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), (0, 1))
-        self.int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), (0, 1))
-        self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
-
     def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
-        wf = sim.WeakFormulation(self.input_term)  # scalar case
+        sim.WeakFormulation(sim.ScalarTerm(sim.FieldVariable()))  # scalar case
+        sim.WeakFormulation([sim.ScalarTerm(sim.FieldVariable()),
+                             sim.IntegralTerm(sim.FieldVariable(), (0, 1))
+                             ])  # vector case
+
+class ParseTest(unittest.TestCase):
+
+    def setUp(self):
+        self.u = np.sin
+        self.input = sim.Input(self.u)  # control input
+        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
+        self.phi = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
+        self.dphi = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
+        self.field_var = sim.FieldVariable(self.ini_funcs)
+        self.field_var_dz = sim.SpatialDerivedFieldVariable(self.ini_funcs, 1, location=1)
+        self.field_var_ddt = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2)
+        self.field_var_ddt_at1 = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=1)
+
+        # create all possible kinds of input variables
+        self.input_term = sim.ScalarTerm(sim.Product(self.field_var_dz, self.input))
+        self.func_term = sim.ScalarTerm(self.phi)
+        self.field_term = sim.ScalarTerm(self.field_var)
+        self.field_term_dz = sim.ScalarTerm(self.field_var_dz)
+        self.field_term_ddt_at1 = sim.ScalarTerm(self.field_var_ddt_at1)
+        self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
+        self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
 
     def test_Input_term(self):
         wf = sim.WeakFormulation(self.input_term)
-        wf.parse_input(self.ini_funcs, self.ini_funcs)
+        sim.parse_weak_formulation(wf)
 
     def test_TestFunction_term(self):
         wf = sim.WeakFormulation(self.func_term)
-        wf.parse_input(self.ini_funcs, self.ini_funcs)
+        sim.parse_weak_formulation(wf)
 
     def test_FieldVariable_term(self):
         wf = sim.WeakFormulation(self.field_term)
-        wf.parse_input(self.ini_funcs, self.ini_funcs)
+        sim.parse_weak_formulation(wf)
 
-        wf = sim.WeakFormulation([self.input_term, self.phi, self.int1, self.int2])
-        func = cr.Function(np.sin, derivative_handles=[np.cos], domain=(0, 1))
-        wf.parse_input(func, func)
-        # TODO add real results
+        wf = sim.WeakFormulation(self.field_term_ddt_at1)
+        sim.parse_weak_formulation(wf)
+
+    def test_Product_term(self):
+        wf = sim.WeakFormulation(self.temp_int)
+        sim.parse_weak_formulation(wf)
+
+        wf = sim.WeakFormulation(self.spat_int)
+        sim.parse_weak_formulation(wf)
 
     def test_modal_from(self):
         pass
