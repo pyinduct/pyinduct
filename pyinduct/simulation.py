@@ -196,8 +196,8 @@ def parse_weak_formulation(weak_form):
         # if self.init_funcs.shape != self.test_funcs.shape:
         #     raise ValueError("dimensions of init- and test-functions do not match.")
 
+        u_vector = None
         f_vector = None
-        f_mat = None
         e_matrices = []
 
         # self._f = np.zeros((dim,))
@@ -211,11 +211,24 @@ def parse_weak_formulation(weak_form):
             field_variables = term.arg.get_arg_by_class(FieldVariable)
             inputs = term.arg.get_arg_by_class(Input)
 
+            locations = dict(scalars=[], functions=[], field_variables=[], inputs=[])
             if isinstance(term, ScalarTerm):
                 # can be handled same as integral term but locations have to be extracted first
+                for place_type in [scalars, functions, field_variables, inputs]:
+                    # did instances of this type occur in term
+                    if place_type:
+                        for elem in place_type:
+                            locations[place_type].append(elem.location)
+
             if isinstance(term, IntegralTerm):
                 locations = None
 
+            # handle most common terms
+            if scalars:
+                if not functions and not field_variables and not inputs:
+                    # only scalar terms
+                    result = np.prod(np.array([[val for val in scalar] for scalar in scalars]))*term.scale
+                    ss_mats.f_vector += result
 
             # TODO move cases from Product case into functions and add them below
             if isinstance(term.arg, Product):
@@ -251,26 +264,26 @@ def parse_weak_formulation(weak_form):
                 else:
                     raise NotImplementedError
 
-        elif isinstance(term, IntegralTerm):
-            # TODO move cases from Product case into functions and add them below
-            if isinstance(term.arg, Product):
-                funcs = term.arg.get_arg_by_class(TestFunctions)
-                ders = term.arg.get_arg_by_class(FieldVariable)
-                ins = term.arg.get_arg_by_class(Input)
+            elif isinstance(term, IntegralTerm):
+                # TODO move cases from Product case into functions and add them below
+                if isinstance(term.arg, Product):
+                    funcs = term.arg.get_arg_by_class(TestFunctions)
+                    ders = term.arg.get_arg_by_class(FieldVariable)
+                    ins = term.arg.get_arg_by_class(Input)
 
-                if len(ders) == 1:
-                    temp_order = ders[0].order[0]
-                    spat_order = ders[0].order[1]
-                    # TODO handle Input as well
-                    if len(funcs) == 1:
-                        test_der_order = funcs[0].order
-                        result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
-                                                                        spat_order, test_der_order)
+                    if len(ders) == 1:
+                        temp_order = ders[0].order[0]
+                        spat_order = ders[0].order[1]
+                        # TODO handle Input as well
+                        if len(funcs) == 1:
+                            test_der_order = funcs[0].order
+                            result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
+                                                                            spat_order, test_der_order)
+                        else:
+                            raise NotImplementedError
+                        self._E[temp_order] += result*term.scale
                     else:
                         raise NotImplementedError
-                    self._E[temp_order] += result*term.scale
-                else:
-                    raise NotImplementedError
 
             if False:
                 print("f:")
