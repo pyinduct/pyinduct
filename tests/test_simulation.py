@@ -169,10 +169,10 @@ class ParseTest(unittest.TestCase):
 
         self.prod_term_fs_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
         self.prod_int_fs = sim.IntegralTerm(sim.Product(self.field_var, self.scalars), (0, 1))
-        self.prod_int_f_f = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
-        self.prod_int_f_at1_f = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
-        self.prod_int_f_f_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
-        self.prod_term_f_at1_f_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
+        self.prod_int_f_f = sim.ScalarTerm(sim.Product(self.field_var, self.phi))
+        self.prod_int_f_at1_f = sim.ScalarTerm(sim.Product(self.field_var_at1, self.phi))
+        self.prod_int_f_f_at1 = sim.ScalarTerm(sim.Product(self.field_var, self.phi_at1))
+        self.prod_term_f_at1_f_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.phi_at1))
 
         self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
@@ -217,7 +217,18 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[1/24, -1/24, 0], [-1/24, 7/12, -1/24], [0, -1/24,
+                                                                                                       1/24]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_at1)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
+
     def test_modal_from(self):
         pass
 

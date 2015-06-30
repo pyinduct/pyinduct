@@ -310,8 +310,8 @@ def parse_weak_formulation(weak_form):
                 elif placeholders["functions"]:
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
-                    func = placeholders["function"][0]
-                    test_funcs = func.test_functions
+                    func = placeholders["functions"][0]
+                    test_funcs = func.functions
                     func_loc = func.location
                     func_order = func.order
                     if field_loc:
