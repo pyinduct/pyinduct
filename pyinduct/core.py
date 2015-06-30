@@ -326,17 +326,32 @@ def _dot_product_l2(first, second):
         if hasattr(first, "quad_int"):
             return first.quad_int()
 
-    # TODO let Function Class handle product
-    if type(first) is type(second):
-        pass
+    if 0:
+        # TODO let Function Class handle product
+        if type(first) is type(second):
+            pass
 
-    result = 0
-    for area in areas:
-        f = lambda z: first(z)*second(z)
-        res = integrate.quad(f, area[0], area[1])
-        result += res[0]
+    # standard case
+    func = lambda z: first(z)*second(z)
+    result, error = integrate_function(func, areas)
 
     return result
+
+def integrate_function(function, interval):
+    """
+    integrates the given function over given interval
+    :param function:
+    :param interval:
+    :return:
+    """
+    result = 0
+    err = 0
+    for area in interval:
+        res = integrate.quad(function, area[0], area[1])
+        result += res[0]
+        err += res[1]
+
+    return result, err
 
 def dot_product(first, second):
     """
@@ -362,7 +377,7 @@ def calculate_function_matrix_differential(functions_a, functions_b,
                                            derivative_order_a, derivative_order_b, locations=None):
     """
     see calculate function matrix, except for the circumstance that derivatives of given order will be used and the
-    derivatives can be evaluated at location before calculation. (save integral computation)
+    derivatives can be evaluated at location before calculation. (saves integral computation)
     :param functions_a:
     :param functions_b:
     :param derivative_order_a:
