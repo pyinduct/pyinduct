@@ -234,3 +234,39 @@ class StringMassTest(unittest.TestCase):
         q0 = np.zeros(2*len(initial_weights))
         q0[0:len(initial_weights)] = initial_weights
         sim.simulate_system(A, B, input_handle, q0, (0, 10))
+
+class CanonicalFormTest(unittest.TestCase):
+
+    def setUp(self):
+        self.cf = sim.CanonicalForm()
+
+    def test_add_to(self):
+        a = np.eye(5)
+        self.cf.add_to(("E", 0), a)
+        self.assertTrue(np.array_equal(self.cf._E0, a))
+        self.cf.add_to(("E", 0), 5*a)
+        self.assertTrue(np.array_equal(self.cf._E0, 6*a))
+
+        b = np.eye(10)
+        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), b)
+        self.cf.add_to(("E", 2), b)
+        self.assertTrue(np.array_equal(self.cf._E2, b))
+        self.cf.add_to(("E", 2), 2*b)
+        self.assertTrue(np.array_equal(self.cf._E2, 3*b))
+
+        f = np.array(range(5))
+        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), f)
+        self.cf.add_to(("f", 0), f)
+        self.assertTrue(np.array_equal(self.cf._f0, f))
+        self.cf.add_to(("f", 0), 2*f)
+        self.assertTrue(np.array_equal(self.cf._f0, 3*f))
+
+    def test_get_terms(self):
+        self.cf.add_to(("E", 0), np.eye(5))
+        self.cf.add_to(("E", 2), 5*np.eye(5))
+        terms = self.cf.get_terms()
+        self.assertTrue(np.array_equal(terms[0][0], np.eye(5)))
+        self.assertTrue(np.array_equal(terms[0][1], np.zeros((5, 5))))
+        self.assertTrue(np.array_equal(terms[0][2], 5*np.eye(5)))
+        self.assertEqual(terms[1], None)
+        self.assertEqual(terms[2], None)

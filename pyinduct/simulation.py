@@ -185,6 +185,87 @@ def simulate_system(weak_form, initial_state, time_interval):
     :return:
     """
 
+class CanonicalForm(object):
+    """
+    represents the canonical form of n ordinary differential equation system of order n
+    """
+    def __init__(self):
+        self._max_idx = 0
+
+    def _build_name(self, term):
+        return "_"+term[0]+str(term[1])
+
+    def add_to(self, term, val):
+        """
+        adds the value val to term term
+        :param term: tuple of name and index matrix(or vector) to add onto
+        :param val: value to add
+        :return:
+        """
+        if not isinstance(term, tuple):
+            raise TypeError("term must be tuple.")
+        if not isinstance(term[0], str) or term[0] not in "Efg":
+            raise TypeError("term[0] must be string")
+        if isinstance(term[1], int):
+            name = self._build_name(term)
+        else:
+            raise TypeError("term index must be int")
+
+        if not isinstance(val, np.ndarray):
+            raise TypeError("val must b numpy.ndarray")
+
+        # try to increment term
+        try:
+            entity = getattr(self, name)
+            if entity.shape != val.shape:
+                raise ValueError("{0} was already initialized with dimensions {1} but value to add has dimension {"
+                                 "2}".format(name, entity.shape, val.shape))
+            # add
+            entity += val
+
+        except AttributeError as e:
+            # create entry
+            setattr(self, name, np.copy(val))
+        finally:
+            self._max_idx = max(self._max_idx, term[1])
+
+    def get_terms(self):
+        """
+        construct a list of all terms that have indices and return tuple of lists
+        :return: tuple of lists
+        """
+        terms = {}
+        for entry in "Efg":
+            term = []
+            i = 0
+            shape = None
+            while i <= self._max_idx:
+                name = self._build_name((entry, i))
+                if name in self.__dict__.keys():
+                    val = self.__dict__[name]
+                    if shape is None:
+                        shape = val.shape
+                    elif shape != val.shape:
+                        raise ValueError("dimension mismatch between coefficient matrices")
+                    term.append(val)
+                else:
+                    term.append(None)
+                i += 1
+
+            if not all(x is None for x in term):
+                # fill empty places with good dimensions and construct output array
+                result_term = np.zeros((len(term), shape[0], shape[1]))
+                for idx, mat in enumerate(term):
+                    if mat is None:
+                        mat = np.zeros(shape)
+                    result_term[idx, ...] = mat
+            else:
+                result_term = None
+
+            terms.update({entry: result_term})
+
+        return terms["E"], terms["f"], terms["g"]
+
 def parse_weak_formulation(weak_form):
         """
         creates an ode system for the weights x_i based on the weak formulation.
@@ -223,7 +304,20 @@ def parse_weak_formulation(weak_form):
             if isinstance(term, IntegralTerm):
                 locations = None
 
-            # handle most common terms
+            # field variable terms, sort into E_n, E_n-1, ..., E_0
+            if field_variables:
+                if len(field_variables) != 1:
+                    raise NotImplementedError
+                field_var = field_variables[0]
+                temp_order = field_var.order[0]
+                spat_order = field_var.order[1]
+
+                if scalars:
+                    result = _compute_product_of_scalars(scalars)
+
+                self._E[temp_order] += result*term.scale
+
+            # no field variable, everything will end up in f
             if scalars:
                 if not functions and not field_variables and not inputs:
                     # only scalar terms
@@ -295,6 +389,9 @@ def parse_weak_formulation(weak_form):
                 print("E2:")
                 print(self._E[2])
 
+def _compute_product_of_scalars(scalars):
+    result = np.prod(np.array([[val for val in scalar] for scalar in scalars]))
+    return result
 
 def convert_to_state_space(coefficient_matrices, input_matrix):
     """
