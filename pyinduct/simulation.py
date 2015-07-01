@@ -210,7 +210,7 @@ class CanonicalForm(object):
     represents the canonical form of n ordinary differential equation system of order n
     """
     def __init__(self):
-        self._max_idx = 0
+        self._max_idx = dict(E=0, f=0, g=0)
 
     def _build_name(self, term):
         return "_"+term[0]+str(term[1])
@@ -247,7 +247,7 @@ class CanonicalForm(object):
             # create entry
             setattr(self, name, np.copy(val))
         finally:
-            self._max_idx = max(self._max_idx, term[1])
+            self._max_idx[term[0]] = max(self._max_idx[term[0]], term[1])
 
     def get_terms(self):
         """
@@ -259,7 +259,7 @@ class CanonicalForm(object):
             term = []
             i = 0
             shape = None
-            while i <= self._max_idx:
+            while i <= self._max_idx[entry]:
                 name = self._build_name((entry, i))
                 if name in self.__dict__.keys():
                     val = self.__dict__[name]
@@ -286,6 +286,46 @@ class CanonicalForm(object):
             terms.update({entry: result_term})
 
         return terms["E"], terms["f"], terms["g"]
+
+    def convert_to_state_space(self):
+        """
+        takes a list of matrices that form a system of odes of order n.
+          converts it into a ode system of order 1
+        :return: tuple of (A, B)
+        """
+        e_mats, f, g = self.get_terms()
+        if f is not None:
+            raise NotImplementedError
+        if g.shape[0] > 1:
+            # this would be temporal derivatives of the input
+            raise NotImplementedError
+
+        n = e_mats.shape[0]
+        en_mat = e_mats[-1]
+        rank_en_mat = np.linalg.matrix_rank(en_mat)
+        if rank_en_mat != max(en_mat.shape) or en_mat.shape[0] != en_mat.shape[1]:
+            raise ValueError("singular matrix provided")
+
+        dim_x = en_mat.shape[0]  # length of the weight vector
+        en_inv = np.linalg.inv(en_mat)
+
+        new_dim = (n-1)*dim_x  # dimension of the new system
+        a_mat = np.zeros((new_dim, new_dim))
+
+        # compose new system matrix
+        for idx, mat in enumerate(e_mats):
+            if idx < n-1:
+                if 0 < idx:
+                    # add integrator chain
+                    a_mat[(idx-1)*dim_x:idx*dim_x, idx*dim_x:(idx+1)*dim_x] = np.eye(dim_x)
+                # add last row
+                a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
+
+        b_vec = np.zeros((new_dim, ))
+        b_vec[-dim_x:] = np.dot(en_inv, -g[0])
+
+        return a_mat, b_vec
+
 
 def parse_weak_formulation(weak_form):
         """
@@ -459,39 +499,7 @@ def _compute_product_of_scalars(scalars):
     values = [[val for val in scalar.data] for scalar in scalars]
     return np.prod(np.array(values), axis=0)
 
-def convert_to_state_space(coefficient_matrices, input_matrix):
-    """
-    takes a list of matrices that form a system of odes of order n.
-      converts it into a ode system of order 1
-    :param coefficient_matrices: list of len n
-    :param input_matrix: numpy.ndarray
-    :return: tuple of (A, B)
-    """
-    n = len(coefficient_matrices)
-    en_mat = coefficient_matrices[-1]
-    rank_en_mat = np.linalg.matrix_rank(en_mat)
-    if rank_en_mat != max(en_mat.shape) or en_mat.shape[0] != en_mat.shape[1]:
-        raise ValueError("singular matrix provided")
 
-    dim_x = en_mat.shape[0]  # length of the weight vector
-    en_inv = np.linalg.inv(en_mat)
-
-    new_dim = (n-1)*dim_x  # dimension of the new system
-    a_mat = np.zeros((new_dim, new_dim))
-
-    # compose new system matrix
-    for idx, mat in enumerate(coefficient_matrices):
-        if idx < n-1:
-            if 0 < idx:
-                # add integrator chain
-                a_mat[(idx-1)*dim_x:idx*dim_x, idx*dim_x:(idx+1)*dim_x] = np.eye(dim_x)
-            # add last row
-            a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
-
-    b_vec = np.zeros((new_dim, ))
-    b_vec[-dim_x:] = np.dot(en_inv, -input_matrix)
-
-    return a_mat, b_vec
 
 def simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
     """

@@ -137,6 +137,43 @@ class WeakFormulationTest(unittest.TestCase):
                              sim.IntegralTerm(self.field_var, (0, 1))
                              ])  # vector case
 
+class CanonicalFormTest(unittest.TestCase):
+
+    def setUp(self):
+        self.cf = sim.CanonicalForm()
+
+    def test_add_to(self):
+        a = np.eye(5)
+        self.cf.add_to(("E", 0), a)
+        self.assertTrue(np.array_equal(self.cf._E0, a))
+        self.cf.add_to(("E", 0), 5*a)
+        self.assertTrue(np.array_equal(self.cf._E0, 6*a))
+
+        b = np.eye(10)
+        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), b)
+        self.cf.add_to(("E", 2), b)
+        self.assertTrue(np.array_equal(self.cf._E2, b))
+        self.cf.add_to(("E", 2), 2*b)
+        self.assertTrue(np.array_equal(self.cf._E2, 3*b))
+
+        f = np.array(range(5))
+        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), f)
+        self.cf.add_to(("f", 0), f)
+        self.assertTrue(np.array_equal(self.cf._f0, f))
+        self.cf.add_to(("f", 0), 2*f)
+        self.assertTrue(np.array_equal(self.cf._f0, 3*f))
+
+    def test_get_terms(self):
+        self.cf.add_to(("E", 0), np.eye(5))
+        self.cf.add_to(("E", 2), 5*np.eye(5))
+        terms = self.cf.get_terms()
+        self.assertTrue(np.array_equal(terms[0][0], np.eye(5)))
+        self.assertTrue(np.array_equal(terms[0][1], np.zeros((5, 5))))
+        self.assertTrue(np.array_equal(terms[0][2], 5*np.eye(5)))
+        self.assertEqual(terms[1], None)
+        self.assertEqual(terms[2], None)
+
+
 class ParseTest(unittest.TestCase):
 
     def setUp(self):
@@ -187,7 +224,7 @@ class ParseTest(unittest.TestCase):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term)).get_terms()
         self.assertEqual(terms[0], None)  # E0
         self.assertEqual(terms[1], None)  # f
-        self.assertTrue(np.allclose(terms[2][0], np.array([0, -2, 2]).transpose()))  # g
+        self.assertTrue(np.allclose(terms[2][0], np.array([0, -2, 2])))  # g
 
     def test_TestFunction_term(self):
         wf = sim.WeakFormulation(self.func_term)
@@ -238,22 +275,26 @@ class ParseTest(unittest.TestCase):
     def test_modal_from(self):
         pass
 
-@unittest.skip
 class StateSpaceTests(unittest.TestCase):
 
     def setUp(self):
         # enter string with mass equations
+        u = lambda x: 0
         interval = (0, 1)
-        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), interval)
-        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(2, location=0), sim.TestFunctions(location=0)))
-        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), interval)
-        s2 = sim.ScalarTerm(sim.Product(sim.Input(), sim.TestFunctions(location=1)), -1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
+                                            sim.TestFunctions(ini_funcs)), interval)
+        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
+                                        sim.TestFunctions(ini_funcs, location=0)))
+        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
+                                            sim.TestFunctions(ini_funcs, order=1)), interval)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
+
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
-        self.e_mats, self.f_vec = string_pde.parse_input(ini_funcs, ini_funcs)
+        self.cf = sim.parse_weak_formulation(string_pde)
 
     def test_convert_to_state_space(self):
-        A, B = sim.convert_to_state_space(self.e_mats, self.f_vec)
+        A, B = self.cf.convert_to_state_space()
         self.assertTrue(np.allclose(A, np.array([[0, 0, 0, 1, 0, 0],
                                                 [0, 0, 0, 0, 1, 0],
                                                 [0, 0, 0, 0, 0, 1],
@@ -301,38 +342,3 @@ class StringMassTest(unittest.TestCase):
         q0[0:len(initial_weights)] = initial_weights
         sim.simulate_system(A, B, input_handle, q0, (0, 10))
 
-class CanonicalFormTest(unittest.TestCase):
-
-    def setUp(self):
-        self.cf = sim.CanonicalForm()
-
-    def test_add_to(self):
-        a = np.eye(5)
-        self.cf.add_to(("E", 0), a)
-        self.assertTrue(np.array_equal(self.cf._E0, a))
-        self.cf.add_to(("E", 0), 5*a)
-        self.assertTrue(np.array_equal(self.cf._E0, 6*a))
-
-        b = np.eye(10)
-        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), b)
-        self.cf.add_to(("E", 2), b)
-        self.assertTrue(np.array_equal(self.cf._E2, b))
-        self.cf.add_to(("E", 2), 2*b)
-        self.assertTrue(np.array_equal(self.cf._E2, 3*b))
-
-        f = np.array(range(5))
-        self.assertRaises(ValueError, self.cf.add_to, ("E", 0), f)
-        self.cf.add_to(("f", 0), f)
-        self.assertTrue(np.array_equal(self.cf._f0, f))
-        self.cf.add_to(("f", 0), 2*f)
-        self.assertTrue(np.array_equal(self.cf._f0, 3*f))
-
-    def test_get_terms(self):
-        self.cf.add_to(("E", 0), np.eye(5))
-        self.cf.add_to(("E", 2), 5*np.eye(5))
-        terms = self.cf.get_terms()
-        self.assertTrue(np.array_equal(terms[0][0], np.eye(5)))
-        self.assertTrue(np.array_equal(terms[0][1], np.zeros((5, 5))))
-        self.assertTrue(np.array_equal(terms[0][2], 5*np.eye(5)))
-        self.assertEqual(terms[1], None)
-        self.assertEqual(terms[2], None)
