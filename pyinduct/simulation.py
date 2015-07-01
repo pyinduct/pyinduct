@@ -1,3 +1,4 @@
+# coding=utf-8
 from __future__ import division
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -10,13 +11,13 @@ class Placeholder(object):
     """
     class that works as an placeholder for terms that are later substituted
     """
-    def __init__(self, data, order=0, location=None):
+    def __init__(self, data, order=(0, 0), location=None):
         """
-        :param order how many derivations are to be applied before evaluation
+        :param order how many derivations are to be applied before evaluation (t, z)
         :param location to evaluate at before further computation
         """
         self.data = data
-        if not isinstance(order, int) or order < 0:
+        if not isinstance(order, tuple) or any([not isinstance(o, int) or o < 0 for o in order]):
             raise ValueError("invalid derivative order.")
         self.order = order
 
@@ -30,8 +31,9 @@ class Scalars(Placeholder):
     """
     placeholder for scalars that will be replaced later
     """
-    def __init__(self, values):
+    def __init__(self, values, target_term=None):
         Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
+        self.target_term = target_term
 
 
 class TestFunctions(Placeholder):
@@ -39,7 +41,7 @@ class TestFunctions(Placeholder):
     class that works as a placeholder for test-functions in an equation
     """
     def __init__(self, functions, order=0, location=None):
-        Placeholder.__init__(self, sanitize_input(functions, Function), order, location)
+        Placeholder.__init__(self, sanitize_input(functions, Function), (0, order), location)
 
 
 class Input(Placeholder):
@@ -49,7 +51,7 @@ class Input(Placeholder):
     def __init__(self, function_handle, order=0):
         if not callable(function_handle):
             raise TypeError("callable object has to be provided.")
-        Placeholder.__init__(self, function_handle)
+        Placeholder.__init__(self, function_handle, order=(order, 0))
 
 
 class FieldVariable(Placeholder):
@@ -73,7 +75,7 @@ class FieldVariable(Placeholder):
             if location and not isinstance(location, (int, long, float)):
                 raise TypeError("location must be a number")
 
-        Placeholder.__init__(self, sanitize_input(initial_functions, Function), order, location)
+        Placeholder.__init__(self, sanitize_input(initial_functions, Function), order=order, location=location)
 
 
 class TemporalDerivedFieldVariable(FieldVariable):
@@ -98,7 +100,10 @@ class Product(object):
         if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
             raise TypeError("argument not allowed in product")
         if b is None:  # multiply by one as Default
-            b = Scalars(np.ones(a.data.shape))
+            if isinstance(a, Input):
+                b = Scalars(np.ones(1))
+            else:
+                b = Scalars(np.ones(a.data.shape))
 
         self.args = [a, b]
 
@@ -132,12 +137,12 @@ class WeakEquationTerm(object):
         for idx, arg in enumerate(arg.args):
             if getattr(arg, "location", None) is not None:
                 # evaluate term and add scalar
-                print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
+                # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
                 new_args.append(_evaluate_placeholder(arg))
             else:
                 new_args.append(arg)
 
-        self.arg = Product(**new_args)
+        self.arg = Product(*new_args)
 
 class ScalarTerm(WeakEquationTerm):
     """
@@ -157,7 +162,7 @@ class IntegralTerm(WeakEquationTerm):
     def __init__(self, integrand, limits, scale=1.0):
         WeakEquationTerm.__init__(self, scale, integrand)
 
-        if not any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunctions))]):
+        if not any([isinstance(arg, (FieldVariable, TestFunctions)) for arg in self.arg.args]):
             raise ValueError("nothing to integrate")
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
@@ -227,7 +232,7 @@ class CanonicalForm(object):
             raise TypeError("term index must be int")
 
         if not isinstance(val, np.ndarray):
-            raise TypeError("val must b numpy.ndarray")
+            raise TypeError("val must be numpy.ndarray")
 
         # try to increment term
         try:
@@ -269,7 +274,8 @@ class CanonicalForm(object):
 
             if not all(x is None for x in term):
                 # fill empty places with good dimensions and construct output array
-                result_term = np.zeros((len(term), shape[0], shape[1]))
+                # F**K this shit. No better way for that?
+                result_term = np.zeros(tuple([len(term)] + [dim for dim in shape]))
                 for idx, mat in enumerate(term):
                     if mat is None:
                         mat = np.zeros(shape)
@@ -304,7 +310,6 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["field_variables"]) != 1:
                     raise NotImplementedError
                 field_var = placeholders["field_variables"][0]
-                field_loc = field_var.location
                 temp_order = field_var.order[0]
                 spat_order = field_var.order[1]
                 init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
@@ -312,137 +317,119 @@ def parse_weak_formulation(weak_form):
 
                 if placeholders["scalars"]:
                     factors = _compute_product_of_scalars(placeholders["scalars"])
-                    if field_loc:
-                        column = np.multiply(np.array([func(field_loc) for func in init_funcs]),
-                                             factors)
-                    else:
-                        column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in
-                                                       init_funcs]),
-                                             factors)
-                    # cvt to matrix
+                    column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs]),
+                                         factors)
                     result = np.array([column, ]*init_funcs.shape[0]).transpose()
 
                 elif placeholders["functions"]:
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
                     func = placeholders["functions"][0]
-                    test_funcs = func.functions
-                    func_loc = func.location
-                    func_order = func.order
-                    if field_loc:
-                        if func_loc:
-                            factors = np.array([func(func_loc) for func in test_funcs])
-                            column = np.multiply(np.array([func(field_loc) for func in init_funcs]), factors)
-                            result1 = np.array([column, ]*test_funcs.shape[0]).transpose()
-                            result2 = calculate_function_matrix_differential(init_funcs, test_funcs,
-                                                                             0, func_order,
-                                                                             locations=(field_loc, func_loc))
-                            # lets see
-                            assert np.allclose(resul1, result2)
-                            result = result2
-                    else:
-                        if func_loc:
-                            factors = np.array([func(func_loc) for func in test_funcs])
-                            column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in
-                                                           init_funcs]),
-                                                 factors)
-                            result = np.array([column, ]*test_funcs.shape[0]).transpose()
-                        else:
-                            result = calculate_function_matrix_differential(init_funcs, test_funcs,
-                                                                            0, func_order)
+                    test_funcs = func.data
+                    func_order = func.order[0]
+                    result = calculate_function_matrix_differential(init_funcs, test_funcs, 0, func_order)
+
                 elif placeholders["inputs"]:
                     raise NotImplementedError
 
                     # TODO think about this
-                    if len(placeholders["inputs"]) != 1:
-                        raise NotImplementedError
-                    input_var = placeholders["inputs"][0]
-                    input_func = input_var.handle
-                    input_order = input_var.order
-                    if field_loc:
-                        result = np.array([func(field_loc) for func in init_funcs])
-                    else:
-                        result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
+                    # if len(placeholders["inputs"]) != 1:
+                    #     raise NotImplementedError
+                    # input_var = placeholders["inputs"][0]
+                    # input_func = input_var.handle
+                    # input_order = input_var.order
+                    # if field_loc:
+                    #     result = np.array([func(field_loc) for func in init_funcs])
+                    # else:
+                    #     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                 else:
-                    if field_loc:
-                        column = np.array([func(field_loc) for func in init_funcs])
-                    else:
-                        column = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
-
-                    # result = np.zeros((init_funcs.shape[0], init_funcs.shape[0])) + column
+                    raise NotImplementedError
+                    column = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                     result = np.array([column, ]*init_funcs.shape[0]).transpose()
 
                 cf.add_to(("E", temp_order), result*term.scale)
+                continue
 
             # TODO non-field variable terms
-            continue
+            if placeholders["functions"]:
+                if not 1 <= len(placeholders["functions"]) <= 2:
+                    raise NotImplementedError
+                func = placeholders["functions"][0]
+                func_order = func.order[0]
+                test_funcs = np.asarray([func.derivative(func_order) for func in func.data])
+
+                if len(placeholders["functions"]) == 2:
+                    func2 = placeholders["functions"][1]
+                    test_funcs2 = func.data
+                    func_order2 = func.order[1]
+                    result = calculate_function_matrix_differential(test_funcs, test_funcs2,
+                                                                    0, func_order2)
+                    cf.add_to(("f", 0), result*term.scale)
+                    continue
+
+                if placeholders["scalars"]:
+                    factors = _compute_product_of_scalars(placeholders["scalars"])
+                    column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in test_funcs]),
+                                         factors)
+                    result = np.array([column, ]*test_funcs.shape[0]).transpose()
+                    cf.add_to(_get_scalar_target(placeholders["scalars"]), result*term.scale)
+                    continue
+
+                if placeholders["inputs"]:
+                    if len(placeholders["inputs"]) != 1:
+                        raise NotImplementedError
+                    input_var = placeholders["inputs"][0]
+                    # TODO think were to put input handle
+                    input_func = input_var.handle
+                    input_order = input_var.order
+
+                    result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
+                    cf.add_to(("g", 0), result*term.scale)
+                    continue
+
+            # pure scalar terms, sort into f
+            if placeholders["scalars"]:
+                factors = _compute_product_of_scalars(placeholders["scalars"])
+                target = _get_scalar_target(placeholders["scalars"])
+
+                result = None
+                if target[0] == "E":
+                    # clone to matrix dimension
+                    result = np.array([factors, ]*factors.shape[0]).transpose()
+                else:
+                    result = factors
+                    # result = np.array([factors]).transpose()
+
+                if placeholders["inputs"]:
+                    if target[0] == "E":
+                        # this would mean that the input term should appear in a matrix
+                        raise NotImplementedError
+                    cf.add_to(("g", 0), result*term.scale)
+                    continue
+
+                cf.add_to(target, result*term.scale)
+                continue
 
         return cf
 
-            # # TODO move cases from Product case into functions and add them below
-            # if isinstance(term.arg, Product):
-            #     funcs = term.arg.get_arg_by_class(TestFunctions)
-            #     ders = term.arg.get_arg_by_class(FieldVariable)
-            #     ins = term.arg.get_arg_by_class(Input)
-            #
-            #     if len(ders) == 1:
-            #         temp_order = ders[0].order[0]
-            #         spat_order = ders[0].order[1]
-            #         der_loc = ders[0].location
-            #         # TODO handle Input as well
-            #         if len(funcs) == 1:
-            #             func_loc = funcs[0].location
-            #             if der_loc is None or func_loc is None:
-            #                 raise ValueError("scalar term mus be evaluated, should be an integral otherwise.")
-            #             test_der_order = funcs[0].order
-            #             result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
-            #                                                             spat_order, test_der_order,
-            #                                                             locations=(der_loc, func_loc))
-            #         else:
-            #             raise NotImplementedError
-            #         self._E[temp_order] += result*term.scale
-            #     elif len(ins) == 1:
-            #         # since product contains two elements and a FieldDerivative was not in, other one is TestFunc
-            #         assert len(funcs) == 1
-            #         func_loc = funcs[0].location
-            #         if func_loc is None:
-            #             raise ValueError("scalar term mus be evaluated, should be an integral otherwise.")
-            #         test_der_order = funcs[0].order
-            #         result = np.asarray([func.derivative(test_der_order)(func_loc) for func in self.test_funcs])
-            #         self._f += result*term.scale
-            #     else:
-            #         raise NotImplementedError
-            #
-            # elif isinstance(term, IntegralTerm):
-            #     # TODO move cases from Product case into functions and add them below
-            #     if isinstance(term.arg, Product):
-            #         funcs = term.arg.get_arg_by_class(TestFunctions)
-            #         ders = term.arg.get_arg_by_class(FieldVariable)
-            #         ins = term.arg.get_arg_by_class(Input)
-            #
-            #         if len(ders) == 1:
-            #             temp_order = ders[0].order[0]
-            #             spat_order = ders[0].order[1]
-            #             # TODO handle Input as well
-            #             if len(funcs) == 1:
-            #                 test_der_order = funcs[0].order
-            #                 result = calculate_function_matrix_differential(self.init_funcs, self.test_funcs,
-            #                                                                 spat_order, test_der_order)
-            #             else:
-            #                 raise NotImplementedError
-            #             self._E[temp_order] += result*term.scale
-            #         else:
-            #             raise NotImplementedError
-            #
-            # if False:
-            #     print("f:")
-            #     print(self._f)
-            #     print("EO:")
-            #     print(self._E[0])
-            #     print("E1:")
-            #     print(self._E[1])
-            #     print("E2:")
-            #     print(self._E[2])
+def _get_scalar_target(scalars):
+    """
+    extract target fro list of scalars.
+    makes sure that targets are equivalent.
+    :param scalars:
+    :return:
+    """
+    targets = [elem for elem in [getattr(ph, "target_term", None) for ph in scalars] if elem]
+    if targets:
+        if targets[1:] != targets[:-1]:
+            # since scalars are evaluated separately prefer E for f
+            residual = filter(lambda x: x[0] != "f", targets)
+            if len(residual) > 1:
+                # different temporal derivatives of state -> nt supported
+                raise ValueError("target_term of scalars in product must be identical")
+        return targets[0]
+
+    return None
 
 def _evaluate_placeholder(placeholder):
     """
@@ -455,16 +442,22 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = placeholder.data
+    functions = np.asarray([func.derivative(placeholder.order[1]) for func in placeholder.data])
     location = placeholder.location
     values = np.array([func(location) for func in functions])
-    return Scalars(values)
+
+    if isinstance(placeholder, FieldVariable):
+        return Scalars(values, target_term=("E", placeholder.order[0]))
+    elif isinstance(placeholder, TestFunctions):
+        return Scalars(values, target_term=("f", 0))
+    else:
+        raise NotImplementedError
 
 def _compute_product_of_scalars(scalars):
     if len(scalars) == 1:
-        return scalars[0].values
-    values = [[val for val in scalar.values] for scalar in scalars]
-    return np.prod(np.array(values))
+        return scalars[0].data
+    values = [[val for val in scalar.data] for scalar in scalars]
+    return np.prod(np.array(values), axis=0)
 
 def convert_to_state_space(coefficient_matrices, input_matrix):
     """

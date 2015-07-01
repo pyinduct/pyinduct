@@ -96,19 +96,20 @@ class WeakTermsTest(unittest.TestCase):
         self.assertRaises(TypeError, sim.ScalarTerm, 7)  # factor is number
         self.assertRaises(TypeError, sim.ScalarTerm, cr.Function(np.sin))  # factor is Function
         sim.ScalarTerm(self.input)
-        sim.ScalarTerm(self.test_func)
-        t1 = sim.ScalarTerm(self.xdt)
+        self.assertRaises(ValueError, sim.ScalarTerm, self.test_func)  # integration has to be done
+        t1 = sim.ScalarTerm(self.xdz_at1)
         self.assertEqual(t1.scale, 1.0)  # default scale
-        self.assertEqual(t1.arg.args[0], self.xdt)  # automated product creation
+        # check if automated evaluation works
+        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([0,  1])))  # automated product creation
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, sim.IntegralTerm, 7, (0, 1))  # integrand is number
         self.assertRaises(TypeError, sim.IntegralTerm, cr.Function(np.sin), (0, 1))  # integrand is Function
-        self.assertRaises(ValueError, sim.IntegralTerm, self.xdz_at1, (0, 1))  # integrand is to be evaluated
+        self.assertRaises(ValueError, sim.IntegralTerm, self.xdz_at1, (0, 1))  # nothing left after evaluation
         self.assertRaises(TypeError, sim.IntegralTerm, self.xdt, [0, 1])  # limits is list
 
         sim.IntegralTerm(self.test_func, (0, 1))  # integrand is Placeholder
-        sim.IntegralTerm(self.input, (0, 1))  # integrand is Placeholder
+        self.assertRaises(ValueError, sim.IntegralTerm, self.input, (0, 1))  # nothing to do
         sim.IntegralTerm(self.xdt, (0, 1))  # integrand is Placeholder
         sim.IntegralTerm(self.prod, (0, 1))  # integrand is Product
 
@@ -125,12 +126,14 @@ class WeakFormulationTest(unittest.TestCase):
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
         self.phi = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
         self.dphi = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
+        self.dphi_at1 = sim.TestFunctions(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
         self.field_var = sim.FieldVariable(self.ini_funcs)
+        self.field_var_at1 = sim.FieldVariable(self.ini_funcs, location=1)
 
     def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
-        sim.WeakFormulation(sim.ScalarTerm(self.field_var))  # scalar case
-        sim.WeakFormulation([sim.ScalarTerm(self.field_var),
+        sim.WeakFormulation(sim.ScalarTerm(self.field_var_at1))  # scalar case
+        sim.WeakFormulation([sim.ScalarTerm(self.field_var_at1),
                              sim.IntegralTerm(self.field_var, (0, 1))
                              ])  # vector case
 
@@ -139,16 +142,19 @@ class ParseTest(unittest.TestCase):
     def setUp(self):
         # scalars
         self.scalars = sim.Scalars(np.array(range(3)))
+
         # inputs
         self.u = np.sin
         self.input = sim.Input(self.u)  # control input
-        # testfunctions
+
+        # TestFunctions
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
         self.phi = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
         self.phi_at1 = sim.TestFunctions(self.ini_funcs, location=1)  # eigenfunction or something else
         self.dphi = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
         self.dphi_at1 = sim.TestFunctions(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
-        # fieldvars
+
+        # FieldVars
         self.field_var = sim.FieldVariable(self.ini_funcs)
         self.field_var_at1 = sim.FieldVariable(self.ini_funcs, location=1)
         self.field_var_dz = sim.SpatialDerivedFieldVariable(self.ini_funcs, 1)
@@ -178,9 +184,10 @@ class ParseTest(unittest.TestCase):
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
 
     def test_Input_term(self):
-        return
-        wf = sim.WeakFormulation(self.input_term)
-        sim.parse_weak_formulation(wf)
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term)).get_terms()
+        self.assertEqual(terms[0], None)  # E0
+        self.assertEqual(terms[1], None)  # f
+        self.assertTrue(np.allclose(terms[2][0], np.array([0, -2, 2]).transpose()))  # g
 
     def test_TestFunction_term(self):
         wf = sim.WeakFormulation(self.func_term)
@@ -220,10 +227,10 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][0], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [.25, .25, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_at1)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [.25, .25, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
