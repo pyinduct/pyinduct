@@ -10,11 +10,12 @@ class Placeholder(object):
     """
     class that works as an placeholder for terms that are later substituted
     """
-    def __init__(self, order=0, location=None):
+    def __init__(self, data, order=0, location=None):
         """
         :param order how many derivations are to be applied before evaluation
         :param location to evaluate at before further computation
         """
+        self.data = data
         if not isinstance(order, int) or order < 0:
             raise ValueError("invalid derivative order.")
         self.order = order
@@ -30,8 +31,7 @@ class Scalars(Placeholder):
     placeholder for scalars that will be replaced later
     """
     def __init__(self, values):
-        Placeholder.__init__(self)
-        self.values = sanitize_input(values, (int, long, float))
+        Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
 
 
 class TestFunctions(Placeholder):
@@ -39,8 +39,7 @@ class TestFunctions(Placeholder):
     class that works as a placeholder for test-functions in an equation
     """
     def __init__(self, functions, order=0, location=None):
-        Placeholder.__init__(self, order, location)
-        self.functions = sanitize_input(functions, Function)
+        Placeholder.__init__(self, sanitize_input(functions, Function), order, location)
 
 
 class Input(Placeholder):
@@ -48,10 +47,9 @@ class Input(Placeholder):
     class that works as a placeholder for the input of a system
     """
     def __init__(self, function_handle, order=0):
-        Placeholder.__init__(self)
         if not callable(function_handle):
             raise TypeError("callable object has to be provided.")
-        self.handle = function_handle
+        Placeholder.__init__(self, function_handle)
 
 
 class FieldVariable(Placeholder):
@@ -65,8 +63,6 @@ class FieldVariable(Placeholder):
         :param : factor
         :param : location
         """
-        self.initial_functions = sanitize_input(initial_functions, Function)
-
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
         if any([True for n in order if n < 0]):
@@ -77,13 +73,12 @@ class FieldVariable(Placeholder):
             if location and not isinstance(location, (int, long, float)):
                 raise TypeError("location must be a number")
 
-        self.order = order
-        self.location = location
+        Placeholder.__init__(self, sanitize_input(initial_functions, Function), order, location)
 
 
 class TemporalDerivedFieldVariable(FieldVariable):
-    def __init__(self, inital_functions, order, location=None):
-        FieldVariable.__init__(self, inital_functions, (order, 0), location=location)
+    def __init__(self, initial_functions, order, location=None):
+        FieldVariable.__init__(self, initial_functions, (order, 0), location=location)
 
 
 class SpatialDerivedFieldVariable(FieldVariable):
@@ -102,6 +97,9 @@ class Product(object):
     def __init__(self, a, b=None):
         if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
             raise TypeError("argument not allowed in product")
+        if b is None:  # multiply by one as Default
+            b = Scalars(np.ones(a.data.shape))
+
         self.args = [a, b]
 
     def get_arg_by_class(self, cls):
@@ -120,14 +118,26 @@ class WeakEquationTerm(object):
     def __init__(self, scale, arg):
         if not isinstance(scale, (int, long, float)):
             raise TypeError("only numbers allowed as scale.")
+        self.scale = scale
+
+        # convenience: convert single argument
         if not isinstance(arg, Product):
             if isinstance(arg, Placeholder):
                 arg = Product(arg)
             else:
                 raise TypeError("argument not supported.")
 
-        self.scale = scale
-        self.arg = arg
+        # evaluate all terms that can be evaluated
+        new_args = []
+        for idx, arg in enumerate(arg.args):
+            if getattr(arg, "location", None) is not None:
+                # evaluate term and add scalar
+                print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
+                new_args.append(_evaluate_placeholder(arg))
+            else:
+                new_args.append(arg)
+
+        self.arg = Product(**new_args)
 
 class ScalarTerm(WeakEquationTerm):
     """
@@ -136,6 +146,10 @@ class ScalarTerm(WeakEquationTerm):
     def __init__(self, argument, scale=1.0):
         WeakEquationTerm.__init__(self, scale, argument)
 
+        if any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunctions))]):
+            raise ValueError("cannot leave z dependency. specify location to evaluate expression.")
+
+
 class IntegralTerm(WeakEquationTerm):
     """
     Class that represents an integral term in a weak equation
@@ -143,8 +157,8 @@ class IntegralTerm(WeakEquationTerm):
     def __init__(self, integrand, limits, scale=1.0):
         WeakEquationTerm.__init__(self, scale, integrand)
 
-        if any([True for arg in self.arg.args if getattr(arg, "location", None) is not None]):
-            raise ValueError("cannot integrate if integrand has to be evaluated first.")
+        if not any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunctions))]):
+            raise ValueError("nothing to integrate")
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
         self.limits = limits
@@ -184,6 +198,7 @@ def simulate_system(weak_form, initial_state, time_interval):
     :param time_interval:
     :return:
     """
+    pass
 
 class CanonicalForm(object):
     """
@@ -292,7 +307,7 @@ def parse_weak_formulation(weak_form):
                 field_loc = field_var.location
                 temp_order = field_var.order[0]
                 spat_order = field_var.order[1]
-                init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.initial_functions])
+                init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
                 result = None
 
                 if placeholders["scalars"]:
@@ -428,6 +443,22 @@ def parse_weak_formulation(weak_form):
             #     print(self._E[1])
             #     print("E2:")
             #     print(self._E[2])
+
+def _evaluate_placeholder(placeholder):
+    """
+    evaluates a placeholder object and returns a Scalars object
+    :param placeholder:
+    :return:
+    """
+    if not isinstance(placeholder, Placeholder):
+        raise TypeError("only placeholders supported")
+    if isinstance(placeholder, (Scalars, Input)):
+        raise TypeError("provided type cannot be evaluated")
+
+    functions = placeholder.data
+    location = placeholder.location
+    values = np.array([func(location) for func in functions])
+    return Scalars(values)
 
 def _compute_product_of_scalars(scalars):
     if len(scalars) == 1:

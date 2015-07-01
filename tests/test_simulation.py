@@ -145,9 +145,9 @@ class ParseTest(unittest.TestCase):
         # testfunctions
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
         self.phi = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
-        self.phi_at1 = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
+        self.phi_at1 = sim.TestFunctions(self.ini_funcs, location=1)  # eigenfunction or something else
         self.dphi = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
-        self.dphi_at1 = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
+        self.dphi_at1 = sim.TestFunctions(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
         # fieldvars
         self.field_var = sim.FieldVariable(self.ini_funcs)
         self.field_var_at1 = sim.FieldVariable(self.ini_funcs, location=1)
@@ -157,8 +157,8 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at1 = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=1)
 
         # create all possible kinds of input variables
-        self.input_term = sim.ScalarTerm(sim.Product(self.field_var_dz, self.input))
-        self.func_term = sim.ScalarTerm(self.phi)
+        self.input_term = sim.ScalarTerm(sim.Product(self.dphi_at1, self.input))
+        self.func_term = sim.ScalarTerm(self.phi_at1)
 
         self.field_term_at1 = sim.ScalarTerm(self.field_var_at1)
         self.field_term_dz_at1 = sim.ScalarTerm(self.field_var_dz_at1)
@@ -169,9 +169,9 @@ class ParseTest(unittest.TestCase):
 
         self.prod_term_fs_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.scalars))
         self.prod_int_fs = sim.IntegralTerm(sim.Product(self.field_var, self.scalars), (0, 1))
-        self.prod_int_f_f = sim.ScalarTerm(sim.Product(self.field_var, self.phi))
-        self.prod_int_f_at1_f = sim.ScalarTerm(sim.Product(self.field_var_at1, self.phi))
-        self.prod_int_f_f_at1 = sim.ScalarTerm(sim.Product(self.field_var, self.phi_at1))
+        self.prod_int_f_f = sim.IntegralTerm(sim.Product(self.field_var, self.phi), (0, 1))
+        self.prod_int_f_at1_f = sim.IntegralTerm(sim.Product(self.field_var_at1, self.phi), (0, 1))
+        self.prod_int_f_f_at1 = sim.IntegralTerm(sim.Product(self.field_var, self.phi_at1), (0, 1))
         self.prod_term_f_at1_f_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.phi_at1))
 
         self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
@@ -217,8 +217,7 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[1/24, -1/24, 0], [-1/24, 7/12, -1/24], [0, -1/24,
-                                                                                                       1/24]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
