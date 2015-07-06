@@ -187,6 +187,7 @@ class ParseTest(unittest.TestCase):
         # TestFunctions
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
         self.phi = sim.TestFunctions(self.ini_funcs)  # eigenfunction or something else
+        self.phi_at0 = sim.TestFunctions(self.ini_funcs, location=0)  # eigenfunction or something else
         self.phi_at1 = sim.TestFunctions(self.ini_funcs, location=1)  # eigenfunction or something else
         self.dphi = sim.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
         self.dphi_at1 = sim.TestFunctions(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
@@ -197,6 +198,7 @@ class ParseTest(unittest.TestCase):
         self.field_var_dz = sim.SpatialDerivedFieldVariable(self.ini_funcs, 1)
         self.field_var_dz_at1 = sim.SpatialDerivedFieldVariable(self.ini_funcs, 1, location=1)
         self.field_var_ddt = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2)
+        self.field_var_ddt_at0 = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=0)
         self.field_var_ddt_at1 = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=1)
 
         # create all possible kinds of input variables
@@ -216,6 +218,9 @@ class ParseTest(unittest.TestCase):
         self.prod_int_f_at1_f = sim.IntegralTerm(sim.Product(self.field_var_at1, self.phi), (0, 1))
         self.prod_int_f_f_at1 = sim.IntegralTerm(sim.Product(self.field_var, self.phi_at1), (0, 1))
         self.prod_term_f_at1_f_at1 = sim.ScalarTerm(sim.Product(self.field_var_at1, self.phi_at1))
+
+        self.prod_int_fddt_f = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
+        self.prod_term_fddt_at0_f_at0 = sim.ScalarTerm(sim.Product(self.field_var_ddt_at0, self.phi_at0))
 
         self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
@@ -271,6 +276,26 @@ class ParseTest(unittest.TestCase):
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
+
+        # more complex terms
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fddt_f)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.zeros((3, 3))))
+        self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
+        self.assertTrue(np.allclose(terms[0][2], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
+        self.assertEqual(terms[1], None)  # f
+        self.assertEqual(terms[2], None)  # g
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fddt_at0_f_at0)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.zeros((3, 3))))
+        self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
+        self.assertTrue(np.allclose(terms[0][2], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
+        self.assertEqual(terms[1], None)  # f
+        self.assertEqual(terms[2], None)  # g
+        # s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
+        #                                 sim.TestFunctions(ini_funcs, location=0)))
+        # int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
+        #                                     sim.TestFunctions(ini_funcs, order=1)), interval)
+        # s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
 
     def test_modal_from(self):
         pass

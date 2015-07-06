@@ -32,6 +32,7 @@ class Scalars(Placeholder):
     placeholder for scalars that will be replaced later
     """
     def __init__(self, values, target_term=None):
+        values = np.atleast_2d(values).T
         Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
         self.target_term = target_term
 
@@ -128,13 +129,16 @@ class WeakEquationTerm(object):
         # convenience: convert single argument
         if not isinstance(arg, Product):
             if isinstance(arg, Placeholder):
-                arg = Product(arg)
+                # arg = Product(arg)
+                arguments = [arg]
             else:
                 raise TypeError("argument not supported.")
+        else:
+            arguments = arg.args
 
         # evaluate all terms that can be evaluated
         new_args = []
-        for idx, arg in enumerate(arg.args):
+        for idx, arg in enumerate(arguments):
             if getattr(arg, "location", None) is not None:
                 # evaluate term and add scalar
                 # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
@@ -356,10 +360,11 @@ def parse_weak_formulation(weak_form):
                 result = None
 
                 if placeholders["scalars"]:
-                    factors = _compute_product_of_scalars(placeholders["scalars"])
-                    column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs]),
-                                         factors)
-                    result = np.array([column, ]*init_funcs.shape[0]).transpose()
+                    # TODO
+                    a = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
+                                                        for func in init_funcs])).T)
+                    b = placeholders["scalars"][0]
+                    result = _compute_product_of_scalars([a, b])
 
                 elif placeholders["functions"]:
                     if len(placeholders["functions"]) != 1:
@@ -427,7 +432,7 @@ def parse_weak_formulation(weak_form):
                     cf.add_to(("g", 0), result*term.scale)
                     continue
 
-            # pure scalar terms, sort into f
+            # pure scalar terms, sort into corresponding matrices
             if placeholders["scalars"]:
                 factors = _compute_product_of_scalars(placeholders["scalars"])
                 target = _get_scalar_target(placeholders["scalars"])
@@ -435,7 +440,8 @@ def parse_weak_formulation(weak_form):
                 result = None
                 if target[0] == "E":
                     # clone to matrix dimension
-                    result = np.array([factors, ]*factors.shape[0]).transpose()
+                    result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
+                    # result = np.array([factors, ]*factors.shape[0]).transpose()
                 else:
                     result = factors
                     # result = np.array([factors]).transpose()
@@ -484,22 +490,25 @@ def _evaluate_placeholder(placeholder):
 
     functions = np.asarray([func.derivative(placeholder.order[1]) for func in placeholder.data])
     location = placeholder.location
-    values = np.array([func(location) for func in functions])
+    values = np.atleast_2d([func(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=("E", placeholder.order[0]))
     elif isinstance(placeholder, TestFunctions):
-        return Scalars(values, target_term=("f", 0))
+        return Scalars(values.T, target_term=("f", 0))
     else:
         raise NotImplementedError
 
 def _compute_product_of_scalars(scalars):
     if len(scalars) == 1:
         return scalars[0].data
-    values = [[val for val in scalar.data] for scalar in scalars]
-    return np.prod(np.array(values), axis=0)
+    if len(scalars) > 2:
+        raise NotImplementedError
 
-
+    if scalars[0].data.shape == scalars[1].data.shape:
+        return np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
+    elif scalars[0].data.shape == scalars[1].data.T.shape:
+        return np.dot(scalars[0].data, scalars[1].data)
 
 def simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
     """
