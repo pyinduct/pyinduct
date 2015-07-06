@@ -11,6 +11,7 @@ def sanitize_input(input_object, allowed_type):
     :param allowed_type:
     :return:
     """
+    # input_object = np.atleast_2d(input_object)
     if isinstance(input_object, allowed_type):
         input_object = np.asarray([input_object])
     elif isinstance(input_object, np.ndarray):

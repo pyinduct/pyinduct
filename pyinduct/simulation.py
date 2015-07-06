@@ -32,7 +32,7 @@ class Scalars(Placeholder):
     placeholder for scalars that will be replaced later
     """
     def __init__(self, values, target_term=None):
-        values = np.atleast_2d(values).T
+        values = np.atleast_2d(values)
         Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
         self.target_term = target_term
 
@@ -103,8 +103,11 @@ class Product(object):
         if b is None:  # multiply by one as Default
             if isinstance(a, Input):
                 b = Scalars(np.ones(1))
-            else:
-                b = Scalars(np.ones(a.data.shape))
+            if isinstance(a, Scalars):
+                if a.target_term[0] == "E":
+                    b = Scalars(np.ones(a.data.T.shape))
+                else:
+                    b = Scalars(np.ones(a.data.shape))
 
         self.args = [a, b]
 
@@ -388,9 +391,8 @@ def parse_weak_formulation(weak_form):
                     # else:
                     #     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                 else:
-                    raise NotImplementedError
-                    column = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
-                    result = np.array([column, ]*init_funcs.shape[0]).transpose()
+                    factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
+                    result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
                 cf.add_to(("E", temp_order), result*term.scale)
                 continue
@@ -440,7 +442,9 @@ def parse_weak_formulation(weak_form):
                 result = None
                 if target[0] == "E":
                     # clone to matrix dimension
-                    result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
+                    assert factors.shape[0] == factors.shape[1]
+                    result = factors
+                    # result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
                     # result = np.array([factors, ]*factors.shape[0]).transpose()
                 else:
                     result = factors
@@ -471,7 +475,7 @@ def _get_scalar_target(scalars):
             # since scalars are evaluated separately prefer E for f
             residual = filter(lambda x: x[0] != "f", targets)
             if len(residual) > 1:
-                # different temporal derivatives of state -> nt supported
+                # different temporal derivatives of state -> not supported
                 raise ValueError("target_term of scalars in product must be identical")
         return targets[0]
 
@@ -493,9 +497,9 @@ def _evaluate_placeholder(placeholder):
     values = np.atleast_2d([func(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
-        return Scalars(values, target_term=("E", placeholder.order[0]))
+        return Scalars(values.T, target_term=("E", placeholder.order[0]))
     elif isinstance(placeholder, TestFunctions):
-        return Scalars(values.T, target_term=("f", 0))
+        return Scalars(values, target_term=("f", 0))
     else:
         raise NotImplementedError
 
