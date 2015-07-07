@@ -64,7 +64,7 @@ class AnimatedPlot(DataPlot):
         self._time_text.setPos(.9*np.max(spatial_data), .9*np.min(state_data))
 
         self._curr_frame = 0
-        self._timer = QtCore.QTimer()
+        self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
         self._timer.start(1e3*self._dt)
 
@@ -72,16 +72,18 @@ class AnimatedPlot(DataPlot):
         """
         update plot window
         """
+        print("gello")
         colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
         for idx, data_set in enumerate(self._data):
             if idx == 0:
                 clear = True
-                self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][self._curr_frame]))
-                self._pw.addItem(self._time_text)
             else:
                 clear = False
+
             self._pw.plot(x=data_set.input_data[1], y=data_set.output_data[self._curr_frame, :],
                           clear=clear, pen=colors[idx])
+            self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][self._curr_frame]))
+            self._pw.addItem(self._time_text)
 
         if self._curr_frame == self._data[0].output_data.shape[0] - 1:
             # end of time reached -> start again

@@ -328,7 +328,7 @@ class CanonicalForm(object):
                 # add last row
                 a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
 
-        b_vec = np.zeros((new_dim, ))
+        b_vec = np.zeros((new_dim, 1))
         b_vec[-dim_x:] = np.dot(en_inv, -g[0])
 
         return a_mat, b_vec
@@ -363,7 +363,7 @@ def parse_weak_formulation(weak_form):
                 result = None
 
                 if placeholders["scalars"]:
-                    # TODO
+                    # TODO move into seperate function
                     a = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
                                                         for func in init_funcs])).T)
                     b = placeholders["scalars"][0]
@@ -374,7 +374,7 @@ def parse_weak_formulation(weak_form):
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = func.data
-                    func_order = func.order[0]
+                    func_order = func.order[1]
                     result = calculate_function_matrix_differential(init_funcs, test_funcs, 0, func_order)
 
                 elif placeholders["inputs"]:
@@ -415,10 +415,15 @@ def parse_weak_formulation(weak_form):
                     continue
 
                 if placeholders["scalars"]:
-                    factors = _compute_product_of_scalars(placeholders["scalars"])
-                    column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in test_funcs]),
-                                         factors)
-                    result = np.array([column, ]*test_funcs.shape[0]).transpose()
+                    a = placeholders["scalars"][0]
+                    b = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
+                                                        for func in test_funcs])))
+                    result = _compute_product_of_scalars([a, b])
+
+                    # factors = _compute_product_of_scalars(placeholders["scalars"])
+                    # column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in test_funcs]),
+                    #                      factors)
+                    # result = np.array([column, ]*test_funcs.shape[0]).transpose()
                     cf.add_to(_get_scalar_target(placeholders["scalars"]), result*term.scale)
                     continue
 
@@ -436,23 +441,12 @@ def parse_weak_formulation(weak_form):
 
             # pure scalar terms, sort into corresponding matrices
             if placeholders["scalars"]:
-                factors = _compute_product_of_scalars(placeholders["scalars"])
+                result = _compute_product_of_scalars(placeholders["scalars"])
                 target = _get_scalar_target(placeholders["scalars"])
-
-                result = None
-                if target[0] == "E":
-                    # clone to matrix dimension
-                    assert factors.shape[0] == factors.shape[1]
-                    result = factors
-                    # result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
-                    # result = np.array([factors, ]*factors.shape[0]).transpose()
-                else:
-                    result = factors
-                    # result = np.array([factors]).transpose()
 
                 if placeholders["inputs"]:
                     if target[0] == "E":
-                        # this would mean that the input term should appear in a matrix
+                        # this would mean that the input term should appear in a matrix like E1 or E2
                         raise NotImplementedError
                     cf.add_to(("g", 0), result*term.scale)
                     continue
@@ -504,23 +498,27 @@ def _evaluate_placeholder(placeholder):
         raise NotImplementedError
 
 def _compute_product_of_scalars(scalars):
-    if len(scalars) == 1:
-        return scalars[0].data
     if len(scalars) > 2:
         raise NotImplementedError
 
-    if scalars[0].data.shape == scalars[1].data.shape:
-        return np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
+    if len(scalars) == 1:
+        res = scalars[0].data
+    elif scalars[0].data.shape == scalars[1].data.shape:
+        res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
     elif scalars[0].data.shape == scalars[1].data.T.shape:
-        return np.dot(scalars[0].data, scalars[1].data)
+        res = np.dot(scalars[0].data, scalars[1].data)
 
-def simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
+    if res.shape[0] < res.shape[1]:
+        return res.T
+    return res
+
+def _simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
     """
     wrapper to simulate a system given in state space form: q_dot = A*q + B*u
     :param system_matrix: A
     :param input_vector: B
     :param input_handle: function handle to evaluate input
-    :param time_interval: tuple of t_start an t_end
+    :param time_interval: tuple of t_start and t_end
     :return:
     """
     q = []
@@ -528,9 +526,10 @@ def simulate_system(system_matrix, input_vector, input_handle, initial_state, ti
 
     def _rhs(t, q, a_mat, b_vec, u):
         q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t))
+        return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=t_step)
-    r.set_f_params(system_matrix, input_vector, input_handle)
+    r.set_f_params(system_matrix, input_vector.flatten(), input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
     while r.successful() and r.t < time_interval[1]:
@@ -542,4 +541,3 @@ def simulate_system(system_matrix, input_vector, input_handle, initial_state, ti
     q = np.array(q)
 
     return t, q
-    q = q[:, :self._nodes.shape[0]]

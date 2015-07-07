@@ -2,7 +2,7 @@ from __future__ import division
 import unittest
 import numpy as np
 import pyqtgraph as pg
-from pyinduct import core as cr, simulation as sim, utils as ut
+from pyinduct import core as cr, simulation as sim, utils as ut, visualization as vis
 
 __author__ = 'Stefan Ecklebe'
 
@@ -100,7 +100,7 @@ class WeakTermsTest(unittest.TestCase):
         t1 = sim.ScalarTerm(self.xdz_at1)
         self.assertEqual(t1.scale, 1.0)  # default scale
         # check if automated evaluation works
-        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([0,  1])))  # automated product creation
+        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([[0],  [1]])))  # automated product creation
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, sim.IntegralTerm, 7, (0, 1))  # integrand is number
@@ -202,7 +202,8 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at1 = sim.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=1)
 
         # create all possible kinds of input variables
-        self.input_term = sim.ScalarTerm(sim.Product(self.dphi_at1, self.input))
+        self.input_term1 = sim.ScalarTerm(sim.Product(self.phi_at1, self.input))
+        self.input_term2 = sim.ScalarTerm(sim.Product(self.dphi_at1, self.input))
         self.func_term = sim.ScalarTerm(self.phi_at1)
 
         self.field_term_at1 = sim.ScalarTerm(self.field_var_at1)
@@ -226,10 +227,10 @@ class ParseTest(unittest.TestCase):
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
 
     def test_Input_term(self):
-        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term)).get_terms()
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term2)).get_terms()
         self.assertEqual(terms[0], None)  # E0
         self.assertEqual(terms[1], None)  # f
-        self.assertTrue(np.allclose(terms[2][0], np.array([0, -2, 2])))  # g
+        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [-2], [2]])))  # g
 
     def test_TestFunction_term(self):
         wf = sim.WeakFormulation(self.func_term)
@@ -260,22 +261,22 @@ class ParseTest(unittest.TestCase):
 
     def test_Product_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fs_at1)).get_terms()
-        # self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [2, 2, 2]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [0, 1, 2]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fs)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.5, 0.5, 0.5], [.5, .5, .5]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, .25, .5], [0, .5, 1], [0, .25, .5]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [.25, .25, .25]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [.25, .5, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_at1)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [.25, .25, .25]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, .25], [0, 0, .5], [0, 0, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
 
         # more complex terms
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fddt_f)).get_terms()
@@ -291,11 +292,16 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][2], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
         self.assertEqual(terms[1], None)  # f
         self.assertEqual(terms[2], None)  # g
-        # s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-        #                                 sim.TestFunctions(ini_funcs, location=0)))
-        # int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
-        #                                     sim.TestFunctions(ini_funcs, order=1)), interval)
-        # s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])))
+        self.assertEqual(terms[1], None)  # f
+        self.assertEqual(terms[2], None)  # g
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1)).get_terms()
+        self.assertEqual(terms[0], None)  # E
+        self.assertEqual(terms[1], None)  # f
+        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
 
     def test_modal_from(self):
         pass
@@ -326,9 +332,9 @@ class StateSpaceTests(unittest.TestCase):
                                                 [-2.25, 3, -.75, 0, 0, 0],
                                                 [7.5, -18, 10.5, 0, 0, 0],
                                                 [-3.75, 21, -17.25, 0, 0, 0]])))
-        self.assertTrue(np.allclose(B, np.array([0, 0, 0, 0.125, -1.75, 6.875])))
+        self.assertTrue(np.allclose(B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
 
-@unittest.skip
+
 class StringMassTest(unittest.TestCase):
 
     def setUp(self):
@@ -337,22 +343,22 @@ class StringMassTest(unittest.TestCase):
     def test_it(self):
         # example case which the user will have to perform
 
-        # enter string with mass equations
+        # enter string with mass equations # enter string with mass equations
+        u = lambda x: 0
         interval = (0, 1)
-        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(2), sim.TestFunctions()), interval)
-        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(2, location=0), sim.TestFunctions(location=0)))
-        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(1), sim.TestFunctions(order=1)), interval)
-        s2 = sim.ScalarTerm(sim.Product(sim.Input(), sim.TestFunctions(location=1)), -1)
-
-        # cure interval
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+        int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
+                                            sim.TestFunctions(ini_funcs)), interval)
+        s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
+                                        sim.TestFunctions(ini_funcs, location=0)))
+        int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
+                                            sim.TestFunctions(ini_funcs, order=1)), interval)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
-        e_mats, f_vec = string_pde.parse_input(ini_funcs, ini_funcs)
-        # TODO assert check
-
-        A, B = sim.convert_to_state_space(e_mats, f_vec)
+        self.cf = sim.parse_weak_formulation(string_pde)
+        A, B = self.cf.convert_to_state_space()
 
         # derive initial conditions and simulate system
         def x0(z):
@@ -361,9 +367,17 @@ class StringMassTest(unittest.TestCase):
         def input_handle(t):
             return np.sin(t)
 
-        start_state = cr.Function(x0)
+        start_state = cr.Function(x0, domain=(0, 1))
         initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
         q0 = np.zeros(2*len(initial_weights))
         q0[0:len(initial_weights)] = initial_weights
-        sim.simulate_system(A, B, input_handle, q0, (0, 10))
+        t, q = sim._simulate_system(A, B, input_handle, q0, (0, 10))
+
+        # display results
+        pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
+        self.app = pg.QtGui.QApplication([])
+        vis.AnimatedPlot(pd)
+        # vis.SurfacePlot(pd)
+        self.app.exec_()
+
 
