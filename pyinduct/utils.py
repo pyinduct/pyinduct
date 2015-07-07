@@ -64,11 +64,11 @@ def find_roots(function, count, area=None, tol=1e-1):
         area = (0, 1e2)
 
     # compute a lot, just to be sure
-    vec_func = np.vectorize(function)
-    roots = fsolve(vec_func, np.arange(area[0], area[1]))
+    # vec_func = np.vectorize(function)
+    roots, info, ier, mesg = fsolve(function , np.arange(area[0], area[1]), full_output=True)
 
     # sort out entries that are close to each other
-    unique_roots = np.array([root for root in np.unique(roots)])  # if root >= 0])
+    unique_roots = np.array([root for root in np.unique(roots) if area[0] <= root <= area[1]])
     temp_roots = []
     for root in unique_roots:
         if all(abs(root - rt) > tol for rt in temp_roots):

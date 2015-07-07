@@ -232,6 +232,7 @@ class ProjectionTest(unittest.TestCase):
                 pw.plot(x=self.nodes, y=w, pen="b")
 
             self.app.exec_()
+            del self.app
 
     def test_types_back_projection(self):
         self.assertRaises(TypeError, core.back_project_from_initial_functions, 1, 2)
@@ -251,6 +252,7 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=vec_approx_func(self.z_values), pen="b")
             self.app.exec_()
+            del self.app
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
@@ -306,3 +308,4 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i3, "sin(x)")
             legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
             self.app.exec_()
+            del self.app

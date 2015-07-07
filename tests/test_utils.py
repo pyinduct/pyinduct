@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 
 from pyinduct import core, utils
+import pyqtgraph as pg
 
 
 class CureTestCase(unittest.TestCase):
@@ -40,12 +41,34 @@ class FindRoots(unittest.TestCase):
         def eig_eq(w):
             return np.pi * np.cos(2*w) + w*np.sin(w)
 
+        def eig_eq2(w):
+            return np.cos(w) + w* np.sin(w)
+
+        def _char_equation(omega):
+            return omega * (np.sin(omega) + omega * np.cos(omega))
+
+        self.app = pg.QtGui.QApplication([])
         self.char_eq = eig_eq
+        self.char_eq = eig_eq2
+        # self.char_eq = _char_equation
 
     def test_feasible(self):
-        roots = utils.find_roots(self.char_eq, 1e2)
-        self.assertEqual(len(roots), 1e2)
+        roots = utils.find_roots(self.char_eq, 1e1)
+        self.assertEqual(len(roots), 1e1)
 
-    def test_overkill(self):
-        # abort recursion
-        self.assertRaises(ValueError, utils.find_roots, self.char_eq, 1e6)
+        points = np.arange(0, 10, .1)
+        vals = self.char_eq(points)
+        pw = pg.plot(title="char equation roots")
+        pw.plot(points, vals)
+        pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
+        self.app.exec_()
+
+        for root in roots:
+            self.assertAlmostEqual(self.char_eq(root), 0)
+
+    # def test_overkill(self):
+    #     # abort recursion
+    #     self.assertRaises(ValueError, utils.find_roots, self.char_eq, 1e6)
+
+    def tearDown(self):
+        del self.app

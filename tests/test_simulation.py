@@ -379,5 +379,6 @@ class StringMassTest(unittest.TestCase):
         win = vis.AnimatedPlot(pd, title="Test")
         # vis.SurfacePlot(pd)
         self.app.exec_()
+        del self.app
 
 
