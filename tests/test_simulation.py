@@ -371,12 +371,12 @@ class StringMassTest(unittest.TestCase):
         initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
         q0 = np.zeros(2*len(initial_weights))
         q0[0:len(initial_weights)] = initial_weights
-        t, q = sim._simulate_system(A, B, input_handle, q0, (0, 10))
+        t, q = sim.simulate_state_space(A, B, input_handle, q0, (0, 10))
 
         # display results
         pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
         self.app = pg.QtGui.QApplication([])
-        vis.AnimatedPlot(pd)
+        win = vis.AnimatedPlot(pd)
         # vis.SurfacePlot(pd)
         self.app.exec_()
 

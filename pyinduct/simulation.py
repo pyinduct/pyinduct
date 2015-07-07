@@ -512,7 +512,7 @@ def _compute_product_of_scalars(scalars):
         return res.T
     return res
 
-def _simulate_system(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
+def simulate_state_space(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
     """
     wrapper to simulate a system given in state space form: q_dot = A*q + B*u
     :param system_matrix: A

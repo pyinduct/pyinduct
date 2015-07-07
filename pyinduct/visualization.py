@@ -72,7 +72,6 @@ class AnimatedPlot(DataPlot):
         """
         update plot window
         """
-        print("gello")
         colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
         for idx, data_set in enumerate(self._data):
             if idx == 0:
