@@ -1,6 +1,7 @@
 __author__ = 'stefan'
 
 import numpy as np
+from scipy.optimize import fsolve
 from core import Function, LagrangeFirstOrder
 
 
@@ -45,3 +46,40 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
                                                      nodes[i] + element_length))
 
     return nodes, np.asarray(test_functions)
+
+def find_roots(function, count, area=None, tol=1e-1):
+    """
+    searches roots of the given function and checks them for uniqueness
+    :param function:
+    :param count:
+    :return:
+    """
+    if not callable(function):
+        raise TypeError("callable handle is needed")
+
+    scale = 1e1
+    max_area = 1e3
+
+    if area is None:
+        area = (0, 1e2)
+
+    # compute a lot, just to be sure
+    vec_func = np.vectorize(function)
+    roots = fsolve(vec_func, np.arange(area[0], area[1]))
+
+    # sort out entries that are close to each other
+    unique_roots = np.array([root for root in np.unique(roots)])  # if root >= 0])
+    temp_roots = []
+    for root in unique_roots:
+        if all(abs(root - rt) > tol for rt in temp_roots):
+            temp_roots.append(root)
+    clean_roots = np.array(temp_roots)
+
+    print("found {0} unique root(s)".format(len(clean_roots)))
+    if len(clean_roots) < count:
+        # not enough, expand area to the right
+        if area[1]*scale > max_area:
+            raise ValueError("unable to find enough roots. found {0} requested: {1}".format(len(clean_roots), count))
+        return find_roots(function, count, area=(area[0], scale*area[1]))
+
+    return clean_roots[:count]

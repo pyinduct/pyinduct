@@ -469,11 +469,6 @@ def parse_weak_formulation(weak_form):
                     b = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
                                                         for func in test_funcs])))
                     result = _compute_product_of_scalars([a, b])
-
-                    # factors = _compute_product_of_scalars(placeholders["scalars"])
-                    # column = np.multiply(np.array([integrate_function(func, func.nonzero)[0] for func in test_funcs]),
-                    #                      factors)
-                    # result = np.array([column, ]*test_funcs.shape[0]).transpose()
                     cf.add_to(_get_scalar_target(placeholders["scalars"]), result*term.scale)
                     continue
 

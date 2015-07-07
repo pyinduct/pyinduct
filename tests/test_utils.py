@@ -33,3 +33,19 @@ class CureTestCase(unittest.TestCase):
             self.assertEqual(self.test_functions[i].nonzero, funcs1[i].nonzero)
             self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
 
+
+class FindRoots(unittest.TestCase):
+
+    def setUp(self):
+        def eig_eq(w):
+            return np.pi * np.cos(2*w) + w*np.sin(w)
+
+        self.char_eq = eig_eq
+
+    def test_feasible(self):
+        roots = utils.find_roots(self.char_eq, 1e2)
+        self.assertEqual(len(roots), 1e2)
+
+    def test_overkill(self):
+        # abort recursion
+        self.assertRaises(ValueError, utils.find_roots, self.char_eq, 1e6)
