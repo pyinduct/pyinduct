@@ -181,7 +181,7 @@ class ParseTest(unittest.TestCase):
         self.scalars = sim.Scalars(np.array(range(3)))
 
         # inputs
-        self.u = np.sin
+        self.u = cr.Function(np.sin)
         self.input = sim.Input(self.u)  # control input
 
         # TestFunctions
@@ -310,7 +310,7 @@ class StateSpaceTests(unittest.TestCase):
 
     def setUp(self):
         # enter string with mass equations
-        u = lambda x: 0
+        self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
         int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
@@ -319,7 +319,7 @@ class StateSpaceTests(unittest.TestCase):
                                         sim.TestFunctions(ini_funcs, location=0)))
         int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
                                             sim.TestFunctions(ini_funcs, order=1)), interval)
-        s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(self.u), sim.TestFunctions(ini_funcs, location=1)), -1)
 
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
         self.cf = sim.parse_weak_formulation(string_pde)
@@ -333,7 +333,7 @@ class StateSpaceTests(unittest.TestCase):
                                                 [7.5, -18, 10.5, 0, 0, 0],
                                                 [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertTrue(np.allclose(B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
-
+        self.assertEqual(self.cf.input_function, self.u)
 
 class StringMassTest(unittest.TestCase):
 
@@ -344,7 +344,7 @@ class StringMassTest(unittest.TestCase):
         # example case which the user will have to perform
 
         # enter string with mass equations # enter string with mass equations
-        u = lambda x: 0
+        u = cr.Function(lambda x: np.cos(x))
         interval = (0, 1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
         int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
@@ -371,12 +371,12 @@ class StringMassTest(unittest.TestCase):
         initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
         q0 = np.zeros(2*len(initial_weights))
         q0[0:len(initial_weights)] = initial_weights
-        t, q = sim.simulate_state_space(A, B, input_handle, q0, (0, 10))
+        t, q = sim.simulate_state_space(A, B, self.cf.input_function, q0, (0, 10))
 
         # display results
         pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
         self.app = pg.QtGui.QApplication([])
-        win = vis.AnimatedPlot(pd)
+        win = vis.AnimatedPlot(pd, title="Test")
         # vis.SurfacePlot(pd)
         self.app.exec_()
 

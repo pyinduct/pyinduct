@@ -48,20 +48,24 @@ class AnimatedPlot(DataPlot):
     values are therefore expected to be a array of shape (n, t, z)
     """
     # TODO generalize to n-d spatial domain
-    def __init__(self, data, dt=1e-2):
+    def __init__(self, data, title="", dt=1e-2):
         DataPlot.__init__(self, data)
 
         self._dt = dt
-        self._pw = pg.plot()
+        self._pw = pg.plot(title=title)
         time_data = [data_set.input_data[0] for data_set in self._data]
-        spatial_data = np.hstack(data_set.input_data[1] for data_set in self._data)
-        state_data = np.hstack(data_set.output_data for data_set in self._data)
+        spatial_data = [data_set.input_data[1] for data_set in self._data]
+        state_data = [data_set.output_data for data_set in self._data]
 
-        self._pw.setXRange(np.min(spatial_data), np.max(spatial_data))
-        self._pw.setYRange(np.min(state_data), np.max(state_data))
+        spat_min = np.min([np.min(data) for data in spatial_data])
+        spat_max = np.max([np.max(data) for data in spatial_data])
+        self._pw.setXRange(spat_min, spat_max)
+        state_min = np.min([np.min(data) for data in state_data])
+        state_max = np.max([np.max(data) for data in state_data])
+        self._pw.setYRange(state_min, state_max)
         self._time_text = pg.TextItem('t= 0')
         self._pw.addItem(self._time_text)
-        self._time_text.setPos(.9*np.max(spatial_data), .9*np.min(state_data))
+        self._time_text.setPos(.9*spat_max, .9*state_min)
 
         self._curr_frame = 0
         self._timer = pg.QtCore.QTimer()
@@ -79,7 +83,7 @@ class AnimatedPlot(DataPlot):
             else:
                 clear = False
 
-            self._pw.plot(x=data_set.input_data[1], y=data_set.output_data[self._curr_frame, :],
+            self._pw.plot(x=data_set.input_data[1], y=data_set.output_data[self._curr_frame],
                           clear=clear, pen=colors[idx])
             self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][self._curr_frame]))
             self._pw.addItem(self._time_text)

@@ -3,7 +3,8 @@ from __future__ import division
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
-from core import Function, sanitize_input, integrate_function, calculate_function_matrix_differential
+from core import (Function, sanitize_input, integrate_function, calculate_function_matrix_differential,
+                  project_on_initial_functions)
 
 __author__ = 'Stefan Ecklebe'
 
@@ -210,7 +211,31 @@ def simulate_system(weak_form, initial_state, time_interval):
     :param time_interval:
     :return:
     """
-    pass
+    if not isinstance(weak_form, WeakFormulation):
+        raise TypeError("only WeakFormulation accepted.")
+
+    if not isinstance(initial_state, Function):
+        raise TypeError("only core.Function accepted as initial state")
+
+    if not isinstance(time_interval, tuple):
+        raise TypeError("time_interval must be tuple")
+
+    # parse input and create state space system
+    canonical_form = parse_weak_formulation(weak_form)
+    a_mat, b_vec = canonical_form.convert_to_state_space()
+
+    # calculate initial state
+    initial_weights = project_on_initial_functions(initial_state, canonical_form.initial_functions)
+    q0 = np.zeros(2*len(initial_weights))
+    q0[0:len(initial_weights)] = initial_weights
+
+    # include boundary conditions
+
+    # simulate
+    t, q = simulate_state_space(a_mat, b_vec, canonical_form.input_function, q0, time_interval)
+
+    # return results
+    return t, q[:, 0:len(initial_weights)]
 
 class CanonicalForm(object):
     """
@@ -218,9 +243,34 @@ class CanonicalForm(object):
     """
     def __init__(self):
         self._max_idx = dict(E=0, f=0, g=0)
+        self._initial_functions = None
+        self._input_function = None
 
-    def _build_name(self, term):
+    @staticmethod
+    def _build_name(term):
         return "_"+term[0]+str(term[1])
+
+    @property
+    def input_function(self):
+        return self._input_function
+
+    @input_function.setter
+    def input_function(self, func):
+        if self._input_function is None:
+            self._input_function = func
+        if self._input_function != func:
+            raise ValueError("already defined input is overridden!")
+
+    @property
+    def initial_functions(self):
+        return self._initial_functions
+
+    @initial_functions.setter
+    def initial_functions(self, funcs):
+        if self._initial_functions is None:
+            self._initial_functions = funcs
+        if (self._initial_functions != funcs).any():
+            raise ValueError("already defined initial functions are overridden!")
 
     def add_to(self, term, val):
         """
@@ -360,7 +410,6 @@ def parse_weak_formulation(weak_form):
                 temp_order = field_var.order[0]
                 spat_order = field_var.order[1]
                 init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
-                result = None
 
                 if placeholders["scalars"]:
                     # TODO move into seperate function
@@ -395,6 +444,7 @@ def parse_weak_formulation(weak_form):
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
                 cf.add_to(("E", temp_order), result*term.scale)
+                cf.initial_functions = field_var.data
                 continue
 
             # TODO non-field variable terms
@@ -431,12 +481,12 @@ def parse_weak_formulation(weak_form):
                     if len(placeholders["inputs"]) != 1:
                         raise NotImplementedError
                     input_var = placeholders["inputs"][0]
-                    # TODO think were to put input handle
-                    input_func = input_var.handle
+                    input_func = input_var.data
                     input_order = input_var.order
 
                     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                     cf.add_to(("g", 0), result*term.scale)
+                    cf.input_function = input_func.deriavate(input_order)
                     continue
 
             # pure scalar terms, sort into corresponding matrices
@@ -445,10 +495,15 @@ def parse_weak_formulation(weak_form):
                 target = _get_scalar_target(placeholders["scalars"])
 
                 if placeholders["inputs"]:
+                    input_var = placeholders["inputs"][0]
+                    input_func = input_var.data
+                    input_order = input_var.order[0]
+
                     if target[0] == "E":
                         # this would mean that the input term should appear in a matrix like E1 or E2
                         raise NotImplementedError
                     cf.add_to(("g", 0), result*term.scale)
+                    cf.input_function = input_func.derivative(input_order)
                     continue
 
                 cf.add_to(target, result*term.scale)
@@ -512,7 +567,7 @@ def _compute_product_of_scalars(scalars):
         return res.T
     return res
 
-def simulate_state_space(system_matrix, input_vector, input_handle, initial_state, time_interval, t_step=1e-2):
+def simulate_state_space(system_matrix, input_vector, input_handle, initial_state, time_interval, time_step=1e-2):
     """
     wrapper to simulate a system given in state space form: q_dot = A*q + B*u
     :param system_matrix: A
@@ -528,13 +583,13 @@ def simulate_state_space(system_matrix, input_vector, input_handle, initial_stat
         q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t))
         return q_t
 
-    r = ode(_rhs).set_integrator("vode", max_step=t_step)
+    r = ode(_rhs).set_integrator("vode", max_step=time_step)
     r.set_f_params(system_matrix, input_vector.flatten(), input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
     while r.successful() and r.t < time_interval[1]:
         t.append(r.t)
-        q.append(r.integrate(r.t + t_step))
+        q.append(r.integrate(r.t + time_step))
 
     # create results
     t = np.array(t)
