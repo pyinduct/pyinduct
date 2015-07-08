@@ -59,6 +59,15 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(d1._function_handle, np.cos)
         self.assertRaises(ValueError, d1.derivative, 1)  # unknown derivative
 
+    def test_scale(self):
+        f = core.Function(np.sin, derivative_handles=[np.cos])
+        g1 = f.scale(1)
+        self.assertEqual(f, g1)
+
+        g2 = f.scale(2)
+        self.assertAlmostEqual(2*f(np.pi/2), g2(np.pi/2))
+
+
 class LagrangeFirstOrderTestCase(unittest.TestCase):
     def test_init(self):
         self.assertRaises(ValueError, core.LagrangeFirstOrder, 1, 0, 0)
@@ -309,3 +318,24 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
             self.app.exec_()
             del self.app
+
+
+class NormalizeFunctionsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.f = core.Function(np.sin, domain=(0, np.pi*2))
+        self.g = core.Function(np.cos, domain=(0, np.pi*2))
+        self.l = core.Function(np.log, domain=(0, np.exp(1)))
+
+    def test_self_scale(self):
+        p = core.normalize_functions(self.f)
+        prod = core.dot_product_l2(p, p)
+        self.assertAlmostEqual(prod, 1)
+
+    def test_scale(self):
+        p, q = core.normalize_functions(self.f, self.l)
+        prod = core.dot_product_l2(p, q)
+        self.assertAlmostEqual(prod, 1)
+
+    def test_otho(self):
+        self.assertRaises(ValueError, core.normalize_functions, self.f, self.g)

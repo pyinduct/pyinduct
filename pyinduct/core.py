@@ -89,6 +89,17 @@ class Function:
                               derivative_handles=self._derivative_handles[order:])
         return derivative
 
+    def scale(self, scale):
+        """
+        factory method to scale this function
+        """
+        if scale == 1:
+            return self
+
+        scaled = Function(lambda z: scale*self._function_handle(z), domain=self.domain, nonzero=self.nonzero,
+                          derivative_handles=[lambda z: scale*der_handle(z) for der_handle in self._derivative_handles])
+        return scaled
+
 
 class LagrangeFirstOrder(Function):
     """
@@ -510,3 +521,25 @@ def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
 
     # compute target weights: x_tilde*V
     return np.dot(src_weights, v_mat)
+
+def normalize_functions(func1, func2=None):
+    """
+    takes two functions are to be normalized. If only one function is given, it is normalized with respect to itself.
+    :param func1: core.Function
+    :return:
+    """
+    if not isinstance(func1, Function):
+        raise TypeError("only core.Function supported.")
+    if func2 is None:
+        func2 = func1
+
+    dprod = dot_product_l2(func1, func2)
+    if abs(dprod) < np.finfo(float).eps:
+        raise ValueError("given function are orthogonal. no normalization possible.")
+
+    scale_factor = np.sqrt(1/dprod)
+
+    if func1 == func2:
+        return func1.scale(scale_factor)
+    else:
+        return func1.scale(scale_factor), func2.scale(scale_factor)
