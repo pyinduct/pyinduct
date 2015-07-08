@@ -328,14 +328,14 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
     def test_self_scale(self):
-        p = core.normalize_functions(self.f)
+        p = core.normalize_function_vectors(self.f)
         prod = core.dot_product_l2(p, p)
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
-        p, q = core.normalize_functions(self.f, self.l)
+        p, q = core.normalize_function_vectors(self.f, self.l)
         prod = core.dot_product_l2(p, q)
         self.assertAlmostEqual(prod, 1)
 
     def test_otho(self):
-        self.assertRaises(ValueError, core.normalize_functions, self.f, self.g)
+        self.assertRaises(ValueError, core.normalize_function_vectors, self.f, self.g)

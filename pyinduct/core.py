@@ -89,15 +89,15 @@ class Function:
                               derivative_handles=self._derivative_handles[order:])
         return derivative
 
-    def scale(self, scale):
+    def scale(self, factor):
         """
         factory method to scale this function
         """
-        if scale == 1:
+        if factor == 1:
             return self
 
-        scaled = Function(lambda z: scale*self._function_handle(z), domain=self.domain, nonzero=self.nonzero,
-                          derivative_handles=[lambda z: scale*der_handle(z) for der_handle in self._derivative_handles])
+        scaled = Function(lambda z: factor*self._function_handle(z), domain=self.domain, nonzero=self.nonzero,
+                          derivative_handles=[lambda z: factor*der_handle(z) for der_handle in self._derivative_handles])
         return scaled
 
 
@@ -207,13 +207,20 @@ class FunctionVector:
     __metaclass__ = ABCMeta
 
     def __init__(self, members):
-        self.__members = members
+        self.members = members
 
     @abstractmethod
     def scalar_product(first, second):
         """
         define how the scalar product is defined between certain FunctionVectors.
         Implementations must be static
+        """
+        pass
+
+    @abstractmethod
+    def scale(self):
+        """
+        factory method to obtain scaled instances of this vector
         """
         pass
 
@@ -228,7 +235,12 @@ class SimpleFunctionVector(FunctionVector):
 
     @staticmethod
     def scalar_product(first, second):
-        return dot_product_l2(first, second)
+        if not isinstance(first, SimpleFunctionVector) or not isinstance(second, SimpleFunctionVector):
+            raise TypeError("only SimpleFunctionVectors supported")
+        return dot_product_l2(first.members, second.members)
+
+    def scale(self, factor):
+        return SimpleFunctionVector(self.members.scale(factor))
 
 class ComposedFunctionVector(FunctionVector):
     """
@@ -247,10 +259,14 @@ class ComposedFunctionVector(FunctionVector):
         """
         special way the scalar product of this composite vector is calculated
         """
-        first = sanitize_input(first, ComposedFunctionVector)
-        second = sanitize_input(second, ComposedFunctionVector)
-        return dot_product_l2(first, second) + dot_product_l2(first, second)
+        if not isinstance(first, ComposedFunctionVector) or not isinstance(second, ComposedFunctionVector):
+            raise TypeError("only ComposedFunctionVector supported")
+        return dot_product_l2(first.members[0], second.members[0]) \
+               + dot_product_l2(first.members[1], second.members[1])
 
+    def scale(self, factor):
+        return ComposedFunctionVector(self.members[0].scale(factor),
+                                      self.members[1]*factor)
 
 def domain_intersection(first, second):
     """
@@ -522,24 +538,27 @@ def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
     # compute target weights: x_tilde*V
     return np.dot(src_weights, v_mat)
 
-def normalize_functions(func1, func2=None):
+def normalize_function_vectors(vec1, vec2=None):
     """
     takes two functions are to be normalized. If only one function is given, it is normalized with respect to itself.
-    :param func1: core.Function
+    :param vec1: core.Function
     :return:
     """
-    if not isinstance(func1, Function):
-        raise TypeError("only core.Function supported.")
-    if func2 is None:
-        func2 = func1
+    # TODO for now a pure function is assumed, update to mixed type functional vectors
+    if not isinstance(vec1, FunctionVector):
+        raise TypeError("only core.FunctionVector supported.")
+    if vec2 is None:
+        vec2 = vec1
+    if type(vec1) != type(vec2):
+        raise TypeError("only FunctionVectors of same type possible for now.")
 
-    dprod = dot_product_l2(func1, func2)
+    dprod = vec1.scalar_product(vec1, vec2)
     if abs(dprod) < np.finfo(float).eps:
         raise ValueError("given function are orthogonal. no normalization possible.")
 
     scale_factor = np.sqrt(1/dprod)
 
-    if func1 == func2:
-        return func1.scale(scale_factor)
+    if vec1 == vec2:
+        return vec1.scale(scale_factor)
     else:
-        return func1.scale(scale_factor), func2.scale(scale_factor)
+        return vec1.scale(scale_factor), vec2.scale(scale_factor)
