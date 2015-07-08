@@ -556,6 +556,7 @@ def normalize_function_vectors(vec1, vec2=None):
         raise TypeError("only FunctionVectors of same type possible for now.")
 
     dprod = vec1.scalar_product(vec1, vec2)
+
     if abs(dprod) < np.finfo(float).eps:
         raise ValueError("given function are orthogonal. no normalization possible.")
 
