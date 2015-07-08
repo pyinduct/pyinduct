@@ -50,25 +50,19 @@ class FindRoots(unittest.TestCase):
         self.app = pg.QtGui.QApplication([])
         self.char_eq = eig_eq
         self.char_eq = eig_eq2
-        # self.char_eq = _char_equation
 
     def test_feasible(self):
         roots = utils.find_roots(self.char_eq, 1e1)
         self.assertEqual(len(roots), 1e1)
+        for root in roots:
+            self.assertAlmostEqual(self.char_eq(root), 0, places=5)
 
-        points = np.arange(0, 10, .1)
+        points = np.arange(0, 100, .1)
         vals = self.char_eq(points)
         pw = pg.plot(title="char equation roots")
         pw.plot(points, vals)
         pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
         self.app.exec_()
-
-        for root in roots:
-            self.assertAlmostEqual(self.char_eq(root), 0)
-
-    # def test_overkill(self):
-    #     # abort recursion
-    #     self.assertRaises(ValueError, utils.find_roots, self.char_eq, 1e6)
 
     def tearDown(self):
         del self.app
