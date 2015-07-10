@@ -38,24 +38,17 @@ class CureTestCase(unittest.TestCase):
 class FindRoots(unittest.TestCase):
 
     def setUp(self):
-        def eig_eq(w):
-            return np.pi * np.cos(2*w) + w*np.sin(w)
-
-        def eig_eq2(w):
-            return np.cos(w) + w* np.sin(w)
-
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
         self.app = pg.QtGui.QApplication([])
-        self.char_eq = eig_eq
-        self.char_eq = eig_eq2
+        self.char_eq = _char_equation
 
     def test_feasible(self):
         roots = utils.find_roots(self.char_eq, 1e1)
         self.assertEqual(len(roots), 1e1)
         for root in roots:
-            self.assertAlmostEqual(self.char_eq(root), 0, places=5)
+            self.assertAlmostEqual(self.char_eq(root), 0)
 
         points = np.arange(0, 100, .1)
         vals = self.char_eq(points)

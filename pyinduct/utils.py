@@ -66,6 +66,8 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
         area = (0, 1e2)
 
     roots = []
+    rroots = []
+    errs = []
     values = np.arange(area[0], scale*area[1], rtol)
     val = iter(values)
     while len(roots) < own_count:
@@ -79,11 +81,17 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
         if not (area[0] <= root <= area[1]):
             continue
 
-        root = np.round(root, -int(np.log10(atol)))
-        if root in roots:
+        rroot = np.round(root, -int(np.log10(rtol)))
+        if rroot in rroots:
+            idx = rroots.index(rroot)
+            if errs[idx] > info['fvec']:
+                roots[idx] = root
+                errs[idx] = info['fvec']
             continue
 
         roots.append(root)
+        rroots.append(rroot)
+        errs.append(info['fvec'])
 
     if len(roots) < count:
         raise ValueError("not enough roots could be detected. Increase Area.")
