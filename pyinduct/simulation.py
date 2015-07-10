@@ -353,9 +353,10 @@ class CanonicalForm(object):
         e_mats, f, g = self.get_terms()
         if f is not None:
             raise NotImplementedError
-        if g.shape[0] > 1:
-            # this would be temporal derivatives of the input
-            raise NotImplementedError
+        if g is not None:
+            if g.shape[0] > 1:
+                # this would be temporal derivatives of the input
+                raise NotImplementedError
 
         n = e_mats.shape[0]
         en_mat = e_mats[-1]
@@ -378,8 +379,10 @@ class CanonicalForm(object):
                 # add last row
                 a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
 
+        # compose new input vector
         b_vec = np.zeros((new_dim, 1))
-        b_vec[-dim_x:] = np.dot(en_inv, -g[0])
+        if g is not None:
+            b_vec[-dim_x:] = np.dot(en_inv, -g[0])
 
         return a_mat, b_vec
 
@@ -578,6 +581,8 @@ def simulate_state_space(system_matrix, input_vector, input_handle, initial_stat
         return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=time_step)
+    if input_handle is None:
+        input_handle = lambda x: 0
     r.set_f_params(system_matrix, input_vector.flatten(), input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
