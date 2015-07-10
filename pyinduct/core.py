@@ -96,8 +96,13 @@ class Function:
         if factor == 1:
             return self
 
-        scaled = Function(lambda z: factor*self._function_handle(z), domain=self.domain, nonzero=self.nonzero,
-                          derivative_handles=[lambda z: factor*der_handle(z) for der_handle in self._derivative_handles])
+        def scale_fac(func):
+            def _scaled_func(z):
+                return factor*func(z)
+            return _scaled_func
+
+        scaled = Function(scale_fac(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                          derivative_handles=[scale_fac(der_handle) for der_handle in self._derivative_handles])
         return scaled
 
 
@@ -543,7 +548,6 @@ def normalize_function_vectors(vec1, vec2=None):
     :param vec1: core.Function
     :return:
     """
-    # TODO for now a pure function is assumed, update to mixed type functional vectors
     if not isinstance(vec1, FunctionVector):
         raise TypeError("only core.FunctionVector supported.")
     if vec2 is None:

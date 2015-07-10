@@ -447,7 +447,6 @@ def parse_weak_formulation(weak_form):
                 cf.initial_functions = field_var.data
                 continue
 
-            # TODO non-field variable terms
             if placeholders["functions"]:
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
