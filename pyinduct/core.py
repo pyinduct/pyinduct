@@ -261,8 +261,7 @@ class ComposedFunctionVector(FunctionVector):
         """
         if not isinstance(first, ComposedFunctionVector) or not isinstance(second, ComposedFunctionVector):
             raise TypeError("only ComposedFunctionVector supported")
-        return dot_product_l2(first.members[0], second.members[0]) \
-               + dot_product_l2(first.members[1], second.members[1])
+        return dot_product_l2(first.members[0], second.members[0]) + first.members[1]*second.members[1]
 
     def scale(self, factor):
         return ComposedFunctionVector(self.members[0].scale(factor),
@@ -497,7 +496,7 @@ def back_project_from_initial_functions(weights, initial_funcs):
         raise ValueError("Lengths of weights and initial_funcs do not match!")
 
     eval_handle = lambda z: sum([weights[i]*initial_funcs[i](z) for i in range(weights.shape[0])])
-    return eval_handle
+    return np.vectorize(eval_handle)
 
 
 def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
