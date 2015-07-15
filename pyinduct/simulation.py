@@ -230,6 +230,7 @@ def simulate_system(weak_form, initial_state, time_interval):
     q0[0:len(initial_weights)] = initial_weights
 
     # include boundary conditions
+    # TODO
 
     # simulate
     t, q = simulate_state_space(a_mat, b_vec, canonical_form.input_function, q0, time_interval)

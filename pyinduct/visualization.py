@@ -12,7 +12,7 @@ class EvalData:
     contains the input data that was used for evaluation and the results
     """
 
-    def __init__(self, input_data, output_data):
+    def __init__(self, input_data, output_data, name=""):
         # check type and dimensions
         assert isinstance(input_data, list)
         assert isinstance(output_data, np.ndarray)
@@ -23,6 +23,7 @@ class EvalData:
 
         self.input_data = input_data
         self.output_data = output_data
+        self.name = name
 
 
 class DataPlot(QtCore.QObject):
