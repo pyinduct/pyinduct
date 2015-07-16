@@ -25,6 +25,8 @@ class EvalData:
         self.output_data = output_data
         self.name = name
 
+        self.name = name
+
 
 class DataPlot(QtCore.QObject):
     """
