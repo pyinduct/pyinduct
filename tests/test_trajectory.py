@@ -14,19 +14,20 @@ class SmoothTransitionTestCase(unittest.TestCase):
         self.z_start = 0
         self.z_end = 1
         self.t_start = 0
-        self.t_end = 5
+        self.t_end = 10
         self.z_step = 0.01
         self.t_step = 0.01
         self.t_values = np.arange(self.t_start, self.t_end + self.t_step, self.t_step)
         self.z_values = np.arange(self.z_start, self.z_end + self.z_step, self.z_step)
-        self.y0 = 0
+        self.y0 = -5
         self.y1 = 10
 
         self.app = pg.QtGui.QApplication([])
 
     def test_trajectory(self):
         # build flatness based trajectory generator
-        fs = tr.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=0, dt=2, m=1, v=1)
+        fs = tr.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2, sigma=1,
+                           v=.5)
         zz, tt = np.meshgrid(self.z_values, self.t_values)
         x_values = fs.system_state(zz, tt)
         u_values = fs.control_input(self.t_values)

@@ -2,7 +2,7 @@ from __future__ import division
 import unittest
 import numpy as np
 import pyqtgraph as pg
-from pyinduct import core as cr, simulation as sim, utils as ut, visualization as vis
+from pyinduct import core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 
 __author__ = 'Stefan Ecklebe'
 
@@ -342,11 +342,12 @@ class StringMassTest(unittest.TestCase):
 
     def test_it(self):
         # example case which the user will have to perform
+        fs = tr.FlatString(0, 10, 0, 3)
+        u = cr.Function(fs.control_input)
 
         # enter string with mass equations # enter string with mass equations
-        u = cr.Function(lambda x: np.cos(x))
         interval = (0, 1)
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=10)
         int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
                                             sim.TestFunctions(ini_funcs)), interval)
         s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
@@ -364,9 +365,6 @@ class StringMassTest(unittest.TestCase):
         def x0(z):
             return 0
 
-        def input_handle(t):
-            return np.sin(t)
-
         start_state = cr.Function(x0, domain=(0, 1))
         initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
         q0 = np.zeros(2*len(initial_weights))
@@ -377,7 +375,7 @@ class StringMassTest(unittest.TestCase):
         pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
         self.app = pg.QtGui.QApplication([])
         win = vis.AnimatedPlot(pd, title="Test")
-        # vis.SurfacePlot(pd)
+        win2 = vis.SurfacePlot(pd)
         self.app.exec_()
         del self.app
 

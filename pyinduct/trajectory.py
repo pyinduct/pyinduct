@@ -11,7 +11,7 @@ class FlatString:
     for the "string with mass" model
     """
 
-    def __init__(self, y0=0, y1=1, t0=0, dt=0, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
+    def __init__(self, y0=0, y1=1, t0=0, dt=1, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
         # store params
         self._yA = y0
         self._yB = y1
