@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import division
 from abc import ABCMeta, abstractmethod
+from copy import copy, deepcopy
 import numpy as np
 from scipy.integrate import ode
 from core import (Function, sanitize_input, integrate_function, calculate_function_matrix_differential,
@@ -37,13 +38,23 @@ class Scalars(Placeholder):
         Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
         self.target_term = target_term
 
+class ScalarFunctions(Placeholder):
+    """
+    class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients
+    """
+    def __init__(self, functions, order=0, location=None):
+        # apply spatial derivation to function
+        funcs = np.array([func.derivative(order) for func in sanitize_input(functions, Function)])
+        Placeholder.__init__(self, funcs, (0, order), location)
 
 class TestFunctions(Placeholder):
     """
     class that works as a placeholder for test-functions in an equation
     """
     def __init__(self, functions, order=0, location=None):
-        Placeholder.__init__(self, sanitize_input(functions, Function), (0, order), location)
+        # apply spatial derivation to initial_functions
+        funcs = np.array([func.derivative(order) for func in sanitize_input(functions, Function)])
+        Placeholder.__init__(self, funcs, (0, order), location)
 
 
 class Input(Placeholder):
@@ -77,7 +88,9 @@ class FieldVariable(Placeholder):
             if location and not isinstance(location, (int, long, float)):
                 raise TypeError("location must be a number")
 
-        Placeholder.__init__(self, sanitize_input(initial_functions, Function), order=order, location=location)
+        # apply spatial derivation to initial_functions
+        funcs = np.array([func.derivative(order[1]) for func in sanitize_input(initial_functions, Function)])
+        Placeholder.__init__(self, funcs, order=order, location=location)
 
 
 class TemporalDerivedFieldVariable(FieldVariable):
@@ -99,9 +112,9 @@ class Product(object):
     represents a product
     """
     def __init__(self, a, b=None):
-        if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
-            raise TypeError("argument not allowed in product")
+        # convenience: accept single arguments
         if b is None:  # multiply by one as Default
+            self.b_empty = True
             if isinstance(a, Input):
                 b = Scalars(np.ones(1))
             if isinstance(a, Scalars):
@@ -109,6 +122,54 @@ class Product(object):
                     b = Scalars(np.ones(a.data.T.shape))
                 else:
                     b = Scalars(np.ones(a.data.shape))
+            # TODO other Placeholders?
+        else:
+            self.b_empty = False
+
+        # convert trivial products (arising from simplification)
+        if isinstance(a, Product) and a.b_empty:
+            a = a.args[0]
+        if isinstance(b, Product) and b.b_empty:
+            b = b.args[0]
+
+        # check for allowed terms
+        if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
+            raise TypeError("argument not allowed in product")
+
+        # try to simplify arguments
+        # evaluate all terms that can be evaluated
+        args = (a, b)
+        new_args = []
+        for idx, arg in enumerate(args):
+            if getattr(arg, "location", None) is not None:
+                # evaluate term and add scalar
+                # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
+                new_args.append(_evaluate_placeholder(arg))
+            else:
+                new_args.append(arg)
+        # overwrite entries
+        a, b = new_args
+
+        # try to simplify expression containing ScalarFunctions
+        scal_func = None
+        other_func = None
+        for obj1, obj2 in [(a, b), (b, a)]:
+            if isinstance(obj1, ScalarFunctions):
+                scal_func = obj1
+                if isinstance(obj2, (FieldVariable, TestFunctions, ScalarFunctions)):
+                    other_func = obj2
+                    break
+
+        if scal_func and other_func:
+            if scal_func.data.shape != other_func.data.shape:
+                raise ValueError("Cannot simplify Product due to dimension mismatch!")
+
+            new_func = copy(other_func)
+            new_func.data = np.asarray([func.scale(scal_func) for func, scal_func in zip(other_func.data,
+                                                                                         scal_func.data)])
+            a = new_func
+            b = None
+            self.b_empty = True
 
         self.args = [a, b]
 
@@ -134,23 +195,23 @@ class WeakEquationTerm(object):
         if not isinstance(arg, Product):
             if isinstance(arg, Placeholder):
                 # arg = Product(arg)
-                arguments = [arg]
+                self.arg = Product(arg, None)
             else:
                 raise TypeError("argument not supported.")
         else:
-            arguments = arg.args
+            self.arg = arg
 
-        # evaluate all terms that can be evaluated
-        new_args = []
-        for idx, arg in enumerate(arguments):
-            if getattr(arg, "location", None) is not None:
-                # evaluate term and add scalar
-                # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
-                new_args.append(_evaluate_placeholder(arg))
-            else:
-                new_args.append(arg)
+        # # evaluate all terms that can be evaluated
+        # new_args = []
+        # for idx, arg in enumerate(arguments):
+        #     if getattr(arg, "location", None) is not None:
+        #         # evaluate term and add scalar
+        #         # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
+        #         new_args.append(_evaluate_placeholder(arg))
+        #     else:
+        #         new_args.append(arg)
 
-        self.arg = Product(*new_args)
+        # self.arg = Product(*new_args)
 
 class ScalarTerm(WeakEquationTerm):
     """
@@ -412,11 +473,13 @@ def parse_weak_formulation(weak_form):
                     raise NotImplementedError
                 field_var = placeholders["field_variables"][0]
                 temp_order = field_var.order[0]
-                spat_order = field_var.order[1]
-                init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
+                # spat_order = field_var.order[1]
+                # init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
+                init_funcs =field_var.data
+                # init_funcs = np.asarray([func for func in field_var.data])
 
                 if placeholders["scalars"]:
-                    # TODO move into seperate function
+                    # TODO move into separate function
                     a = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
                                                         for func in init_funcs])).T)
                     b = placeholders["scalars"][0]
@@ -427,43 +490,37 @@ def parse_weak_formulation(weak_form):
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = func.data
-                    func_order = func.order[1]
-                    result = calculate_function_matrix_differential(init_funcs, test_funcs, 0, func_order)
+                    # func_order = func.order[1]
+                    result = calculate_function_matrix_differential(init_funcs, test_funcs, 0, 0)
 
                 elif placeholders["inputs"]:
+                    # TODO think about this
                     raise NotImplementedError
 
-                    # TODO think about this
-                    # if len(placeholders["inputs"]) != 1:
-                    #     raise NotImplementedError
-                    # input_var = placeholders["inputs"][0]
-                    # input_func = input_var.handle
-                    # input_order = input_var.order
-                    # if field_loc:
-                    #     result = np.array([func(field_loc) for func in init_funcs])
-                    # else:
-                    #     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                 else:
                     factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
                 cf.add_to(("E", temp_order), result*term.scale)
-                cf.initial_functions = field_var.data
+                if field_var.order[1] == 0:
+                    # only remember underived functions
+                    cf.initial_functions = field_var.data
                 continue
 
             if placeholders["functions"]:
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                func_order = func.order[0]
-                test_funcs = np.asarray([func.derivative(func_order) for func in func.data])
+                # func_order = func.order[0]
+                test_funcs = np.asarray([func for func in func.data])
+                # test_funcs = np.asarray([func.derivative(func_order) for func in func.data])
 
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
                     test_funcs2 = func.data
-                    func_order2 = func.order[1]
+                    # func_order2 = func.order[1]
                     result = calculate_function_matrix_differential(test_funcs, test_funcs2,
-                                                                    0, func_order2)
+                                                                    0, 0)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
 
@@ -539,7 +596,8 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = np.asarray([func.derivative(placeholder.order[1]) for func in placeholder.data])
+    functions = placeholder.data
+    # functions = np.asarray([func.derivative(placeholder.order[1]) for func in placeholder.data])
     location = placeholder.location
     values = np.atleast_2d([func(location) for func in functions])
 

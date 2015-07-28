@@ -20,7 +20,7 @@ def sanitize_input(input_object, allowed_type):
             if not isinstance(np.asscalar(obj), allowed_type):
                 raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
     else:
-        raise TypeError("input must be (an numpy.ndarray of) {0}".format(allowed_type))
+        raise TypeError("input must be (an numpy.ndarray) of type: {0}".format(allowed_type))
 
     return input_object
 
@@ -91,18 +91,22 @@ class Function:
 
     def scale(self, factor):
         """
-        factory method to scale this function
+        factory method to scale this function.
+        factor can be e number or a funtion
         """
         if factor == 1:
             return self
 
-        def scale_fac(func):
+        def scale_factory(func):
             def _scaled_func(z):
-                return factor*func(z)
+                if callable(factor):
+                    return factor(z)*func(z)
+                else:
+                    return factor*func(z)
             return _scaled_func
 
-        scaled = Function(scale_fac(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                          derivative_handles=[scale_fac(der_handle) for der_handle in self._derivative_handles])
+        scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                          derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
         return scaled
 
 
