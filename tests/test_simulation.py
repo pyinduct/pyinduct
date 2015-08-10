@@ -6,7 +6,9 @@ from pyinduct import core as cr, simulation as sim, utils as ut, visualization a
 
 __author__ = 'Stefan Ecklebe'
 
-# TODO Test for Placeholders
+show_plots = False
+# TODO Test for all Placeholders
+
 
 class FieldVariableTest(unittest.TestCase):
 
@@ -54,10 +56,19 @@ class FieldVariableTest(unittest.TestCase):
         # self.assertEqual(None, a.location)
 
 class ProductTest(unittest.TestCase):
+
+    def scale(self, z):
+            return 2
+
+    def a2(self, z):
+            return 5*z
+
     def setUp(self):
         self.input = sim.Input(np.sin)
-        phi = cr.Function(np.sin)
-        self.funcs = sim.TestFunctions(phi)
+        self.phi = cr.Function(np.sin)
+        self.psi = cr.Function(np.sin)
+        self.funcs = sim.TestFunctions(np.array([self.phi, self.psi]))
+        self.scale_funcs = sim.ScalarFunctions(np.array([cr.Function(self.scale), cr.Function(self.scale)]))
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
         self.field_var = sim.FieldVariable(self.ini_funcs)
 
@@ -66,11 +77,34 @@ class ProductTest(unittest.TestCase):
         p1 = sim.Product(self.input, self.funcs)
         p2 = sim.Product(self.funcs, self.field_var)
 
+        # test single argument call
+        p3 = sim.Product(self.funcs)
+        self.assertAlmostEqual(p3.args[0].data[0](np.pi/2), 1)
+        self.assertTrue(p3.b_empty)
+
+        # test automated evaluation of Product with Scaled function
+        p4 = sim.Product(self.field_var, self.scale_funcs)
+        self.assertTrue(isinstance(p4.args[0], sim.FieldVariable))
+        self.assertEqual(p4.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
+        self.assertEqual(p4.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
+        self.assertEqual(p4.args[1], None)
+        self.assertTrue(p4.b_empty)
+
+        # test automated simplification of cascaded products
+        p5 = sim.Product(sim.Product(self.field_var, self.scale_funcs),
+                         sim.Product(self.funcs, self.scale_funcs))
+        self.assertEqual(p5.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
+        self.assertEqual(p5.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
+        self.assertEqual(p5.args[1].data[0](0), self.scale(0)*self.phi(0))
+        self.assertEqual(p5.args[1].data[1](1), self.scale(1)*self.psi(1))
+        self.assertFalse(p5.b_empty)
+
         # test methods
         self.assertEqual(p1.get_arg_by_class(sim.Input), [self.input])
         self.assertEqual(p1.get_arg_by_class(sim.TestFunctions), [self.funcs])
         self.assertEqual(p2.get_arg_by_class(sim.TestFunctions), [self.funcs])
         self.assertEqual(p2.get_arg_by_class(sim.FieldVariable), [self.field_var])
+
 
 class WeakTermsTest(unittest.TestCase):
 
@@ -118,6 +152,7 @@ class WeakTermsTest(unittest.TestCase):
         self.assertEqual(t1.arg.args[0], self.xdt)  # automated product creation
         self.assertEqual(t1.limits, (0, 1))
 
+
 class WeakFormulationTest(unittest.TestCase):
 
     def setUp(self):
@@ -136,6 +171,7 @@ class WeakFormulationTest(unittest.TestCase):
         sim.WeakFormulation([sim.ScalarTerm(self.field_var_at1),
                              sim.IntegralTerm(self.field_var, (0, 1))
                              ])  # vector case
+
 
 class CanonicalFormTest(unittest.TestCase):
 
@@ -303,8 +339,9 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(terms[1], None)  # f
         self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
 
-    def test_modal_from(self):
+    def test_modal_form(self):
         pass
+
 
 class StateSpaceTests(unittest.TestCase):
 
@@ -334,6 +371,7 @@ class StateSpaceTests(unittest.TestCase):
                                                 [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertTrue(np.allclose(B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
+
 
 class StringMassTest(unittest.TestCase):
 
@@ -372,11 +410,12 @@ class StringMassTest(unittest.TestCase):
         t, q = sim.simulate_state_space(A, B, self.cf.input_function, q0, (0, 10))
 
         # display results
-        pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
-        self.app = pg.QtGui.QApplication([])
-        win = vis.AnimatedPlot(pd, title="Test")
-        win2 = vis.SurfacePlot(pd)
-        self.app.exec_()
-        del self.app
+        if show_plots:
+            pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
+            self.app = pg.QtGui.QApplication([])
+            win = vis.AnimatedPlot(pd, title="Test")
+            win2 = vis.SurfacePlot(pd)
+            self.app.exec_()
+            del self.app
 
 
