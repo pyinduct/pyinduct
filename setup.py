@@ -30,7 +30,7 @@ setup(
     long_description=readme + '\n\n' + history,
     author="Stefan Ecklebe",
     author_email='stefan.ecklebe@tu-dresden.de',
-    url='https://github.com/audreyr/pyinduct',
+    url='https://fusionforge.zih.tu-dresden.de/projects/pyinduct/',
     packages=[
         'pyinduct',
     ],

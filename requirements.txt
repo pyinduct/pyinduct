@@ -1,1 +1,3 @@
+PyQt4
+pyqtgraph
 wheel>=0.23.0

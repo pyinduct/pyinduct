@@ -6,6 +6,7 @@ import pyqtgraph.opengl as gl
 
 __author__ = 'stefan'
 
+
 class EvalData:
     """
     convenience wrapper for function evaluation
@@ -44,9 +45,10 @@ class DataPlot(QtCore.QObject):
 
         self._data = data
 
+
 class AnimatedPlot(DataPlot):
     """
-    wrapper that shows an updating one dimensional plot. of n-curves dicretized in t time steps and z spatial steps
+    wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
     It is assumed that time propagates along axis1 and and location along axis2 of values
     values are therefore expected to be a array of shape (n, t, z)
     """
