@@ -9,6 +9,7 @@ __author__ = 'Stefan Ecklebe'
 show_plots = False
 # TODO Test for all Placeholders
 
+
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
@@ -104,6 +105,7 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p2.get_arg_by_class(sim.TestFunctions), [self.funcs])
         self.assertEqual(p2.get_arg_by_class(sim.FieldVariable), [self.field_var])
 
+
 class WeakTermsTest(unittest.TestCase):
 
     def setUp(self):
@@ -150,6 +152,7 @@ class WeakTermsTest(unittest.TestCase):
         self.assertEqual(t1.arg.args[0], self.xdt)  # automated product creation
         self.assertEqual(t1.limits, (0, 1))
 
+
 class WeakFormulationTest(unittest.TestCase):
 
     def setUp(self):
@@ -168,6 +171,7 @@ class WeakFormulationTest(unittest.TestCase):
         sim.WeakFormulation([sim.ScalarTerm(self.field_var_at1),
                              sim.IntegralTerm(self.field_var, (0, 1))
                              ])  # vector case
+
 
 class CanonicalFormTest(unittest.TestCase):
 
@@ -338,6 +342,7 @@ class ParseTest(unittest.TestCase):
     def test_modal_form(self):
         pass
 
+
 class StateSpaceTests(unittest.TestCase):
 
     def setUp(self):
@@ -366,6 +371,7 @@ class StateSpaceTests(unittest.TestCase):
                                                 [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertTrue(np.allclose(B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
+
 
 class StringMassTest(unittest.TestCase):
 
