@@ -5,6 +5,7 @@ import numpy as np
 
 __author__ = 'stefan ecklebe'
 
+
 class FlatString:
     """
     class that implements a flatness based control approach

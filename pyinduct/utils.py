@@ -47,12 +47,22 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
 
     return nodes, np.asarray(test_functions)
 
+
 def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
     """
-    searches roots of the given function and checks them for uniqueness
-    :param function:
-    :param count:
-    :return:
+    searches roots of the given function and checks them for uniqueness. It will return the exact amount of roots
+    given by count or raise ValueError.
+    :param function: function handle for f(x) whose roots shall be found
+    :param count: number of roots to find
+    :param area: area to be searched defaults to positive half-plain
+    :param atol: absolute tolerance to zero  f(root) < atol
+    :param rtol: relative tolerance to be exceeded for two root to be unique f(r1) - f(r2) > rtol
+    :return: numpy.ndarray of roots
+
+    In Detail fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria given
+    by atol and rtol it is added. If it is already in the list, a comprehension between the already present entries
+    error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
+    the present entry.
     """
     scale = 2
     count = int(count)
@@ -66,8 +76,8 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
         area = (0, 1e2)
 
     roots = []
-    rroots = []
-    errs = []
+    rounded_roots = []
+    errors = []
     values = np.arange(area[0], scale*area[1], rtol)
     val = iter(values)
     while len(roots) < own_count:
@@ -81,17 +91,17 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
         if not (area[0] <= root <= area[1]):
             continue
 
-        rroot = np.round(root, -int(np.log10(rtol)))
-        if rroot in rroots:
-            idx = rroots.index(rroot)
-            if errs[idx] > info['fvec']:
+        rounded_root = np.round(root, -int(np.log10(rtol)))
+        if rounded_root in rounded_roots:
+            idx = rounded_roots.index(rounded_root)
+            if errors[idx] > info['fvec']:
                 roots[idx] = root
-                errs[idx] = info['fvec']
+                errors[idx] = info['fvec']
             continue
 
         roots.append(root)
-        rroots.append(rroot)
-        errs.append(info['fvec'])
+        rounded_roots.append(rounded_root)
+        errors.append(info['fvec'])
 
     if len(roots) < count:
         raise ValueError("not enough roots could be detected. Increase Area.")
