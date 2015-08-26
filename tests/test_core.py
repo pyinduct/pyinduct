@@ -8,12 +8,14 @@ __author__ = 'stefan'
 
 show_plots = False
 
+
 class SanitizeInputTest(unittest.TestCase):
 
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
         core.sanitize_input(1, int)
         core.sanitize_input(1.0, float)
+
 
 class FunctionTestCase(unittest.TestCase):
     def setUp(self):
@@ -109,6 +111,7 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         # integral over whole nonzero area of self**2
         # self.assertEqual(p1.quad_int(), 2/3)
 
+
 class MatrixFunctionTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -144,6 +147,7 @@ class MatrixFunctionTestCase(unittest.TestCase):
         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
         self.assertTrue(np.allclose(res, real_result))
+
 
 class IntersectionTestCase(unittest.TestCase):
 
@@ -206,8 +210,9 @@ class ProjectionTest(unittest.TestCase):
         self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
 
         # "real" functions
-        self.z_values = np.linspace(interval[0], interval[1], 1e2*node_cnt)  # because we are smarter
-        self.funcs = [core.Function(lambda x: 2*x),
+        self.z_values = np.linspace(interval[0], interval[1], 100*node_cnt)  # because we are smarter
+        self.funcs = [core.Function(lambda x: 2),
+                      core.Function(lambda x: 2*x),
                       core.Function(lambda x: x**2),
                       core.Function(lambda x: np.sin(x))
                       ]
@@ -220,17 +225,20 @@ class ProjectionTest(unittest.TestCase):
     def test_projection_on_lag1st(self):
         weights = []
 
+        # convenience wrapper for non array input -> constant function
+        weight = core.project_on_initial_functions(self.funcs[0], self.initial_functions[1])
+        self.assertAlmostEqual(weight, 1.5*self.funcs[0](self.nodes[1]))
+
         # linear function -> should be fitted exactly
-        weight = core.project_on_initial_functions(self.funcs[0], self.initial_functions[1])  # convenience wrapper
-        weights.append(core.project_on_initial_functions(self.funcs[0], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], [self.funcs[0](z) for z in self.nodes]))
+        weights.append(core.project_on_initial_functions(self.funcs[1], self.initial_functions))
+        self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes]))
 
         # quadratic function -> should be fitted somehow close
-        weights.append(core.project_on_initial_functions(self.funcs[1], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes], atol=.5))
+        weights.append(core.project_on_initial_functions(self.funcs[2], self.initial_functions))
+        self.assertTrue(np.allclose(weights[-1], [self.funcs[2](z) for z in self.nodes], atol=.5))
 
         # trig function -> will be crappy
-        weights.append(core.project_on_initial_functions(self.funcs[2], self.initial_functions))
+        weights.append(core.project_on_initial_functions(self.funcs[3], self.initial_functions))
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
@@ -268,7 +276,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
     def setUp(self):
         # real function
-        self.z_values = np.linspace(0, 1, 1e3)
+        self.z_values = np.linspace(0, 1, 1000)
         self.real_func = core.Function(lambda x: x)
         self.real_func_handle = np.vectorize(self.real_func)
 
@@ -277,7 +285,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
         self.src_approx_handle = np.vectorize(core.back_project_from_initial_functions(self.src_weights,
-                                                                                    self.src_test_funcs))
+                                                                                       self.src_test_funcs))
 
         # approximation by sin(w*x)
         def trig_factory(freq):
@@ -292,7 +300,8 @@ class ChangeProjectionBaseTest(unittest.TestCase):
     def test_lag1st_to_trig(self):
         # scalar case
         dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
-        dest_approx_handle_s = np.vectorize(core.back_project_from_initial_functions(dest_weight, self.trig_test_funcs[0]))
+        dest_approx_handle_s = np.vectorize(core.back_project_from_initial_functions(dest_weight,
+                                                                                     self.trig_test_funcs[0]))
 
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
@@ -332,14 +341,22 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.v3 = core.SimpleFunctionVector(self.l)
 
     def test_self_scale(self):
-        p = core.normalize_function_vectors(self.v1)
+        f = core.normalize_function(self.f)
+        prod = core.dot_product_l2(f, f)
+        self.assertAlmostEqual(prod, 1)
+
+        p = core.normalize_function(self.v1)
         prod = core.dot_product_l2(p.members, p.members)
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
-        p, q = core.normalize_function_vectors(self.v1, self.v3)
+        f, l = core.normalize_function(self.f, self.l)
+        prod = core.dot_product_l2(f, l)
+        self.assertAlmostEqual(prod, 1)
+
+        p, q = core.normalize_function(self.v1, self.v3)
         prod = core.dot_product_l2(p.members, q.members)
         self.assertAlmostEqual(prod, 1)
 
-    def test_otho(self):
-        self.assertRaises(ValueError, core.normalize_function_vectors, self.v1, self.v2)
+    def test_orthogonal(self):
+        self.assertRaises(ValueError, core.normalize_function, self.v1, self.v2)

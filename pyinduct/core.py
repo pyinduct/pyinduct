@@ -4,9 +4,11 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy import integrate
 
+
 def sanitize_input(input_object, allowed_type):
     """
     sanitizes input data
+
     :param input_object:
     :param allowed_type:
     :return:
@@ -52,6 +54,7 @@ class Function:
     def _check_domain(self, value):
         """
         checks if value fits into domain
+
         :param value: point where function shall be evaluated
         :raises: ValueError if value not in domain
         """
@@ -68,6 +71,7 @@ class Function:
     def __call__(self, *args):
         """
         handle that is used to evaluate the function on a given point
+
         :param args: function parameter
         :return: function value
         """
@@ -121,6 +125,10 @@ class LagrangeFirstOrder(Function):
     0-|-----/   |   \-------------------------> z
             |   |   |
           start,top,end
+
+    :param start: start node
+    :param top: top node, where :math:`f(x) = 1`
+    :param start: end node
     """
     def __init__(self, start, top, end):
         if not start <= top <= end or start == end:
@@ -227,11 +235,14 @@ class FunctionVector:
         pass
 
     @abstractmethod
-    def scale(self):
+    def scale(self, factor):
         """
-        factory method to obtain scaled instances of this vector
+        factory method to obtain instances of this vector scaled by the given factor.
+
+        :param factor: factor to scale the vector
         """
         pass
+
 
 class SimpleFunctionVector(FunctionVector):
     """
@@ -251,9 +262,17 @@ class SimpleFunctionVector(FunctionVector):
     def scale(self, factor):
         return SimpleFunctionVector(self.members.scale(factor))
 
+
 class ComposedFunctionVector(FunctionVector):
     """
-    implementation of composite function vector. One Function Member and one scalar member
+    implementation of composite function vector :math:`\\boldsymbol{x}`.
+    It contains one Function member :math:`x(t)` and one scalar member :math:`\\xi.`
+
+    .. math::
+        \\boldsymbol{x} = \\begin{pmatrix}
+            x(z) \\\\
+            \\xi
+        \\end{pmatrix}
     """
     def __init__(self, function, scalar):
         if not isinstance(function, Function):
@@ -276,9 +295,11 @@ class ComposedFunctionVector(FunctionVector):
         return ComposedFunctionVector(self.members[0].scale(factor),
                                       self.members[1]*factor)
 
+
 def domain_intersection(first, second):
     """
     calculate intersection two domains
+
     :param first: domain
     :param second: domain
     :return: intersection
@@ -342,9 +363,11 @@ def domain_intersection(first, second):
 
     return intersection
 
+
 def _dot_product_l2(first, second):
     """
     calculates the inner product of two functions
+
     :param first: function
     :param second: function
     :return: inner product
@@ -373,9 +396,11 @@ def _dot_product_l2(first, second):
 
     return result
 
+
 def integrate_function(function, interval):
     """
     integrates the given function over given interval
+
     :param function:
     :param interval:
     :return:
@@ -389,18 +414,22 @@ def integrate_function(function, interval):
 
     return result, err
 
+
 def dot_product(first, second):
     """
     calculates the inner product of the scalars
+
     :param first:
     :param second:
     :return:
     """
     return np.inner(first, second)
 
+
 def dot_product_l2(first, second):
     """
     vectorized version of dot_product
+
     :param first: numpy.ndarray of function
     :param second: numpy.ndarray of function
     :return: numpy.nadarray of inner product
@@ -409,11 +438,13 @@ def dot_product_l2(first, second):
         dot_product_l2.handle = np.vectorize(_dot_product_l2)
     return dot_product_l2.handle(first, second)
 
+
 def calculate_function_matrix_differential(functions_a, functions_b,
                                            derivative_order_a, derivative_order_b, locations=None):
     """
     see calculate function matrix, except for the circumstance that derivatives of given order will be used and the
     derivatives can be evaluated at location before calculation. (saves integral computation)
+
     :param functions_a:
     :param functions_b:
     :param derivative_order_a:
@@ -433,9 +464,11 @@ def calculate_function_matrix_differential(functions_a, functions_b,
         vals_b = np.asarray([der(locations[1]) for der in der_b])
         return calculate_scalar_matrix(vals_a, vals_b.T)
 
+
 def calculate_scalar_matrix(values_a, values_b):
     """
     helper function to calculate a matrix of scalars
+
     :param values_a:
     :param values_b:
     :return:
@@ -445,10 +478,12 @@ def calculate_scalar_matrix(values_a, values_b):
     vals_j = values_b[j]
     return np.multiply(vals_i, vals_j)
 
+
 def calculate_function_matrix(functions_a, functions_b):
     """
     calculates a matrix whose elements are the scalar products of each element from funcs_a and funcs_b.
     So aij = <funcs_ai, funcs_bj>
+
     :param functions_a: array of functions
     :param functions_b: array of functions
     :return: matrix
@@ -461,9 +496,11 @@ def calculate_function_matrix(functions_a, functions_b):
     funcs_j = funcs_b[j]
     return dot_product_l2(funcs_i, funcs_j)
 
+
 def project_on_initial_functions(func, initial_funcs):
     """
     projects given function on a new basis
+
     :param func: function the approximate
     :param initial_funcs: initial functions
     :return: weights
@@ -489,6 +526,7 @@ def project_on_initial_functions(func, initial_funcs):
 def back_project_from_initial_functions(weights, initial_funcs):
     """
     build handle for function that was expressed in test functions with weights
+
     :param weights:
     :param initial_funcs:
     :return: evaluation handle
@@ -512,6 +550,7 @@ def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
     """
     converts given weights that form an approximation using src_test_functions to the best possible fit using
     dest_test_functions.
+
     :param src_weights: original weights (np.ndarray)
     :param src_initial_funcs: original test functions (np.ndarray)
     :param dest_initial_funcs: target test functions (np.ndarray)
@@ -546,27 +585,35 @@ def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
     # compute target weights: x_tilde*V
     return np.dot(src_weights, v_mat)
 
-def normalize_function_vectors(vec1, vec2=None):
+
+def normalize_function(x1, x2=None):
     """
-    takes two functions are to be normalized. If only one function is given, it is normalized with respect to itself.
-    :param vec1: core.Function
+    takes two (vectors of) functions :math:`\\boldsymbol{x}_1` and  :math:`\\boldsymbol{x}_2` and normalizes them so
+    that :math:`\\langle\\boldsymbol{x}_1\\,,\:\\boldsymbol{x}_2\\rangle = 1`.
+    If only one function is given, :math:`\\boldsymbol{x}_2` is set to :math:`\\boldsymbol{x}_1`.
+
+    :param x1: core.Function or core.FunctionVector :math:`\\boldsymbol{x}_1`
+    :param x2: core.Function or core.FunctionVector :math:`\\boldsymbol{x}_2`
     :return:
     """
-    if not isinstance(vec1, FunctionVector):
-        raise TypeError("only core.FunctionVector supported.")
-    if vec2 is None:
-        vec2 = vec1
-    if type(vec1) != type(vec2):
-        raise TypeError("only FunctionVectors of same type possible for now.")
+    if not isinstance(x1, FunctionVector) and not isinstance(x1, Function):
+        raise TypeError("only core.Function and core.FunctionVector supported.")
 
-    dprod = vec1.scalar_product(vec1, vec2)
+    if x2 is None:
+        x2 = x1
+    if type(x1) != type(x2):
+        raise TypeError("only arguments of same type allowed.")
 
-    if abs(dprod) < np.finfo(float).eps:
+    if isinstance(x1, Function):
+        product = dot_product_l2(x1, x2)
+    else:
+        product = x1.scalar_product(x1, x2)
+
+    if abs(product) < np.finfo(float).eps:
         raise ValueError("given function are orthogonal. no normalization possible.")
 
-    scale_factor = np.sqrt(1/dprod)
-
-    if vec1 == vec2:
-        return vec1.scale(scale_factor)
+    scale_factor = np.sqrt(1/product)
+    if x1 == x2:
+        return x1.scale(scale_factor)
     else:
-        return vec1.scale(scale_factor), vec2.scale(scale_factor)
+        return x1.scale(scale_factor), x2.scale(scale_factor)

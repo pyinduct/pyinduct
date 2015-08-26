@@ -408,8 +408,7 @@ class CanonicalForm(object):
 
     def convert_to_state_space(self):
         """
-        takes a list of matrices that form a system of odes of order n.
-          converts it into a ode system of order 1
+        takes a list of matrices that form a system of odes of order n and converts it into a ode system of order 1
         :return: tuple of (A, B)
         """
         e_mats, f, g = self.get_terms()

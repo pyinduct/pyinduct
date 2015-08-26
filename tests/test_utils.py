@@ -8,6 +8,8 @@ import numpy as np
 from pyinduct import core, utils
 import pyqtgraph as pg
 
+show_plots = False
+
 
 class CureTestCase(unittest.TestCase):
     def setUp(self):
@@ -50,12 +52,13 @@ class FindRoots(unittest.TestCase):
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
-        points = np.arange(0, 100, .1)
-        vals = self.char_eq(points)
-        pw = pg.plot(title="char equation roots")
-        pw.plot(points, vals)
-        pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
-        self.app.exec_()
+        if show_plots:
+            points = np.arange(0, 100, .1)
+            vals = self.char_eq(points)
+            pw = pg.plot(title="char equation roots")
+            pw.plot(points, vals)
+            pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
+            self.app.exec_()
 
     def tearDown(self):
         del self.app
