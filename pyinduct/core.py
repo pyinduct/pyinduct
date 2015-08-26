@@ -32,11 +32,10 @@ class Function:
     To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
-
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
         if not callable(eval_handle):
             raise TypeError("callable has to be provided as function_handle")
-        self._function_handle = eval_handle
+        self._function_handle = np.vectorize(eval_handle)
 
         for der_handle in derivative_handles:
             if not callable(der_handle):
@@ -68,17 +67,22 @@ class Function:
         if not in_domain:
             raise ValueError("Function evaluated outside its domain!")
 
-    def __call__(self, *args):
+    def __call__(self, args):
         """
         handle that is used to evaluate the function on a given point
 
         :param args: function parameter
         :return: function value
         """
+        args = np.atleast_1d(args)
         self._check_domain(args[0])
-        return self._function_handle(*args)
+        ret_val = self._function_handle(args)
+        if ret_val.size == 1:
+            return ret_val[0]
+        else:
+            return ret_val
 
-    def derivative(self, order=1):
+    def derive(self, order=1):
         """
         factory method that is used to evaluate the spatial derivative of this function
         """
@@ -452,15 +456,15 @@ def calculate_function_matrix_differential(functions_a, functions_b,
     :param locations: points to evaluate
     :return:
     """
-    der_a = np.asarray([func.derivative(derivative_order_a) for func in functions_a])
-    der_b = np.asarray([func.derivative(derivative_order_b) for func in functions_b])
+    der_a = np.asarray([func.derive(derivative_order_a) for func in functions_a])
+    der_b = np.asarray([func.derive(derivative_order_b) for func in functions_b])
     if locations is None:
         return calculate_function_matrix(der_a, der_b)
     else:
         if not isinstance(locations, tuple) or len(locations) != 2:
             raise TypeError("only tuples of len 2 allowed for locations.")
 
-        vals_a = np.asarray([der(locations[0]) for der in der_a])
+        vals_a = np.atleast_1d([der(locations[0]) for der in der_a])
         vals_b = np.asarray([der(locations[1]) for der in der_b])
         return calculate_scalar_matrix(vals_a, vals_b.T)
 

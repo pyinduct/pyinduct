@@ -47,7 +47,7 @@ class ScalarFunctions(Placeholder):
     """
     def __init__(self, functions, order=0, location=None):
         # apply spatial derivation to function
-        funcs = np.array([func.derivative(order) for func in sanitize_input(functions, Function)])
+        funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
         Placeholder.__init__(self, funcs, (0, order), location)
 
 
@@ -57,7 +57,7 @@ class TestFunctions(Placeholder):
     """
     def __init__(self, functions, order=0, location=None):
         # apply spatial derivation to initial_functions
-        funcs = np.array([func.derivative(order) for func in sanitize_input(functions, Function)])
+        funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
         Placeholder.__init__(self, funcs, (0, order), location)
 
 
@@ -93,7 +93,7 @@ class FieldVariable(Placeholder):
                 raise TypeError("location must be a number")
 
         # apply spatial derivation to initial_functions
-        funcs = np.array([func.derivative(order[1]) for func in sanitize_input(initial_functions, Function)])
+        funcs = np.array([func.derive(order[1]) for func in sanitize_input(initial_functions, Function)])
         Placeholder.__init__(self, funcs, order=order, location=location)
 
 
@@ -559,7 +559,7 @@ def parse_weak_formulation(weak_form):
                         # this would mean that the input term should appear in a matrix like E1 or E2
                         raise NotImplementedError
                     cf.add_to(("g", 0), result*term.scale)
-                    cf.input_function = input_func.derivative(input_order)
+                    cf.input_function = input_func.derive(input_order)
                     continue
 
                 cf.add_to(target, result*term.scale)

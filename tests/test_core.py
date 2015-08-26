@@ -51,15 +51,15 @@ class FunctionTestCase(unittest.TestCase):
                 # TODO check if nonzero check generates warning
                 pass
 
-    def test_derivative(self):
+    def test_derivation(self):
         f = core.Function(np.sin, derivative_handles=[np.cos])
-        self.assertRaises(ValueError, f.derivative, -1)  # stupid derivative
-        self.assertRaises(ValueError, f.derivative, 2)  # unknown derivative
-        d0 = f.derivative(0)
+        self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
+        self.assertRaises(ValueError, f.derive, 2)  # unknown derivative
+        d0 = f.derive(0)
         self.assertEqual(f, d0)
-        d1 = f.derivative(1)
-        self.assertEqual(d1._function_handle, np.cos)
-        self.assertRaises(ValueError, d1.derivative, 1)  # unknown derivative
+        d1 = f.derive(1)
+        self.assertTrue(np.array_equal(d1._function_handle(range(10)), np.cos(range(10))))
+        self.assertRaises(ValueError, d1.derive, 1)  # unknown derivative
 
     def test_scale(self):
         f = core.Function(np.sin, derivative_handles=[np.cos])
@@ -231,11 +231,11 @@ class ProjectionTest(unittest.TestCase):
 
         # linear function -> should be fitted exactly
         weights.append(core.project_on_initial_functions(self.funcs[1], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], [self.funcs[1](z) for z in self.nodes]))
+        self.assertTrue(np.allclose(weights[-1], self.funcs[1](self.nodes)))
 
         # quadratic function -> should be fitted somehow close
         weights.append(core.project_on_initial_functions(self.funcs[2], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], [self.funcs[2](z) for z in self.nodes], atol=.5))
+        self.assertTrue(np.allclose(weights[-1], self.funcs[2](self.nodes), atol=.5))
 
         # trig function -> will be crappy
         weights.append(core.project_on_initial_functions(self.funcs[3], self.initial_functions))
@@ -302,7 +302,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
-        dest_approx_handle = back_project_from_initial_functions(dest_weights, self.trig_test_funcs)
+        dest_approx_handle = core.back_project_from_initial_functions(dest_weights, self.trig_test_funcs)
         error = np.sum(np.power(
             np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
             2))
