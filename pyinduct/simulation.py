@@ -1,13 +1,15 @@
 # coding=utf-8
 from __future__ import division
 from abc import ABCMeta, abstractmethod
+from numbers import Number
 from copy import copy, deepcopy
 import numpy as np
 from scipy.integrate import ode
-from core import (Function, sanitize_input, integrate_function, calculate_function_matrix_differential,
+from core import (Function, sanitize_input, integrate_function, calculate_function_matrix,
                   project_on_initial_functions)
 
 __author__ = 'Stefan Ecklebe'
+
 
 class Placeholder(object):
     """
@@ -24,7 +26,7 @@ class Placeholder(object):
         self.order = order
 
         if location is not None:
-            if location and not isinstance(location, (int, long, float)):
+            if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
         self.location = location
 
@@ -35,8 +37,9 @@ class Scalars(Placeholder):
     """
     def __init__(self, values, target_term=None):
         values = np.atleast_2d(values)
-        Placeholder.__init__(self, sanitize_input(values, (int, long, float)))
+        Placeholder.__init__(self, sanitize_input(values, Number))
         self.target_term = target_term
+
 
 class ScalarFunctions(Placeholder):
     """
@@ -46,6 +49,7 @@ class ScalarFunctions(Placeholder):
         # apply spatial derivation to function
         funcs = np.array([func.derivative(order) for func in sanitize_input(functions, Function)])
         Placeholder.__init__(self, funcs, (0, order), location)
+
 
 class TestFunctions(Placeholder):
     """
@@ -85,7 +89,7 @@ class FieldVariable(Placeholder):
         if sum(order) > 2:
             raise ValueError("only derivatives of order one and two supported")
         if location is not None:
-            if location and not isinstance(location, (int, long, float)):
+            if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
 
         # apply spatial derivation to initial_functions
@@ -106,6 +110,7 @@ class SpatialDerivedFieldVariable(FieldVariable):
 class MixedDerivedFieldVariable(FieldVariable):
     def __init__(self, initial_functions, location=None):
         FieldVariable.__init__(self, initial_functions, (1, 1), location=location)
+
 
 class Product(object):
     """
@@ -180,6 +185,7 @@ class Product(object):
         """
         return [elem for elem in self.args if isinstance(elem, cls)]
 
+
 class WeakEquationTerm(object):
     """
     base class for all accepted terms in a weak formulation
@@ -187,7 +193,7 @@ class WeakEquationTerm(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, scale, arg):
-        if not isinstance(scale, (int, long, float)):
+        if not isinstance(scale, Number):
             raise TypeError("only numbers allowed as scale.")
         self.scale = scale
 
@@ -212,6 +218,7 @@ class WeakEquationTerm(object):
         #         new_args.append(arg)
 
         # self.arg = Product(*new_args)
+
 
 class ScalarTerm(WeakEquationTerm):
     """
@@ -246,10 +253,10 @@ class SpatialIntegralTerm(IntegralTerm):
 class WeakFormulation(object):
     """
     this class represents the weak formulation of a spatial problem.
-    It can be initialized with several terms (see children of WeakEquationTerm).
+    It can be initialized with several terms (see children of :py:class:`WeakEquationTerm`).
     The equation is interpreted as term_0 + term_1 + ... + term_N = 0
 
-    :param terms: single (or list) of object(s) of type WeakEquationTerm
+    :param terms: (list of) of object(s) of type WeakEquationTerm
     """
     def __init__(self, terms):
         if isinstance(terms, WeakEquationTerm):
@@ -267,6 +274,7 @@ class WeakFormulation(object):
 def simulate_system(weak_form, initial_state, time_interval):
     """
     convenience wrapper that encapsulates the whole simulation process
+
     :param weak_form:
     :param initial_state:
     :param time_interval:
@@ -298,6 +306,7 @@ def simulate_system(weak_form, initial_state, time_interval):
 
     # return results
     return t, q[:, 0:len(initial_weights)]
+
 
 class CanonicalForm(object):
     """
@@ -451,6 +460,7 @@ class CanonicalForm(object):
 def parse_weak_formulation(weak_form):
         """
         creates an ode system for the weights x_i based on the weak formulation.
+
         :return: simulation.ODESystem
         """
         if not isinstance(weak_form, WeakFormulation):
@@ -472,10 +482,7 @@ def parse_weak_formulation(weak_form):
                     raise NotImplementedError
                 field_var = placeholders["field_variables"][0]
                 temp_order = field_var.order[0]
-                # spat_order = field_var.order[1]
-                # init_funcs = np.asarray([func.derivative(spat_order) for func in field_var.data])
-                init_funcs =field_var.data
-                # init_funcs = np.asarray([func for func in field_var.data])
+                init_funcs = field_var.data
 
                 if placeholders["scalars"]:
                     # TODO move into separate function
@@ -489,8 +496,7 @@ def parse_weak_formulation(weak_form):
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = func.data
-                    # func_order = func.order[1]
-                    result = calculate_function_matrix_differential(init_funcs, test_funcs, 0, 0)
+                    result = calculate_function_matrix(init_funcs, test_funcs)
 
                 elif placeholders["inputs"]:
                     # TODO think about this
@@ -502,7 +508,7 @@ def parse_weak_formulation(weak_form):
 
                 cf.add_to(("E", temp_order), result*term.scale)
                 if field_var.order[1] == 0:
-                    # only remember underived functions
+                    # only remember non-derived functions
                     cf.initial_functions = field_var.data
                 continue
 
@@ -510,16 +516,12 @@ def parse_weak_formulation(weak_form):
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                # func_order = func.order[0]
                 test_funcs = np.asarray([func for func in func.data])
-                # test_funcs = np.asarray([func.derivative(func_order) for func in func.data])
 
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
                     test_funcs2 = func.data
-                    # func_order2 = func.order[1]
-                    result = calculate_function_matrix_differential(test_funcs, test_funcs2,
-                                                                    0, 0)
+                    result = calculate_function_matrix(test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
 
@@ -565,10 +567,12 @@ def parse_weak_formulation(weak_form):
 
         return cf
 
+
 def _get_scalar_target(scalars):
     """
     extract target fro list of scalars.
     makes sure that targets are equivalent.
+
     :param scalars:
     :return:
     """
@@ -584,9 +588,11 @@ def _get_scalar_target(scalars):
 
     return None
 
+
 def _evaluate_placeholder(placeholder):
     """
     evaluates a placeholder object and returns a Scalars object
+
     :param placeholder:
     :return:
     """
@@ -596,7 +602,6 @@ def _evaluate_placeholder(placeholder):
         raise TypeError("provided type cannot be evaluated")
 
     functions = placeholder.data
-    # functions = np.asarray([func.derivative(placeholder.order[1]) for func in placeholder.data])
     location = placeholder.location
     values = np.atleast_2d([func(location) for func in functions])
 
@@ -606,6 +611,7 @@ def _evaluate_placeholder(placeholder):
         return Scalars(values, target_term=("f", 0))
     else:
         raise NotImplementedError
+
 
 def _compute_product_of_scalars(scalars):
     if len(scalars) > 2:
@@ -617,14 +623,18 @@ def _compute_product_of_scalars(scalars):
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
     elif scalars[0].data.shape == scalars[1].data.T.shape:
         res = np.dot(scalars[0].data, scalars[1].data)
+    else:
+        raise NotImplementedError
 
     if res.shape[0] < res.shape[1]:
         return res.T
     return res
 
+
 def simulate_state_space(system_matrix, input_vector, input_handle, initial_state, time_interval, time_step=1e-2):
     """
-    wrapper to simulate a system given in state space form: q_dot = A*q + B*u
+    wrapper to simulate a system given in state space form: :math:`\\dot{q} = Aq + Bu`
+
     :param system_matrix: A
     :param input_vector: B
     :param input_handle: function handle to evaluate input

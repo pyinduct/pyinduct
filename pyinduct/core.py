@@ -481,12 +481,12 @@ def calculate_scalar_matrix(values_a, values_b):
 
 def calculate_function_matrix(functions_a, functions_b):
     """
-    calculates a matrix whose elements are the scalar products of each element from funcs_a and funcs_b.
-    So aij = <funcs_ai, funcs_bj>
+    calculates a matrix :math:`A` whose elements are the scalar products of each element from functions_a and
+    functions_b, so that :math:`a_{ij} = \\langle \\mathrm{functions_a}_i\\,,\\: \\mathrm{functions_b}_j\\rangle`.
 
-    :param functions_a: array of functions
-    :param functions_b: array of functions
-    :return: matrix
+    :param functions_a: (np.ndarray of) :py:class:`Function`
+    :param functions_b: (np.ndarray of) :py:class:`Function`
+    :return: matrix :math:`A` as np.ndarray
     """
     funcs_a = sanitize_input(functions_a, Function)
     funcs_b = sanitize_input(functions_b, Function)
