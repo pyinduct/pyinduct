@@ -5,9 +5,10 @@ __author__ = 'stefan'
 import unittest
 import numpy as np
 
-from pyinduct import core, utils
+from pyinduct import core, utils, visualization
 import pyqtgraph as pg
 
+# show_plots = True
 show_plots = False
 
 
@@ -37,13 +38,14 @@ class CureTestCase(unittest.TestCase):
             self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
 
 
-class FindRoots(unittest.TestCase):
+class FindRootsTestCase(unittest.TestCase):
 
     def setUp(self):
+        self.app = pg.QtGui.QApplication([])
+
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
-        self.app = pg.QtGui.QApplication([])
         self.char_eq = _char_equation
 
     def test_feasible(self):
@@ -54,11 +56,35 @@ class FindRoots(unittest.TestCase):
 
         if show_plots:
             points = np.arange(0, 100, .1)
-            vals = self.char_eq(points)
+            values = self.char_eq(points)
             pw = pg.plot(title="char equation roots")
-            pw.plot(points, vals)
+            pw.plot(points, values)
             pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
             self.app.exec_()
 
     def tearDown(self):
         del self.app
+
+
+class EvaluateApproximationTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.app = pg.QtGui.QApplication([])
+        self.node_cnt = 5
+        self.dates = np.linspace(0, 10, 1000)
+        self.nodes = np.linspace(0, 10, self.node_cnt)
+
+        self.nodes, self.funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 2), node_count=self.node_cnt)
+        # create a slow rising, nearly horizontal line
+        self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
+
+    def test_eval_helper(self):
+        eval_data = utils.evaluate_approximation(self.weights, self.funcs, self.dates, self.nodes)
+        if show_plots:
+            p = visualization.AnimatedPlot(eval_data)
+            self.app.exec_()
+
+    def tearDown(self):
+        del self.app
+
+

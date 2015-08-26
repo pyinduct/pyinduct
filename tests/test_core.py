@@ -258,16 +258,15 @@ class ProjectionTest(unittest.TestCase):
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.funcs[0])
         real_weights = vec_real_func(self.nodes)
-        func_handle = core.back_project_from_initial_functions(real_weights, self.initial_functions)
-        vec_approx_func = np.vectorize(func_handle)
-        self.assertTrue(np.allclose(vec_approx_func(self.z_values), vec_real_func(self.z_values)))
+        approx_func = core.back_project_from_initial_functions(real_weights, self.initial_functions)
+        self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
             # lines should match exactly
             self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="back projected linear function")
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
-            pw.plot(x=self.z_values, y=vec_approx_func(self.z_values), pen="b")
+            pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="b")
             self.app.exec_()
             del self.app
 
@@ -284,8 +283,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
         self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
-        self.src_approx_handle = np.vectorize(core.back_project_from_initial_functions(self.src_weights,
-                                                                                       self.src_test_funcs))
+        self.src_approx_handle = core.back_project_from_initial_functions(self.src_weights, self.src_test_funcs)
 
         # approximation by sin(w*x)
         def trig_factory(freq):
@@ -300,12 +298,11 @@ class ChangeProjectionBaseTest(unittest.TestCase):
     def test_lag1st_to_trig(self):
         # scalar case
         dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
-        dest_approx_handle_s = np.vectorize(core.back_project_from_initial_functions(dest_weight,
-                                                                                     self.trig_test_funcs[0]))
+        dest_approx_handle_s = core.back_project_from_initial_functions(dest_weight, self.trig_test_funcs[0])
 
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
-        dest_approx_handle = np.vectorize(core.back_project_from_initial_functions(dest_weights, self.trig_test_funcs))
+        dest_approx_handle = back_project_from_initial_functions(dest_weights, self.trig_test_funcs)
         error = np.sum(np.power(
             np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
             2))

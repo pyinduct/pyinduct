@@ -1,7 +1,8 @@
 from __future__ import division
 import numpy as np
 from scipy.optimize import fsolve
-from core import Function, LagrangeFirstOrder
+from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
+from visualization import EvalData
 
 __author__ = 'stefan'
 
@@ -107,3 +108,22 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
         raise ValueError("not enough roots could be detected. Increase Area.")
 
     return np.atleast_1d(sorted(roots)[:count]).flatten()
+
+
+def evaluate_approximation(weights, functions, temporal_steps, spatial_steps):
+    """
+    evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
+
+    :param weights: 2d np.ndarray where axis 0 is the weight index and axis 1 the temporal index
+    :param functions: functions to use for back-projection
+    :return:
+    """
+    if weights.shape[1] != functions.shape[0]:
+        raise ValueError("weights have to fit provided functions!")
+
+    def eval_spatially(weight_vector):
+        handle = back_project_from_initial_functions(weight_vector, functions)
+        return handle(spatial_steps)
+
+    data = np.apply_along_axis(eval_spatially, 1, weights)
+    return EvalData([temporal_steps, spatial_steps], data)
