@@ -6,6 +6,68 @@ import numpy as np
 __author__ = 'stefan ecklebe'
 
 
+class SmoothTransition(object):
+    """
+    trajectory generator for a smooth transition between to states with derivatives of arbitrary height.
+    """
+    def __init__(self, states, interval, differential_order):
+        """
+        :param states: tuple of states in beginning and end of interval
+        :param interval: time interval (tuple)
+        :param differential_order: grade of differential flatness :math:`\\gamma`
+        """
+        self.yd = states
+        self.t0 = interval[0]
+        self.t1 = interval[1]
+        self.dt = interval[1] - interval[0]
+        gamma = differential_order + 1
+
+        # setup symbolic expressions
+        tau, k = sp.symbols('tau, k')
+
+        alpha = sp.factorial(2 * gamma + 1)
+
+        f = sp.binomial(gamma, k) * (-1) ** k * tau ** (gamma + k + 1) / (gamma + k + 1)
+        phi = alpha / sp.factorial(gamma) ** 2 * sp.summation(f, (k, 0, gamma))
+
+        # differentiate phi(tau), index in list corresponds to order
+        dphi_sym = [phi]  # init with phi(tau)
+        for order in range(differential_order):
+            dphi_sym.append(dphi_sym[-1].diff(tau))
+
+        # lambdify
+        self.dphi_num = []
+        for der in dphi_sym:
+            self.dphi_num.append(sp.lambdify(tau, der, 'numpy'))
+
+    def __call__(self, *args):
+        return self._desired_values(*args)
+
+    def _desired_values(self, t):
+        """
+        Calculates desired trajectory and all derivatives for moment t
+
+        :param t: time value for which trajectory and derivatives are needed
+        :returns np.ndarray
+        :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
+        """
+        y = np.zeros((len(self.dphi_num), 1))
+        if t < self.t0:
+            y[0] = self.yd[0]
+        elif t > self.t1:
+            y[0] = self.yd[1]
+        else:
+            for order, dphi in enumerate(self.dphi_num):
+                if order == 0:
+                    ya = self.yd[0]
+                else:
+                    ya = 0
+
+                y[order] = ya + (self.yd[1] - self.yd[0])*dphi((t - self.t0)/self.dt)*1/self.dt**order
+
+        return y
+
+
 class FlatString:
     """
     class that implements a flatness based control approach
@@ -13,30 +75,18 @@ class FlatString:
     """
 
     def __init__(self, y0=0, y1=1, t0=0, dt=1, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
+        # construct trajectory generator for yd
+        self.trajectory_gen = SmoothTransition((y0, y1), (t0, t0 + dt), 2)
+
         # store params
-        self._yA = y0
-        self._yB = y1
         self._tA = t0
         self._dt = dt
         self._dz = z1 - z0
+        self._m = m             # []=kg mass at z=0
+        self._v = v             # []=m/s speed of wave translation in string
+        self._sigma = sigma     # []=kgm/s**2 pretension of string
 
-        # physical parameters
-        self._m = m  # []=kg mass at z=0
-        self._v = v  # []=m/s speed of wave translation in string
-        self._sigma = sigma  # []=kgm/s**2 pretension of string
-
-        # create trajectory for flat output and its derivatives
-        t = sp.symbols("t")
-
-        gamma = 6 * t ** 5 - 15 * t ** 4 + 10 * t ** 3
-        gamma_d = gamma.diff(t)
-        gamma_dd = gamma_d.diff(t)
-
-        self._gamma_func = sp.lambdify(t, gamma)
-        self._gamma_d_func = sp.lambdify(t, gamma_d)
-        self._gamma_dd_func = sp.lambdify(t, gamma_dd)
-        del t
-
+        # create vectorized functions
         self.control_input = np.vectorize(self._control_input)
         self.system_state = np.vectorize(self._system_sate)
 
@@ -48,67 +98,18 @@ class FlatString:
         """
         return t - self._dz / self._v - self._tA
 
-    # trajectory for flat output and derivatives
-    def _y(self, t):
-        """
-        calculate desired trajectory
-        :param t: time
-        :return: y
-        """
-        t = self._trans_arg(t)
-        # if t < self._tA:
-        if t < 0:
-            return self._yA
-        # elif t < self._tA + self._dt:
-        elif t < self._dt:
-            return self._yA + (self._yB - self._yA) * self._gamma_func(t / self._dt)
-        else:
-            return self._yB
-
-    def _yd(self, t):
-        """
-        calculate first derivative of desired trajectory
-        :param t: time
-        :return: yd
-        """
-        t = self._trans_arg(t)
-        # if t < self._tA:
-        if t < 0:
-            return 0
-        # elif t < self._tA + self._dt:
-        elif t < self._dt:
-            return (self._yB - self._yA) * self._gamma_d_func(t / self._dt) / self._dt
-        else:
-            return 0
-
-    def _ydd(self, t):
-        """
-        calculate second derivative of desired trajectory
-        :param t: time
-        :return: ydd
-        """
-        t = self._trans_arg(t)
-        # if t < self._tA:
-        if t < 0:
-            return 0
-        # elif t < self._tA + self._dt:
-        elif t < self._dt:
-            return (self._yB - self._yA) * self._gamma_dd_func(t / self._dt) / self._dt ** 2
-        else:
-            return 0
-
     def _control_input(self, t):
         """
         control input for system gained through flatness based approach that will
         satisfy the target trajectory for y
+
         :param t: time
         :return: input force f
         """
-        # if t - self._c * self._zB < 0:
-        #     raise ValueError("Planned trajectory required control before t=0")
+        yd1 = self.trajectory_gen(self._trans_arg(t - self._dz / self._v))
+        yd2 = self.trajectory_gen(self._trans_arg(t + self._dz / self._v))
 
-        return 0.5 * self._m * (self._ydd(t + self._dz / self._v) + self._ydd(t - self._dz / self._v)) \
-               + self._sigma/(2*self._v) * (self._yd(t + self._dz / self._v) - self._yd(t - self._dz / self._v))
+        return 0.5*self._m*(yd2[2] + yd1[2]) + self._sigma/(2*self._v)*(yd2[1] - yd1[1])
 
     def _system_sate(self, z, t):
         """
@@ -117,6 +118,7 @@ class FlatString:
         :param t: time
         :return: state (deflection of string)
         """
-        return (self._v * self._m) / (2 * self._sigma) * (self._yd(t + z / self._v) - self._yd(t - z / self._v)) \
-               + .5 * (self._y(t - z / self._v) + self._y(t + z / self._v))
+        yd1 = self.trajectory_gen(self._trans_arg(t - z / self._v))
+        yd2 = self.trajectory_gen(self._trans_arg(t + z / self._v))
 
+        return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])

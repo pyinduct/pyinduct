@@ -6,7 +6,8 @@ from pyinduct import core as cr, simulation as sim, utils as ut, visualization a
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = False
+# show_plots = False
+show_plots = True
 # TODO Test for all Placeholders
 
 
