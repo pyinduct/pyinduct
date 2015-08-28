@@ -418,4 +418,4 @@ class StringMassTest(unittest.TestCase):
             self.app.exec_()
             del self.app
 
-
+    # TODO test "forbidden" terms like derivatives on the borders
