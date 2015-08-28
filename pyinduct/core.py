@@ -521,7 +521,7 @@ def project_on_initial_functions(func, initial_funcs):
     # compute <x(z, t), phi_i(z)>
     projections = dot_product_l2(func, initial_funcs)
 
-    # compute <phi_j(z), phi_i(z)> for 0 < i, j < n
+    # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
     scale_mat = calculate_function_matrix(initial_funcs, initial_funcs)
 
     return np.dot(np.linalg.inv(scale_mat), projections)

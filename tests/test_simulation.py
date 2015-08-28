@@ -261,6 +261,7 @@ class ParseTest(unittest.TestCase):
 
         self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
+        self.spat_int_asymetric = sim.IntegralTerm(sim.Product(self.field_var_dz, self.phi), (0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term2)).get_terms()
@@ -331,6 +332,11 @@ class ParseTest(unittest.TestCase):
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])))
+        self.assertEqual(terms[1], None)  # f
+        self.assertEqual(terms[2], None)  # g
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int_asymetric)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[-.5, -.5, 0], [.5, 0, -.5], [0, .5, .5]])))
         self.assertEqual(terms[1], None)  # f
         self.assertEqual(terms[2], None)  # g
 
