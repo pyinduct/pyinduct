@@ -6,8 +6,8 @@ from pyinduct import core as cr, simulation as sim, utils as ut, visualization a
 
 __author__ = 'Stefan Ecklebe'
 
-# show_plots = False
-show_plots = True
+show_plots = False
+# show_plots = True
 # TODO Test for all Placeholders
 
 
@@ -262,7 +262,7 @@ class ParseTest(unittest.TestCase):
 
         self.temp_int = sim.IntegralTerm(sim.Product(self.field_var_ddt, self.phi), (0, 1))
         self.spat_int = sim.IntegralTerm(sim.Product(self.field_var_dz, self.dphi), (0, 1))
-        self.spat_int_asymetric = sim.IntegralTerm(sim.Product(self.field_var_dz, self.phi), (0, 1))
+        self.spat_int_asymmetric = sim.IntegralTerm(sim.Product(self.field_var_dz, self.phi), (0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term2)).get_terms()
@@ -336,8 +336,8 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(terms[1], None)  # f
         self.assertEqual(terms[2], None)  # g
 
-        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int_asymetric)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[-.5, -.5, 0], [.5, 0, -.5], [0, .5, .5]])))
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int_asymmetric)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]])))
         self.assertEqual(terms[1], None)  # f
         self.assertEqual(terms[2], None)  # g
 

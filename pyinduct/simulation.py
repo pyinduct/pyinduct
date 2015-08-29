@@ -485,7 +485,6 @@ def parse_weak_formulation(weak_form):
                 init_funcs = field_var.data
 
                 if placeholders["scalars"]:
-                    # TODO move into separate function
                     a = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
                                                         for func in init_funcs])).T)
                     b = placeholders["scalars"][0]
@@ -496,7 +495,7 @@ def parse_weak_formulation(weak_form):
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = func.data
-                    result = calculate_function_matrix(init_funcs, test_funcs)
+                    result = calculate_function_matrix(test_funcs, init_funcs)
 
                 elif placeholders["inputs"]:
                     # TODO think about this
