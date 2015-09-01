@@ -383,11 +383,11 @@ class StateSpaceTests(unittest.TestCase):
 class StringMassTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.app = pg.QtGui.QApplication([])
 
-    def test_it(self):
+    def test_string_with_mass(self):
         # example case which the user will have to perform
-        fs = tr.FlatString(0, 10, 0, 3)
+        fs = tr.FlatString(0, 10, 0, 3, m=1)
         u = cr.Function(fs.control_input)
 
         # enter string with mass equations # enter string with mass equations
@@ -419,10 +419,11 @@ class StringMassTest(unittest.TestCase):
         # display results
         if show_plots:
             pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
-            self.app = pg.QtGui.QApplication([])
             win = vis.AnimatedPlot(pd, title="Test")
             win2 = vis.SurfacePlot(pd)
             self.app.exec_()
-            del self.app
+
+    def tearDown(self):
+        del self.app
 
     # TODO test "forbidden" terms like derivatives on the borders
