@@ -7,6 +7,7 @@ from pyinduct import core, utils
 __author__ = 'stefan'
 
 show_plots = False
+# show_plots = True
 
 
 class SanitizeInputTest(unittest.TestCase):
@@ -205,6 +206,8 @@ class DotProductL2TestCase(unittest.TestCase):
 class ProjectionTest(unittest.TestCase):
 
     def setUp(self):
+        self.app = pg.QtGui.QApplication([])
+
         interval = (0, 10)
         node_cnt = 11
         self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
@@ -242,38 +245,42 @@ class ProjectionTest(unittest.TestCase):
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
-            self.app = pg.QtGui.QApplication([])
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
                 pw.plot(x=self.nodes, y=w, pen="b")
 
             self.app.exec_()
-            del self.app
 
     def test_types_back_projection(self):
         self.assertRaises(TypeError, core.back_project_from_initial_functions, 1, 2)
         self.assertRaises(TypeError, core.back_project_from_initial_functions, 1.0, np.sin)
 
     def test_back_projection_from_lagrange_1st(self):
-        vec_real_func = np.vectorize(self.funcs[0])
+        vec_real_func = np.vectorize(self.funcs[1])
         real_weights = vec_real_func(self.nodes)
         approx_func = core.back_project_from_initial_functions(real_weights, self.initial_functions)
+        approx_func_dz = core.back_project_from_initial_functions(real_weights, np.array([func.derive(1) for func in
+                                                                                          self.initial_functions]))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
             # lines should match exactly
-            self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="back projected linear function")
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
-            pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="b")
+            pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="g")
+            pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
             self.app.exec_()
-            del self.app
+
+    def tearDown(self):
+        del self.app
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
 
     def setUp(self):
+        self.app = pg.QtGui.QApplication([])
+
         # real function
         self.z_values = np.linspace(0, 1, 1000)
         self.real_func = core.Function(lambda x: x)
@@ -310,7 +317,6 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.assertLess(error, 1e-2)
 
         if show_plots:
-            self.app = pg.QtGui.QApplication([])
             pw = pg.plot(title="change projection base")
             i1 = pw.plot(x=self.z_values, y=self.real_func_handle(self.z_values), pen="r")
             i2 = pw.plot(x=self.z_values, y=self.src_approx_handle(self.z_values),
@@ -323,7 +329,9 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i3, "sin(x)")
             legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
             self.app.exec_()
-            del self.app
+
+    def tearDown(self):
+        del self.app
 
 
 class NormalizeFunctionsTestCase(unittest.TestCase):
