@@ -114,7 +114,7 @@ def evaluate_approximation(weights, functions, temporal_steps, spatial_steps):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
-    :param weights: 2d np.ndarray where axis 0 is the weight index and axis 1 the temporal index
+    :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
     :param functions: functions to use for back-projection
     :return:
     """

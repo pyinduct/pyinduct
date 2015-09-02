@@ -6,8 +6,8 @@ from pyinduct import core as cr, simulation as sim, utils as ut, visualization a
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = False
-# show_plots = True
+# show_plots = False
+show_plots = True
 # TODO Test for all Placeholders
 
 
@@ -55,6 +55,7 @@ class FieldVariableTest(unittest.TestCase):
         # self.assertEqual(1, a.order)
         # self.assertEqual(7, a.factor)
         # self.assertEqual(None, a.location)
+
 
 class ProductTest(unittest.TestCase):
 
@@ -369,14 +370,14 @@ class StateSpaceTests(unittest.TestCase):
         self.cf = sim.parse_weak_formulation(string_pde)
 
     def test_convert_to_state_space(self):
-        A, B = self.cf.convert_to_state_space()
-        self.assertTrue(np.allclose(A, np.array([[0, 0, 0, 1, 0, 0],
+        ss = self.cf.convert_to_state_space()
+        self.assertTrue(np.allclose(ss.A, np.array([[0, 0, 0, 1, 0, 0],
                                                 [0, 0, 0, 0, 1, 0],
                                                 [0, 0, 0, 0, 0, 1],
                                                 [-2.25, 3, -.75, 0, 0, 0],
                                                 [7.5, -18, 10.5, 0, 0, 0],
                                                 [-3.75, 21, -17.25, 0, 0, 0]])))
-        self.assertTrue(np.allclose(B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
+        self.assertTrue(np.allclose(ss.B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
 
 
@@ -385,42 +386,182 @@ class StringMassTest(unittest.TestCase):
     def setUp(self):
         self.app = pg.QtGui.QApplication([])
 
-    def test_string_with_mass(self):
-        # example case which the user will have to perform
-        fs = tr.FlatString(0, 10, 0, 3, m=1)
-        u = cr.Function(fs.control_input)
+        z_start = 0
+        z_end = 1
+        t_start = 0
+        t_end = 5
+        z_step = 0.01
+        t_step = 0.01
+        self.t_values = np.arange(t_start, t_end+t_step, t_step)
+        self.z_values = np.arange(z_start, z_end+z_step, z_step)
+        self.node_distance = 0.1
+        self.mass = 1.0
+        self.order = 8
+        self.temp_interval = (t_start, t_end)
+        self.spat_interval = (z_start, z_end)
 
-        # enter string with mass equations # enter string with mass equations
-        interval = (0, 1)
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=10)
+        fs = tr.FlatString(0, 10, 0, 3, m=self.mass)
+        self.u = cr.Function(fs.control_input)
+
+        def x(z, t):
+            """
+            initial conditions for testing
+            """
+            return 0
+
+        def x_dt(z, t):
+            """
+            initial conditions for testing
+            """
+            return 0
+
+        # initial conditions
+        self.ic = np.array([
+            cr.Function(lambda z: x(z, 0)),  # x(z, 0)
+            cr.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
+        ])
+
+    def test_fem(self):
+        """
+        use best documented fem case to test all steps in simulation process
+        """
+
+        # enter string with mass equations
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
         int1 = sim.IntegralTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2),
-                                            sim.TestFunctions(ini_funcs)), interval)
+                                            sim.TestFunctions(ini_funcs)), self.spat_interval)
         s1 = sim.ScalarTerm(sim.Product(sim.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
                                         sim.TestFunctions(ini_funcs, location=0)))
         int2 = sim.IntegralTerm(sim.Product(sim.SpatialDerivedFieldVariable(ini_funcs, 1),
-                                            sim.TestFunctions(ini_funcs, order=1)), interval)
-        s2 = sim.ScalarTerm(sim.Product(sim.Input(u), sim.TestFunctions(ini_funcs, location=1)), -1)
+                                            sim.TestFunctions(ini_funcs, order=1)), self.spat_interval)
+        s2 = sim.ScalarTerm(sim.Product(sim.Input(self.u), sim.TestFunctions(ini_funcs, location=1)), -1)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
         self.cf = sim.parse_weak_formulation(string_pde)
-        A, B = self.cf.convert_to_state_space()
+        ss = self.cf.convert_to_state_space()
 
-        # derive initial conditions and simulate system
-        def x0(z):
-            return 0
+        # generate initial conditions for weights
+        q0 = np.array([cr.project_on_initial_functions(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
 
-        start_state = cr.Function(x0, domain=(0, 1))
-        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
-        q0 = np.zeros(2*len(initial_weights))
-        q0[0:len(initial_weights)] = initial_weights
-        t, q = sim.simulate_state_space(A, B, self.cf.input_function, q0, (0, 10))
+        # simulate
+        t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, (0, 10))
+
+        # calculate result data
+        eval_data = []
+        for der_idx in range(2):
+            eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
+                                                       ini_funcs, t, self.z_values))
+            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
         # display results
         if show_plots:
-            pd = vis.EvalData([t, nodes], q[:, 0:len(nodes)])
-            win = vis.AnimatedPlot(pd, title="Test")
-            win2 = vis.SurfacePlot(pd)
+            win = vis.AnimatedPlot(eval_data[:2], title="fem approx and derivative")
+            win2 = vis.SurfacePlot(eval_data[0])
+            self.app.exec_()
+
+    def test_modal(self):
+        order = 8
+
+        def char_eq(w):
+            return w * (np.sin(w) + self.mass * w * np.cos(w))
+
+        def phi_k_factory(freq, derivative_order=0):
+            def eig_func(z):
+                return np.cos(freq * z) - self.mass * freq * np.sin(freq * z)
+
+            def eig_func_dz(z):
+                return -freq * (np.sin(freq * z) + self.mass * freq * np.cos(freq * z))
+
+            def eig_func_ddz(z):
+                return freq ** 2 * (-np.cos(freq * z) + self.mass * freq * np.sin(freq * z))
+
+            if derivative_order == 0:
+                return eig_func
+            elif derivative_order == 1:
+                return eig_func_dz
+            elif derivative_order == 2:
+                return eig_func_ddz
+            else:
+                raise ValueError
+
+        # create eigenfunctions
+        eig_frequencies = ut.find_roots(char_eq, order)
+        print("eigenfrequencies:")
+        print eig_frequencies
+
+        # create eigen function vectors
+        class SWMFunctionVector(cr.ComposedFunctionVector):
+            """
+            String With Mass Function Vector, necessary due to manipulated scalar product
+            """
+
+            @staticmethod
+            def scalar_product(first, second):
+                if not isinstance(first, SWMFunctionVector) or not isinstance(second, cr.ComposedFunctionVector):
+                    raise TypeError("only SWMFunctionVector supported")
+                return cr.dot_product_l2(first.members[0], second.members[0]) + self.mass * first.members[1] * \
+                                                                                second.members[1]
+
+        eig_vectors = []
+        for n in range(order):
+            eig_vectors.append(SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]),
+                                                             derivative_handles=[
+                                                                 phi_k_factory(eig_frequencies[n], der_order)
+                                                                 for der_order in range(1, 3)],
+                                                             domain=self.spat_interval,
+                                                             nonzero=self.spat_interval),
+                                                 phi_k_factory(eig_frequencies[n])(0)))
+
+        # normalize eigen vectors
+        norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
+        norm_eig_funcs = np.atleast_1d([vec.members[0] for vec in norm_eig_vectors])
+
+        # debug print eigenfunctions
+        if 0:
+            func_vals = []
+            for vec in eig_vectors:
+                func_vals.append(np.vectorize(vec.members[0])(self.z_values))
+
+            norm_func_vals = []
+            for func in norm_eig_funcs:
+                norm_func_vals.append(np.vectorize(func)(self.z_values))
+
+            clrs = ["r", "g", "b", "c", "m", "y", "k", "w"]
+            for n in range(1, order + 1, len(clrs)):
+                pw_phin_k = pg.plot(title="phin_k for k in [{0}, {1}]".format(n, min(n + len(clrs), order)))
+                for k in range(len(clrs)):
+                    if k + n > order:
+                        break
+                    pw_phin_k.plot(x=self.z_values, y=norm_func_vals[n + k - 1], pen=clrs[k])
+
+            self.app.exec_()
+
+        # create terms of weak formulation
+        terms = []
+        terms.append(sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0)),
+                                                  sim.TestFunctions(norm_eig_funcs)),
+                                      self.spat_interval, scale=-1))
+        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0), location=0),
+                                                sim.TestFunctions(norm_eig_funcs, location=0)),
+                                    scale=-1))
+        terms.append(sim.ScalarTerm(sim.Product(sim.Input(self.u),
+                                                sim.TestFunctions(norm_eig_funcs, location=1))))
+        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=1),
+                                                sim.TestFunctions(norm_eig_funcs, order=1, location=1)),
+                                    scale=-1))
+        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=0),
+                                                sim.TestFunctions(norm_eig_funcs, order=1, location=0))))
+        terms.append(sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs),
+                                                  sim.TestFunctions(norm_eig_funcs, order=2)),
+                                      self.spat_interval))
+        modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.z_values)
+
+        # display results
+        if show_plots:
+            win = vis.AnimatedPlot(eval_data[0:2], title="modal approx and derivative")
+            win2 = vis.SurfacePlot(eval_data[0])
             self.app.exec_()
 
     def tearDown(self):

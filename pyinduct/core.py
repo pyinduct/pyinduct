@@ -547,7 +547,10 @@ def back_project_from_initial_functions(weights, initial_funcs):
         raise ValueError("Lengths of weights and initial_funcs do not match!")
 
     eval_handle = lambda z: sum([weights[i]*initial_funcs[i](z) for i in range(weights.shape[0])])
+
+    # TODO test if bottom one is faster
     return np.vectorize(eval_handle)
+    return eval_handle
 
 
 def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):

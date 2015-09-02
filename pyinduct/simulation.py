@@ -7,6 +7,7 @@ import numpy as np
 from scipy.integrate import ode
 from core import (Function, sanitize_input, integrate_function, calculate_function_matrix,
                   project_on_initial_functions)
+from utils import evaluate_approximation
 
 __author__ = 'Stefan Ecklebe'
 
@@ -258,7 +259,7 @@ class WeakFormulation(object):
 
     :param terms: (list of) of object(s) of type WeakEquationTerm
     """
-    def __init__(self, terms):
+    def __init__(self, terms, name=None):
         if isinstance(terms, WeakEquationTerm):
             terms = [terms]
         if not isinstance(terms, list):
@@ -269,21 +270,42 @@ class WeakFormulation(object):
                 raise TypeError("Only WeakEquationTerm(s) are accepted.")
 
         self.terms = terms
+        self.name = name
 
 
-def simulate_system(weak_form, initial_state, time_interval):
+class StateSpace(object):
+    """
+    wrapper class that represents the state space form of a dynamic system where
+    :math:`\\boldsymbol{\\dot{x}}(t) = \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t)` and
+    :math:`\\boldsymbol{y}(t) = \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)`
+
+    :param a_matrix: :math:`\\boldsymbol{A}`
+    :param a_matrix: :math:`\\boldsymbol{B}`
+    :param c_matrix: :math:`\\boldsymbol{C}`
+    :param d_matrix: :math:`\\boldsymbol{D}`
+    """
+    def __init__(self, a_matrix, b_matrix, c_matrix=None, d_matrix=None):
+        # TODO dimension checks
+        self.A = a_matrix
+        self.B = b_matrix
+        self.C = c_matrix
+        self.D = d_matrix
+
+
+def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation_points):
     """
     convenience wrapper that encapsulates the whole simulation process
 
     :param weak_form:
-    :param initial_state:
-    :param time_interval:
-    :return:
+    :param initial_states: np.array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`
+    :param time_interval: tuple of (t_start and t_end)
+    :return: tuple of integration time-steps and np.array of
     """
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
 
-    if not isinstance(initial_state, Function):
+    initial_states = np.atleast_1d(initial_states)
+    if not isinstance(initial_states[0], Function):
         raise TypeError("only core.Function accepted as initial state")
 
     if not isinstance(time_interval, tuple):
@@ -291,28 +313,55 @@ def simulate_system(weak_form, initial_state, time_interval):
 
     # parse input and create state space system
     canonical_form = parse_weak_formulation(weak_form)
-    a_mat, b_vec = canonical_form.convert_to_state_space()
+    state_space_form = canonical_form.convert_to_state_space()
 
     # calculate initial state
-    initial_weights = project_on_initial_functions(initial_state, canonical_form.initial_functions)
-    q0 = np.zeros(2*len(initial_weights))
-    q0[0:len(initial_weights)] = initial_weights
+    q0 = []
+    dim = canonical_form.initial_functions.size
+    for idx, initial_state in enumerate(initial_states):
+        q0.append(project_on_initial_functions(initial_state, canonical_form.initial_functions))
+
+    q0 = np.array(q0).flatten()
 
     # include boundary conditions
     # TODO
 
     # simulate
-    t, q = simulate_state_space(a_mat, b_vec, canonical_form.input_function, q0, time_interval)
+    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval)
+
+    # plot phi_k and xk
+    if 1:
+        import pyqtgraph as pg
+        app = pg.QtGui.QApplication([])
+        clrs = ["r", "g", "b", "c", "m", "y", "k", "w"]
+
+        for n in range(1, 8 + 1, len(clrs)):
+            pw_xk = pg.plot(title="xk for k in [{0}, {1}]".format(n, min(n + len(clrs), 8)))
+            for k in range(len(clrs)):
+                if k + n > 8:
+                    break
+                pw_xk.plot(x=t, y=q[:, n + k - 1], pen=clrs[k])
+
+        app.exec_()
+        del app
+
+    # create handles and evaluate at given points
+    data = []
+    for der_idx in range(initial_states.size):
+        data.append(evaluate_approximation(q[:, der_idx*dim:(der_idx+1)*dim], canonical_form.initial_functions,
+                                           t, spatial_evaluation_points))
+        data[-1].name = "{0}{1}".format(canonical_form.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
     # return results
-    return t, q[:, 0:len(initial_weights)]
+    return data
 
 
 class CanonicalForm(object):
     """
     represents the canonical form of n ordinary differential equation system of order n
     """
-    def __init__(self):
+    def __init__(self, name=None):
+        self.name = name
         self._max_idx = dict(E=0, f=0, g=0)
         self._initial_functions = None
         self._input_function = None
@@ -454,7 +503,7 @@ class CanonicalForm(object):
         if g is not None:
             b_vec[-dim_x:] = np.dot(en_inv, -g[0])
 
-        return a_mat, b_vec
+        return StateSpace(a_mat, b_vec)
 
 
 def parse_weak_formulation(weak_form):
@@ -466,7 +515,7 @@ def parse_weak_formulation(weak_form):
         if not isinstance(weak_form, WeakFormulation):
             raise TypeError("only able to parse WeakFormulation")
 
-        cf = CanonicalForm()
+        cf = CanonicalForm(weak_form.name)
 
         # handle each term
         for term in weak_form.terms:
@@ -630,12 +679,11 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(system_matrix, input_vector, input_handle, initial_state, time_interval, time_step=1e-2):
+def simulate_state_space(state_space, input_handle, initial_state, time_interval, time_step=1e-2):
     """
     wrapper to simulate a system given in state space form: :math:`\\dot{q} = Aq + Bu`
 
-    :param system_matrix: A
-    :param input_vector: B
+    :param state_space: state space formulation of the system
     :param input_handle: function handle to evaluate input
     :param time_interval: tuple of t_start and t_end
     :return:
@@ -650,7 +698,7 @@ def simulate_state_space(system_matrix, input_vector, input_handle, initial_stat
     r = ode(_rhs).set_integrator("vode", max_step=time_step)
     if input_handle is None:
         input_handle = lambda x: 0
-    r.set_f_params(system_matrix, input_vector.flatten(), input_handle)
+    r.set_f_params(state_space.A, state_space.B.flatten(), input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
     while r.successful() and r.t < time_interval[1]:
