@@ -329,22 +329,6 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
     # simulate
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval)
 
-    # plot phi_k and xk
-    if 1:
-        import pyqtgraph as pg
-        app = pg.QtGui.QApplication([])
-        clrs = ["r", "g", "b", "c", "m", "y", "k", "w"]
-
-        for n in range(1, 8 + 1, len(clrs)):
-            pw_xk = pg.plot(title="xk for k in [{0}, {1}]".format(n, min(n + len(clrs), 8)))
-            for k in range(len(clrs)):
-                if k + n > 8:
-                    break
-                pw_xk.plot(x=t, y=q[:, n + k - 1], pen=clrs[k])
-
-        app.exec_()
-        del app
-
     # create handles and evaluate at given points
     data = []
     for der_idx in range(initial_states.size):
@@ -534,8 +518,8 @@ def parse_weak_formulation(weak_form):
                 init_funcs = field_var.data
 
                 if placeholders["scalars"]:
-                    a = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
-                                                        for func in init_funcs])).T)
+                    a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
+                                               for func in init_funcs]))
                     b = placeholders["scalars"][0]
                     result = _compute_product_of_scalars([a, b])
 
@@ -564,19 +548,19 @@ def parse_weak_formulation(weak_form):
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = np.asarray([func for func in func.data])
+                test_funcs = func.data
 
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
-                    test_funcs2 = func.data
+                    test_funcs2 = func2.data
                     result = calculate_function_matrix(test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
 
                 if placeholders["scalars"]:
                     a = placeholders["scalars"][0]
-                    b = Scalars(np.atleast_2d(np.array([integrate_function(func, func.nonzero)[0]
-                                                        for func in test_funcs])))
+                    b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
+                                           for func in test_funcs]))
                     result = _compute_product_of_scalars([a, b])
                     cf.add_to(_get_scalar_target(placeholders["scalars"]), result*term.scale)
                     continue
@@ -654,9 +638,9 @@ def _evaluate_placeholder(placeholder):
     values = np.atleast_2d([func(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
-        return Scalars(values.T, target_term=("E", placeholder.order[0]))
+        return Scalars(values, target_term=("E", placeholder.order[0]))
     elif isinstance(placeholder, TestFunctions):
-        return Scalars(values, target_term=("f", 0))
+        return Scalars(values.T, target_term=("f", 0))
     else:
         raise NotImplementedError
 
@@ -670,7 +654,7 @@ def _compute_product_of_scalars(scalars):
     elif scalars[0].data.shape == scalars[1].data.shape:
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
     elif scalars[0].data.shape == scalars[1].data.T.shape:
-        res = np.dot(scalars[0].data, scalars[1].data)
+        res = np.dot(scalars[1].data, scalars[0].data)
     else:
         raise NotImplementedError
 
