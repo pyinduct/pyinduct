@@ -44,7 +44,7 @@ class Controller(SimulationInput):
         local_weights = weights.reshape(self._weight_dim)
 
         if not self._skip_projection:
-            local_weights = np.apply_along_axis(project_weights, 1, weights, self._base_projection)
+            local_weights = np.apply_along_axis(project_weights, 0, local_weights, self._base_projection)
 
         return self._control_handle(local_weights)
 
@@ -79,7 +79,7 @@ def approximate_control_law(control_law):
     cont_handle = _handle_continuous_terms(int_terms)
 
     def eval_func(weights):
-        return coll_handle(weights) + cont_handle(weights)
+        return np.atleast_2d(coll_handle(weights) + cont_handle(weights))
 
     return eval_func
 

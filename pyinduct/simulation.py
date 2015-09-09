@@ -94,12 +94,11 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
     state_space_form = canonical_form.convert_to_state_space()
 
     # calculate initial state
-    q0 = []
     dim = canonical_form.initial_functions.size
+    q0 = np.zeros((dim*len(initial_states), 1))
     for idx, initial_state in enumerate(initial_states):
-        q0.append(project_on_initial_functions(initial_state, canonical_form.initial_functions))
-
-    q0 = np.array(q0).flatten()
+        q0[idx*dim: (idx+1)*dim] = np.atleast_2d(project_on_initial_functions(initial_state,
+                                                                              canonical_form.initial_functions)).T
 
     # include boundary conditions
     # TODO
@@ -415,14 +414,14 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     q = []
     t = []
 
-    def _rhs(t, q, a_mat, b_vec, u):
-        q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t, q))
+    def _rhs(t, q, a_mat, b_mat, u):
+        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(t, q)).flatten()
         return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=time_step)
     if input_handle is None:
         input_handle = lambda x: 0
-    r.set_f_params(state_space.A, state_space.B.flatten(), input_handle)
+    r.set_f_params(state_space.A, state_space.B, input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
     while r.successful() and r.t < time_interval[1]:
