@@ -120,11 +120,11 @@ class WeakTermsTest(unittest.TestCase):
         self.prod = sim.Product(self.input, self.xdt)
 
     def test_WeakEquationTerm(self):
-        self.assertRaises(TypeError, sim.WeakEquationTerm, "eleven", self.input)  # scale is not a number
-        self.assertRaises(TypeError, sim.WeakEquationTerm, 1, cr.LagrangeFirstOrder(0, 1, 2))  # arg is invalid
-        sim.WeakEquationTerm(1, self.test_func)
-        sim.WeakEquationTerm(1, self.xdt)
-        t1 = sim.WeakEquationTerm(1, self.input)
+        self.assertRaises(TypeError, sim.EquationTerm, "eleven", self.input)  # scale is not a number
+        self.assertRaises(TypeError, sim.EquationTerm, 1, cr.LagrangeFirstOrder(0, 1, 2))  # arg is invalid
+        sim.EquationTerm(1, self.test_func)
+        sim.EquationTerm(1, self.xdt)
+        t1 = sim.EquationTerm(1, self.input)
         self.assertEqual(t1.scale, 1)
         self.assertEqual(t1.arg.args[0], self.input)  # automatically create Product object if only one arg is provided
 
@@ -379,11 +379,11 @@ class StateSpaceTests(unittest.TestCase):
     def test_convert_to_state_space(self):
         ss = self.cf.convert_to_state_space()
         self.assertTrue(np.allclose(ss.A, np.array([[0, 0, 0, 1, 0, 0],
-                                                [0, 0, 0, 0, 1, 0],
-                                                [0, 0, 0, 0, 0, 1],
-                                                [-2.25, 3, -.75, 0, 0, 0],
-                                                [7.5, -18, 10.5, 0, 0, 0],
-                                                [-3.75, 21, -17.25, 0, 0, 0]])))
+                                                    [0, 0, 0, 0, 1, 0],
+                                                    [0, 0, 0, 0, 0, 1],
+                                                    [-2.25, 3, -.75, 0, 0, 0],
+                                                    [7.5, -18, 10.5, 0, 0, 0],
+                                                    [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertTrue(np.allclose(ss.B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
 
@@ -545,23 +545,21 @@ class StringMassTest(unittest.TestCase):
             self.app.exec_()
 
         # create terms of weak formulation
-        terms = []
-        terms.append(sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0)),
-                                                  sim.TestFunctions(norm_eig_funcs)),
-                                      self.spat_interval, scale=-1))
-        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0), location=0),
-                                                sim.TestFunctions(norm_eig_funcs, location=0)),
-                                    scale=-1))
-        terms.append(sim.ScalarTerm(sim.Product(sim.Input(self.u),
-                                                sim.TestFunctions(norm_eig_funcs, location=1))))
-        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=1),
-                                                sim.TestFunctions(norm_eig_funcs, order=1, location=1)),
-                                    scale=-1))
-        terms.append(sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=0),
-                                                sim.TestFunctions(norm_eig_funcs, order=1, location=0))))
-        terms.append(sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs),
-                                                  sim.TestFunctions(norm_eig_funcs, order=2)),
-                                      self.spat_interval))
+        terms = [sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0)),
+                                              sim.TestFunctions(norm_eig_funcs)),
+                                  self.spat_interval, scale=-1),
+                 sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, order=(2, 0), location=0),
+                                            sim.TestFunctions(norm_eig_funcs, location=0)),
+                                scale=-1), sim.ScalarTerm(sim.Product(sim.Input(self.u),
+                                                                      sim.TestFunctions(norm_eig_funcs, location=1))),
+                 sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=1),
+                                            sim.TestFunctions(norm_eig_funcs, order=1, location=1)),
+                                scale=-1), sim.ScalarTerm(sim.Product(sim.FieldVariable(norm_eig_funcs, location=0),
+                                                                      sim.TestFunctions(norm_eig_funcs, order=1,
+                                                                                        location=0))),
+                 sim.IntegralTerm(sim.Product(sim.FieldVariable(norm_eig_funcs),
+                                              sim.TestFunctions(norm_eig_funcs, order=2)),
+                                  self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
         eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.z_values)
 

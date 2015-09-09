@@ -187,7 +187,7 @@ class Product(object):
         return [elem for elem in self.args if isinstance(elem, cls)]
 
 
-class WeakEquationTerm(object):
+class EquationTerm(object):
     """
     base class for all accepted terms in a weak formulation
     """
@@ -208,36 +208,24 @@ class WeakEquationTerm(object):
         else:
             self.arg = arg
 
-        # # evaluate all terms that can be evaluated
-        # new_args = []
-        # for idx, arg in enumerate(arguments):
-        #     if getattr(arg, "location", None) is not None:
-        #         # evaluate term and add scalar
-        #         # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
-        #         new_args.append(_evaluate_placeholder(arg))
-        #     else:
-        #         new_args.append(arg)
 
-        # self.arg = Product(*new_args)
-
-
-class ScalarTerm(WeakEquationTerm):
+class ScalarTerm(EquationTerm):
     """
     class that represents a scalar term in a weak equation
     """
     def __init__(self, argument, scale=1.0):
-        WeakEquationTerm.__init__(self, scale, argument)
+        EquationTerm.__init__(self, scale, argument)
 
         if any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunctions))]):
             raise ValueError("cannot leave z dependency. specify location to evaluate expression.")
 
 
-class IntegralTerm(WeakEquationTerm):
+class IntegralTerm(EquationTerm):
     """
     Class that represents an integral term in a weak equation
     """
     def __init__(self, integrand, limits, scale=1.0):
-        WeakEquationTerm.__init__(self, scale, integrand)
+        EquationTerm.__init__(self, scale, integrand)
 
         if not any([isinstance(arg, (FieldVariable, TestFunctions)) for arg in self.arg.args]):
             raise ValueError("nothing to integrate")
@@ -254,20 +242,20 @@ class SpatialIntegralTerm(IntegralTerm):
 class WeakFormulation(object):
     """
     this class represents the weak formulation of a spatial problem.
-    It can be initialized with several terms (see children of :py:class:`WeakEquationTerm`).
+    It can be initialized with several terms (see children of :py:class:`EquationTerm`).
     The equation is interpreted as term_0 + term_1 + ... + term_N = 0
 
-    :param terms: (list of) of object(s) of type WeakEquationTerm
+    :param terms: (list of) of object(s) of type EquationTerm
     """
     def __init__(self, terms, name=None):
-        if isinstance(terms, WeakEquationTerm):
+        if isinstance(terms, EquationTerm):
             terms = [terms]
         if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(WeakEquationTerm))
+            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
 
         for term in terms:
-            if not isinstance(term, WeakEquationTerm):
-                raise TypeError("Only WeakEquationTerm(s) are accepted.")
+            if not isinstance(term, EquationTerm):
+                raise TypeError("Only EquationTerm(s) are accepted.")
 
         self.terms = terms
         self.name = name
