@@ -21,7 +21,7 @@ class Controller(object):
     :param base_transformation: Matrix that transforms simulation weights into control weights
     """
 
-    def __init__(self, control_handle, base_transformation):
+    def __init__(self, control_handle, base_transformation=None):
         self._control_handle = control_handle
         self._base_transform = base_transformation
 
@@ -31,7 +31,11 @@ class Controller(object):
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        weights = project_weights(current_weights, self._base_transform)
+        if self._base_transform:
+            weights = project_weights(current_weights, self._base_transform)
+        else:
+            weights = current_weights
+
         return self._control_handle(time, weights)
 
 

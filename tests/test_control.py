@@ -74,3 +74,9 @@ class ContinuousTestCase(unittest.TestCase):
         law = ct.approximate_control_law([self.term3])
         res = law(self.weights)
         self.assertAlmostEqual(res, 1*np.exp(1))
+
+
+class SimulationInteractionTestCase(unittest.TestCase):
+    # TODO
+    pass
+
