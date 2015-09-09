@@ -1,6 +1,6 @@
 # coding=utf-8
 from __future__ import division
-
+from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
 
@@ -10,6 +10,23 @@ from placeholder import Scalars, TestFunctions, Input, FieldVariable, EquationTe
 from utils import evaluate_approximation
 
 __author__ = 'Stefan Ecklebe'
+
+
+class SimulationInput(object):
+    """
+    base class for all objects that want to act as an input for the timestep simulation
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def __call__(self, time, weights, **kwargs):
+        """
+        handle that will be used to retrieve input
+        """
+        pass
 
 
 class WeakFormulation(object):
@@ -352,7 +369,9 @@ def parse_weak_formulation(weak_form):
                         # this would mean that the input term should appear in a matrix like E1 or E2
                         raise NotImplementedError
                     cf.add_to(("g", 0), result*term.scale)
-                    cf.input_function = input_func.derive(input_order)
+                    # TODO think of a modular concept for input handling
+                    # cf.input_function = input_func.derive(input_order)
+                    cf.input_function = input_func
                     continue
 
                 cf.add_to(target, result*term.scale)
@@ -388,11 +407,16 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     :param time_interval: tuple of t_start and t_end
     :return:
     """
+    if not isinstance(state_space, StateSpace):
+        raise TypeError
+    if not isinstance(input_handle, SimulationInput):
+        raise TypeError
+
     q = []
     t = []
 
     def _rhs(t, q, a_mat, b_vec, u):
-        q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t))
+        q_t = np.dot(a_mat, q) + np.dot(b_vec, u(t, q))
         return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=time_step)

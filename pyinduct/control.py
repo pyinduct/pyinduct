@@ -1,10 +1,9 @@
 from __future__ import division
 import numpy as np
 
-from core import project_weights
-from core import domain_intersection, integrate_function
-from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, ScalarFunctions, FieldVariable, get_scalar_target
-from simulation import CanonicalForm
+from core import calculate_base_projection, project_weights, domain_intersection, integrate_function
+from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
+from simulation import CanonicalForm, SimulationInput
 
 __author__ = 'Stefan Ecklebe'
 """
@@ -13,30 +12,41 @@ for simulation purposes.
 """
 
 
-class Controller(object):
+class Controller(SimulationInput):
     """
     wrapper class for all controllers that have to interact with the simulation environment
 
-    :param control_handle: function handle that calculates the control output if provided with correct weights
-    :param base_transformation: Matrix that transforms simulation weights into control weights
+    :param control_law: function handle that calculates the control output if provided with correct weights
+    :param base_projection: Matrix that transforms simulation weights into control weights
     """
 
-    def __init__(self, control_handle, base_transformation=None):
-        self._control_handle = control_handle
-        self._base_transform = base_transformation
+    def __init__(self, control_law, sim_functions, control_functions):
+        SimulationInput.__init__(self)
+        self._control_handle = approximate_control_law(control_law)
+        self._base_projection = calculate_base_projection(control_functions, sim_functions)
+        if self._base_projection == np.identity(self._base_projection.shape[0]):
+            self._skip_projection = True
+        else:
+            self._skip_projection = False
+        self._state_len = len(sim_functions)
 
-    def calculate_output(self, time, current_weights):
+    def __call__(self, time, weights, **kwargs):
         """
         calculates the controller output based on the current_weights
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        if self._base_transform:
-            weights = project_weights(current_weights, self._base_transform)
-        else:
-            weights = current_weights
+        # reshape weight vector
+        if not hasattr(self, "_weight_dim"):
+            self._weight_dim = (self._state_len, len(weights)/self._state_len)
 
-        return self._control_handle(time, weights)
+        # reshape weight vector
+        local_weights = weights.reshape(self._weight_dim)
+
+        if not self._skip_projection:
+            local_weights = np.apply_along_axis(project_weights, 1, weights, self._base_projection)
+
+        return self._control_handle(local_weights)
 
 
 def approximate_control_law(control_law):

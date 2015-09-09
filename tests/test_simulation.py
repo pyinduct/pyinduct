@@ -57,7 +57,7 @@ class ParseTest(unittest.TestCase):
         self.scalars = ph.Scalars(np.vstack(range(3)))
 
         # inputs
-        self.u = cr.Function(np.sin)
+        self.u = np.sin
         self.input = ph.Input(self.u)  # control input
 
         # TestFunctions

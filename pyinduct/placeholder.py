@@ -174,7 +174,7 @@ class Product(object):
             if scal_func.data.shape != other_func.data.shape:
                 if scal_func.data.shape[0] == 1:
                     # only one function provided, use it for all others
-                    scal_func.data = scal_func.data[[0, 0, 0]]
+                    scal_func.data = scal_func.data[[0 for i in range(other_func.data.shape[0])]]
                 else:
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
