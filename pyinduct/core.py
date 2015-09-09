@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 from abc import ABCMeta, abstractmethod
+from numbers import Number
 import numpy as np
 from scipy import integrate
 
@@ -100,7 +101,7 @@ class Function:
     def scale(self, factor):
         """
         factory method to scale this function.
-        factor can be e number or a funtion
+        factor can be a number or a function
         """
         if factor == 1:
             return self
@@ -553,44 +554,58 @@ def back_project_from_initial_functions(weights, initial_funcs):
     return eval_handle
 
 
-def change_projection_base(src_weights, src_initial_funcs, dest_initial_funcs):
+def change_projection_base(src_weights, src_initial_funcs, dst_initial_funcs):
     """
     converts given weights that form an approximation using src_test_functions to the best possible fit using
-    dest_test_functions.
+    dst_test_functions.
 
-    :param src_weights: original weights (np.ndarray)
+    :param src_weights: current weights
     :param src_initial_funcs: original test functions (np.ndarray)
-    :param dest_initial_funcs: target test functions (np.ndarray)
+    :param dst_initial_funcs: target test functions (np.ndarray)
     :return: target weights
     """
-    if isinstance(src_weights, float):
+    pro_mat = calculate_base_projection(dst_initial_funcs, src_initial_funcs)
+    return project_weights(src_weights, pro_mat)
+
+
+def project_weights(src_weights, projection_matrix):
+    """
+    project weights on new basis using the provided projection
+
+    :param src_weights: src_weights
+    :param projection_matrix: projection
+    :return:
+    """
+    # TODO check dimensions and convert to Form a= Ab instead of a = bA
+    if isinstance(src_weights, Number):
         src_weights = np.asarray([src_weights])
+
+    return np.dot(src_weights, projection_matrix)
+
+
+def calculate_base_projection(dst_initial_funcs, src_initial_funcs):
+    """
+    calculates the base transformation :math:`V` so that the vector of src_weights can be transformed in a vector of
+    dst_weights, making the smallest error possible. Quadratic error is used as the error-norm for this case.
+
+    :param dst_initial_funcs: new projection base
+    :param src_initial_funcs: current projection base
+    :return:
+    """
+    # TODO check dimensions and convert to Form a= Ab instead of a = bA
     if isinstance(src_initial_funcs, Function):
         src_initial_funcs = np.asarray([src_initial_funcs])
-    if isinstance(dest_initial_funcs, Function):
-        dest_initial_funcs = np.asarray([dest_initial_funcs])
-
-    if not isinstance(src_weights, np.ndarray) or not isinstance(src_initial_funcs, np.ndarray) \
-            or not isinstance(dest_initial_funcs, np.ndarray):
-        raise TypeError("Only numpy.ndarray accepted as input")
-
-    if src_weights.shape[0] != src_initial_funcs.shape[0]:
-        raise ValueError("Lengths of original weights and original test functions do not match!")
-
-    n = src_initial_funcs.shape[0]
-    m = dest_initial_funcs.shape[0]
+    if isinstance(dst_initial_funcs, Function):
+        dst_initial_funcs = np.asarray([dst_initial_funcs])
 
     # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-    t_mat = calculate_function_matrix(src_initial_funcs, dest_initial_funcs)
-
+    t_mat = calculate_function_matrix(src_initial_funcs, dst_initial_funcs)
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
-    r_mat = calculate_function_matrix(dest_initial_funcs, dest_initial_funcs)
-
+    r_mat = calculate_function_matrix(dst_initial_funcs, dst_initial_funcs)
     # compute V matrix: T*inv(R)
     v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
 
-    # compute target weights: x_tilde*V
-    return np.dot(src_weights, v_mat)
+    return v_mat
 
 
 def normalize_function(x1, x2=None):
