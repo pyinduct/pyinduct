@@ -246,7 +246,7 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         t_start = 0
-        t_end = 5
+        t_end = 1
         z_step = 0.01
         t_step = 0.01
         self.t_values = np.arange(t_start, t_end+t_step, t_step)
@@ -257,8 +257,7 @@ class StringMassTest(unittest.TestCase):
         self.temp_interval = (t_start, t_end)
         self.spat_interval = (z_start, z_end)
 
-        fs = tr.FlatString(0, 10, 0, 3, m=self.mass)
-        self.u = cr.Function(fs.control_input)
+        self.u = tr.FlatString(0, 10, 0, 3, m=self.mass)
 
         def x(z, t):
             """
@@ -287,13 +286,13 @@ class StringMassTest(unittest.TestCase):
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2),
-                                            ph.TestFunctions(ini_funcs)), self.spat_interval)
+                       ph.TestFunctions(ini_funcs)), self.spat_interval)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-                                        ph.TestFunctions(ini_funcs, location=0)))
+                       ph.TestFunctions(ini_funcs, location=0)))
         int2 = ph.IntegralTerm(
             ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, 1),
-                                            ph.TestFunctions(ini_funcs, order=1)), self.spat_interval)
+                       ph.TestFunctions(ini_funcs, order=1)), self.spat_interval)
         s2 = ph.ScalarTerm(
             ph.Product(ph.Input(self.u), ph.TestFunctions(ini_funcs, location=1)), -1)
 

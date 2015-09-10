@@ -2,6 +2,8 @@ from __future__ import division
 import sympy as sp
 import numpy as np
 
+from simulation import SimulationInput
+
 
 __author__ = 'stefan ecklebe'
 
@@ -68,7 +70,7 @@ class SmoothTransition(object):
         return y
 
 
-class FlatString:
+class FlatString(SimulationInput):
     """
     class that implements a flatness based control approach
     for the "string with mass" model
@@ -122,3 +124,13 @@ class FlatString:
         yd2 = self.trajectory_gen(self._trans_arg(t + z / self._v))
 
         return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])
+
+    def __call__(self, t, q, **kwargs):
+        """
+        use time to calculate system input and return force
+        :param t:
+        :param q:
+        :param kwargs:
+        :return:
+        """
+        return self._control_input(t)

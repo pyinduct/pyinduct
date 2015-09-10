@@ -79,6 +79,7 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
     :param time_interval: tuple of (t_start and t_end)
     :return: tuple of integration time-steps and np.array of
     """
+    print("simulating system:")
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
 
@@ -90,23 +91,31 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
         raise TypeError("time_interval must be tuple")
 
     # parse input and create state space system
+    print(">>> parsing formulation")
     canonical_form = parse_weak_formulation(weak_form)
+    print(">>> creating state space system")
     state_space_form = canonical_form.convert_to_state_space()
 
     # calculate initial state
+    print(">>> deriving initial conditions")
     dim = canonical_form.initial_functions.size
-    q0 = np.zeros((dim*len(initial_states), 1))
-    for idx, initial_state in enumerate(initial_states):
-        q0[idx*dim: (idx+1)*dim] = np.atleast_2d(project_on_initial_functions(initial_state,
-                                                                              canonical_form.initial_functions)).T
+    q0 = np.array([project_on_initial_functions(initial_state, canonical_form.initial_functions) for initial_state in
+                   initial_states]).flatten()
+
+    # q0 = np.zeros((dim*len(initial_states), 1))
+    # for idx, initial_state in enumerate(initial_states):
+    #     q0[idx*dim: (idx+1)*dim] = np.atleast_2d(project_on_initial_functions(initial_state,
+    #                                                                           canonical_form.initial_functions)).T
 
     # include boundary conditions
     # TODO
 
     # simulate
+    print(">>> performing time step integration")
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval)
 
     # create handles and evaluate at given points
+    print(">>> performing postprocessing")
     data = []
     for der_idx in range(initial_states.size):
         data.append(evaluate_approximation(q[:, der_idx*dim:(der_idx+1)*dim], canonical_form.initial_functions,
@@ -114,6 +123,7 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
         data[-1].name = "{0}{1}".format(canonical_form.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
     # return results
+    print("finished simulation.")
     return data
 
 
