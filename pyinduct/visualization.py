@@ -63,6 +63,9 @@ class AnimatedPlot(DataPlot):
         self._pw.addLegend()
 
         time_data = [data_set.input_data[0] for data_set in self._data]
+        max_times = [max(data) for data in time_data]
+        self._longest_idx = max_times.index(max(max_times))
+
         spatial_data = [data_set.input_data[1] for data_set in self._data]
         state_data = [data_set.output_data for data_set in self._data]
 
@@ -95,8 +98,8 @@ class AnimatedPlot(DataPlot):
         for idx, data_set in enumerate(self._data):
             frame = min(self._curr_frame, data_set.output_data.shape[0]-1)
             self._plot_data_items[idx].setData(x=data_set.input_data[1], y=data_set.output_data[frame])
-            self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][frame]))
 
+        self._time_text.setText('t= {0:.2f}'.format(self._data[self._longest_idx].input_data[0][frame]))
         if self._curr_frame == self._data[0].output_data.shape[0] - 1:
             # end of time reached -> start again
             self._curr_frame = 0
