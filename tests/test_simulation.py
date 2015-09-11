@@ -247,10 +247,10 @@ class StringMassTest(unittest.TestCase):
         z_end = 1
         t_start = 0
         t_end = 1
-        z_step = 0.01
-        t_step = 0.01
-        self.t_values = np.arange(t_start, t_end+t_step, t_step)
-        self.z_values = np.arange(z_start, z_end+z_step, z_step)
+        self.z_step = 0.01
+        self.t_step = 0.01
+        self.t_values = np.arange(t_start, t_end+self.t_step, self.t_step)
+        self.z_values = np.arange(z_start, z_end+self.z_step, self.z_step)
         self.node_distance = 0.1
         self.mass = 1.0
         self.order = 8
@@ -311,7 +311,7 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                                       ini_funcs, t, self.z_values))
+                                                       ini_funcs, t, self.spat_interval, self.z_step))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
         # display results
@@ -420,7 +420,8 @@ class StringMassTest(unittest.TestCase):
                                              ph.TestFunctions(norm_eig_funcs, order=2)),
                 self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
-        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.z_values)
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,
+                                        self.spat_interval, self.z_step)
 
         # display results
         if show_plots:

@@ -42,8 +42,10 @@ class SmoothTransition(object):
         for der in dphi_sym:
             self.dphi_num.append(sp.lambdify(tau, der, 'numpy'))
 
-    def __call__(self, *args):
-        return self._desired_values(*args)
+        self.desired_values = np.vectorize(self._desired_values)
+
+    def __call__(self, time):
+        return self.desired_values(time)
 
     def _desired_values(self, t):
         """
@@ -125,7 +127,7 @@ class FlatString(SimulationInput):
 
         return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])
 
-    def __call__(self, t, q, **kwargs):
+    def __call__(self, t, q=None, **kwargs):
         """
         use time to calculate system input and return force
         :param t:

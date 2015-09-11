@@ -70,7 +70,17 @@ class StateSpace(object):
         self.D = d_matrix
 
 
-def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation_points):
+def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
+    """
+    convenience wrapper for simulate system, see :ref:py:func:simulate_system for parameters
+    :param weak_forms:
+    :return:
+    """
+    return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
+            weak_forms]
+
+
+def simulate_system(weak_form, initial_states, time_interval, time_step, spatial_interval, spatial_step):
     """
     convenience wrapper that encapsulates the whole simulation process
 
@@ -79,7 +89,7 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
     :param time_interval: tuple of (t_start and t_end)
     :return: tuple of integration time-steps and np.array of
     """
-    print("simulating system:")
+    print("simulating system: {0}".format(weak_form.name))
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
 
@@ -112,14 +122,14 @@ def simulate_system(weak_form, initial_states, time_interval, spatial_evaluation
 
     # simulate
     print(">>> performing time step integration")
-    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval)
+    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
 
     # create handles and evaluate at given points
     print(">>> performing postprocessing")
     data = []
     for der_idx in range(initial_states.size):
         data.append(evaluate_approximation(q[:, der_idx*dim:(der_idx+1)*dim], canonical_form.initial_functions,
-                                           t, spatial_evaluation_points))
+                                           t, spatial_interval, spatial_step))
         data[-1].name = "{0}{1}".format(canonical_form.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
     # return results

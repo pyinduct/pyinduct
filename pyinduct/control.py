@@ -22,9 +22,11 @@ class Controller(SimulationInput):
 
     def __init__(self, control_law, sim_functions, control_functions):
         SimulationInput.__init__(self)
+        print("approximating control law")
         self._control_handle = approximate_control_law(control_law)
         self._base_projection = calculate_base_projection(control_functions, sim_functions)
-        if self._base_projection == np.identity(self._base_projection.shape[0]):
+        if self._base_projection.shape[0] == self._base_projection.shape[1] and \
+                np.allclose(self._base_projection, np.identity(self._base_projection.shape[0])):
             self._skip_projection = True
         else:
             self._skip_projection = False
@@ -37,11 +39,7 @@ class Controller(SimulationInput):
         :return: control output :math:`u`
         """
         # reshape weight vector
-        if not hasattr(self, "_weight_dim"):
-            self._weight_dim = (self._state_len, len(weights)/self._state_len)
-
-        # reshape weight vector
-        local_weights = weights.reshape(self._weight_dim)
+        local_weights = weights.reshape((-1, self._state_len)).T
 
         if not self._skip_projection:
             local_weights = np.apply_along_axis(project_weights, 0, local_weights, self._base_projection)
@@ -100,7 +98,7 @@ def _handle_collocated_terms(terms):
         else:
             res = scalars[0].data
 
-        cf.add_to(get_scalar_target(scalars), res*term.scale)
+        cf.add_to(get_scalar_target(scalars), res * term.scale)
 
     processed_terms = cf.get_terms()
 
@@ -153,7 +151,7 @@ def _handle_continuous_terms(terms):
             else:
                 res = factors
 
-            cf.add_to(("E", temp_order), res*term.scale)
+            cf.add_to(("E", temp_order), res * term.scale)
 
         elif placeholders["scalars"]:
             # integral term with constant argument -> simple case
@@ -163,8 +161,8 @@ def _handle_continuous_terms(terms):
             else:
                 res = scalars[0].data
 
-            res = res*(term.limits[1] - term.limits[0])
-            cf.add_to(get_scalar_target(scalars), res*term.scale)
+            res = res * (term.limits[1] - term.limits[0])
+            cf.add_to(get_scalar_target(scalars), res * term.scale)
 
         else:
             raise NotImplementedError

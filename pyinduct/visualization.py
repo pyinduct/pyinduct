@@ -58,6 +58,7 @@ class AnimatedPlot(DataPlot):
 
         self._dt = dt
         self._pw = pg.plot(title=title)
+        self._pw.addLegend()
         time_data = [data_set.input_data[0] for data_set in self._data]
         spatial_data = [data_set.input_data[1] for data_set in self._data]
         state_data = [data_set.output_data for data_set in self._data]
@@ -88,9 +89,10 @@ class AnimatedPlot(DataPlot):
             else:
                 clear = False
 
-            self._pw.plot(x=data_set.input_data[1], y=data_set.output_data[self._curr_frame],
-                          clear=clear, pen=colors[idx])
-            self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][self._curr_frame]))
+            frame = min(self._curr_frame, data_set.output_data.shape[0]-1)
+            self._pw.plot(x=data_set.input_data[1], y=data_set.output_data[frame],
+                          clear=clear, pen=colors[idx], name=data_set.name)
+            self._time_text.setText('t= {0:.2f}'.format(data_set.input_data[0][frame]))
             self._pw.addItem(self._time_text)
 
         if self._curr_frame == self._data[0].output_data.shape[0] - 1:

@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
 from visualization import EvalData
@@ -111,7 +112,7 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
     return np.atleast_1d(sorted(roots)[:count]).flatten()
 
 
-def evaluate_approximation(weights, functions, temporal_steps, spatial_steps):
+def evaluate_approximation(weights, functions, temporal_steps, spatial_interval, spatial_step):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
@@ -122,8 +123,15 @@ def evaluate_approximation(weights, functions, temporal_steps, spatial_steps):
     if weights.shape[1] != functions.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
+    spatial_steps = np.arange(spatial_interval[0], spatial_interval[1]+spatial_step, spatial_step)
+
     def eval_spatially(weight_vector):
-        handle = back_project_from_initial_functions(weight_vector, functions)
+        if isinstance(functions[0], LagrangeFirstOrder):
+            # shortcut for fem approximations
+            nodes = [func._top for func in functions]  # HACK
+            handle = interp1d(nodes, weight_vector)
+        else:
+            handle = back_project_from_initial_functions(weight_vector, functions)
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
