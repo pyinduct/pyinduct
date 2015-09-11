@@ -9,8 +9,8 @@ import pyinduct.placeholder as ph
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = False
-# show_plots = True
+# show_plots = False
+show_plots = True
 
 
 class CanonicalFormTest(unittest.TestCase):
@@ -297,7 +297,7 @@ class StringMassTest(unittest.TestCase):
             ph.Product(ph.Input(self.u), ph.TestFunctions(ini_funcs, location=1)), -1)
 
         # derive sate-space system
-        string_pde = sim.WeakFormulation([int1, s1, int2, s2])
+        string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
         self.cf = sim.parse_weak_formulation(string_pde)
         ss = self.cf.convert_to_state_space()
 
