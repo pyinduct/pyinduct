@@ -9,8 +9,8 @@ import pyinduct.placeholder as ph
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = False
-# show_plots = True
+# show_plots = False
+show_plots = True
 
 
 class CanonicalFormTest(unittest.TestCase):
@@ -246,19 +246,18 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         t_start = 0
-        t_end = 5
-        z_step = 0.01
-        t_step = 0.01
-        self.t_values = np.arange(t_start, t_end+t_step, t_step)
-        self.z_values = np.arange(z_start, z_end+z_step, z_step)
+        t_end = 1
+        self.z_step = 0.01
+        self.t_step = 0.01
+        self.t_values = np.arange(t_start, t_end+self.t_step, self.t_step)
+        self.z_values = np.arange(z_start, z_end+self.z_step, self.z_step)
         self.node_distance = 0.1
         self.mass = 1.0
         self.order = 8
         self.temp_interval = (t_start, t_end)
         self.spat_interval = (z_start, z_end)
 
-        fs = tr.FlatString(0, 10, 0, 3, m=self.mass)
-        self.u = cr.Function(fs.control_input)
+        self.u = tr.FlatString(0, 10, 0, 3, m=self.mass)
 
         def x(z, t):
             """
@@ -287,18 +286,18 @@ class StringMassTest(unittest.TestCase):
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2),
-                                            ph.TestFunctions(ini_funcs)), self.spat_interval)
+                       ph.TestFunctions(ini_funcs)), self.spat_interval)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-                                        ph.TestFunctions(ini_funcs, location=0)))
+                       ph.TestFunctions(ini_funcs, location=0)))
         int2 = ph.IntegralTerm(
             ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, 1),
-                                            ph.TestFunctions(ini_funcs, order=1)), self.spat_interval)
+                       ph.TestFunctions(ini_funcs, order=1)), self.spat_interval)
         s2 = ph.ScalarTerm(
             ph.Product(ph.Input(self.u), ph.TestFunctions(ini_funcs, location=1)), -1)
 
         # derive sate-space system
-        string_pde = sim.WeakFormulation([int1, s1, int2, s2])
+        string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
         self.cf = sim.parse_weak_formulation(string_pde)
         ss = self.cf.convert_to_state_space()
 
@@ -312,7 +311,7 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                                       ini_funcs, t, self.z_values))
+                                                       ini_funcs, t, self.spat_interval, self.z_step))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
 
         # display results
@@ -421,7 +420,8 @@ class StringMassTest(unittest.TestCase):
                                              ph.TestFunctions(norm_eig_funcs, order=2)),
                 self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
-        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.z_values)
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,
+                                        self.spat_interval, self.z_step)
 
         # display results
         if show_plots:
