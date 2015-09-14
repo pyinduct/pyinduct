@@ -39,12 +39,12 @@ class Controller(SimulationInput):
         :return: control output :math:`u`
         """
         # reshape weight vector
-        local_weights = weights.reshape((-1, self._state_len)).T
+        coll_weights = cont_weights = weights.reshape((-1, self._state_len)).T
 
         if not self._skip_projection:
-            local_weights = np.apply_along_axis(project_weights, 0, local_weights, self._base_projection)
+            cont_weights = np.apply_along_axis(project_weights, 0, coll_weights, self._base_projection)
 
-        return self._control_handle(local_weights)
+        return self._control_handle(coll_weights, cont_weights)
 
 
 def approximate_control_law(control_law):
@@ -76,8 +76,8 @@ def approximate_control_law(control_law):
     coll_handle = _handle_collocated_terms(scal_terms)
     cont_handle = _handle_continuous_terms(int_terms)
 
-    def eval_func(weights):
-        return np.atleast_2d(coll_handle(weights) + cont_handle(weights))
+    def eval_func(coll_weights, cont_weights):
+        return np.atleast_2d(coll_handle(coll_weights) + cont_handle(cont_weights))
 
     return eval_func
 
