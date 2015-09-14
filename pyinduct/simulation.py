@@ -29,6 +29,19 @@ class SimulationInput(object):
         pass
 
 
+class Mixer(SimulationInput):
+    """
+    helper that represents a signal mixer
+    """
+    def __init__(self, inputs):
+        SimulationInput.__init__(self)
+        self._inputs = inputs
+
+    def __call__(self, time, weights, **kwargs):
+        outs = np.array([handle(time, weights) for handle in self._inputs])
+        return np.sum(outs)
+
+
 class WeakFormulation(object):
     """
     this class represents the weak formulation of a spatial problem.
