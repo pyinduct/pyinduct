@@ -246,13 +246,13 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         t_start = 0
-        t_end = 1
+        t_end = 10
         self.z_step = 0.01
         self.t_step = 0.01
         self.t_values = np.arange(t_start, t_end+self.t_step, self.t_step)
         self.z_values = np.arange(z_start, z_end+self.z_step, self.z_step)
         self.node_distance = 0.1
-        self.mass = 1.0
+        self.mass = 2.0
         self.order = 8
         self.temp_interval = (t_start, t_end)
         self.spat_interval = (z_start, z_end)
@@ -289,7 +289,7 @@ class StringMassTest(unittest.TestCase):
                        ph.TestFunctions(ini_funcs)), self.spat_interval)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-                       ph.TestFunctions(ini_funcs, location=0)))
+                       ph.TestFunctions(ini_funcs, location=0)), scale=self.mass)
         int2 = ph.IntegralTerm(
             ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, 1),
                        ph.TestFunctions(ini_funcs, order=1)), self.spat_interval)

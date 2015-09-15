@@ -42,10 +42,8 @@ class SmoothTransition(object):
         for der in dphi_sym:
             self.dphi_num.append(sp.lambdify(tau, der, 'numpy'))
 
-        self.desired_values = np.vectorize(self._desired_values)
-
     def __call__(self, time):
-        return self.desired_values(time)
+        return self._desired_values(time)
 
     def _desired_values(self, t):
         """
@@ -55,7 +53,7 @@ class SmoothTransition(object):
         :returns np.ndarray
         :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
         """
-        y = np.zeros((len(self.dphi_num), 1))
+        y = np.zeros((len(self.dphi_num)))
         if t < self.t0:
             y[0] = self.yd[0]
         elif t > self.t1:
