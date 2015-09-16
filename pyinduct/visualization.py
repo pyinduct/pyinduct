@@ -4,7 +4,8 @@ from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 
-__author__ = 'stefan'
+__author__ = 'Stefan Ecklebe'
+colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
 
 
 class EvalData:
@@ -51,20 +52,24 @@ class AnimatedPlot(DataPlot):
     wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
     It is assumed that time propagates along axis1 and and location along axis2 of values
     values are therefore expected to be a array of shape (n, t, z)
+    playback set can be set via "dt" which is the real world step size. default is playback in realtime
     """
     # TODO generalize to n-d spatial domain
-    colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
 
-    def __init__(self, data, title="", dt=1e-2):
+    def __init__(self, data, title="", dt=None):
         DataPlot.__init__(self, data)
 
-        self._dt = dt
         self._pw = pg.plot(title=title)
         self._pw.addLegend()
+        self._pw.showGrid(x=True, y=True, alpha=0.5)
 
         time_data = [data_set.input_data[0] for data_set in self._data]
         max_times = [max(data) for data in time_data]
         self._longest_idx = max_times.index(max(max_times))
+        if dt is None:
+            self._dt = time_data[0][1] - time_data[0][0]
+        else:
+            self._dt = dt
 
         spatial_data = [data_set.input_data[1] for data_set in self._data]
         state_data = [data_set.output_data for data_set in self._data]
@@ -127,3 +132,24 @@ class SurfacePlot(DataPlot):
                                              z=self._data[n].output_data,
                                              shader='normalColor')
             self.gl_widget.addItem(plot_item)
+
+
+class SlicePlot(DataPlot):
+    """
+    plot selected slice of given DataSets
+    """
+    # TODO think about a nice slice strategy see pyqtgraph for inspiration
+    def __init__(self, data, data_slice, title=None):
+        DataPlot.__init__(self, data)
+
+        self.data_slice = data_slice
+        self.title = title
+
+        self.plot_window = pg.plot(title=title)
+        self.plot_window.showGrid(x=True, y=True, alpha=.5)
+        self.plot_window.addLegend()
+
+        input_idx = 0 if self.data_slice.shape[0] > self.data_slice.shape[1] else 0
+        for data_set in data:
+            self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
+                                  name=data.name)

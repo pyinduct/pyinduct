@@ -444,8 +444,8 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     if not isinstance(input_handle, SimulationInput):
         raise TypeError
 
-    q = []
-    t = []
+    q = [initial_state]
+    t = [time_interval[0]]
 
     def _rhs(t, q, a_mat, b_mat, u):
         q_t = np.dot(a_mat, q) + np.dot(b_mat, u(t, q)).flatten()
@@ -457,8 +457,9 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     r.set_f_params(state_space.A, state_space.B, input_handle)
     r.set_initial_value(initial_state, time_interval[0])
 
-    while r.successful() and r.t < time_interval[1]:
-        t.append(r.t)
+    prec = -int(np.log10(time_step))
+    while r.successful() and np.round(r.t, prec) < time_interval[1]:
+        t.append(r.t + time_step)
         q.append(r.integrate(r.t + time_step))
 
     # create results

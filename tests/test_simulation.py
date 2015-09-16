@@ -320,6 +320,9 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.SurfacePlot(eval_data[0])
             self.app.exec_()
 
+
+        # TODO add test expression
+
     def test_modal(self):
         order = 8
 
@@ -428,6 +431,8 @@ class StringMassTest(unittest.TestCase):
             win = vis.AnimatedPlot(eval_data[0:2], title="modal approx and derivative")
             win2 = vis.SurfacePlot(eval_data[0])
             self.app.exec_()
+
+        # TODO add test expression
 
     def tearDown(self):
         del self.app
