@@ -1,5 +1,7 @@
 from __future__ import division
 import unittest
+import os
+from cPickle import dumps
 
 import numpy as np
 import pyqtgraph as pg
@@ -257,7 +259,7 @@ class StringMassTest(unittest.TestCase):
         self.temp_interval = (t_start, t_end)
         self.spat_interval = (z_start, z_end)
 
-        self.u = tr.FlatString(0, 10, 0, 3, m=self.mass)
+        self.u = tr.FlatString(0, 10, 0, 5, m=self.mass)
 
         def x(z, t):
             """
@@ -312,7 +314,8 @@ class StringMassTest(unittest.TestCase):
         for der_idx in range(2):
             eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
                                                        ini_funcs, t, self.spat_interval, self.z_step))
-            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])+"t")
+            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
+                                                               + "t" if der_idx > 0 else "")
 
         # display results
         if show_plots:
@@ -320,8 +323,9 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.SurfacePlot(eval_data[0])
             self.app.exec_()
 
-
         # TODO add test expression
+        with open(os.sep.join(["resources", "test_data.res"]), "w") as f:
+            f.write(dumps(eval_data))
 
     def test_modal(self):
         order = 8
@@ -403,24 +407,24 @@ class StringMassTest(unittest.TestCase):
         # create terms of weak formulation
         terms = [ph.IntegralTerm(
             ph.Product(ph.FieldVariable(norm_eig_funcs, order=(2, 0)),
-                                         ph.TestFunctions(norm_eig_funcs)),
+                       ph.TestFunctions(norm_eig_funcs)),
             self.spat_interval, scale=-1),
             ph.ScalarTerm(ph.Product(
                 ph.FieldVariable(norm_eig_funcs, order=(2, 0), location=0),
                 ph.TestFunctions(norm_eig_funcs, location=0)),
                 scale=-1), ph.ScalarTerm(
                 ph.Product(ph.Input(self.u),
-                                             ph.TestFunctions(norm_eig_funcs, location=1))),
+                           ph.TestFunctions(norm_eig_funcs, location=1))),
             ph.ScalarTerm(
                 ph.Product(ph.FieldVariable(norm_eig_funcs, location=1),
-                                             ph.TestFunctions(norm_eig_funcs, order=1, location=1)),
+                           ph.TestFunctions(norm_eig_funcs, order=1, location=1)),
                 scale=-1), ph.ScalarTerm(
                 ph.Product(ph.FieldVariable(norm_eig_funcs, location=0),
-                                             ph.TestFunctions(norm_eig_funcs, order=1,
-                                                                                location=0))),
+                           ph.TestFunctions(norm_eig_funcs, order=1,
+                                            location=0))),
             ph.IntegralTerm(
                 ph.Product(ph.FieldVariable(norm_eig_funcs),
-                                             ph.TestFunctions(norm_eig_funcs, order=2)),
+                           ph.TestFunctions(norm_eig_funcs, order=2)),
                 self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
         eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,

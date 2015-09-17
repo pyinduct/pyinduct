@@ -45,6 +45,7 @@ class DataPlot(QtCore.QObject):
             assert isinstance(data[0], EvalData)
 
         self._data = data
+        self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
 class AnimatedPlot(DataPlot):
@@ -66,9 +67,7 @@ class AnimatedPlot(DataPlot):
         time_data = [data_set.input_data[0] for data_set in self._data]
         max_times = [max(data) for data in time_data]
         self._longest_idx = max_times.index(max(max_times))
-        if dt is None:
-            self._dt = time_data[0][1] - time_data[0][0]
-        else:
+        if dt is not None:
             self._dt = dt
 
         spatial_data = [data_set.input_data[1] for data_set in self._data]
@@ -88,7 +87,7 @@ class AnimatedPlot(DataPlot):
 
         self._plot_data_items = []
         for idx, data_set in enumerate(self._data):
-            self._plot_data_items.append(pg.PlotDataItem(pen=self.colors[idx], name=data_set.name))
+            self._plot_data_items.append(pg.PlotDataItem(pen=colors[idx], name=data_set.name))
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
@@ -139,17 +138,76 @@ class SlicePlot(DataPlot):
     plot selected slice of given DataSets
     """
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
-    def __init__(self, data, data_slice, title=None):
+    def __init__(self, data, title=None):
+        DataPlot.__init__(self, data)
+        self.dim = self._data[0].output_data.shape
+
+        self.win = QtGui.QMainWindow()
+        self.win.resize(800, 800)
+        self.win.setWindowTitle("SlicePlot: {}".format(title))
+        self.cw = QtGui.QWidget()
+        self.win.setCentralWidget(self.cw)
+        self.l = QtGui.QGridLayout()
+        self.cw.setLayout(self.l)
+        self.image_view = pg.ImageView(name="img_view")
+        self.l.addWidget(self.image_view, 0, 0)
+        self.slice_view = pg.PlotWidget(name="slice")
+        self.l.addWidget(self.slice_view)
+        self.win.show()
+
+        # self.imv2 = pg.ImageView()
+        # self.l.addWidget(self.imv2, 1, 0)
+
+        self.roi = pg.LineSegmentROI([[0, self.dim[1]-1], [self.dim[0]-1, self.dim[1]-1]], pen='r')
+        self.image_view.addItem(self.roi)
+        self.image_view.setImage(self._data[0].output_data)
+        #
+        # self.plot_window.showGrid(x=True, y=True, alpha=.5)
+        # self.plot_window.addLegend()
+        #
+        # input_idx = 0 if self.data_slice.shape[0] > self.data_slice.shape[1] else 0
+        # for data_set in data:
+        #     self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
+        #                           name=data.name)
+
+
+class LinePLot3d(DataPlot):
+    """
+    plots a series of n-lines of the systems state.
+    scaling in z-direction can be changed with the scale setting
+    """
+
+    def __init__(self, data, n=50, scale=1):
         DataPlot.__init__(self, data)
 
-        self.data_slice = data_slice
-        self.title = title
+        self.w = gl.GLViewWidget()
+        self.w.opts['distance'] = 40
+        self.w.show()
+        self.w.setWindowTitle(data[0].name)
 
-        self.plot_window = pg.plot(title=title)
-        self.plot_window.showGrid(x=True, y=True, alpha=.5)
-        self.plot_window.addLegend()
+        # grids
+        gx = gl.GLGridItem()
+        gx.rotate(90, 0, 1, 0)
+        gx.translate(-10, 0, 0)
+        self.w.addItem(gx)
+        gy = gl.GLGridItem()
+        gy.rotate(90, 1, 0, 0)
+        gy.translate(0, -10, 0)
+        self.w.addItem(gy)
+        gz = gl.GLGridItem()
+        gz.translate(0, 0, -10)
+        self.w.addItem(gz)
 
-        input_idx = 0 if self.data_slice.shape[0] > self.data_slice.shape[1] else 0
-        for data_set in data:
-            self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
-                                  name=data.name)
+        res = self._data[0]
+        z_vals = res.input_data[1][::-1]*scale
+
+        t_subsets = np.linspace(0, res.input_data[0].size, n, endpoint=False, dtype=int)
+
+        for t_idx, t_val in enumerate(t_subsets):
+            t_vals = np.array([res.input_data[0][t_val]]*len(z_vals))
+            pts = np.vstack([t_vals, z_vals, res.output_data[t_val, :]]).transpose()
+            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n*1.3)),
+                                    # width=(t_idx + 1) / 10.,
+                                    width=2,
+                                    antialias=True)
+            self.w.addItem(plt)
