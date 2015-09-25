@@ -23,7 +23,7 @@ class SmoothTransition(object):
         self.t0 = interval[0]
         self.t1 = interval[1]
         self.dt = interval[1] - interval[0]
-        gamma = differential_order + 1 # TODO check this with notes
+        gamma = differential_order #+ 1 # TODO check this with notes
 
         # setup symbolic expressions
         tau, k = sp.symbols('tau, k')
