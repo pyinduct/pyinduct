@@ -528,7 +528,7 @@ def project_on_initial_functions(func, initial_funcs):
     return np.dot(np.linalg.inv(scale_mat), projections)
 
 
-def back_project_from_initial_functions(weights, initial_funcs):
+def back_project_from_initial_functions(weights, initial_funcs, order=0):
     """
     build handle for function that was expressed in test functions with weights
 
@@ -639,3 +639,60 @@ def normalize_function(x1, x2=None):
         return x1.scale(scale_factor)
     else:
         return x1.scale(scale_factor), x2.scale(scale_factor)
+
+
+class TermApproximationPattern():
+    """
+    Pattern for the definition of a term, which is to be approximate.
+    Members (must be initialized via constructor __init__) usually
+    are lists of function handles.
+    """
+    def __init__(self,a):
+        if not (hasattr(self.__class__, 'func') and callable(getattr(self.__class__, 'func'))):
+            raise AttributeError("Class TermAppriximationPattern and his childclasses"
+                                 "must provide a callable Attribute named get_summand.")
+
+    def get_summand(self, i, *args):
+        """
+        return the i-th summand
+        0 <= i <= n-1
+        """
+        pass
+
+    def approximate_term(self, n, *args):
+        """
+        Accumulate self.get_summand(*args, i) from i=0 up to i=n-1.
+        :return: \sum_{i=0}^{n-1} term_i(args)
+        """
+        approximation = np.zeros(np.shape(self.get_summand(1, *args)))
+        for i in range(n):
+            approximation += self.get_summand(i, *args)
+
+        return np.asarray(approximation)
+
+def back_project_weights_matrix(weights_matrix, initial_funcs, nodes, order=0):
+    """
+    build field variable matrix x(z,t) with given weights_matrix to desired nodes
+    :param weights_matrix:
+    :param initial_funcs:
+    :param nodes:
+    :param order:
+    :return:
+    """
+    if not isinstance(order, int):
+        raise TypeError("An Integer is required")
+
+    if not isinstance(weights_matrix, np.ndarray) or not isinstance(initial_funcs, np.ndarray) or not isinstance(nodes, np.ndarray):
+        raise TypeError("Only numpy ndarrays accepted as input")
+
+    if weights_matrix.shape[1] != initial_funcs.shape[0]:
+        raise ValueError("Lengths of weights and initial_funcs do not match!")
+
+    back_project = np.nan*np.zeros((weights_matrix.shape[0], nodes.shape[0]))
+    for j in xrange(weights_matrix.shape[0]):
+        sum_x = np.zeros(nodes.shape)
+        for i in xrange(weights_matrix.shape[1]):
+            sum_x += initial_funcs[i].derive(order)(nodes)*weights_matrix[j, i]
+        back_project[j, :] = sum_x
+
+    return back_project

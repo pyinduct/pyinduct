@@ -5,6 +5,7 @@ from cPickle import dumps
 
 import numpy as np
 import pyqtgraph as pg
+import sys
 
 from pyinduct import core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
@@ -442,3 +443,121 @@ class StringMassTest(unittest.TestCase):
         del self.app
 
     # TODO test "forbidden" terms like derivatives on the borders
+
+class ReactionAdvectionDiffusionFemTrajectoryTest(unittest.TestCase):
+    """
+    Tests FEM simulation with cr.LagrangeFirstOrder testfunctions
+    and generic trajectory generator tr.ReaAdvDifTrajectory
+    for the reaction-advection-diffusion equation.
+    """
+
+    def setUp(self):
+        pass
+
+    def test_it(self):
+        param = [2., -1.5, -3., 2., .5]
+        a2, a1, a0, alpha, beta = param
+        l = 1.; spatial_domain = (0, l); spatial_disc = 50
+        T = 1.; temporal_domain = (0, T); temporal_disc = 1e3
+
+        # create testfunctions
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+                                            spatial_domain,
+                                            node_count=spatial_disc)
+
+        # derive initial field variable x(z,0) and weights
+        start_state = cr.Function(lambda z: 0., domain=(0, l))
+        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
+
+        # TODO: implement twice differentiable testfunctions (e.g. LagrangeSecondOrder) for additional tests:
+        # def test_dd():
+        #     boundary_condition = 'dirichlet'
+        #     actuation = 'dirichlet'
+        # def test_rd():
+        #     boundary_condition = 'robin'
+        #     actuation = 'dirichlet'
+
+        def test_dr():
+            # trajectory
+            boundary_condition = 'dirichlet'
+            actuation = 'robin'
+            u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+            # integral terms
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, order=1),
+                                              ph.TestFunctions(ini_funcs, order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
+                                              ph.TestFunctions(ini_funcs, order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
+                                              ph.TestFunctions(ini_funcs, order=1)), spatial_domain, a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
+                                              ph.TestFunctions(ini_funcs, order=0)), spatial_domain, -a0)
+            # scalar terms from int 2
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
+                                          ph.TestFunctions(ini_funcs, order=0, location=l)), -a1)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
+                                          ph.TestFunctions(ini_funcs, order=0, location=l)), a2*beta)
+            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1, location=0),
+                                          ph.TestFunctions(ini_funcs, order=0, location=0)), a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
+                                          ph.TestFunctions(ini_funcs, order=0, location=l)), -a2)
+            # derive state-space system
+            rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+
+            # simulate system
+            t, q = sim.simulate_state_space(ss, cf.input_function, initial_weights,
+                                            temporal_domain, time_step=T/temporal_disc)
+
+            # check if (x'(0,t_end) - 1.) < 0.1
+            self.assertLess(np.abs(ini_funcs[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
+            return t, q
+
+        def test_rr():
+            # trajectory
+            boundary_condition = 'robin'
+            actuation = 'robin'
+            u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+            # integral terms
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, order=1),
+                                              ph.TestFunctions(ini_funcs, order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
+                                              ph.TestFunctions(ini_funcs, order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
+                                              ph.TestFunctions(ini_funcs, order=0)), spatial_domain, -a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
+                                              ph.TestFunctions(ini_funcs, order=0)), spatial_domain, -a0)
+            # scalar terms from int 2
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=0),
+                                          ph.TestFunctions(ini_funcs, order=0, location=0)), a2*alpha)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
+                                          ph.TestFunctions(ini_funcs, order=0, location=l)), a2*beta)
+            s3 = ph.ScalarTerm(ph.Product(ph.Input(u),
+                                          ph.TestFunctions(ini_funcs, order=0, location=l)), -a2)
+            # derive state-space system
+            rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+
+            # simulate system
+            t, q = sim.simulate_state_space(ss, cf.input_function, initial_weights,
+                                            temporal_domain, time_step=T/temporal_disc)
+
+            # check if (x(0,t_end) - 1.) < 0.1
+            self.assertLess(np.abs(ini_funcs[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
+            return t, q
+
+        _, _ = test_dr()
+        t, q = test_rr()
+
+        # display results
+        nodes = np.linspace(0, l, spatial_disc-1)
+        x_zt = cr.back_project_weights_matrix(q, ini_funcs, nodes, order=0)
+        d_x_zt = cr.back_project_weights_matrix(q, ini_funcs, nodes, order=1)
+        pd1 = vis.EvalData([t, nodes], x_zt)
+        pd2 = vis.EvalData([t, nodes], d_x_zt)
+        self.app = pg.QtGui.QApplication([])
+        win1 = vis.AnimatedPlot([pd1, pd2], title="Test")
+        win2 = vis.SurfacePlot(pd1)
+        self.app.exec_()
+        del self.app
