@@ -551,16 +551,14 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
         t, q = test_rr()
 
         # display results
-        nodes = np.linspace(0, l, spatial_disc-1)
-        x_zt = cr.back_project_weights_matrix(q, ini_funcs, nodes, order=0)
-        d_x_zt = cr.back_project_weights_matrix(q, ini_funcs, nodes, order=1)
-        pd1 = vis.EvalData([t, nodes], x_zt)
-        pd2 = vis.EvalData([t, nodes], d_x_zt)
-        self.app = pg.QtGui.QApplication([])
-        win1 = vis.AnimatedPlot([pd1, pd2], title="Test")
-        win2 = vis.SurfacePlot(pd1)
-        self.app.exec_()
-        del self.app
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, ini_funcs, t, spatial_domain, l/spatial_disc)
+            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in ini_funcs]), t, spatial_domain, l/spatial_disc)
+            self.app = pg.QtGui.QApplication([])
+            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            self.app.exec_()
+            del self.app
 
 class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
     """
@@ -625,14 +623,14 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
         # display results
-        nodes = np.linspace(0, l, spatial_disc)
-        x_zt = cr.back_project_weights_matrix(q, rad_eig_funcs, nodes, order=0)
-        pd1 = vis.EvalData([t, nodes], x_zt)
-        self.app = pg.QtGui.QApplication([])
-        win = vis.AnimatedPlot([pd1], title="Test")
-        win2 = vis.SurfacePlot(pd1)
-        self.app.exec_()
-        del self.app
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, rad_eig_funcs, t, spatial_domain, l/spatial_disc)
+            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
+            self.app = pg.QtGui.QApplication([])
+            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            self.app.exec_()
+            del self.app
 
 class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
     """
@@ -705,13 +703,11 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=1e-3)
 
         # display results
-        nodes = np.linspace(0, l, spatial_disc)
-        x_zt = cr.back_project_weights_matrix(q, rad_eig_funcs, nodes, order=0)
-        d_x_zt = cr.back_project_weights_matrix(q, rad_eig_funcs, nodes, order=1)
-        pd1 = vis.EvalData([t, nodes], x_zt)
-        pd2 = vis.EvalData([t, nodes], d_x_zt)
-        app = pg.QtGui.QApplication([])
-        win = vis.AnimatedPlot([pd1, pd2], title="Test")
-        win2 = vis.SurfacePlot(pd1)
-        app.exec_()
-        del app
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, rad_eig_funcs, t, spatial_domain, l/spatial_disc)
+            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
+            self.app = pg.QtGui.QApplication([])
+            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            self.app.exec_()
+            del self.app

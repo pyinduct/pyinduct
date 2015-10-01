@@ -669,30 +669,3 @@ class TermApproximationPattern():
             approximation += self.get_summand(i, *args)
 
         return np.asarray(approximation)
-
-def back_project_weights_matrix(weights_matrix, initial_funcs, nodes, order=0):
-    """
-    build field variable matrix x(z,t) with given weights_matrix to desired nodes
-    :param weights_matrix:
-    :param initial_funcs:
-    :param nodes:
-    :param order:
-    :return:
-    """
-    if not isinstance(order, int):
-        raise TypeError("An Integer is required")
-
-    if not isinstance(weights_matrix, np.ndarray) or not isinstance(initial_funcs, np.ndarray) or not isinstance(nodes, np.ndarray):
-        raise TypeError("Only numpy ndarrays accepted as input")
-
-    if weights_matrix.shape[1] != initial_funcs.shape[0]:
-        raise ValueError("Lengths of weights and initial_funcs do not match!")
-
-    back_project = np.nan*np.zeros((weights_matrix.shape[0], nodes.shape[0]))
-    for j in xrange(weights_matrix.shape[0]):
-        sum_x = np.zeros(nodes.shape)
-        for i in xrange(weights_matrix.shape[1]):
-            sum_x += initial_funcs[i].derive(order)(nodes)*weights_matrix[j, i]
-        back_project[j, :] = sum_x
-
-    return back_project
