@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
