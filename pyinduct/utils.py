@@ -346,7 +346,7 @@ class ReaAdvDifRobinEigenvalues():
     def compute_eigen_frequencies(self, param, eta, l, n_roots):
         a2, a1, a0, alpha, beta = param
 
-        if True:
+        if False:
 
             def characteristic_equation(om):
                 if round(om, 200) != 0.:
@@ -362,7 +362,7 @@ class ReaAdvDifRobinEigenvalues():
                     zero = (alpha+beta) * np.cosh(om*l) + (eta+beta)*(alpha-eta)*l + om * np.sinh(om*l)
                 return zero
 
-            # assume 1 root per pi/l
+            # assume 1 root per pi/l (safty factor = 2)
             om_end = n_roots*np.pi/l
             om = find_roots(characteristic_equation, n_roots, (0, om_end), rtol=1e-6/l).tolist()
 
@@ -458,7 +458,7 @@ class ReaAdvDifRobinEigenvalues():
             # # matplotlib
             # plot_om = np.linspace(-0.9,0.9,100)
             # plt.plot(plot_om, characteristic_equation(plot_om, alpha, beta, eta)); plt.grid(); plt.show()
-
+        print om_squared
         return np.array(om_squared[:n_roots])
 
 class ReaAdvDifDirichletEigenvalues():

@@ -450,7 +450,6 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
     and generic trajectory generator tr.ReaAdvDifTrajectory
     for the reaction-advection-diffusion equation.
     """
-
     def setUp(self):
         pass
 
@@ -563,7 +562,6 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
 class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
-
     def setUp(self):
         pass
 
@@ -587,6 +585,7 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         start_state = cr.Function(lambda z: 0., domain=(0, l))
         initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
 
+        # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
 
         ## determine (A,B) with weak-formulation (pyinduct)
@@ -635,7 +634,6 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
 class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
-
     def setUp(self):
         pass
 
@@ -652,39 +650,40 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
         om_squared = rad_eig_val.om_squared
-        rad_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, param, spatial_domain) for ii in om_squared])
-        rad_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, adjoint_param, spatial_domain) for ii in om_squared])
+        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, param, spatial_domain) for ii in om_squared])
+        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, adjoint_param, spatial_domain) for ii in om_squared])
+
+        # TODO: "vectorize" cr.normalize
+        # normalize eigenfunctions and adjoint eigenfunctions
+        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
+        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
+        adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
+        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
 
-        # TODO: use pyinduct normalization function and delete ut.normalize(...)
-        for i in xrange(len(rad_adjoint_eig_funcs)):
-            scale = ut.normalize(rad_eig_funcs[i], rad_adjoint_eig_funcs[i], l)
-            rad_eig_funcs[i] = rad_eig_funcs[i].scale(scale)
-            rad_adjoint_eig_funcs[i] = rad_adjoint_eig_funcs[i].scale(scale)
-
+        # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
 
         ## determine (A,B) with weak-formulation (pyinduct)
         # integral terms
-        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(rad_eig_funcs, order=1),
-                                          ph.TestFunctions(rad_adjoint_eig_funcs, order=0)), spatial_domain)
-        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=1),
-                                          ph.TestFunctions(rad_adjoint_eig_funcs, order=1)), spatial_domain, a2)
-        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=1),
-                                          ph.TestFunctions(rad_adjoint_eig_funcs, order=0)), spatial_domain, -a1)
-        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0),
-                                          ph.TestFunctions(rad_adjoint_eig_funcs, order=0)), spatial_domain, -a0)
+        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(eig_funcs, order=1),
+                                          ph.TestFunctions(adjoint_eig_funcs, order=0)), spatial_domain)
+        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(eig_funcs, order=1),
+                                          ph.TestFunctions(adjoint_eig_funcs, order=1)), spatial_domain, a2)
+        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(eig_funcs, order=1),
+                                          ph.TestFunctions(adjoint_eig_funcs, order=0)), spatial_domain, -a1)
+        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(eig_funcs, order=0),
+                                          ph.TestFunctions(adjoint_eig_funcs, order=0)), spatial_domain, -a0)
 
         # scalar terms
-        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0, location=0),
-                                      ph.TestFunctions(rad_adjoint_eig_funcs, order=0, location=0)), a2*alpha)
-        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0, location=l),
-                                      ph.TestFunctions(rad_adjoint_eig_funcs, order=0, location=l)), a2*beta)
+        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(eig_funcs, order=0, location=0),
+                                      ph.TestFunctions(adjoint_eig_funcs, order=0, location=0)), a2*alpha)
+        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(eig_funcs, order=0, location=l),
+                                      ph.TestFunctions(adjoint_eig_funcs, order=0, location=l)), a2*beta)
         s3 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                      ph.TestFunctions(rad_adjoint_eig_funcs, order=0, location=l)), -a2)
+                                      ph.TestFunctions(adjoint_eig_funcs, order=0, location=l)), -a2)
         # derive state-space system
         rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
         cf = sim.parse_weak_formulation(rad_pde)
@@ -692,20 +691,20 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         ## determine (A,B) with modal-transfomation
         A = np.diag(eig_val)
-        B = a2*np.array([rad_adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
+        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
         ss_modal = sim.StateSpace(A,B)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=1e-08, atol=0.))
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=1e-05, atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
 
         # simulate
-        t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=1e-3)
+        t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, rad_eig_funcs, t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation(q, eig_funcs, t, spatial_domain, l/spatial_disc)
+            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in eig_funcs]), t, spatial_domain, l/spatial_disc)
             self.app = pg.QtGui.QApplication([])
             win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.SurfacePlot(eval_d)
