@@ -5,6 +5,9 @@ from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
 from visualization import EvalData
+import sys
+import warnings
+warnings.simplefilter('always', UserWarning)
 
 __author__ = 'stefan'
 
