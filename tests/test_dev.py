@@ -51,7 +51,7 @@ if False:
     # derive state-space system
     rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
     cf = sim.parse_weak_formulation(rad_pde)
-    A, B = cf.convert_to_state_space()
+    ss_weak = cf.convert_to_state_space()
 
     start_state = cr.Function(lambda z: 0., domain=(0, l))
     initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
@@ -59,10 +59,14 @@ if False:
 else:
     A = np.diag(eig_val)
     B = a2*np.array([rad_adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
+    ss_modal = sim.StateSpace(A,B)
 
-    start_state = cr.Function(lambda z: 0., domain=(0, l))
-    initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
-    t, q = sim.simulate_state_space(A, B, u, initial_weights, temporal_domain, time_step=1e-3)
+    # check if ss_modal.(A,B) is close to ss_weak.(A,B)
+    self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=3e-01, atol=0.))
+    self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
+
+
+    t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=1e-3)
 
 nodes = np.linspace(0, l, spatial_disc)
 x_zt = cr.back_project_weights_matrix(q, rad_eig_funcs, nodes, order=0)

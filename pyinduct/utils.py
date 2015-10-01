@@ -85,7 +85,7 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
     roots = []
     rounded_roots = []
     errors = []
-    values = np.arange(area[0], scale*area[1], rtol)
+    values = np.linspace(area[0], scale*area[1], own_count*10)
     val = iter(values)
     while len(roots) < own_count:
         try:
