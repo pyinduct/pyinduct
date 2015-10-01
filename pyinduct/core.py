@@ -639,33 +639,3 @@ def normalize_function(x1, x2=None):
         return x1.scale(scale_factor)
     else:
         return x1.scale(scale_factor), x2.scale(scale_factor)
-
-
-class TermApproximationPattern():
-    """
-    Pattern for the definition of a term, which is to be approximate.
-    Members (must be initialized via constructor __init__) usually
-    are lists of function handles.
-    """
-    def __init__(self,a):
-        if not (hasattr(self.__class__, 'func') and callable(getattr(self.__class__, 'func'))):
-            raise AttributeError("Class TermAppriximationPattern and his childclasses"
-                                 "must provide a callable Attribute named get_summand.")
-
-    def get_summand(self, i, *args):
-        """
-        return the i-th summand
-        0 <= i <= n-1
-        """
-        pass
-
-    def approximate_term(self, n, *args):
-        """
-        Accumulate self.get_summand(*args, i) from i=0 up to i=n-1.
-        :return: \sum_{i=0}^{n-1} term_i(args)
-        """
-        approximation = np.zeros(np.shape(self.get_summand(1, *args)))
-        for i in range(n):
-            approximation += self.get_summand(i, *args)
-
-        return np.asarray(approximation)

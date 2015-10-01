@@ -55,13 +55,14 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     return nodes, np.asarray(test_functions)
 
 
-def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
+def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
     """
     searches roots of the given function and checks them for uniqueness. It will return the exact amount of roots
     given by count or raise ValueError.
     :param function: function handle for f(x) whose roots shall be found
     :param count: number of roots to find
-    :param area: area to be searched defaults to positive half-plain
+    :param area: domain of interest
+    :param points_per_root: number of solver start-points around the the assumed root
     :param atol: absolute tolerance to zero  f(root) < atol
     :param rtol: relative tolerance to be exceeded for two root to be unique f(r1) - f(r2) > rtol
     :return: numpy.ndarray of roots
@@ -79,13 +80,10 @@ def find_roots(function, count, area=None, atol=1e-7, rtol=1e-1):
     if not callable(function):
         raise TypeError("callable handle is needed")
 
-    if area is None:
-        area = (0, 1e2)
-
     roots = []
     rounded_roots = []
     errors = []
-    values = np.linspace(area[0], scale*area[1], own_count*10)
+    values = np.linspace(area[0], scale*area[1], own_count*points_per_root)
     val = iter(values)
     while len(roots) < own_count:
         try:
@@ -338,127 +336,51 @@ class ReaAdvDifRobinEigenvalues():
         # real part of the roots from the characteristic equation (eigen value problem dgl)
         self.eta = -a1/2./a2
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
-        self.om_squared = self.compute_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
+        self.om_squared = self.compute_squared_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
         self.eig_values = a0 - a2*self.om_squared - a1**2/4./a2
-        print 'eigen_val: '
-        print self.eig_values
 
-    def compute_eigen_frequencies(self, param, eta, l, n_roots):
+    def compute_squared_eigen_frequencies(self, param, eta, l, n_roots):
         a2, a1, a0, alpha, beta = param
 
-        if False:
+        def characteristic_equation(om):
+            if round(om, 200) != 0.:
+                zero = (alpha+beta) * np.cos(om*l) + ((eta+beta)*(alpha-eta)/om - om) * np.sin(om*l)
+            else:
+                zero = (alpha+beta) * np.cos(om*l) + (eta+beta)*(alpha-eta)*l - om * np.sin(om*l)
+            return zero
 
-            def characteristic_equation(om):
-                if round(om, 200) != 0.:
-                    zero = (alpha+beta) * np.cos(om*l) + ((eta+beta)*(alpha-eta)/om - om) * np.sin(om*l)
-                else:
-                    zero = (alpha+beta) * np.cos(om*l) + (eta+beta)*(alpha-eta)*l - om * np.sin(om*l)
-                return zero
+        def complex_characteristic_equation(om):
+            if round(om, 200) != 0.:
+                zero = (alpha+beta) * np.cosh(om*l) + ((eta+beta)*(alpha-eta)/om + om) * np.sinh(om*l)
+            else:
+                zero = (alpha+beta) * np.cosh(om*l) + (eta+beta)*(alpha-eta)*l + om * np.sinh(om*l)
+            return zero
 
-            def complex_characteristic_equation(om):
-                if round(om, 200) != 0.:
-                    zero = (alpha+beta) * np.cosh(om*l) + ((eta+beta)*(alpha-eta)/om + om) * np.sinh(om*l)
-                else:
-                    zero = (alpha+beta) * np.cosh(om*l) + (eta+beta)*(alpha-eta)*l + om * np.sinh(om*l)
-                return zero
+        # assume 1 root per pi/l (safty factor = 2)
+        om_end = 2*n_roots*np.pi/l
+        om = find_roots(characteristic_equation, 2*n_roots, (0, om_end), rtol=1e-6/l).tolist()
 
-            # assume 1 root per pi/l (safty factor = 2)
-            om_end = n_roots*np.pi/l
-            om = find_roots(characteristic_equation, n_roots, (0, om_end), rtol=1e-6/l).tolist()
+        # delete all around om = 0
+        om.reverse()
+        for i in xrange(np.sum(np.array(om) < np.pi/l/2e1)):
+            om.pop()
+        om.reverse()
 
-            # delete all around om = 0
-            om.reverse()
-            for i in xrange(np.sum(np.array(om) < np.pi/l/20.)):
-                om.pop()
-            om.reverse()
+        # if om = 0 is a root then add 0 to the list
+        zero_limit = alpha + beta + (eta+beta)*(alpha-eta)*l
+        if round(zero_limit, 6+int(np.log10(l))) == 0.:
+            om.insert(0, 0.)
 
-            # if om = 0 is a root then add 0 to the list
-            zero_limit = alpha + beta + \
-                         (eta+beta)*(alpha-eta)*l
-            if round(zero_limit, 6+int(np.log10(l))) == 0.:
-                om.insert(0, 0.)
+        # regard complex roots
+        om_squared = np.power(om, 2).tolist()
+        complex_root = fsolve(complex_characteristic_equation, om_end)
+        if round(complex_root, 6+int(np.log10(l))) != 0.:
+            om_squared.insert(0, -complex_root[0]**2)
 
-            # regard complex roots
-            om_squared = np.power(om, 2).tolist()
-            complex_root = fsolve(complex_characteristic_equation, om_end)
-            if round(complex_root, 6+int(np.log10(l))) != 0.:
-                om_squared.insert(0, -complex_root[0]**2)
+        if len(om_squared) < n_roots:
+            raise ValueError("ReaAdvDifRobinEigenvalues.compute_squared_eigen_frequencies()"
+                             "can not find enough roots")
 
-        else:
-
-            def characteristic_equation(om, alpha, beta, eta, l):
-                try:
-                    if round(om, 200) != 0.:
-                        zero = (alpha+beta) * np.cos(om*l) + ((eta+beta)*(alpha-eta)/om - om) * np.sin(om*l)
-                    else:
-                        zero = (alpha+beta) * np.cos(om*l) + (eta+beta)*(alpha-eta)*l - om * np.sin(om*l)
-                except TypeError:
-                    zero = (alpha+beta) * np.cos(om*l) + ((eta+beta)*(alpha-eta)/om - om) * np.sin(om*l)
-                return zero
-
-            def complex_characteristic_equation(om, alpha, beta, eta, l):
-                try:
-                    if round(om, 200) != 0.:
-                        zero = (alpha+beta) * np.cosh(om*l) + ((eta+beta)*(alpha-eta)/om + om) * np.sinh(om*l)
-                    else:
-                        zero = (alpha+beta) * np.cosh(om*l) + (eta+beta)*(alpha-eta)*l + om * np.sinh(om*l)
-                except TypeError:
-                    zero = (alpha+beta) * np.cosh(om*l) + ((eta+beta)*(alpha-eta)/om + om) * np.sinh(om*l)
-                return zero
-
-            # assume 1 root per pi/l (to ensure safety: times 2))
-            om_end = 2.*n_roots*np.pi/l
-            # discretisation safety_faktor
-            safety_faktor = 10.
-            # number of discretisation points
-            n_disc = int(safety_faktor*om_end/(np.pi/l))
-            # generate initial value vector
-            om_try = np.linspace(sys.float_info.min, om_end, n_disc)
-            om = np.nan*np.zeros(n_disc)
-            for i in xrange(n_disc):
-                om[i] = fsolve(characteristic_equation,
-                                        om_try[i],
-                                        args=(alpha, beta, eta, l))
-                om[i] = round(om[i], 6+int(np.log10(l)))
-            # eliminate duplicated and negative roots
-            om = sorted(list(set(np.abs(om))))
-
-            counter = np.array(om) < np.pi/l/20.
-            counter = counter.tolist()
-            om.reverse()
-            for i in xrange(counter.count(True)):
-                om.pop()
-            om.reverse()
-            # value/limit of the characteristic_equation by om=0
-            zero_limit = alpha + beta + \
-                         (eta+beta)*(alpha-eta)*l
-            print 'zero_limit: '+str(zero_limit)
-            zero_limit = round(zero_limit, 6+int(np.log10(l)))
-            if zero_limit == 0.:
-                om.insert(0,0.)
-
-            # regard complex roots
-            print 'om: '
-            print om
-            om_squared = np.power(om, 2).tolist()
-            complex_root = fsolve(complex_characteristic_equation,
-                                        om_try[-1],
-                                        args=(alpha, beta, eta, l))
-            if round(complex_root, 6+int(np.log10(l))) != 0.:
-                print 'gerundet' + str(6+int(np.log10(l)))
-                om_squared.insert(0, -complex_root[0]**2)
-
-            # show result (by new problem formulation/parametrisation check this output)
-            print 'squared_eig_freq: '+str(len(om_squared))
-            print om_squared
-            # take a look to the last elements from np.diff(om)
-            print np.diff(np.sqrt(np.abs(om_squared)))
-            # --> but the first n_roots elements from om you can trust
-
-            # # matplotlib
-            # plot_om = np.linspace(-0.9,0.9,100)
-            # plt.plot(plot_om, characteristic_equation(plot_om, alpha, beta, eta)); plt.grid(); plt.show()
-        print om_squared
         return np.array(om_squared[:n_roots])
 
 class ReaAdvDifDirichletEigenvalues():
