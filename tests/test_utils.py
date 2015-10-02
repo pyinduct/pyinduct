@@ -70,6 +70,24 @@ class FindRootsTestCase(unittest.TestCase):
         for root in self.roots:
             self.assertTrue(root >= 0.)
 
+    def test_error_raiser(self):
+        float_num = -1.
+        int_num = 0
+        to_small_area_end = 1e-3
+        self.assertRaises(TypeError, ut.find_roots, int_num, self.n_roots, self.area_end, self.rtol)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, float_num, self.area_end, self.rtol)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, points_per_root=float_num)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, int_num)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, atol=int_num)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, show_plots=int)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, int_num, self.area_end, self.rtol)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, points_per_root=int_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, float_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, atol=float_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
+
     def tearDown(self):
         pass
 
