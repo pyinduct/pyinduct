@@ -20,13 +20,13 @@ def register_initial_functions(label, functions, overwrite=False):
         if overwrite:
             deregister_initial_functions(label)
         else:
-            raise ValueError("Function set {0} already in registry!".format(label))
+            raise ValueError("Function set '{0}' already in registry!".format(label))
 
     derivatives = []
     n = 0
     while True:
         try:
-            derivatives.append([func.derive(n) for func in functions])
+            derivatives.append([func.derive(n) for func in funcs])
             n += 1
         except ValueError:
             break

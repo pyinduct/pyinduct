@@ -65,46 +65,59 @@ class ProductTest(unittest.TestCase):
 
     def setUp(self):
         self.input = ph.Input(np.sin)
-        self.phi = cr.Function(np.sin)
-        self.psi = cr.Function(np.sin)
-        register_initial_functions("funcs", np.array([self.phi, self.psi]))
-        self.funcs = ph.TestFunction("funcs")
-        self.scale_funcs = ph.ScalarFunctions(np.array([cr.Function(self.scale), cr.Function(self.scale)]))
+
+        phi = cr.Function(np.sin)
+        psi = cr.Function(np.cos)
+        self.t_funcs = np.array([phi, psi])
+        register_initial_functions("funcs", self.t_funcs)
+        self.test_funcs = ph.TestFunction("funcs")
+
+        self.s_funcs = np.array([cr.Function(self.scale)])[[0, 0]]
+        register_initial_functions("scale_funcs", self.s_funcs)
+        self.scale_funcs = ph.ScalarFunction("scale_funcs")
+
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
         register_initial_functions("ini_funcs", self.ini_funcs)
         self.field_var = ph.FieldVariable("ini_funcs")
 
     def test_product(self):
         self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed
-        p1 = ph.Product(self.input, self.funcs)
-        p2 = ph.Product(self.funcs, self.field_var)
+        p1 = ph.Product(self.input, self.test_funcs)
+        p2 = ph.Product(self.test_funcs, self.field_var)
 
         # test single argument call
-        p3 = ph.Product(self.funcs)
-        self.assertAlmostEqual(p3.args[0].data[0](np.pi/2), 1)
+        p3 = ph.Product(self.test_funcs)
         self.assertTrue(p3.b_empty)
+        res = ut.evaluate_placeholder_function(p3.args[0], np.pi/2)
+        self.assertTrue(np.allclose(res, [1, 0]))
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
         self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
-        self.assertEqual(p4.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
-        self.assertEqual(p4.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
+        res = ut.evaluate_placeholder_function(p4.args[0], 0)
+        self.assertTrue(np.allclose(res, self.scale(0)*np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
         self.assertEqual(p4.args[1], None)
         self.assertTrue(p4.b_empty)
 
         # test automated simplification of cascaded products
         p5 = ph.Product(ph.Product(self.field_var, self.scale_funcs),
-                        ph.Product(self.funcs, self.scale_funcs))
-        self.assertEqual(p5.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
-        self.assertEqual(p5.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
-        self.assertEqual(p5.args[1].data[0](0), self.scale(0)*self.phi(0))
-        self.assertEqual(p5.args[1].data[1](1), self.scale(1)*self.psi(1))
+                        ph.Product(self.test_funcs, self.scale_funcs))
         self.assertFalse(p5.b_empty)
+
+        res = ut.evaluate_placeholder_function(p5.args[0], 0)
+        self.assertTrue(np.allclose(res, self.scale(0)*np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
+        res1 = ut.evaluate_placeholder_function(p5.args[0], 1)
+        self.assertTrue(np.allclose(res1, self.scale(1)*np.array([self.ini_funcs[0](1), self.ini_funcs[1](1)])))
+
+        res2 = ut.evaluate_placeholder_function(p5.args[1], 0)
+        self.assertTrue(np.allclose(res2, self.scale(0)*np.array([self.t_funcs[0](0), self.t_funcs[1](0)])))
+        res3 = ut.evaluate_placeholder_function(p5.args[1], 1)
+        self.assertTrue(np.allclose(res3, self.scale(0)*np.array([self.t_funcs[0](1), self.t_funcs[1](1)])))
 
         # test methods
         self.assertEqual(p1.get_arg_by_class(ph.Input), [self.input])
-        self.assertEqual(p1.get_arg_by_class(ph.TestFunction), [self.funcs])
-        self.assertEqual(p2.get_arg_by_class(ph.TestFunction), [self.funcs])
+        self.assertEqual(p1.get_arg_by_class(ph.TestFunction), [self.test_funcs])
+        self.assertEqual(p2.get_arg_by_class(ph.TestFunction), [self.test_funcs])
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
 
 

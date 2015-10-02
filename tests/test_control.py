@@ -18,7 +18,7 @@ class CollocatedTestCase(unittest.TestCase):
         x_at1 = ph.FieldVariable(funcs, location=1)
         x_dt_at1 = ph.TemporalDerivedFieldVariable(funcs, 1, 1)
         x_dz_at0 = ph.SpatialDerivedFieldVariable(funcs, 1, 0)
-        exp_at1 = ph.ScalarFunctions(cr.Function(np.exp), location=1)
+        exp_at1 = ph.ScalarFunction(cr.Function(np.exp), location=1)
 
         alpha = 2
         self.term1 = ph.ScalarTerm(x_dt_at1, 1 + alpha)
@@ -51,7 +51,7 @@ class ContinuousTestCase(unittest.TestCase):
         x = ph.FieldVariable(funcs)
         x_dt = ph.TemporalDerivedFieldVariable(funcs, 1)
         x_dz = ph.SpatialDerivedFieldVariable(funcs, 1)
-        exp = ph.ScalarFunctions(cr.Function(np.exp))
+        exp = ph.ScalarFunction(cr.Function(np.exp))
 
         alpha = 2
         self.term1 = ph.IntegralTerm(x_dt, interval, 1 + alpha)

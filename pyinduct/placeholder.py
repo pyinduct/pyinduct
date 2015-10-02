@@ -39,14 +39,12 @@ class Scalars(Placeholder):
         self.target_term = target_term
 
 
-class ScalarFunctions(Placeholder):
+class ScalarFunction(Placeholder):
     """
     class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients
     """
-    def __init__(self, functions, order=0, location=None):
-        # apply spatial derivation to function
-        funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
-        Placeholder.__init__(self, funcs, (0, order), location)
+    def __init__(self, function_label, order=0, location=None):
+        Placeholder.__init__(self, {"func_lbl": function_label}, (0, order), location)
 
 
 class Input(Placeholder):
@@ -173,9 +171,9 @@ class Product(object):
         scalar_func = None
         other_func = None
         for obj1, obj2 in [(a, b), (b, a)]:
-            if isinstance(obj1, ScalarFunctions):
+            if isinstance(obj1, ScalarFunction):
                 scalar_func = obj1
-                if isinstance(obj2, (FieldVariable, TestFunction, ScalarFunctions)):
+                if isinstance(obj2, (FieldVariable, TestFunction, ScalarFunction)):
                     other_func = obj2
                     break
 
@@ -191,11 +189,14 @@ class Product(object):
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
             new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
-            new_name = "crazy_name_algo_needed"
+            new_name = new_func.tostring()
             register_initial_functions(new_name, new_func)
 
-            a = Placeholder({"func_lbl": new_name, "weight_lbl": other_func.data["weight_lbl"]}, other_func.order,
-                            other_func.location)
+            if isinstance(other_func, ScalarFunction):
+                a = ScalarFunction(new_name, location=other_func.location)
+            else:
+                a = other_func.__class__(new_name, weight_label=other_func.data["weight_lbl"],
+                                         location=other_func.location)
             b = None
 
         return a, b

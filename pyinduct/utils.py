@@ -3,7 +3,9 @@ import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
+from pyinduct import get_initial_functions
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
+from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import warnings
 
@@ -118,6 +120,20 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
         raise ValueError("not enough roots could be detected. Increase Area.")
 
     return np.atleast_1d(sorted(roots)[:count]).flatten()
+
+
+def evaluate_placeholder_function(placeholder, input_values):
+    """
+    evaluate a given placeholder object, that contains functions
+
+    :param placeholder: instance of ref:py:class: FieldVariable or ref:py:class TestFunction ref:py:class ScalarFunction
+    :return: results as np.ndarray
+    """
+    if not isinstance(placeholder, (FieldVariable, TestFunction)):
+        raise TypeError("Input Object not supported!")
+
+    funcs = get_initial_functions(placeholder.data["func_lbl"], placeholder.order[1])
+    return np.array([func(input_values) for func in funcs])
 
 
 def evaluate_approximation(weights, functions, temporal_steps, spatial_interval, spatial_step):
