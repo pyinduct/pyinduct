@@ -1,15 +1,14 @@
 from __future__ import division
-
-__author__ = 'stefan'
-
 import unittest
 import numpy as np
-
 from pyinduct import core, utils, visualization
 import pyqtgraph as pg
 
-# show_plots = True
-show_plots = False
+__author__ = 'Stefan Ecklebe'
+
+
+show_plots = True
+# show_plots = False
 
 
 class CureTestCase(unittest.TestCase):
@@ -49,7 +48,7 @@ class FindRootsTestCase(unittest.TestCase):
         self.char_eq = _char_equation
 
     def test_feasible(self):
-        roots = utils.find_roots(self.char_eq, 1e1)
+        roots = utils.find_roots(self.char_eq, 1e1, (0, 1e3))
         self.assertEqual(len(roots), 1e1)
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
@@ -71,15 +70,19 @@ class EvaluateApproximationTestCase(unittest.TestCase):
     def setUp(self):
         self.app = pg.QtGui.QApplication([])
         self.node_cnt = 5
-        self.dates = np.linspace(0, 10, 1000)
-        self.nodes = np.linspace(0, 10, self.node_cnt)
+        self.time_step = 1e-3
+        self.dates = np.arange(0, 10, self.time_step)
+        self.spat_int = (0, 10)
+        self.nodes = np.linspace(self.spat_int[0], self.spat_int[1], self.node_cnt)
 
-        self.nodes, self.funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 2), node_count=self.node_cnt)
+        # create initial functions
+        self.nodes, self.funcs = utils.cure_interval(core.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
+
         # create a slow rising, nearly horizontal line
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
 
     def test_eval_helper(self):
-        eval_data = utils.evaluate_approximation(self.weights, self.funcs, self.dates, self.nodes)
+        eval_data = utils.evaluate_approximation(self.weights, self.funcs, self.dates, self.spat_int, .1)
         if show_plots:
             p = visualization.AnimatedPlot(eval_data)
             self.app.exec_()
