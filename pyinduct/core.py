@@ -529,6 +529,7 @@ def project_on_initial_functions(func, initial_funcs):
 
 
 def back_project_from_initial_functions(weights, initial_funcs, order=0):
+    # TODO check if usage of order makes sense (it only does if given funcs are (at least) of type C^order
     """
     build handle for function that was expressed in test functions with weights
 

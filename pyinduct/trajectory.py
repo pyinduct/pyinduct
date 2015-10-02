@@ -23,7 +23,7 @@ class SmoothTransition(object):
         self.t0 = interval[0]
         self.t1 = interval[1]
         self.dt = interval[1] - interval[0]
-        gamma = differential_order #+ 1 # TODO check this with notes
+        gamma = differential_order  # + 1 # TODO check this against notes
 
         # setup symbolic expressions
         tau, k = sp.symbols('tau, k')
@@ -78,6 +78,8 @@ class FlatString(SimulationInput):
     """
 
     def __init__(self, y0=0, y1=1, t0=0, dt=1, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
+        SimulationInput.__init__(self)
+
         # construct trajectory generator for yd
         self.trajectory_gen = SmoothTransition((y0, y1), (t0, t0 + dt), 2)
 
@@ -136,6 +138,7 @@ class FlatString(SimulationInput):
         """
         return self._control_input(t)
 
+
 class ReaAdvDifTrajectory(SimulationInput):
     """
     Class that implements a flatness based control approach
@@ -158,6 +161,7 @@ class ReaAdvDifTrajectory(SimulationInput):
     """
 
     def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=1.1, K=2.):
+        SimulationInput.__init__(self)
 
         cases = {'dirichlet', 'robin'}
         if boundary_condition not in cases:
@@ -270,6 +274,9 @@ class ReaAdvDifTrajectory(SimulationInput):
         elif self._boundary_condition is 'dirichlet':
             alpha = 1.
             is_robin = 0.
+        else:
+            raise ValueError("Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(
+                self._boundary_condition))
 
         for i in xrange(len(t)):
             sum_x = np.zeros(len(z))
