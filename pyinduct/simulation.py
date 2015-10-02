@@ -180,7 +180,7 @@ class CanonicalForm(object):
     def initial_functions(self, funcs):
         if self._initial_functions is None:
             self._initial_functions = funcs
-        if (self._initial_functions != funcs).any():
+        if self._initial_functions != funcs:
             raise ValueError("already defined initial functions are overridden!")
 
     def add_to(self, term, val):
