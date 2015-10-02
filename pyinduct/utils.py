@@ -5,8 +5,8 @@ from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
 from visualization import EvalData
-import sys
 import warnings
+
 warnings.simplefilter('always', UserWarning)
 
 __author__ = 'stefan'
@@ -47,7 +47,7 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
 
     test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
                       LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
-    for i in range(1, node_count-1):
+    for i in range(1, node_count - 1):
         test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
                                                      nodes[i],
                                                      nodes[i] + element_length))
@@ -75,7 +75,7 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
     scale = 2
     count = int(count)
     # increase number to make sure that no root is forgotten
-    own_count = scale*count
+    own_count = scale * count
 
     if not callable(function):
         raise TypeError("callable handle is needed")
@@ -86,9 +86,9 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
 
     # TODO run test_utils to see the difference
     if 0:
-        values = np.linspace(area[0], scale*area[1], own_count*points_per_root)
+        values = np.linspace(area[0], scale * area[1], own_count * points_per_root)
     else:
-        values = np.arange(area[0], scale*area[1] + rtol, rtol)
+        values = np.arange(area[0], scale * area[1] + rtol, rtol)
 
     val = iter(values)
     while len(roots) < own_count:
@@ -131,12 +131,12 @@ def evaluate_approximation(weights, functions, temporal_steps, spatial_interval,
     if weights.shape[1] != functions.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
-    spatial_steps = np.arange(spatial_interval[0], spatial_interval[1]+spatial_step, spatial_step)
+    spatial_steps = np.arange(spatial_interval[0], spatial_interval[1] + spatial_step, spatial_step)
 
     def eval_spatially(weight_vector):
         if isinstance(functions[0], LagrangeFirstOrder):
             # shortcut for fem approximations
-            nodes = [func._top for func in functions]  # HACK
+            nodes = [func.top for func in functions]
             handle = interp1d(nodes, weight_vector)
         else:
             handle = back_project_from_initial_functions(weight_vector, functions)
@@ -147,7 +147,7 @@ def evaluate_approximation(weights, functions, temporal_steps, spatial_interval,
 
 
 def transform_eigenfunction(target_eigenvalue, init_eigenfunction, dgl_coefficients, domain):
-    '''
+    """
     Provide the eigenfunction y to an eigenvalue-problem of the form
     a2(z)y''(z) + a1(z)y'(z) + a0(z)y(z) = w y(z)
     where w is a predefined (potentially complex) eigenvalue and z0 <= z <= z1 is the domain.
@@ -156,16 +156,17 @@ def transform_eigenfunction(target_eigenvalue, init_eigenfunction, dgl_coefficie
     :param dgl_coefficients: [a0(z), a1(z), a2(z)] (list of function handles)
     :param domain: [z0, ..... , z1] (list of floats)
     :return: y(z) = [Re{y(z)}, Re{y'(z)}, Im{y(z)}, Im{y'(z)}] (list of numpy arrays)
-    '''
+    """
+
     def ff(y, z):
         a2, a1, a0 = dgl_coefficients
         wr = target_eigenvalue.real
         wi = target_eigenvalue.imag
-        d_y = np.array([ y[1],
-                         -(a0(z)-wr)/a2(z)*y[0] - a1(z)/a2(z)*y[1] - wi/a2(z)*y[2],
-                         y[3],
-                         wi/a2(z)*y[0] - (a0(z)-wr)/a2(z)*y[2] - a1(z)/a2(z)*y[3]
-                       ])
+        d_y = np.array([y[1],
+                        -(a0(z) - wr) / a2(z) * y[0] - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2],
+                        y[3],
+                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2] - a1(z) / a2(z) * y[3]
+                        ])
         return d_y
 
     eigenfunction = si.odeint(ff, init_eigenfunction, domain)
@@ -174,6 +175,7 @@ def transform_eigenfunction(target_eigenvalue, init_eigenfunction, dgl_coefficie
             eigenfunction[:, 1],
             eigenfunction[:, 2],
             eigenfunction[:, 3]]
+
 
 def get_transformed_parameter_without_advection(param):
     """
@@ -186,17 +188,18 @@ def get_transformed_parameter_without_advection(param):
     a2, a1, a0, alpha, beta = param
 
     a1_n = 0.
-    a0_n = a0 - a1**2./4./a2
+    a0_n = a0 - a1 ** 2. / 4. / a2
     if alpha is None:
         alpha_n = None
     else:
-        alpha_n = a1/2./a2 + alpha
+        alpha_n = a1 / 2. / a2 + alpha
     if beta is None:
         beta_n = None
     else:
-        beta_n = -a1/2./a2 + beta
+        beta_n = -a1 / 2. / a2 + beta
 
     return a2, a1_n, a0_n, alpha_n, beta_n
+
 
 def get_adjoint_rad_robin_evp_param(param):
     """
@@ -208,11 +211,12 @@ def get_adjoint_rad_robin_evp_param(param):
     """
     a2, a1, a0, alpha, beta = param
 
-    alpha_n = a1/a2 + alpha
-    beta_n = -a1/a2 + beta
+    alpha_n = a1 / a2 + alpha
+    beta_n = -a1 / a2 + beta
     a1_n = -a1
 
     return a2, a1_n, a0, alpha_n, beta_n
+
 
 def get_adjoint_rad_dirichlet_evp_param(param):
     """
@@ -227,6 +231,7 @@ def get_adjoint_rad_dirichlet_evp_param(param):
     a1_n = -a1
 
     return a2, a1_n, a0, None, None
+
 
 def split_domain(n, a_desired, l, mode='one_even_one_odd'):
     """
@@ -253,31 +258,37 @@ def split_domain(n, a_desired, l, mode='one_even_one_odd'):
     if not 0. < a_desired < l:
         raise ValueError("a_desired not in interval (0,l).")
 
-    def get_candidate_tupel(n, num):
-        k1 = (n-num)
+    def get_candidate_tuple(n, num):
+        """
+        TODO docstring
+        :param n:
+        :param num:
+        :return:
+        """
+        k1 = (n - num)
         k2 = num
-        ratio = k1/k2
-        a = (ratio*l/(1+ratio))
-        b = l-a
+        ratio = k1 / k2
+        a = (ratio * l / (1 + ratio))
+        b = l - a
         diff = np.abs(a_desired - a)
         return k1, k2, a, b, ratio, diff
 
     cand = list()
-    for num in xrange(1,3):
-        cand.append(get_candidate_tupel(n, num))
+    for num in xrange(1, 3):
+        cand.append(get_candidate_tuple(n, num))
 
     if mode == 'force_k2_as_prime_number':
-        for k2_prime_num in range(3,n,2):
-            if all(k2_prime_num%i!=0 for i in range(2,int(np.sqrt(k2_prime_num))+1)):
-                cand.append(get_candidate_tupel(n, k2_prime_num))
+        for k2_prime_num in range(3, n, 2):
+            if all(k2_prime_num % i != 0 for i in range(2, int(np.sqrt(k2_prime_num)) + 1)):
+                cand.append(get_candidate_tuple(n, k2_prime_num))
     elif mode == 'coprime':
-        for k2_coprime_to_k1 in range(3,n):
-            if all(not(k2_coprime_to_k1%i==0 and (n-k2_coprime_to_k1)%i==0)
-                   for i in range(3,min(k2_coprime_to_k1,n-k2_coprime_to_k1)+1,2)):
-                cand.append(get_candidate_tupel(n, k2_coprime_to_k1))
+        for k2_coprime_to_k1 in range(3, n):
+            if all(not (k2_coprime_to_k1 % i == 0 and (n - k2_coprime_to_k1) % i == 0)
+                   for i in range(3, min(k2_coprime_to_k1, n - k2_coprime_to_k1) + 1, 2)):
+                cand.append(get_candidate_tuple(n, k2_coprime_to_k1))
     elif mode == 'one_even_one_odd':
-        for k2_num in range(1,n):
-            cand.append(get_candidate_tupel(n, k2_num))
+        for k2_num in range(1, n):
+            cand.append(get_candidate_tuple(n, k2_num))
     else:
         raise ValueError("String in variable 'mode' not understood.")
 
@@ -286,6 +297,7 @@ def split_domain(n, a_desired, l, mode='one_even_one_odd'):
     min_index = diffs.index(diff_min)
 
     return cand[min_index]
+
 
 def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
     """
@@ -309,28 +321,29 @@ def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
     :param mode:
     :return:
     """
-    if not all(isinstance(i,(int,long)) for i in [n, k1, k2]):
+    if not all(isinstance(i, (int, long)) for i in [n, k1, k2]):
         raise TypeError("TypeErrorMessage")
-    if k1+k2 != n or n < 2 or k1 < 0 or k2 < 0:
+    if k1 + k2 != n or n < 2 or k1 < 0 or k2 < 0:
         raise ValueError("The sum of two positive integers k1 and k2 must be n.")
     if (k1 != 0 and k2 != 0) and n % 2 == 0:
         warnings.warn("Transformation matrix M is not invertible.")
 
-    mod_diag = lambda n, k: np.diag(np.ones(n-np.abs(k)), k)
+    mod_diag = lambda n, k: np.diag(np.ones(n - np.abs(k)), k)
 
     if mode == 'n_plus_1':
-        M = np.zeros((n+1, n+1))
+        M = np.zeros((n + 1, n + 1))
         if k2 < n:
-            M += mod_diag(n+1, k2)+mod_diag(n+1, -k2)
+            M += mod_diag(n + 1, k2) + mod_diag(n + 1, -k2)
         if k2 != 0:
-            M += np.fliplr(mod_diag(n+1, n-k2)+mod_diag(n+1, -n+k2))
+            M += np.fliplr(mod_diag(n + 1, n - k2) + mod_diag(n + 1, -n + k2))
     elif mode == '2n':
-        M = mod_diag(2*n, k2)+mod_diag(2*n, -k2) + mod_diag(2*n, n+k1)+mod_diag(2*n, -n-k1)
+        M = mod_diag(2 * n, k2) + mod_diag(2 * n, -k2) + mod_diag(2 * n, n + k1) + mod_diag(2 * n, -n - k1)
     else:
         raise ValueError("String in variable 'mode' not understood.")
     return M
 
-class ReaAdvDifRobinEigenvalues():
+
+class ReaAdvDifRobinEigenvalues(object):
     """ temporary """
 
     def __init__(self, param, l, n_roots=10):
@@ -340,48 +353,48 @@ class ReaAdvDifRobinEigenvalues():
 
         a2, a1, a0, alpha, beta = self.param
         # real part of the roots from the characteristic equation (eigen value problem dgl)
-        self.eta = -a1/2./a2
+        self.eta = -a1 / 2. / a2
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
         self.om_squared = self.compute_squared_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
-        self.eig_values = a0 - a2*self.om_squared - a1**2/4./a2
+        self.eig_values = a0 - a2 * self.om_squared - a1 ** 2 / 4. / a2
 
     def compute_squared_eigen_frequencies(self, param, eta, l, n_roots):
         a2, a1, a0, alpha, beta = param
 
         def characteristic_equation(om):
             if round(om, 200) != 0.:
-                zero = (alpha+beta) * np.cos(om*l) + ((eta+beta)*(alpha-eta)/om - om) * np.sin(om*l)
+                zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
             else:
-                zero = (alpha+beta) * np.cos(om*l) + (eta+beta)*(alpha-eta)*l - om * np.sin(om*l)
+                zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
             return zero
 
         def complex_characteristic_equation(om):
             if round(om, 200) != 0.:
-                zero = (alpha+beta) * np.cosh(om*l) + ((eta+beta)*(alpha-eta)/om + om) * np.sinh(om*l)
+                zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
             else:
-                zero = (alpha+beta) * np.cosh(om*l) + (eta+beta)*(alpha-eta)*l + om * np.sinh(om*l)
+                zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
             return zero
 
-        # assume 1 root per pi/l (safty factor = 2)
-        om_end = 2*n_roots*np.pi/l
-        om = find_roots(characteristic_equation, 2*n_roots, (0, om_end), rtol=1e-6/l).tolist()
+        # assume 1 root per pi/l (safety factor = 2)
+        om_end = 2 * n_roots * np.pi / l
+        om = find_roots(characteristic_equation, 2 * n_roots, (0, om_end), rtol=1e-6 / l).tolist()
 
         # delete all around om = 0
         om.reverse()
-        for i in xrange(np.sum(np.array(om) < np.pi/l/2e1)):
+        for i in xrange(np.sum(np.array(om) < np.pi / l / 2e1)):
             om.pop()
         om.reverse()
 
         # if om = 0 is a root then add 0 to the list
-        zero_limit = alpha + beta + (eta+beta)*(alpha-eta)*l
-        if round(zero_limit, 6+int(np.log10(l))) == 0.:
+        zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
+        if round(zero_limit, 6 + int(np.log10(l))) == 0.:
             om.insert(0, 0.)
 
         # regard complex roots
         om_squared = np.power(om, 2).tolist()
         complex_root = fsolve(complex_characteristic_equation, om_end)
-        if round(complex_root, 6+int(np.log10(l))) != 0.:
-            om_squared.insert(0, -complex_root[0]**2)
+        if round(complex_root, 6 + int(np.log10(l))) != 0.:
+            om_squared.insert(0, -complex_root[0] ** 2)
 
         if len(om_squared) < n_roots:
             raise ValueError("ReaAdvDifRobinEigenvalues.compute_squared_eigen_frequencies()"
@@ -389,7 +402,8 @@ class ReaAdvDifRobinEigenvalues():
 
         return np.array(om_squared[:n_roots])
 
-class ReaAdvDifDirichletEigenvalues():
+
+class ReaAdvDifDirichletEigenvalues(object):
     """ temporary """
 
     def __init__(self, param, l, n_roots=10):
@@ -400,107 +414,108 @@ class ReaAdvDifDirichletEigenvalues():
         a2, a1, a0, _, _ = self._param
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
         self.om_squared = self._compute_eigen_frequencies(self._l, self._n_roots)
-        self.eig_values = a0 - a2*self.om_squared - a1**2/4./a2
+        self.eig_values = a0 - a2 * self.om_squared - a1 ** 2 / 4. / a2
         print 'eigen_val: '
         print self.eig_values
         print 'om: '
         print np.sqrt(self.om_squared)
         print 'eta: '
-        print -a1/2./a2
+        print -a1 / 2. / a2
 
     def _compute_eigen_frequencies(self, l, n_roots):
-        om_squared = np.array([(i*np.pi/l)**2 for i in xrange(1, n_roots+1)])
+        om_squared = np.array([(i * np.pi / l) ** 2 for i in xrange(1, n_roots + 1)])
 
         return om_squared
 
-class ReaAdvDifRobinEigenfunction(Function):
 
+class ReaAdvDifRobinEigenfunction(Function):
     def __init__(self, om_squared, param, spatial_domain, norm_fak=1.):
         self._om_squared = om_squared
         self._param = param
         self.norm_fak = norm_fak
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles = [self._d_phi])
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi])
 
     def _phi(self, z):
         a2, a1, a0, alpha, beta = self._param
-        eta = -a1/2./a2
+        eta = -a1 / 2. / a2
 
         if self._om_squared >= 0.:
             om = np.sqrt(self._om_squared)
-            cosX_term = np.cos(om*z)
+            cosX_term = np.cos(om * z)
             if round(om, 200) != 0.:
-                sinX_term = (alpha-eta)/om*np.sin(om*z)
+                sinX_term = (alpha - eta) / om * np.sin(om * z)
             else:
-                sinX_term = (alpha-eta)*z
+                sinX_term = (alpha - eta) * z
         else:
             om = np.sqrt(-self._om_squared)
-            cosX_term = np.cosh(om*z)
+            cosX_term = np.cosh(om * z)
             if round(om, 200) != 0.:
-                sinX_term = (alpha-eta)/om*np.sinh(om*z)
+                sinX_term = (alpha - eta) / om * np.sinh(om * z)
             else:
-                sinX_term = (alpha-eta)*z
+                sinX_term = (alpha - eta) * z
 
-        phi_i = np.exp(eta*z) * (cosX_term + sinX_term)
+        phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return phi_i*self.norm_fak
+        return phi_i * self.norm_fak
 
     def _d_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
-        eta = -a1/2./a2
+        eta = -a1 / 2. / a2
 
         if self._om_squared >= 0.:
             om = np.sqrt(self._om_squared)
-            cosX_term = alpha*np.cos(om*z)
+            cosX_term = alpha * np.cos(om * z)
             if round(om, 200) != 0.:
-                sinX_term = (eta*(alpha-eta)/om - om)*np.sin(om*z)
+                sinX_term = (eta * (alpha - eta) / om - om) * np.sin(om * z)
             else:
-                sinX_term = eta*(alpha-eta)*z - om*np.sin(om*z)
+                sinX_term = eta * (alpha - eta) * z - om * np.sin(om * z)
         else:
             om = np.sqrt(-self._om_squared)
-            cosX_term = alpha*np.cosh(om*z)
+            cosX_term = alpha * np.cosh(om * z)
             if round(om, 200) != 0.:
-                sinX_term = (eta*(alpha-eta)/om + om)*np.sinh(om*z)
+                sinX_term = (eta * (alpha - eta) / om + om) * np.sinh(om * z)
             else:
-                sinX_term = eta*(alpha-eta)*z + om*np.sinh(om*z)
+                sinX_term = eta * (alpha - eta) * z + om * np.sinh(om * z)
 
-        d_phi_i = np.exp(eta*z) * (cosX_term + sinX_term)
+        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return d_phi_i*self.norm_fak
+        return d_phi_i * self.norm_fak
+
 
 class ReaAdvDifDirichletEigenfunction(Function):
-
     def __init__(self, omega, param, spatial_domain, norm_fak=1.):
         self._omega = omega
         self._param = param
         self.norm_fak = norm_fak
 
         a2, a1, a0, _, _ = self._param
-        self._eta = -a1/2./a2
+        self._eta = -a1 / 2. / a2
         Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         eta = self._eta
         om = self._omega
 
-        phi_i = np.exp(eta*z) * np.sin(om*z)
+        phi_i = np.exp(eta * z) * np.sin(om * z)
 
-        return return_real_part(phi_i*self.norm_fak)
+        return return_real_part(phi_i * self.norm_fak)
 
     def _d_phi(self, z):
         eta = self._eta
         om = self._omega
 
-        d_phi_i = np.exp(eta*z) * (om*np.cos(om*z) + eta*np.sin(om*z))
+        d_phi_i = np.exp(eta * z) * (om * np.cos(om * z) + eta * np.sin(om * z))
 
-        return return_real_part(d_phi_i*self.norm_fak)
+        return return_real_part(d_phi_i * self.norm_fak)
 
     def _dd_phi(self, z):
         eta = self._eta
         om = self._omega
 
-        d_phi_i = np.exp(eta*z) * (om*(eta+1)*np.cos(om*z) + (eta-om**2)*np.sin(om*z))
+        d_phi_i = np.exp(eta * z) * (om * (eta + 1) * np.cos(om * z) + (eta - om ** 2) * np.sin(om * z))
 
-        return return_real_part(d_phi_i*self.norm_fak)
+        return return_real_part(d_phi_i * self.norm_fak)
+
 
 def return_real_part(to_return):
     """
@@ -518,25 +533,27 @@ def return_real_part(to_return):
             raise ValueError("Something goes wrong, imaginary part does not vanish")
         return to_return.real
 
+
 def normalize(phi, psi, l):
     """ temporary """
     z_normalize = np.linspace(0., l, 1e5)
 
-    integrand = phi(z_normalize)*psi(z_normalize)
+    integrand = phi(z_normalize) * psi(z_normalize)
     integral = si.simps(integrand, z_normalize)
-    scale = 1./np.sqrt(integral)
+    scale = 1. / np.sqrt(integral)
 
     return scale
 
+
 if __name__ == '__main__':
-
     def ax(z):
-        return np.sin(np.pi*z)+1
+        return np.sin(np.pi * z) + 1
 
-    Phi = transform_eigenfunction(  1.5,
-                                    [1., 1., 1., 1.],
-                                    [ax, ax, ax],
-                                    np.linspace(0, 1, 1e1),
-                                    )
+
+    Phi = transform_eigenfunction(1.5,
+                                  [1., 1., 1., 1.],
+                                  [ax, ax, ax],
+                                  np.linspace(0, 1, 1e1),
+                                  )
 
     print Phi

@@ -150,21 +150,21 @@ class LagrangeFirstOrder(Function):
                               nonzero=(start, end), derivative_handles=[self._der_lagrange1st_interior])
 
         self._start = start
-        self._top = top
+        self.top = top
         self._end = end
 
         # speed
-        self._a = self._top - self._start
-        self._b = self._end - self._top
+        self._a = self.top - self._start
+        self._b = self._end - self.top
 
     def _lagrange1st_border_left(self, z):
         """
         left border equation for lagrange 1st order
         """
-        if z < self._top or z >= self._end:
+        if z < self.top or z >= self._end:
             return 0
         else:
-            return (self._top - z) / self._b + 1
+            return (self.top - z) / self._b + 1
 
     def _lagrange1st_border_right(self, z):
         """
@@ -181,16 +181,16 @@ class LagrangeFirstOrder(Function):
         """
         if z < self._start or z > self._end:
             return 0
-        elif self._start <= z <= self._top:
+        elif self._start <= z <= self.top:
             return (z - self._start) / self._a
         else:
-            return (self._top - z) / self._b + 1
+            return (self.top - z) / self._b + 1
 
     def _der_lagrange1st_border_left(self, z):
         """
         left border equation for lagrange 1st order
         """
-        if z < self._top or z >= self._end:
+        if z < self.top or z >= self._end:
             return 0
         else:
             return -1 / self._b
@@ -208,9 +208,9 @@ class LagrangeFirstOrder(Function):
         """
         interior equations for lagrange 1st order
         """
-        if z < self._start or z > self._end or z == self._top:
+        if z < self._start or z > self._end or z == self.top:
             return 0
-        elif self._start <= z < self._top:
+        elif self._start <= z < self.top:
             return 1 / self._a
         else:
             return -1 / self._b
