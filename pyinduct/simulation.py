@@ -4,9 +4,10 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
 
+from pyinduct import get_initial_functions
 from core import (Function, integrate_function, calculate_function_matrix,
                   project_on_initial_functions)
-from placeholder import Scalars, TestFunctions, Input, FieldVariable, EquationTerm, get_scalar_target
+from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
 from utils import evaluate_approximation
 
 __author__ = 'Stefan Ecklebe'
@@ -311,7 +312,7 @@ def parse_weak_formulation(weak_form):
         for term in weak_form.terms:
             # extract Placeholders
             placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
-                                functions=term.arg.get_arg_by_class(TestFunctions),
+                                functions=term.arg.get_arg_by_class(TestFunction),
                                 field_variables=term.arg.get_arg_by_class(FieldVariable),
                                 inputs=term.arg.get_arg_by_class(Input))
 
@@ -321,7 +322,8 @@ def parse_weak_formulation(weak_form):
                     raise NotImplementedError
                 field_var = placeholders["field_variables"][0]
                 temp_order = field_var.order[0]
-                init_funcs = field_var.data
+                init_funcs = get_initial_functions(field_var.data["func_lbl"], field_var.order[1])
+                # init_funcs = field_var.data
 
                 if placeholders["scalars"]:
                     a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
@@ -333,7 +335,8 @@ def parse_weak_formulation(weak_form):
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
                     func = placeholders["functions"][0]
-                    test_funcs = func.data
+                    test_funcs = get_initial_functions(func.data["func_lbl"], func.order)
+                    # test_funcs = func.data
                     result = calculate_function_matrix(test_funcs, init_funcs)
 
                 elif placeholders["inputs"]:
@@ -354,11 +357,13 @@ def parse_weak_formulation(weak_form):
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = func.data
+                test_funcs = get_initial_functions(func.data["func_lbl"], func.order)
+                # test_funcs = func.data
 
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
-                    test_funcs2 = func2.data
+                    test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order)
+                    # test_funcs2 = func2.data
                     result = calculate_function_matrix(test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue

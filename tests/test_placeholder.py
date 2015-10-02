@@ -1,6 +1,7 @@
 from __future__ import division
 import unittest
 import numpy as np
+from pyinduct import register_initial_functions
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
 
 __author__ = 'Stefan Ecklebe'
@@ -10,17 +11,18 @@ __author__ = 'Stefan Ecklebe'
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
-        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
+        register_initial_functions("test_funcs", ini_funcs)
 
     def test_FieldVariable(self):
-        # Factor (Base)
-        self.assertRaises(TypeError, ph.FieldVariable, self.ini_funcs, [0, 0])  # list instead of tuple
-        self.assertRaises(ValueError, ph.FieldVariable, self.ini_funcs, (3, 0))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, self.ini_funcs, (0, 3))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, self.ini_funcs, (2, 2))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, self.ini_funcs, (-1, 3))  # order negative
-        a = ph.FieldVariable(self.ini_funcs, (0, 0), 7)
+        self.assertRaises(TypeError, ph.FieldVariable, "test_funcs", [0, 0])  # list instead of tuple
+        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (3, 0))  # order too high
+        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (0, 3))  # order too high
+        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (2, 2))  # order too high
+        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (-1, 3))  # order negative
+        a = ph.FieldVariable("test_funcs", (0, 0), location=7)
         self.assertEqual((0, 0), a.order)
+        self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(7, a.location)
 
     def test_TemporalDerivativeFactor(self):
@@ -65,10 +67,12 @@ class ProductTest(unittest.TestCase):
         self.input = ph.Input(np.sin)
         self.phi = cr.Function(np.sin)
         self.psi = cr.Function(np.sin)
-        self.funcs = ph.TestFunctions(np.array([self.phi, self.psi]))
+        register_initial_functions("funcs", np.array([self.phi, self.psi]))
+        self.funcs = ph.TestFunction("funcs")
         self.scale_funcs = ph.ScalarFunctions(np.array([cr.Function(self.scale), cr.Function(self.scale)]))
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
-        self.field_var = ph.FieldVariable(self.ini_funcs)
+        register_initial_functions("ini_funcs", self.ini_funcs)
+        self.field_var = ph.FieldVariable("ini_funcs")
 
     def test_product(self):
         self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed
@@ -82,7 +86,7 @@ class ProductTest(unittest.TestCase):
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
-        self.assertTrue(isinstance(p4.args[0], ph.FieldVariable))
+        self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
         self.assertEqual(p4.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
         self.assertEqual(p4.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
         self.assertEqual(p4.args[1], None)
@@ -90,7 +94,7 @@ class ProductTest(unittest.TestCase):
 
         # test automated simplification of cascaded products
         p5 = ph.Product(ph.Product(self.field_var, self.scale_funcs),
-                         ph.Product(self.funcs, self.scale_funcs))
+                        ph.Product(self.funcs, self.scale_funcs))
         self.assertEqual(p5.args[0].data[0](0), self.scale(0)*self.ini_funcs[0](0))
         self.assertEqual(p5.args[0].data[1](1), self.scale(1)*self.ini_funcs[1](1))
         self.assertEqual(p5.args[1].data[0](0), self.scale(0)*self.phi(0))
@@ -99,8 +103,8 @@ class ProductTest(unittest.TestCase):
 
         # test methods
         self.assertEqual(p1.get_arg_by_class(ph.Input), [self.input])
-        self.assertEqual(p1.get_arg_by_class(ph.TestFunctions), [self.funcs])
-        self.assertEqual(p2.get_arg_by_class(ph.TestFunctions), [self.funcs])
+        self.assertEqual(p1.get_arg_by_class(ph.TestFunction), [self.funcs])
+        self.assertEqual(p2.get_arg_by_class(ph.TestFunction), [self.funcs])
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
 
 
@@ -109,7 +113,7 @@ class WeakTermsTest(unittest.TestCase):
     def setUp(self):
         self.input = ph.Input(np.sin)
         self.phi = cr.Function(lambda x: 2*x)
-        self.test_func = ph.TestFunctions(self.phi)
+        self.test_func = ph.TestFunction(self.phi)
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
         self.xdt = ph.TemporalDerivedFieldVariable(self.ini_funcs, 1)
         self.xdz_at1 = ph.SpatialDerivedFieldVariable(self.ini_funcs, 1, 1)
@@ -157,9 +161,9 @@ class WeakFormulationTest(unittest.TestCase):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
-        self.phi = ph.TestFunctions(self.ini_funcs)  # eigenfunction or something else
-        self.dphi = ph.TestFunctions(self.ini_funcs, order=1)  # eigenfunction or something else
-        self.dphi_at1 = ph.TestFunctions(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
+        self.phi = ph.TestFunction(self.ini_funcs)  # eigenfunction or something else
+        self.dphi = ph.TestFunction(self.ini_funcs, order=1)  # eigenfunction or something else
+        self.dphi_at1 = ph.TestFunction(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
         self.field_var = ph.FieldVariable(self.ini_funcs)
         self.field_var_at1 = ph.FieldVariable(self.ini_funcs, location=1)
 
