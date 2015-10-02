@@ -46,23 +46,27 @@ class FindRootsTestCase(unittest.TestCase):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
         self.char_eq = _char_equation
+        self.n_roots = 10
+        self.area_end = 50.
+        self.rtol = 0.1
+        self.roots = utils.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol, show_plot=show_plots)
 
-    def test_feasible(self):
-        roots = utils.find_roots(self.char_eq, 1e1, (0, 1e3))
-        self.assertEqual(len(roots), 1e1)
-        for root in roots:
+    def test_in_fact_roots(self):
+        for root in self.roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
-        if show_plots:
-            points = np.arange(0, 100, .1)
-            values = self.char_eq(points)
-            pw = pg.plot(title="char equation roots")
-            pw.plot(points, values)
-            pw.plot(roots, self.char_eq(roots), pen=None, symbolPen=pg.mkPen("g"))
-            self.app.exec_()
+    def test_enough_roots(self):
+        self.assertEqual(len(self.roots), self.n_roots)
+
+    def test_rtol(self):
+        self.assertLess(max(np.abs(np.diff(self.roots))), self.rtol)
+
+    def test_greater_0(self):
+        for root in self.roots:
+            self.assertTrue(root >= 0.)
 
     def tearDown(self):
-        del self.app
+        pass
 
 
 class EvaluateApproximationTestCase(unittest.TestCase):
