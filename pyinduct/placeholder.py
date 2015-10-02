@@ -273,7 +273,7 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = get_initial_functions(placeholder.data['func_label'], placeholder.order[1])
+    functions = get_initial_functions(placeholder.data['func_lbl'], placeholder.order[1])
     location = placeholder.location
     values = np.atleast_2d([func(location) for func in functions])
 
