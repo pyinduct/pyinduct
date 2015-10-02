@@ -8,6 +8,7 @@ from core import Function, LagrangeFirstOrder, back_project_from_initial_functio
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import warnings
+import pyqtgraph as pg
 
 warnings.simplefilter('always', UserWarning)
 
@@ -57,16 +58,20 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     return nodes, np.asarray(test_functions)
 
 
-def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
+def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7, show_plot=False):
     """
-    searches roots of the given function and checks them for uniqueness. It will return the exact amount of roots
-    given by count or raise ValueError.
+    Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
+    It will return the exact amount of roots given by n_roots or raise ValueError.
+    It is assumed that the roots of the function distributed approximately homogen, if that is not the case you should
+    increase the keyword-argument points_per_root.
+    (Expected calculation for area_end = assumed_distance_between_roots * n_roots)
     :param function: function handle for f(x) whose roots shall be found
-    :param count: number of roots to find
-    :param area: domain of interest
-    :param points_per_root: number of solver start-points around the the assumed root
-    :param atol: absolute tolerance to zero  f(root) < atol
+    :param n_roots: number of roots to find
+    :param area_end: domain of interest
     :param rtol: relative tolerance to be exceeded for two root to be unique f(r1) - f(r2) > rtol
+    :param points_per_root: number of solver start-points around each root
+    :param atol: absolute tolerance to zero  f(root) < atol
+    :param show_plot: shows the plot with the function and the found roots
     :return: numpy.ndarray of roots
 
     In Detail fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria given
@@ -74,26 +79,33 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
     error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
     the present entry.
     """
-    scale = 2
-    count = int(count)
-    # increase number to make sure that no root is forgotten
-    own_count = scale * count
-
+    floats = [area_end, rtol, atol]
+    integer = [n_roots, points_per_root]
     if not callable(function):
         raise TypeError("callable handle is needed")
+    if not all([isinstance(num, int) for num in integer]):
+        raise TypeError("type from n_roots and points_per_root must be interger")
+    if any([num <= 0 for num in integer]):
+        raise ValueError("n_roots and points_per_root must be positive intergers != 0")
+    if not all([isinstance(num, float) for num in floats]):
+        raise TypeError("type from n_roots and points_per_root must be float")
+    if any([num < 0 for num in floats]):
+        raise ValueError("area_end, rtol and atol must be positive floating point numbers")
+    if not isinstance(show_plot, bool):
+        raise TypeError("show_plot must be from type bool")
+
+    # increase n_roots and area_end to ensure that no root is forgotten
+    safety_factor = 2.
+    own_n_roots = safety_factor * n_roots
+    own_area_end = safety_factor * area_end
+    values = np.linspace(0., own_area_end, own_n_roots * points_per_root)
 
     roots = []
     rounded_roots = []
     errors = []
 
-    # TODO run test_utils to see the difference
-    if 0:
-        values = np.linspace(area[0], scale * area[1], own_count * points_per_root)
-    else:
-        values = np.arange(area[0], scale * area[1] + rtol, rtol)
-
     val = iter(values)
-    while len(roots) < own_count:
+    while len(roots) < own_n_roots:
         try:
             root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
@@ -101,7 +113,7 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
 
         if info['fvec'] > atol:
             continue
-        if not (area[0] <= root <= area[1]):
+        if root < 0.:
             continue
 
         rounded_root = np.round(root, -int(np.log10(rtol)))
@@ -116,10 +128,22 @@ def find_roots(function, count, area, points_per_root=10, atol=1e-7, rtol=1e-1):
         rounded_roots.append(rounded_root)
         errors.append(info['fvec'])
 
-    if len(roots) < count:
-        raise ValueError("not enough roots could be detected. Increase Area.")
+    if len(roots) < n_roots:
+        raise ValueError("Not enough roots could be detected. Increase Area.")
 
-    return np.atleast_1d(sorted(roots)[:count]).flatten()
+    found_roots = np.atleast_1d(sorted(roots)[:n_roots]).flatten()
+
+    if show_plot:
+        app = pg.QtGui.QApplication([])
+        points = np.arange(0, 100, .1)
+        values = function(points)
+        pw = pg.plot(title="function + roots")
+        pw.plot(points, values)
+        pw.plot(found_roots, function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
+        app.exec_()
+        del app
+
+    return found_roots
 
 
 def evaluate_placeholder_function(placeholder, input_values):
@@ -393,7 +417,7 @@ class ReaAdvDifRobinEigenvalues(object):
 
         # assume 1 root per pi/l (safety factor = 2)
         om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, (0, om_end), rtol=1e-6 / l).tolist()
+        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=1e-6 / l).tolist()
 
         # delete all around om = 0
         om.reverse()
