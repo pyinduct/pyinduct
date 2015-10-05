@@ -413,7 +413,7 @@ class ReaAdvDifRobinEigenvalues(object):
 
         # assume 1 root per pi/l (safety factor = 2)
         om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=-6 / l).tolist()
+        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=-1).tolist()
 
         # delete all around om = 0
         om.reverse()

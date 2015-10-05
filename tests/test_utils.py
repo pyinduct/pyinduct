@@ -86,7 +86,7 @@ class FindRootsTestCase(unittest.TestCase):
         self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
                           points_per_root=float_num)
         self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
-                          show_plots=int)
+                          show_plots=int_num)
         self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, float_num)
 
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
