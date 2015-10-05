@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
 
-from pyinduct import get_initial_functions
+from pyinduct import get_initial_functions, is_registered
 from core import (Function, integrate_function, calculate_function_matrix,
                   project_on_initial_functions)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
@@ -122,7 +122,6 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
 
     # calculate initial state
     print(">>> deriving initial conditions")
-    dim = canonical_form.initial_functions.size
     q0 = np.array([project_on_initial_functions(initial_state, canonical_form.initial_functions) for initial_state in
                    initial_states]).flatten()
 
@@ -134,10 +133,13 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
 
     # create handles and evaluate at given points
+    # TODO also generate spatial derivatives here
     print(">>> performing postprocessing")
     data = []
+    ini_funcs = get_initial_functions(canonical_form.initial_functions, 0)
     for der_idx in range(initial_states.size):
-        data.append(evaluate_approximation(q[:, der_idx*dim:(der_idx+1)*dim], canonical_form.initial_functions,
+        data.append(evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
+                                           canonical_form.initial_functions,
                                            t, spatial_interval, spatial_step))
         data[-1].name = "{0}{1}".format(canonical_form.name,
                                         "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
@@ -155,6 +157,7 @@ class CanonicalForm(object):
         self.name = name
         self._max_idx = dict(E=0, f=0, g=0)
         self._initial_functions = None
+        self._weights = None
         self._input_function = None
 
     @staticmethod
@@ -177,11 +180,26 @@ class CanonicalForm(object):
         return self._initial_functions
 
     @initial_functions.setter
-    def initial_functions(self, funcs):
+    def initial_functions(self, func_lbl):
+        if not isinstance(func_lbl, str):
+            raise TypeError("only string allowed as function label!")
         if self._initial_functions is None:
-            self._initial_functions = funcs
-        if self._initial_functions != funcs:
+            self._initial_functions = func_lbl
+        if self._initial_functions != func_lbl:
             raise ValueError("already defined initial functions are overridden!")
+
+    @property
+    def weights(self):
+        return self._weights
+
+    @weights.setter
+    def weights(self, weight_lbl):
+        if not isinstance(weight_lbl, str):
+            raise TypeError("only string allowed as weight label!")
+        if self._weights is None:
+            self._weights = weight_lbl
+        if self._weights != weight_lbl:
+            raise ValueError("already defined target weights are overridden!")
 
     def add_to(self, term, val):
         """
@@ -296,6 +314,24 @@ class CanonicalForm(object):
 
         return StateSpace(a_mat, b_vec)
 
+class CanonicalForms(object):
+    """
+    wrapper that holds several entities of canonical forms for different sets of weights
+    """
+    def __init__(self, name):
+        self.name = name
+        self._forms = {}
+
+    def add_to(self, weight_label, term, val):
+        """
+        add val to the canonical form for weight_label
+        see add_to from :ref:py:class:CanonicalForm for details
+        """
+        if weight_label not in self._forms.keys():
+            self._forms[weight_label] = CanonicalForm("_".join([self.name+weight_label]))
+
+        self._forms[weight_label].add_to(term, val)
+
 
 def parse_weak_formulation(weak_form):
         """
@@ -323,7 +359,6 @@ def parse_weak_formulation(weak_form):
                 field_var = placeholders["field_variables"][0]
                 temp_order = field_var.order[0]
                 init_funcs = get_initial_functions(field_var.data["func_lbl"], field_var.order[1])
-                # init_funcs = field_var.data
 
                 if placeholders["scalars"]:
                     a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
@@ -335,8 +370,7 @@ def parse_weak_formulation(weak_form):
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
                     func = placeholders["functions"][0]
-                    test_funcs = get_initial_functions(func.data["func_lbl"], func.order)
-                    # test_funcs = func.data
+                    test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
                     result = calculate_function_matrix(test_funcs, init_funcs)
 
                 elif placeholders["inputs"]:
@@ -347,23 +381,20 @@ def parse_weak_formulation(weak_form):
                     factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
+                cf.initial_functions = field_var.data["func_lbl"]
+                cf.weights = field_var.data["weight_lbl"]
                 cf.add_to(("E", temp_order), result*term.scale)
-                if field_var.order[1] == 0:
-                    # only remember non-derived functions
-                    cf.initial_functions = field_var.data
                 continue
 
             if placeholders["functions"]:
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_initial_functions(func.data["func_lbl"], func.order)
-                # test_funcs = func.data
+                test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
 
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
-                    test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order)
-                    # test_funcs2 = func2.data
+                    test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order[2])
                     result = calculate_function_matrix(test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
@@ -385,7 +416,7 @@ def parse_weak_formulation(weak_form):
 
                     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
                     cf.add_to(("g", 0), result*term.scale)
-                    cf.input_function = input_func.deriavate(input_order)
+                    cf.input_function = input_func
                     continue
 
             # pure scalar terms, sort into corresponding matrices
@@ -398,12 +429,12 @@ def parse_weak_formulation(weak_form):
                     input_func = input_var.data
                     input_order = input_var.order[0]
 
+                    # this would mean that the input term should appear in a matrix like E1 or E2
                     if target[0] == "E":
-                        # this would mean that the input term should appear in a matrix like E1 or E2
                         raise NotImplementedError
+
                     cf.add_to(("g", 0), result*term.scale)
-                    # TODO think of a modular concept for input handling
-                    # cf.input_function = input_func.derive(input_order)
+                    # TODO think of a more modular concept for input handling
                     cf.input_function = input_func
                     continue
 

@@ -7,7 +7,8 @@ import numpy as np
 import pyqtgraph as pg
 import sys
 
-from pyinduct import core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
+from pyinduct import register_initial_functions,\
+    core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
 import pyinduct as pi
 
@@ -16,6 +17,8 @@ __author__ = 'Stefan Ecklebe'
 # show_plots = False
 show_plots = True
 
+if show_plots:
+    app = pg.QtGui.QApplication([])
 
 class CanonicalFormTest(unittest.TestCase):
 
@@ -64,22 +67,24 @@ class ParseTest(unittest.TestCase):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
 
-        # TestFunction
+        # TestFunctions
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
-        self.phi = ph.TestFunction(self.ini_funcs)  # eigenfunction or something else
-        self.phi_at0 = ph.TestFunction(self.ini_funcs, location=0)  # eigenfunction or something else
-        self.phi_at1 = ph.TestFunction(self.ini_funcs, location=1)  # eigenfunction or something else
-        self.dphi = ph.TestFunction(self.ini_funcs, order=1)  # eigenfunction or something else
-        self.dphi_at1 = ph.TestFunction(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
+        register_initial_functions("ini_funcs", self.ini_funcs, overwrite=True)
+        self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
+        self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
+        self.phi_at1 = ph.TestFunction("ini_funcs", location=1)  # eigenfunction or something else
+        self.dphi = ph.TestFunction("ini_funcs", order=1)  # eigenfunction or something else
+        self.dphi_at1 = ph.TestFunction("ini_funcs", order=1, location=1)  # eigenfunction or something else
 
         # FieldVars
-        self.field_var = ph.FieldVariable(self.ini_funcs)
-        self.field_var_at1 = ph.FieldVariable(self.ini_funcs, location=1)
-        self.field_var_dz = ph.SpatialDerivedFieldVariable(self.ini_funcs, 1)
-        self.field_var_dz_at1 = ph.SpatialDerivedFieldVariable(self.ini_funcs, 1, location=1)
-        self.field_var_ddt = ph.TemporalDerivedFieldVariable(self.ini_funcs, 2)
-        self.field_var_ddt_at0 = ph.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=0)
-        self.field_var_ddt_at1 = ph.TemporalDerivedFieldVariable(self.ini_funcs, 2, location=1)
+        self.field_var = ph.FieldVariable("ini_funcs")
+        self.odd_weight_field_var = ph.FieldVariable("ini_funcs", weight_label="special_weights")
+        self.field_var_at1 = ph.FieldVariable("ini_funcs", location=1)
+        self.field_var_dz = ph.SpatialDerivedFieldVariable("ini_funcs", 1)
+        self.field_var_dz_at1 = ph.SpatialDerivedFieldVariable("ini_funcs", 1, location=1)
+        self.field_var_ddt = ph.TemporalDerivedFieldVariable("ini_funcs", 2)
+        self.field_var_ddt_at0 = ph.TemporalDerivedFieldVariable("ini_funcs", 2, location=0)
+        self.field_var_ddt_at1 = ph.TemporalDerivedFieldVariable("ini_funcs", 2, location=1)
 
         # create all possible kinds of input variables
         self.input_term1 = ph.ScalarTerm(ph.Product(self.phi_at1, self.input))
@@ -89,6 +94,7 @@ class ParseTest(unittest.TestCase):
         self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
         self.field_term_dz_at1 = ph.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = ph.ScalarTerm(self.field_var_ddt_at1)
+
         self.field_int = ph.IntegralTerm(self.field_var, (0, 1))
         self.field_dz_int = ph.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = ph.IntegralTerm(self.field_var_ddt, (0, 1))
@@ -116,6 +122,8 @@ class ParseTest(unittest.TestCase):
         self.spat_int = ph.IntegralTerm(ph.Product(self.field_var_dz, self.dphi), (0, 1))
         self.spat_int_asymmetric = ph.IntegralTerm(
             ph.Product(self.field_var_dz, self.phi), (0, 1))
+
+        self.alternating_weights_term = ph.IntegralTerm(self.odd_weight_field_var, (0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term2)).get_terms()
@@ -204,8 +212,9 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(terms[1], None)  # f
         self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
 
-    def test_modal_form(self):
-        pass
+    def test_alternating_weights(self):
+        self.assertRaises(ValueError, sim.parse_weak_formulation,
+                          sim.WeakFormulation([self.alternating_weights_term, self.field_int]))
 
 
 class StateSpaceTests(unittest.TestCase):
@@ -215,17 +224,18 @@ class StateSpaceTests(unittest.TestCase):
         self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2),
-                                            ph.TestFunction(ini_funcs)), interval)
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
+                       ph.TestFunction("init_funcs")), interval)
         s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-                                        ph.TestFunction(ini_funcs, location=0)))
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
+                       ph.TestFunction("init_funcs", location=0)))
         int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, 1),
-                                            ph.TestFunction(ini_funcs, order=1)), interval)
+            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
+                       ph.TestFunction("init_funcs", order=1)), interval)
         s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction(ini_funcs, location=1)), -1)
+            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
 
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
         self.cf = sim.parse_weak_formulation(string_pde)
@@ -245,13 +255,12 @@ class StateSpaceTests(unittest.TestCase):
 class StringMassTest(unittest.TestCase):
 
     def setUp(self):
-        self.app = pg.QtGui.QApplication([])
 
         z_start = 0
         z_end = 1
         t_start = 0
         t_end = 10
-        self.z_step = 0.01
+        self.z_step = 0.1
         self.t_step = 0.01
         self.t_values = np.arange(t_start, t_end+self.t_step, self.t_step)
         self.z_values = np.arange(z_start, z_end+self.z_step, self.z_step)
@@ -288,17 +297,18 @@ class StringMassTest(unittest.TestCase):
 
         # enter string with mass equations
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
+        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2),
-                       ph.TestFunction(ini_funcs)), self.spat_interval)
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
+                       ph.TestFunction("init_funcs")), self.spat_interval)
         s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, 2, location=0),
-                       ph.TestFunction(ini_funcs, location=0)), scale=self.mass)
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
+                       ph.TestFunction("init_funcs", location=0)), scale=self.mass)
         int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, 1),
-                       ph.TestFunction(ini_funcs, order=1)), self.spat_interval)
+            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
+                       ph.TestFunction("init_funcs", order=1)), self.spat_interval)
         s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction(ini_funcs, location=1)), -1)
+            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
@@ -306,7 +316,7 @@ class StringMassTest(unittest.TestCase):
         ss = self.cf.convert_to_state_space()
 
         # generate initial conditions for weights
-        q0 = np.array([cr.project_on_initial_functions(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
+        q0 = np.array([cr.project_on_initial_functions(self.ic[idx], "init_funcs") for idx in range(2)]).flatten()
 
         # simulate
         t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, self.temp_interval)
@@ -315,7 +325,7 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                                       ini_funcs, t, self.spat_interval, self.z_step))
+                                                       "init_funcs", t, self.spat_interval, self.z_step))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
@@ -323,10 +333,13 @@ class StringMassTest(unittest.TestCase):
         if show_plots:
             win = vis.AnimatedPlot(eval_data[:2], title="fem approx and derivative")
             win2 = vis.SurfacePlot(eval_data[0])
-            self.app.exec_()
+            app.exec_()
 
         # TODO add test expression
-        with open(os.sep.join(["resources", "test_data.res"]), "w") as f:
+        file_path = os.sep.join(["resources", "test_data.res"])
+        if not os.path.isdir("resources"):
+            os.makedirs("resources")
+        with open(file_path, "w") as f:
             f.write(dumps(eval_data))
 
     def test_modal(self):
@@ -355,7 +368,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = ut.find_roots(char_eq, order, -2)
+        eig_frequencies = ut.find_roots(char_eq, order, 100, -2)
         print("eigenfrequencies:")
         print eig_frequencies
 
@@ -385,6 +398,7 @@ class StringMassTest(unittest.TestCase):
         # normalize eigen vectors
         norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
         norm_eig_funcs = np.atleast_1d([vec.members[0] for vec in norm_eig_vectors])
+        register_initial_functions("norm_eig_funcs", norm_eig_funcs)
 
         # debug print eigenfunctions
         if 0:
@@ -404,29 +418,29 @@ class StringMassTest(unittest.TestCase):
                         break
                     pw_phin_k.plot(x=self.z_values, y=norm_func_vals[n + k - 1], pen=clrs[k])
 
-            self.app.exec_()
+            app.exec_()
 
         # create terms of weak formulation
         terms = [ph.IntegralTerm(
-            ph.Product(ph.FieldVariable(norm_eig_funcs, order=(2, 0)),
-                       ph.TestFunction(norm_eig_funcs)),
+            ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
+                       ph.TestFunction("norm_eig_funcs")),
             self.spat_interval, scale=-1),
             ph.ScalarTerm(ph.Product(
-                ph.FieldVariable(norm_eig_funcs, order=(2, 0), location=0),
-                ph.TestFunction(norm_eig_funcs, location=0)),
+                ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
+                ph.TestFunction("norm_eig_funcs", location=0)),
                 scale=-1), ph.ScalarTerm(
                 ph.Product(ph.Input(self.u),
-                           ph.TestFunction(norm_eig_funcs, location=1))),
+                           ph.TestFunction("norm_eig_funcs", location=1))),
             ph.ScalarTerm(
-                ph.Product(ph.FieldVariable(norm_eig_funcs, location=1),
-                           ph.TestFunction(norm_eig_funcs, order=1, location=1)),
+                ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
+                           ph.TestFunction("norm_eig_funcs", order=1, location=1)),
                 scale=-1), ph.ScalarTerm(
-                ph.Product(ph.FieldVariable(norm_eig_funcs, location=0),
-                           ph.TestFunction(norm_eig_funcs, order=1,
-                                            location=0))),
+                ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
+                           ph.TestFunction("norm_eig_funcs", order=1,
+                                           location=0))),
             ph.IntegralTerm(
-                ph.Product(ph.FieldVariable(norm_eig_funcs),
-                           ph.TestFunction(norm_eig_funcs, order=2)),
+                ph.Product(ph.FieldVariable("norm_eig_funcs"),
+                           ph.TestFunction("norm_eig_funcs", order=2)),
                 self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
         eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,
@@ -436,12 +450,12 @@ class StringMassTest(unittest.TestCase):
         if show_plots:
             win = vis.AnimatedPlot(eval_data[0:2], title="modal approx and derivative")
             win2 = vis.SurfacePlot(eval_data[0])
-            self.app.exec_()
+            app.exec_()
 
         # TODO add test expression
 
     def tearDown(self):
-        del self.app
+        pass
 
     # TODO test "forbidden" terms like derivatives on the borders
 
@@ -457,17 +471,18 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
     def test_it(self):
         param = [2., -1.5, -3., 2., .5]
         a2, a1, a0, alpha, beta = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 50
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e3
+        l = 1.; spatial_domain = (0, l); spatial_disc = 10
+        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
 
         # create testfunctions
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
                                             spatial_domain,
                                             node_count=spatial_disc)
+        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
+        initial_weights = cr.project_on_initial_functions(start_state, "init_funcs")
 
         # TODO: implement twice differentiable testfunctions (e.g. LagrangeSecondOrder) for additional tests:
         # def test_dd():
@@ -483,23 +498,23 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
             actuation = 'robin'
             u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
             # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, order=1),
-                                              ph.TestFunction(ini_funcs, order=0)), spatial_domain)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
-                                              ph.TestFunction(ini_funcs, order=1)), spatial_domain, a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
-                                              ph.TestFunction(ini_funcs, order=1)), spatial_domain, a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
-                                              ph.TestFunction(ini_funcs, order=0)), spatial_domain, -a0)
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", order=1),
+                                              ph.TestFunction("init_funcs", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
+                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
+                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
+                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a0)
             # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
-                                          ph.TestFunction(ini_funcs, order=0, location=l)), -a1)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
-                                          ph.TestFunction(ini_funcs, order=0, location=l)), a2*beta)
-            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1, location=0),
-                                          ph.TestFunction(ini_funcs, order=0, location=0)), a2)
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
+                                          ph.TestFunction("init_funcs", order=0, location=l)), -a1)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
+                                          ph.TestFunction("init_funcs", order=0, location=l)), a2*beta)
+            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1, location=0),
+                                          ph.TestFunction("init_funcs", order=0, location=0)), a2)
             s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction(ini_funcs, order=0, location=l)), -a2)
+                                          ph.TestFunction("init_funcs", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
             cf = sim.parse_weak_formulation(rad_pde)
@@ -519,21 +534,21 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
             actuation = 'robin'
             u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
             # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(ini_funcs, order=1),
-                                              ph.TestFunction(ini_funcs, order=0)), spatial_domain)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
-                                              ph.TestFunction(ini_funcs, order=1)), spatial_domain, a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=1),
-                                              ph.TestFunction(ini_funcs, order=0)), spatial_domain, -a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0),
-                                              ph.TestFunction(ini_funcs, order=0)), spatial_domain, -a0)
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", order=1),
+                                              ph.TestFunction("init_funcs", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
+                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
+                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
+                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a0)
             # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=0),
-                                          ph.TestFunction(ini_funcs, order=0, location=0)), a2*alpha)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(ini_funcs, order=0, location=l),
-                                          ph.TestFunction(ini_funcs, order=0, location=l)), a2*beta)
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=0),
+                                          ph.TestFunction("init_funcs", order=0, location=0)), a2*alpha)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
+                                          ph.TestFunction("init_funcs", order=0, location=l)), a2*beta)
             s3 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction(ini_funcs, order=0, location=l)), -a2)
+                                          ph.TestFunction("init_funcs", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
             cf = sim.parse_weak_formulation(rad_pde)
@@ -552,13 +567,11 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, ini_funcs, t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in ini_funcs]), t, spatial_domain, l/spatial_disc)
-            self.app = pg.QtGui.QApplication([])
-            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            eval_d = ut.evaluate_approximation(q, "init_funcs", t, spatial_domain, l/spatial_disc)
+            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in init_funcs]), t, spatial_domain, l/spatial_disc)
+            # win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.SurfacePlot(eval_d)
-            self.app.exec_()
-            del self.app
+            app.exec_()
 
 class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
     """
@@ -572,47 +585,49 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         param = [1., -2., -1., None, None]
         adjoint_param = ut.get_adjoint_rad_dirichlet_evp_param(param)
         a2, a1, a0, _, _ = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 50
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e3
+        l = 1.; spatial_domain = (0, l); spatial_disc = 10
+        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
 
         omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
         rad_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
+        register_initial_functions("rad_eig_funcs", rad_eig_funcs)
         rad_adjoint_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
+        register_initial_functions("rad_adjoint_eig_funcs", rad_adjoint_eig_funcs)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
+        initial_weights = cr.project_on_initial_functions(start_state, "rad_adjoint_eig_funcs")
 
         # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
 
-        ## determine (A,B) with weak-formulation (pyinduct)
+        # determine (A,B) with weak-formulation (pyinduct)
         # integral terms
-        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(rad_eig_funcs, order=1),
-                                          ph.TestFunction(rad_adjoint_eig_funcs, order=0)), spatial_domain)
-        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0),
-                                          ph.TestFunction(rad_adjoint_eig_funcs, order=2)), spatial_domain, -a2)
-        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0),
-                                          ph.TestFunction(rad_adjoint_eig_funcs, order=1)), spatial_domain, a1)
-        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(rad_eig_funcs, order=0),
-                                          ph.TestFunction(rad_adjoint_eig_funcs, order=0)), spatial_domain, -a0)
+        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("rad_eig_funcs", order=1),
+                                          ph.TestFunction("rad_adjoint_eig_funcs", order=0)), spatial_domain)
+        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("rad_eig_funcs", order=0),
+                                          ph.TestFunction("rad_adjoint_eig_funcs", order=2)), spatial_domain, -a2)
+        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("rad_eig_funcs", order=0),
+                                          ph.TestFunction("rad_adjoint_eig_funcs", order=1)), spatial_domain, a1)
+        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("rad_eig_funcs", order=0),
+                                          ph.TestFunction("rad_adjoint_eig_funcs", order=0)), spatial_domain, -a0)
         # scalar terms
         s1 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                      ph.TestFunction(rad_adjoint_eig_funcs, order=1, location=l)), a2)
+                                      ph.TestFunction("rad_adjoint_eig_funcs", order=1, location=l)), a2)
         s2 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                      ph.TestFunction(rad_adjoint_eig_funcs, order=0, location=l)), -a1)
+                                      ph.TestFunction("rad_adjoint_eig_funcs", order=0, location=l)), -a1)
         # derive sate-space system
         rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2])
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
-        ## determine (A,B) with modal-transfomation
+        # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
         B = -a2*np.array([rad_adjoint_eig_funcs[i].derive()(l) for i in xrange(n)])
-        ss_modal = sim.StateSpace(A,B)
+        ss_modal = sim.StateSpace(A, B)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -624,13 +639,11 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, rad_eig_funcs, t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
-            self.app = pg.QtGui.QApplication([])
-            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            eval_d = ut.evaluate_approximation(q, "rad_eig_funcs", t, spatial_domain, l/spatial_disc)
+            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
+            # win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.SurfacePlot(eval_d)
-            self.app.exec_()
-            del self.app
+            app.exec_()
 
 class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
     """
@@ -644,8 +657,8 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         param = [2., 1.5, -3., -1., -.5]
         adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
         a2, a1, a0, alpha, beta = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 50
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e3
+        l = 1.; spatial_domain = (0, l); spatial_disc = 10
+        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
 
         rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
@@ -661,17 +674,17 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # register eigenfunctions
-        pi.register_initial_functions("eig_funcs", eig_funcs)
-        pi.register_initial_functions("adjoint_eig_funcs", adjoint_eig_funcs)
+        register_initial_functions("eig_funcs", eig_funcs)
+        register_initial_functions("adjoint_eig_funcs", adjoint_eig_funcs)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
+        initial_weights = cr.project_on_initial_functions(start_state, "adjoint_eig_funcs")
 
         # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
 
-        ## determine (A,B) with weak-formulation (pyinduct)
+        # determine (A,B) with weak-formulation (pyinduct)
         # integral terms
         int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("eig_funcs", order=1),
                                           ph.TestFunction("adjoint_eig_funcs", order=0)), spatial_domain)
@@ -694,7 +707,7 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
-        ## determine (A,B) with modal-transfomation
+        # determine (A,B) with modal-transfomation
         A = np.diag(eig_val)
         B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
         ss_modal = sim.StateSpace(A,B)
@@ -708,10 +721,8 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, eig_funcs, t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in eig_funcs]), t, spatial_domain, l/spatial_disc)
-            self.app = pg.QtGui.QApplication([])
-            win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
+            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in eig_funcs]), t, spatial_domain, l/spatial_disc)
+            # win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.SurfacePlot(eval_d)
-            self.app.exec_()
-            del self.app
+            app.exec_()

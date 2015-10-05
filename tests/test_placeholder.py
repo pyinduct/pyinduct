@@ -12,7 +12,7 @@ class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
-        register_initial_functions("test_funcs", ini_funcs)
+        register_initial_functions("test_funcs", ini_funcs, overwrite=True)
 
     def test_FieldVariable(self):
         self.assertRaises(TypeError, ph.FieldVariable, "test_funcs", [0, 0])  # list instead of tuple
@@ -121,18 +121,22 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
 
 
-class WeakTermsTest(unittest.TestCase):
+class EquationTermsTest(unittest.TestCase):
 
     def setUp(self):
         self.input = ph.Input(np.sin)
-        self.phi = cr.Function(lambda x: 2*x)
+        self.phi = np.array([cr.Function(lambda x: 2*x)])
+        register_initial_functions("phi", self.phi, overwrite=True)
         self.test_func = ph.TestFunction(self.phi)
+
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
-        self.xdt = ph.TemporalDerivedFieldVariable(self.ini_funcs, 1)
-        self.xdz_at1 = ph.SpatialDerivedFieldVariable(self.ini_funcs, 1, 1)
+        register_initial_functions("ini_funcs", self.ini_funcs, overwrite=True)
+        self.xdt = ph.TemporalDerivedFieldVariable("ini_funcs", order=1)
+        self.xdz_at1 = ph.SpatialDerivedFieldVariable("ini_funcs", order=1, location=1)
+
         self.prod = ph.Product(self.input, self.xdt)
 
-    def test_WeakEquationTerm(self):
+    def test_EquationTerm(self):
         self.assertRaises(TypeError, ph.EquationTerm, "eleven", self.input)  # scale is not a number
         self.assertRaises(TypeError, ph.EquationTerm, 1, cr.LagrangeFirstOrder(0, 1, 2))  # arg is invalid
         ph.EquationTerm(1, self.test_func)
@@ -174,11 +178,13 @@ class WeakFormulationTest(unittest.TestCase):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
-        self.phi = ph.TestFunction(self.ini_funcs)  # eigenfunction or something else
-        self.dphi = ph.TestFunction(self.ini_funcs, order=1)  # eigenfunction or something else
-        self.dphi_at1 = ph.TestFunction(self.ini_funcs, order=1, location=1)  # eigenfunction or something else
-        self.field_var = ph.FieldVariable(self.ini_funcs)
-        self.field_var_at1 = ph.FieldVariable(self.ini_funcs, location=1)
+        register_initial_functions("ini_funcs", self.ini_funcs, overwrite=True)
+
+        self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
+        self.dphi = ph.TestFunction("ini_funcs", order=1)  # eigenfunction or something else
+        self.dphi_at1 = ph.TestFunction("ini_funcs", order=1, location=1)  # eigenfunction or something else
+        self.field_var = ph.FieldVariable("ini_funcs")
+        self.field_var_at1 = ph.FieldVariable("ini_funcs", location=1)
 
     def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])

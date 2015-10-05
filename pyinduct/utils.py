@@ -156,26 +156,27 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, functions, temporal_steps, spatial_interval, spatial_step):
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
     :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
-    :param functions: functions to use for back-projection
+    :param function_label: functions to use for back-projection
     :return:
     """
-    if weights.shape[1] != functions.shape[0]:
+    funcs = get_initial_functions(function_label, 0)
+    if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
     spatial_steps = np.arange(spatial_interval[0], spatial_interval[1] + spatial_step, spatial_step)
 
     def eval_spatially(weight_vector):
-        if isinstance(functions[0], LagrangeFirstOrder):
+        if isinstance(function_label[0], LagrangeFirstOrder):
             # shortcut for fem approximations
-            nodes = [func.top for func in functions]
+            nodes = [func.top for func in function_label]
             handle = interp1d(nodes, weight_vector)
         else:
-            handle = back_project_from_initial_functions(weight_vector, functions)
+            handle = back_project_from_initial_functions(weight_vector, function_label)
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)

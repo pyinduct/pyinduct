@@ -5,6 +5,7 @@ from numbers import Number
 import numpy as np
 from scipy import integrate
 
+from pyinduct import get_initial_functions
 
 def sanitize_input(input_object, allowed_type):
     """
@@ -502,15 +503,16 @@ def calculate_function_matrix(functions_a, functions_b):
     return dot_product_l2(funcs_i, funcs_j)
 
 
-def project_on_initial_functions(func, initial_funcs):
+def project_on_initial_functions(function, initial_function_label):
     """
     projects given function on a new basis
 
-    :param func: function the approximate
-    :param initial_funcs: initial functions
+    :param function: function the approximate
+    :param initial_function_label: initial functions
     :return: weights
     """
-    if not isinstance(func, Function):
+    initial_funcs = get_initial_functions(initial_function_label, 0)
+    if not isinstance(function, Function):
         raise TypeError("Only pyinduct.Function accepted as 'func'")
 
     if isinstance(initial_funcs, Function):  # convenience case
@@ -520,7 +522,7 @@ def project_on_initial_functions(func, initial_funcs):
         raise TypeError("Only numpy.ndarray accepted as 'initial_funcs'")
 
     # compute <x(z, t), phi_i(z)>
-    projections = dot_product_l2(func, initial_funcs)
+    projections = dot_product_l2(function, initial_funcs)
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
     scale_mat = calculate_function_matrix(initial_funcs, initial_funcs)
@@ -528,27 +530,29 @@ def project_on_initial_functions(func, initial_funcs):
     return np.dot(np.linalg.inv(scale_mat), projections)
 
 
-def back_project_from_initial_functions(weights, initial_funcs, order=0):
+def back_project_from_initial_functions(weights, initial_function_label, order=0):
     # TODO check if usage of order makes sense (it only does if given funcs are (at least) of type C^order
     """
     build handle for function that was expressed in test functions with weights
 
     :param weights:
-    :param initial_funcs:
+    :param initial_function_label:
     :return: evaluation handle
     """
-    if isinstance(weights, float):
+    if isinstance(weights, Number):
         weights = np.asarray([weights])
-    if isinstance(initial_funcs, Function):
-        initial_funcs = np.asarray([initial_funcs])
 
-    if not isinstance(weights, np.ndarray) or not isinstance(initial_funcs, np.ndarray):
+    funcs = get_initial_functions(initial_function_label, order)
+    if isinstance(funcs, Function):
+        funcs = np.asarray([funcs])
+
+    if not isinstance(weights, np.ndarray) or not isinstance(funcs, np.ndarray):
         raise TypeError("Only numpy ndarrays accepted as input")
 
-    if weights.shape[0] != initial_funcs.shape[0]:
+    if weights.shape[0] != funcs.shape[0]:
         raise ValueError("Lengths of weights and initial_funcs do not match!")
 
-    eval_handle = lambda z: sum([weights[i]*initial_funcs[i](z) for i in range(weights.shape[0])])
+    eval_handle = lambda z: sum([weights[i]*funcs[i](z) for i in range(weights.shape[0])])
 
     # TODO test if bottom one is faster
     return np.vectorize(eval_handle)

@@ -62,14 +62,10 @@ class TestFunction(Placeholder):
     class that works as a placeholder for test-functions in an equation
     """
     def __init__(self, function_label, order=0, weight_label=None, location=None):
+        if not isinstance(function_label, str):
+            raise TypeError("only strings allowed as 'function_label'")
 
-        # apply spatial derivation to initial_functions
-        # funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
-        if weight_label is None:
-            weight_label = function_label
-
-        Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label},
-                             order=(0, order), location=location)
+        Placeholder.__init__(self, {"func_lbl": function_label}, order=(0, order), location=location)
 
 
 class FieldVariable(Placeholder):
@@ -93,8 +89,12 @@ class FieldVariable(Placeholder):
         if location is not None:
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
+        if not isinstance(function_label, str):
+            raise TypeError("only strings allowed as 'function_label'")
         if weight_label is None:
             weight_label = function_label
+        elif not isinstance(weight_label, str):
+            raise TypeError("only strings allowed as 'weight_label'")
 
         Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label},
                              order=order, location=location)
