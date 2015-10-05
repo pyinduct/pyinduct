@@ -15,8 +15,13 @@ __author__ = 'Stefan Ecklebe'
 show_plots = True
 # show_plots = False
 
+if show_plots:
+    app = pg.QtGui.QApplication([])
+else:
+    app = None
 
 class CureTestCase(unittest.TestCase):
+
     def setUp(self):
         self.node_cnt = 3
         self.nodes = np.linspace(0, 2, self.node_cnt)
@@ -45,28 +50,29 @@ class CureTestCase(unittest.TestCase):
 class FindRootsTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.app = pg.QtGui.QApplication([])
-
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
         self.char_eq = _char_equation
         self.n_roots = 10
         self.area_end = 50.
-        self.rtol = 0.1
-        self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol, show_plot=show_plots)
+        self.rtol = -1
 
     def test_in_fact_roots(self):
+        self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol)
         for root in self.roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
     def test_enough_roots(self):
+        self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol)
         self.assertEqual(len(self.roots), self.n_roots)
 
     def test_rtol(self):
-        self.assertLess(max(np.abs(np.diff(self.roots))), self.rtol)
+        self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol)
+        self.assertGreaterEqual(np.log10(min(np.abs(np.diff(self.roots)))), self.rtol)
 
     def test_greater_0(self):
+        self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol)
         for root in self.roots:
             self.assertTrue(root >= 0.)
 
@@ -74,19 +80,28 @@ class FindRootsTestCase(unittest.TestCase):
         float_num = -1.
         int_num = 0
         to_small_area_end = 1e-3
+
         self.assertRaises(TypeError, ut.find_roots, int_num, self.n_roots, self.area_end, self.rtol)
         self.assertRaises(TypeError, ut.find_roots, self.char_eq, float_num, self.area_end, self.rtol)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, points_per_root=float_num)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, int_num)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, atol=int_num)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, show_plots=int)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
+                          points_per_root=float_num)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
+                          show_plots=int)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, float_num)
+
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, atol=int_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, int_num, self.area_end, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, points_per_root=int_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
+                          points_per_root=int_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, float_num)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol, atol=float_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area_end, self.rtol,
+                          atol=float_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
+
+    def test_debug_plot(self):
+        if show_plots:
+            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol, show_plot=True)
 
     def tearDown(self):
         pass
@@ -107,7 +122,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 class EvaluateApproximationTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.app = pg.QtGui.QApplication([])
+
         self.node_cnt = 5
         self.time_step = 1e-3
         self.dates = np.arange(0, 10, self.time_step)
@@ -124,9 +139,9 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         eval_data = ut.evaluate_approximation(self.weights, self.funcs, self.dates, self.spat_int, .1)
         if show_plots:
             p = vt.AnimatedPlot(eval_data)
-            self.app.exec_()
+            app.exec_()
 
     def tearDown(self):
-        del self.app
+        pass
 
 

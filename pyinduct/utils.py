@@ -62,16 +62,16 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
-    It is assumed that the roots of the function distributed approximately homogen, if that is not the case you should
+    It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
-    (Expected calculation for area_end = assumed_distance_between_roots * n_roots)
+
     :param function: function handle for f(x) whose roots shall be found
     :param n_roots: number of roots to find
-    :param area_end: domain of interest
-    :param rtol: relative tolerance to be exceeded for two root to be unique f(r1) - f(r2) > rtol
+    :param area_end: end of interval to search in
+    :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
     :param points_per_root: number of solver start-points around each root
     :param atol: absolute tolerance to zero  f(root) < atol
-    :param show_plot: shows the plot with the function and the found roots
+    :param show_plot: shows a debug plot containing the given functions behavior completed by the extracted roots
     :return: numpy.ndarray of roots
 
     In Detail fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria given
@@ -79,26 +79,23 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
     the present entry.
     """
-    floats = [area_end, rtol, atol]
-    integer = [n_roots, points_per_root]
+    positive_numbers = [n_roots, points_per_root, area_end, atol]
+    integer = [n_roots, points_per_root, rtol]
     if not callable(function):
         raise TypeError("callable handle is needed")
     if not all([isinstance(num, int) for num in integer]):
-        raise TypeError("type from n_roots and points_per_root must be interger")
-    if any([num <= 0 for num in integer]):
-        raise ValueError("n_roots and points_per_root must be positive intergers != 0")
-    if not all([isinstance(num, float) for num in floats]):
-        raise TypeError("type from n_roots and points_per_root must be float")
-    if any([num < 0 for num in floats]):
-        raise ValueError("area_end, rtol and atol must be positive floating point numbers")
+        raise TypeError("n_roots, points_per_root and rtol must be of type int")
+    if any([num <= 0 for num in positive_numbers]):
+        raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
     if not isinstance(show_plot, bool):
-        raise TypeError("show_plot must be from type bool")
+        raise TypeError("show_plot must be of type bool")
 
-    # increase n_roots and area_end to ensure that no root is forgotten
-    safety_factor = 2.
+    # increase n_roots and area_end
+    # TODO maybe the scaling stuff should be completely removed. basically it is undocumented behavior.
+    safety_factor = 2
     own_n_roots = safety_factor * n_roots
     own_area_end = safety_factor * area_end
-    values = np.linspace(0., own_area_end, own_n_roots * points_per_root)
+    values = np.linspace(0, own_area_end, own_n_roots * points_per_root)
 
     roots = []
     rounded_roots = []
@@ -113,10 +110,10 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
         if info['fvec'] > atol:
             continue
-        if root < 0.:
+        if root < 0:
             continue
 
-        rounded_root = np.round(root, -int(np.log10(rtol)))
+        rounded_root = np.round(root, -rtol)
         if rounded_root in rounded_roots:
             idx = rounded_roots.index(rounded_root)
             if errors[idx] > info['fvec']:
@@ -129,19 +126,18 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
         errors.append(info['fvec'])
 
     if len(roots) < n_roots:
-        raise ValueError("Not enough roots could be detected. Increase Area.")
+        raise ValueError("Insufficient number of roots {0} detected. "
+                         "Try to increase the area to search in.".format(len(roots)))
 
     found_roots = np.atleast_1d(sorted(roots)[:n_roots]).flatten()
 
     if show_plot:
-        app = pg.QtGui.QApplication([])
-        points = np.arange(0, 100, .1)
+        points = np.arange(0, area_end, .1)
         values = function(points)
         pw = pg.plot(title="function + roots")
         pw.plot(points, values)
         pw.plot(found_roots, function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
-        app.exec_()
-        del app
+        pg.QtGui.QApplication.instance().exec_()
 
     return found_roots
 
@@ -417,7 +413,7 @@ class ReaAdvDifRobinEigenvalues(object):
 
         # assume 1 root per pi/l (safety factor = 2)
         om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=1e-6 / l).tolist()
+        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=-6 / l).tolist()
 
         # delete all around om = 0
         om.reverse()

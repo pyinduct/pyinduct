@@ -355,7 +355,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = ut.find_roots(char_eq, order)
+        eig_frequencies = ut.find_roots(char_eq, order, -2)
         print("eigenfrequencies:")
         print eig_frequencies
 
