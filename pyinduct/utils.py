@@ -3,10 +3,13 @@ import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
+from pyinduct import get_initial_functions
 from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
+from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
 import warnings
+import pyqtgraph as pg
 
 __author__ = 'stefan'
 
@@ -58,16 +61,17 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
-    It is assumed that the roots of the function distributed approximately homogen, if that is not the case you should
+
+    It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
-    (Expected calculation for area_end = assumed_distance_between_roots * n_roots)
+
     :param function: function handle for f(x) whose roots shall be found
     :param n_roots: number of roots to find
-    :param area_end: domain of interest
-    :param rtol: relative tolerance to be exceeded for two root to be unique f(r1) - f(r2) > rtol
+    :param area_end: end of interval to search in
+    :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
     :param points_per_root: number of solver start-points around each root
     :param atol: absolute tolerance to zero  f(root) < atol
-    :param show_plot: shows the plot with the function and the found roots
+    :param show_plot: shows a debug plot containing the given functions behavior completed by the extracted roots
     :return: numpy.ndarray of roots
 
     In Detail fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria given
@@ -75,26 +79,23 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
     the present entry.
     """
-    floats = [area_end, rtol, atol]
-    integer = [n_roots, points_per_root]
+    positive_numbers = [n_roots, points_per_root, area_end, atol]
+    integers = [n_roots, points_per_root, rtol]
     if not callable(function):
         raise TypeError("callable handle is needed")
-    if not all([isinstance(num, int) for num in integer]):
-        raise TypeError("type from n_roots and points_per_root must be interger")
-    if any([num <= 0 for num in integer]):
-        raise ValueError("n_roots and points_per_root must be positive intergers != 0")
-    if not all([isinstance(num, float) for num in floats]):
-        raise TypeError("type from n_roots and points_per_root must be float")
-    if any([num < 0 for num in floats]):
-        raise ValueError("area_end, rtol and atol must be positive floating point numbers")
+    if not all([isinstance(num, int) for num in integers]):
+        raise TypeError("n_roots, points_per_root and rtol must be of type int")
+    if any([num <= 0 for num in positive_numbers]):
+        raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
     if not isinstance(show_plot, bool):
-        raise TypeError("show_plot must be from type bool")
+        raise TypeError("show_plot must be of type bool")
 
-    # increase n_roots and area_end to ensure that no root is forgotten
-    safety_factor = 2.
+    # increase n_roots and area_end
+    # TODO maybe the scaling stuff should be completely removed. basically it is undocumented behavior.
+    safety_factor = 2
     own_n_roots = safety_factor * n_roots
     own_area_end = safety_factor * area_end
-    values = np.linspace(0., own_area_end, own_n_roots * points_per_root)
+    values = np.linspace(0, own_area_end, own_n_roots * points_per_root)
 
     roots = []
     rounded_roots = []
@@ -109,10 +110,10 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
         if info['fvec'] > atol:
             continue
-        if root < 0.:
+        if root < 0:
             continue
 
-        rounded_root = np.round(root, -int(np.log10(rtol)))
+        rounded_root = np.round(root, -rtol)
         if rounded_root in rounded_roots:
             idx = rounded_roots.index(rounded_root)
             if errors[idx] > info['fvec']:
@@ -125,43 +126,57 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
         errors.append(info['fvec'])
 
     if len(roots) < n_roots:
-        raise ValueError("Not enough roots could be detected. Increase Area.")
+        raise ValueError("Insufficient number of roots {0} detected. "
+                         "Try to increase the area to search in.".format(len(roots)))
 
     found_roots = np.atleast_1d(sorted(roots)[:n_roots]).flatten()
 
     if show_plot:
-        app = pg.QtGui.QApplication([])
-        points = np.arange(0, 100, .1)
+        points = np.arange(0, area_end, .1)
         values = function(points)
         pw = pg.plot(title="function + roots")
         pw.plot(points, values)
         pw.plot(found_roots, function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
-        app.exec_()
-        del app
+        pg.QtGui.QApplication.instance().exec_()
 
     return found_roots
 
 
-def evaluate_approximation(weights, functions, temporal_steps, spatial_interval, spatial_step):
+def evaluate_placeholder_function(placeholder, input_values):
+    """
+    evaluate a given placeholder object, that contains functions
+
+    :param placeholder: instance of ref:py:class: FieldVariable or ref:py:class TestFunction ref:py:class ScalarFunction
+    :return: results as np.ndarray
+    """
+    if not isinstance(placeholder, (FieldVariable, TestFunction)):
+        raise TypeError("Input Object not supported!")
+
+    funcs = get_initial_functions(placeholder.data["func_lbl"], placeholder.order[1])
+    return np.array([func(input_values) for func in funcs])
+
+
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
     :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
-    :param functions: functions to use for back-projection
+    :param function_label: functions to use for back-projection
     :return:
     """
-    if weights.shape[1] != functions.shape[0]:
+    funcs = get_initial_functions(function_label, 0)
+    if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
     spatial_steps = np.arange(spatial_interval[0], spatial_interval[1] + spatial_step, spatial_step)
 
     def eval_spatially(weight_vector):
-        if isinstance(functions[0], LagrangeFirstOrder):
+        if isinstance(function_label[0], LagrangeFirstOrder):
             # shortcut for fem approximations
-            nodes = [func.top for func in functions]
+            nodes = [func.top for func in funcs]
             handle = interp1d(nodes, weight_vector)
         else:
-            handle = back_project_from_initial_functions(weight_vector, functions)
+            handle = back_project_from_initial_functions(weight_vector, funcs)
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
@@ -399,7 +414,7 @@ class ReaAdvDifRobinEigenvalues(object):
 
         # assume 1 root per pi/l (safety factor = 2)
         om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=1e-6 / l).tolist()
+        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=-6).tolist()
 
         # delete all around om = 0
         om.reverse()

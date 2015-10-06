@@ -128,7 +128,7 @@ class FlatString(SimulationInput):
 
         return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])
 
-    def __call__(self, t, q=None, **kwargs):
+    def __call__(self, t, q, weight_label, **kwargs):
         """
         use time to calculate system input and return force
         :param t:
@@ -300,7 +300,7 @@ class ReaAdvDifTrajectory(SimulationInput):
 
         return x, d_x
 
-    def __call__(self, t, q=None, **kwargs):
+    def __call__(self, t, q, weight_label, **kwargs):
         """
         use time to calculate system input and return force
         :param t:

@@ -1,8 +1,10 @@
 from abc import ABCMeta
-from copy import copy
 from numbers import Number
+
 import numpy as np
-from core import sanitize_input, Function
+
+from pyinduct import get_initial_functions, register_initial_functions, is_registered
+from core import sanitize_input
 
 __author__ = 'Stefan Ecklebe'
 
@@ -17,6 +19,7 @@ class Placeholder(object):
         :param location to evaluate at before further computation
         """
         self.data = data
+
         if not isinstance(order, tuple) or any([not isinstance(o, int) or o < 0 for o in order]):
             raise ValueError("invalid derivative order.")
         self.order = order
@@ -31,30 +34,22 @@ class Scalars(Placeholder):
     """
     placeholder for scalars that will be replaced later
     """
-    def __init__(self, values, target_term=None):
+    def __init__(self, values, target_term=None, target_form=None):
         values = np.atleast_2d(values)
         Placeholder.__init__(self, sanitize_input(values, Number))
         self.target_term = target_term
+        self.target_form = target_form
 
 
-class ScalarFunctions(Placeholder):
+class ScalarFunction(Placeholder):
     """
     class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients
     """
-    def __init__(self, functions, order=0, location=None):
-        # apply spatial derivation to function
-        funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
-        Placeholder.__init__(self, funcs, (0, order), location)
+    def __init__(self, function_label, order=0, location=None):
+        if not is_registered(function_label):
+            raise ValueError("Unknown function label '{0}'!".format(function_label))
 
-
-class TestFunctions(Placeholder):
-    """
-    class that works as a placeholder for test-functions in an equation
-    """
-    def __init__(self, functions, order=0, location=None):
-        # apply spatial derivation to initial_functions
-        funcs = np.array([func.derive(order) for func in sanitize_input(functions, Function)])
-        Placeholder.__init__(self, funcs, (0, order), location)
+        Placeholder.__init__(self, {"func_lbl": function_label}, (0, order), location)
 
 
 class Input(Placeholder):
@@ -67,12 +62,24 @@ class Input(Placeholder):
         Placeholder.__init__(self, function_handle, order=(order, 0))
 
 
+class TestFunction(Placeholder):
+    """
+    class that works as a placeholder for test-functions in an equation
+    """
+    def __init__(self, function_label, order=0, location=None):
+        if not is_registered(function_label):
+            raise ValueError("Unknown function label '{0}'!".format(function_label))
+
+        Placeholder.__init__(self, {"func_lbl": function_label}, order=(0, order), location=location)
+
+
 class FieldVariable(Placeholder):
     """
     class that represents terms of the systems field variable x(z, t).
-    since differentiation may occur, order can provide information about which derivative of the field variable.
+    since differentiation may occur, order can provide information about which derivative of the field variable shall
+    be used.
     """
-    def __init__(self, initial_functions, order=(0, 0), location=None):
+    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None):
         """
         :param : order tuple of temporal_order and spatial_order
         :param : factor
@@ -87,25 +94,30 @@ class FieldVariable(Placeholder):
         if location is not None:
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
+        if not is_registered(function_label):
+            raise ValueError("Unknown function label '{0}'!".format(function_label))
+        if weight_label is None:
+            weight_label = function_label
+        elif not isinstance(weight_label, str):
+            raise TypeError("only strings allowed as 'weight_label'")
 
-        # apply spatial derivation to initial_functions
-        funcs = np.array([func.derive(order[1]) for func in sanitize_input(initial_functions, Function)])
-        Placeholder.__init__(self, funcs, order=order, location=location)
+        Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label},
+                             order=order, location=location)
 
 
 class TemporalDerivedFieldVariable(FieldVariable):
-    def __init__(self, initial_functions, order, location=None):
-        FieldVariable.__init__(self, initial_functions, (order, 0), location=location)
+    def __init__(self, function_label, order, weight_label=None, location=None):
+        FieldVariable.__init__(self, function_label, (order, 0), weight_label, location)
 
 
 class SpatialDerivedFieldVariable(FieldVariable):
-    def __init__(self, initial_functions, order, location=None):
-        FieldVariable.__init__(self, initial_functions, (0, order), location=location)
+    def __init__(self, function_label, order, weight_label=None, location=None):
+        FieldVariable.__init__(self, function_label, (0, order), weight_label, location)
 
 
 class MixedDerivedFieldVariable(FieldVariable):
-    def __init__(self, initial_functions, location=None):
-        FieldVariable.__init__(self, initial_functions, (1, 1), location=location)
+    def __init__(self, function_label, weight_label=None, location=None):
+        FieldVariable.__init__(self, function_label, (1, 1), weight_label, location)
 
 
 class Product(object):
@@ -161,27 +173,36 @@ class Product(object):
     @staticmethod
     def _simplify_product(a, b):
         # try to simplify expression containing ScalarFunctions
-        scal_func = None
+        scalar_func = None
         other_func = None
         for obj1, obj2 in [(a, b), (b, a)]:
-            if isinstance(obj1, ScalarFunctions):
-                scal_func = obj1
-                if isinstance(obj2, (FieldVariable, TestFunctions, ScalarFunctions)):
+            if isinstance(obj1, ScalarFunction):
+                scalar_func = obj1
+                if isinstance(obj2, (FieldVariable, TestFunction, ScalarFunction)):
                     other_func = obj2
                     break
 
-        if scal_func and other_func:
-            if scal_func.data.shape != other_func.data.shape:
-                if scal_func.data.shape[0] == 1:
+        if scalar_func and other_func:
+            s_func = get_initial_functions(scalar_func.data["func_lbl"], scalar_func.order[1])
+            o_func = get_initial_functions(other_func.data["func_lbl"], other_func.order[1])
+
+            if s_func.shape != o_func.shape:
+                if s_func.shape[0] == 1:
                     # only one function provided, use it for all others
-                    scal_func.data = scal_func.data[[0 for i in range(other_func.data.shape[0])]]
+                    s_func = s_func[[0 for i in range(o_func.shape[0])]]
                 else:
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
-            new_func = copy(other_func)
-            new_func.data = np.asarray([func.scale(scal_func) for func, scal_func in zip(other_func.data,
-                                                                                         scal_func.data)])
-            a = new_func
+            new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
+            new_name = new_func.tostring()
+            register_initial_functions(new_name, new_func)
+
+            if isinstance(other_func, (ScalarFunction, TestFunction)):
+                a = other_func.__class__(function_label=new_name, order=other_func.order, location=other_func.location)
+            elif isinstance(other_func, FieldVariable):
+                # overwrite spatial derivative order, since derivation has been performed
+                a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
+                                  order=(other_func.order[0], 0), location=other_func.location)
             b = None
 
         return a, b
@@ -223,7 +244,7 @@ class ScalarTerm(EquationTerm):
     def __init__(self, argument, scale=1.0):
         EquationTerm.__init__(self, scale, argument)
 
-        if any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunctions))]):
+        if any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunction))]):
             raise ValueError("cannot leave z dependency. specify location to evaluate expression.")
 
 
@@ -234,7 +255,7 @@ class IntegralTerm(EquationTerm):
     def __init__(self, integrand, limits, scale=1.0):
         EquationTerm.__init__(self, scale, integrand)
 
-        if not any([isinstance(arg, (FieldVariable, TestFunctions)) for arg in self.arg.args]):
+        if not any([isinstance(arg, (FieldVariable, TestFunction)) for arg in self.arg.args]):
             raise ValueError("nothing to integrate")
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
@@ -258,13 +279,14 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = placeholder.data
+    functions = get_initial_functions(placeholder.data['func_lbl'], placeholder.order[1])
     location = placeholder.location
     values = np.atleast_2d([func(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
-        return Scalars(values, target_term=("E", placeholder.order[0]))
-    elif isinstance(placeholder, TestFunctions):
+        return Scalars(values, target_term=("E", placeholder.order[0]), target_form=placeholder.data["weight_lbl"])
+    elif isinstance(placeholder, TestFunction):
+        # it does not matter where this ends up, since f vector is always added
         return Scalars(values.T, target_term=("f", 0))
     else:
         raise NotImplementedError

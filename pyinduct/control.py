@@ -1,9 +1,11 @@
 from __future__ import division
 import numpy as np
+from scipy.linalg import block_diag
 
+from pyinduct import get_initial_functions
 from core import calculate_base_projection, project_weights, domain_intersection, integrate_function
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
-from simulation import CanonicalForm, SimulationInput
+from simulation import CanonicalForms, SimulationInput
 
 __author__ = 'Stefan Ecklebe'
 """
@@ -12,128 +14,79 @@ for simulation purposes.
 """
 
 
+class ControlLaw(object):
+    """
+    this class represents the approximated formulation of a control law.
+    It can be initialized with several terms (see children of :py:class:`EquationTerm`).
+    The equation is interpreted as term_0 + term_1 + ... + term_N = u, where u is the control output.
+
+    :param terms: (list of) of object(s) of type EquationTerm
+    """
+    def __init__(self, terms, name=""):
+        if isinstance(terms, EquationTerm):
+            terms = [terms]
+        if not isinstance(terms, list):
+            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
+
+        for term in terms:
+            if not isinstance(term, EquationTerm):
+                raise TypeError("Only EquationTerm(s) are accepted.")
+
+        self.terms = terms
+        self.name = name
+
+
 class Controller(SimulationInput):
     """
     wrapper class for all controllers that have to interact with the simulation environment
 
     :param control_law: function handle that calculates the control output if provided with correct weights
-    :param base_projection: Matrix that transforms simulation weights into control weights
     """
 
-    def __init__(self, control_law, sim_functions, control_functions):
+    def __init__(self, control_law):
         SimulationInput.__init__(self)
-        print("approximating control law")
-        self._control_handle = approximate_control_law(control_law)
-        self._base_projection = calculate_base_projection(control_functions, sim_functions)
-        if self._base_projection.shape[0] == self._base_projection.shape[1] and \
-                np.allclose(self._base_projection, np.identity(self._base_projection.shape[0])):
-            self._skip_projection = True
-        else:
-            self._skip_projection = False
-        self._state_len = len(sim_functions)
+        self._evaluator = approximate_control_law(control_law)
 
-    def __call__(self, time, weights, **kwargs):
+    def __call__(self, time, weights, weight_lbl, **kwargs):
         """
         calculates the controller output based on the current_weights
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        # reshape weight vector
-        coll_weights = cont_weights = weights.reshape((-1, self._state_len)).T
-
-        if not self._skip_projection:
-            cont_weights = np.apply_along_axis(project_weights, 0, coll_weights, self._base_projection)
-
-        return self._control_handle(coll_weights, cont_weights)
+        return self._evaluator(weights, weight_lbl)
 
 
 def approximate_control_law(control_law):
     """
     function that approximates the control law, given by a list of sum terms that equal u.
-    the result is a function handle that contains pre-evaluated terms and only needs the current weights to be applied
+    the result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
+    respective label) to be applied
 
-    :param control_law: list of :py:cls:EquationTerm
-    :return:
+    :param control_law: list of :py:cls:ControlLaw
+    :return: evaluation handle
     """
-    if not isinstance(control_law, list):
-        raise TypeError("only list accepted.")
+    print("approximating control law")
+    if not isinstance(control_law, ControlLaw):
+        raise TypeError("only input of Type ControlLaw allowed!")
 
-    scal_terms = []
-    int_terms = []
+    approximated_forms = _parse_control_law(control_law)
+    return LawEvaluator(approximated_forms)
 
-    # sort terms
-    for term in control_law:
+
+def _parse_control_law(law):
+    """
+    parses the given control law by approximating given terms
+    :param law:  list of equation terms
+    :return: evaluation handle
+    """
+    # check terms
+    for term in law.terms:
         if not isinstance(term, EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-        if isinstance(term, ScalarTerm):
-            scal_terms.append(term)
-        elif isinstance(term, IntegralTerm):
-            int_terms.append(term)
-        else:
-            raise NotImplementedError
+    cfs = CanonicalForms(law.name)
 
-    coll_handle = _handle_collocated_terms(scal_terms)
-    cont_handle = _handle_continuous_terms(int_terms)
-
-    def eval_func(coll_weights, cont_weights):
-        return np.atleast_2d(coll_handle(coll_weights) + cont_handle(cont_weights))
-
-    return eval_func
-
-
-def _handle_collocated_terms(terms):
-    """
-    processes the collocated terms inside a control law
-
-    :param terms:
-    :return:
-    """
-    cf = CanonicalForm()
-
-    for term in terms:
-        scalars = term.arg.get_arg_by_class(Scalars)
-        if len(scalars) > 1:
-            res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-        else:
-            res = scalars[0].data
-
-        cf.add_to(get_scalar_target(scalars), res * term.scale)
-
-    processed_terms = cf.get_terms()
-
-    def eval_func(weights):
-        """
-        evaluation function
-        :param weights:  np.ndarray of approximation weights (axis 0) and their time derivatives (axis 1)
-        :return: result
-        """
-        result = 0
-        if processed_terms[0] is not None:
-            for temp_idx in range(processed_terms[0].shape[0]):
-                result += np.dot(processed_terms[0][temp_idx], weights[:, temp_idx])
-
-        if processed_terms[1] is not None:
-            result += processed_terms[1][0]
-
-        return result
-
-    return eval_func
-
-
-def _handle_continuous_terms(terms):
-    """
-    processes the continuous terms inside a control law.
-
-    first, terms are sorted by interval to save computation time, then handles are generated to numerically integrate
-    the terms. These handles are then grouped and returned as one evaluation handle.
-    :param terms:
-    :return:
-    """
-    int_handles = []
-    cf = CanonicalForm()
-
-    for term in terms:
+    for term in law.terms:
         placeholders = dict([
             ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
             ("scalars", term.arg.get_arg_by_class(Scalars)),
@@ -141,48 +94,114 @@ def _handle_continuous_terms(terms):
         if placeholders["field_variables"]:
             field_var = placeholders["field_variables"][0]
             temp_order = field_var.order[0]
-            init_funcs = field_var.data
+            func_lbl = field_var.data["func_lbl"]
+            weight_lbl = field_var.data["weight_lbl"]
+            init_funcs = get_initial_functions(func_lbl, field_var.order[1])
 
             factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
                                      for func in init_funcs])
+
             if placeholders["scalars"]:
                 scales = placeholders["scalars"][0]
                 res = np.prod(np.array([factors, scales]), axis=0)
             else:
                 res = factors
 
-            cf.add_to(("E", temp_order), res * term.scale)
+            cfs.add_to(weight_lbl, ("E", temp_order), res * term.scale)
 
         elif placeholders["scalars"]:
-            # integral term with constant argument -> simple case
+            # TODO make sure that all have the same target form!
             scalars = placeholders["scalars"]
             if len(scalars) > 1:
                 res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
             else:
                 res = scalars[0].data
 
-            res = res * (term.limits[1] - term.limits[0])
-            cf.add_to(get_scalar_target(scalars), res * term.scale)
+            cfs.add_to(scalars[0].target_form, get_scalar_target(scalars), res * term.scale)
 
         else:
             raise NotImplementedError
 
-    processed_terms = cf.get_terms()
+    return cfs
 
-    def eval_func(weights):
+
+class LawEvaluator(object):
+    """
+    object that evaluates the control law approximation given by a CanonicalForms object
+    """
+    def __init__(self, cfs):
+        self._cfs = cfs
+        self._transformations = {}
+        self._eval_vectors = {}
+
+    @staticmethod
+    def _build_transformation_matrix(src_lbl, tar_lbl, src_order, tar_order):
         """
-        evaluation function
-        :param weights:  np.ndarray of approximation weights (axis 0) and their time derivatives (axis 1)
-        :return: result
+        constructs a transformation matrix from basis given by 'src' to basis given by 'tar' that transforms all
+        temporal derivatives at once.
+
+        :param src_lbl: label of source basis
+        :param tar_lbl: label of target basis
+        :param src_order: temporal derivative order of src basis
+        :param tar_order: temporal derivative order of tar basis
+        :return: transformation matrix as 2d np.ndarray
         """
-        result = 0
-        if processed_terms[0] is not None:
-            for temp_idx in range(processed_terms[0].shape[0]):
-                result += np.dot(processed_terms[0][temp_idx], weights[:, temp_idx])
+        if src_order < tar_order:
+            raise ValueError("higher derivative order needed than provided!")
 
-        if processed_terms[1] is not None:
-            result += processed_terms[1][0]
+        # build single transformation
+        src_funcs = get_initial_functions(src_lbl, 0)
+        tar_funcs = get_initial_functions(tar_lbl, 0)
+        single_transform = calculate_base_projection(src_funcs, tar_funcs)
 
-        return result
+        # build block matrix
+        part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])
+        trafo = np.hstack([part_trafo] + [np.zeros((part_trafo.shape[0], src_funcs.size))
+                                          for i in range(src_order-tar_order)])
+        return trafo
 
-    return eval_func
+    @staticmethod
+    def _build_eval_vector(terms):
+        """
+        build a vector that will compute the output by multiplication with the corresponding weight vector
+        :param terms: coefficient vectors
+        :return: evaluation vector
+        """
+        return np.hstack([vec for vec in terms[0]])
+
+    def __call__(self, weights, weight_label):
+        """
+        evaluation function for approximated control law
+        :param weights: 1d ndarray of approximation weights
+        :param weight_label: string, label of functions the weights correspond to.
+        :return: control output u
+        """
+        output = 0
+
+        # add dynamic part
+        for lbl, law in self._cfs.get_dynamic_terms().iteritems():
+            if law[0] is not None:
+                # build eval vector
+                if lbl not in self._eval_vectors.keys():
+                    self._eval_vectors[lbl] = self._build_eval_vector(law)
+
+                # transform weights
+                if lbl == weight_label:
+                    target_weights = weights
+                else:
+                    if lbl not in self._transformations.keys():
+                        src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
+                        tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
+                        self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
+                                                                                       tar_order)
+
+                    target_weights = np.dot(self._transformations[lbl], weights)
+
+                output += np.dot(self._eval_vectors[lbl], target_weights)
+
+        # add constant term
+        static_terms = self._cfs.get_static_terms()
+        if static_terms[1] is not None:
+            output += static_terms[1][0]
+
+        return output

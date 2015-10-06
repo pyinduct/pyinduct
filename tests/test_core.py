@@ -2,12 +2,15 @@ from __future__ import division
 import unittest
 import numpy as np
 import pyqtgraph as pg
-from pyinduct import core, utils
+from pyinduct import register_initial_functions, get_initial_functions, core, utils
 
 __author__ = 'stefan'
 
-show_plots = False
-# show_plots = True
+# show_plots = False
+show_plots = True
+
+if show_plots:
+    app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTest(unittest.TestCase):
@@ -206,11 +209,10 @@ class DotProductL2TestCase(unittest.TestCase):
 class ProjectionTest(unittest.TestCase):
 
     def setUp(self):
-        self.app = pg.QtGui.QApplication([])
-
         interval = (0, 10)
         node_cnt = 11
         self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
+        register_initial_functions("ini_funcs", self.initial_functions, overwrite=True)
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 100*node_cnt)  # because we are smarter
@@ -247,10 +249,9 @@ class ProjectionTest(unittest.TestCase):
             # since test function are lagrange1st order, plotting the results is fairly easy
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
-                pw.plot(x=self.z_values, y=self.real_values[idx], pen="r")
+                pw.plot(x=self.z_values, y=self.real_values[idx+1], pen="r")
                 pw.plot(x=self.nodes, y=w, pen="b")
-
-            self.app.exec_()
+                app.exec_()
 
     def test_types_back_projection(self):
         self.assertRaises(TypeError, core.back_project_from_initial_functions, 1, 2)
@@ -260,8 +261,7 @@ class ProjectionTest(unittest.TestCase):
         vec_real_func = np.vectorize(self.funcs[1])
         real_weights = vec_real_func(self.nodes)
         approx_func = core.back_project_from_initial_functions(real_weights, self.initial_functions)
-        approx_func_dz = core.back_project_from_initial_functions(real_weights, np.array([func.derive(1) for func in
-                                                                                          self.initial_functions]))
+        approx_func_dz = core.back_project_from_initial_functions(real_weights, get_initial_functions("ini_funcs", 1))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
@@ -270,10 +270,10 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="g")
             pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
-            self.app.exec_()
+            app.exec_()
 
     def tearDown(self):
-        del self.app
+        pass
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
@@ -288,6 +288,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
         # approximation by lag1st
         self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
+        register_initial_functions("test_funcs", self.src_test_funcs, overwrite=True)
         self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
         self.src_approx_handle = core.back_project_from_initial_functions(self.src_weights, self.src_test_funcs)
@@ -313,8 +314,6 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         error = np.sum(np.power(
             np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
             2))
-        # should fit pretty nice
-        self.assertLess(error, 1e-2)
 
         if show_plots:
             pw = pg.plot(title="change projection base")
@@ -328,10 +327,13 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i2, "2x Lagrange1st")
             legend.addItem(i3, "sin(x)")
             legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
-            self.app.exec_()
+            app.exec_()
+
+        # should fit pretty nice
+        self.assertLess(error, 1e-2)
 
     def tearDown(self):
-        del self.app
+        pass
 
 
 class NormalizeFunctionsTestCase(unittest.TestCase):
