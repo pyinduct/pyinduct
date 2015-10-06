@@ -1,9 +1,10 @@
 from abc import ABCMeta
-from copy import copy
 from numbers import Number
+
 import numpy as np
+
 from pyinduct import get_initial_functions, register_initial_functions, is_registered
-from core import sanitize_input, Function
+from core import sanitize_input
 
 __author__ = 'Stefan Ecklebe'
 
@@ -65,7 +66,7 @@ class TestFunction(Placeholder):
     """
     class that works as a placeholder for test-functions in an equation
     """
-    def __init__(self, function_label, order=0, weight_label=None, location=None):
+    def __init__(self, function_label, order=0, location=None):
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
@@ -196,11 +197,12 @@ class Product(object):
             new_name = new_func.tostring()
             register_initial_functions(new_name, new_func)
 
-            if isinstance(other_func, ScalarFunction):
-                a = ScalarFunction(new_name, location=other_func.location)
-            else:
-                a = other_func.__class__(new_name, weight_label=other_func.data["weight_lbl"],
-                                         location=other_func.location)
+            if isinstance(other_func, (ScalarFunction, TestFunction)):
+                a = other_func.__class__(function_label=new_name, order=other_func.order, location=other_func.location)
+            elif isinstance(other_func, FieldVariable):
+                # overwrite spatial derivative order, since derivation has been performed
+                a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
+                                  order=(other_func.order[1], 0), location=other_func.location)
             b = None
 
         return a, b
@@ -284,7 +286,8 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=("E", placeholder.order[0]), target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
-        return Scalars(values.T, target_term=("f", 0), target_form=placeholder.data["wight_lbl"])
+        # it does not matter where this ends up, since f vector is always added
+        return Scalars(values.T, target_term=("f", 0))
     else:
         raise NotImplementedError
 

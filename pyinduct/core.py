@@ -7,6 +7,7 @@ from scipy import integrate
 
 from pyinduct import get_initial_functions
 
+
 def sanitize_input(input_object, allowed_type):
     """
     sanitizes input data
@@ -34,6 +35,7 @@ class Function:
     To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
+
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
         if not callable(eval_handle):
             raise TypeError("callable has to be provided as function_handle")
@@ -50,7 +52,7 @@ class Function:
                     val = [val]
                 else:
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
-            setattr(self, kw, sorted([(min(interval), max(interval))for interval in val], key=lambda x: x[0]))
+            setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
     def _check_domain(self, value):
         """
@@ -95,7 +97,7 @@ class Function:
         if order < 0 or order > len(self._derivative_handles):
             raise ValueError("function cannot be differentiated that often.")
 
-        derivative = Function(self._derivative_handles[order-1], domain=self.domain, nonzero=self.nonzero,
+        derivative = Function(self._derivative_handles[order - 1], domain=self.domain, nonzero=self.nonzero,
                               derivative_handles=self._derivative_handles[order:])
         return derivative
 
@@ -104,15 +106,17 @@ class Function:
         factory method to scale this function.
         factor can be a number or a function
         """
+        # TODO if factor is a function, deny scaling of derivatives and delete them!
         if factor == 1:
             return self
 
         def scale_factory(func):
             def _scaled_func(z):
                 if callable(factor):
-                    return factor(z)*func(z)
+                    return factor(z) * func(z)
                 else:
-                    return factor*func(z)
+                    return factor * func(z)
+
             return _scaled_func
 
         scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
@@ -136,6 +140,7 @@ class LagrangeFirstOrder(Function):
     :param top: top node, where :math:`f(x) = 1`
     :param start: end node
     """
+
     def __init__(self, start, top, end):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
@@ -216,10 +221,10 @@ class LagrangeFirstOrder(Function):
         else:
             return -1 / self._b
 
-    # @staticmethod
-    # TODO implement correct one
-    # def quad_int():
-    #     return 2/3
+            # @staticmethod
+            # TODO implement correct one
+            # def quad_int():
+            #     return 2/3
 
 
 class FunctionVector:
@@ -254,6 +259,7 @@ class SimpleFunctionVector(FunctionVector):
     """
     implementation of the "simple" distributed case, only one member which is a Function
     """
+
     def __init__(self, function):
         if not isinstance(function, Function):
             raise TypeError("Only Function objects accepted as function")
@@ -280,6 +286,7 @@ class ComposedFunctionVector(FunctionVector):
             \\xi
         \\end{pmatrix}
     """
+
     def __init__(self, function, scalar):
         if not isinstance(function, Function):
             raise TypeError("Only Function objects accepted as function")
@@ -295,11 +302,11 @@ class ComposedFunctionVector(FunctionVector):
         """
         if not isinstance(first, ComposedFunctionVector) or not isinstance(second, ComposedFunctionVector):
             raise TypeError("only ComposedFunctionVector supported")
-        return dot_product_l2(first.members[0], second.members[0]) + first.members[1]*second.members[1]
+        return dot_product_l2(first.members[0], second.members[0]) + first.members[1] * second.members[1]
 
     def scale(self, factor):
         return ComposedFunctionVector(self.members[0].scale(factor),
-                                      self.members[1]*factor)
+                                      self.members[1] * factor)
 
 
 def domain_intersection(first, second):
@@ -397,7 +404,7 @@ def _dot_product_l2(first, second):
             pass
 
     # standard case
-    func = lambda z: first(z)*second(z)
+    func = lambda z: first(z) * second(z)
     result, error = integrate_function(func, areas)
 
     return result
@@ -552,7 +559,7 @@ def back_project_from_initial_functions(weights, initial_function_label, order=0
     if weights.shape[0] != funcs.shape[0]:
         raise ValueError("Lengths of weights and initial_funcs do not match!")
 
-    eval_handle = lambda z: sum([weights[i]*funcs[i](z) for i in range(weights.shape[0])])
+    eval_handle = lambda z: sum([weights[i] * funcs[i](z) for i in range(weights.shape[0])])
 
     # TODO test if bottom one is faster
     return np.vectorize(eval_handle)
@@ -604,11 +611,13 @@ def calculate_base_projection(dst_initial_funcs, src_initial_funcs):
         dst_initial_funcs = np.asarray([dst_initial_funcs])
 
     # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-    t_mat = calculate_function_matrix(src_initial_funcs, dst_initial_funcs)
+    # t_mat = calculate_function_matrix(src_initial_funcs, dst_initial_funcs)
+    t_mat = calculate_function_matrix(dst_initial_funcs, src_initial_funcs)
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
     r_mat = calculate_function_matrix(dst_initial_funcs, dst_initial_funcs)
     # compute V matrix: T*inv(R)
-    v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
+    # v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
+    v_mat = np.dot(np.linalg.inv(r_mat), t_mat)
 
     return v_mat
 
@@ -639,7 +648,7 @@ def normalize_function(x1, x2=None):
     if abs(product) < np.finfo(float).eps:
         raise ValueError("given function are orthogonal. no normalization possible.")
 
-    scale_factor = np.sqrt(1/product)
+    scale_factor = np.sqrt(1 / product)
     if x1 == x2:
         return x1.scale(scale_factor)
     else:

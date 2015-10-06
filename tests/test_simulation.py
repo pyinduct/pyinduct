@@ -627,7 +627,7 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
         B = -a2*np.array([rad_adjoint_eig_funcs[i].derive()(l) for i in xrange(n)])
-        ss_modal = sim.StateSpace(A, B)
+        ss_modal = sim.StateSpace("rad_adjoint_eig_funcs", A, B)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -710,7 +710,7 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_val)
         B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
-        ss_modal = sim.StateSpace(A,B)
+        ss_modal = sim.StateSpace("adjoint_eig_funcs", A, B)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=1e-05, atol=0.))

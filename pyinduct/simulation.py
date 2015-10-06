@@ -23,7 +23,7 @@ class SimulationInput(object):
         pass
 
     @abstractmethod
-    def __call__(self, time, weights, **kwargs):
+    def __call__(self, time, weights, weight_lbl, **kwargs):
         """
         handle that will be used to retrieve input
         """
@@ -38,8 +38,8 @@ class Mixer(SimulationInput):
         SimulationInput.__init__(self)
         self._inputs = inputs
 
-    def __call__(self, time, weights, **kwargs):
-        outs = np.array([handle(time, weights) for handle in self._inputs])
+    def __call__(self, time, weights, weight_lbl, **kwargs):
+        outs = np.array([handle(time, weights, weight_lbl, **kwargs) for handle in self._inputs])
         return np.sum(outs)
 
 
@@ -76,7 +76,8 @@ class StateSpace(object):
     :param c_matrix: :math:`\\boldsymbol{C}`
     :param d_matrix: :math:`\\boldsymbol{D}`
     """
-    def __init__(self, a_matrix, b_matrix, c_matrix=None, d_matrix=None):
+    def __init__(self, weight_label, a_matrix, b_matrix, c_matrix=None, d_matrix=None):
+        self.weight_lbl = weight_label
         # TODO dimension checks
         self.A = a_matrix
         self.B = b_matrix
@@ -312,7 +313,7 @@ class CanonicalForm(object):
         if g is not None:
             b_vec[-dim_x:] = np.dot(en_inv, -g[0])
 
-        return StateSpace(a_mat, b_vec)
+        return StateSpace(self.weights, a_mat, b_vec)
 
 
 class CanonicalForms(object):
@@ -321,24 +322,37 @@ class CanonicalForms(object):
     """
     def __init__(self, name):
         self.name = name
-        self._forms = {}
+        self._dynamic_forms = {}
+        self._static_form = CanonicalForm(self.name+"static")
 
     def add_to(self, weight_label, term, val):
         """
         add val to the canonical form for weight_label
         see add_to from :ref:py:class:CanonicalForm for details
         """
-        if weight_label not in self._forms.keys():
-            self._forms[weight_label] = CanonicalForm("_".join([self.name+weight_label]))
+        if term[0] in "fg":
+            # hold f and g vector separately
+            self._static_form.add_to(term, val)
+            return
 
-        self._forms[weight_label].add_to(term, val)
+        if weight_label not in self._dynamic_forms.keys():
+            self._dynamic_forms[weight_label] = CanonicalForm("_".join([self.name+weight_label]))
 
-    def get_terms(self):
+        self._dynamic_forms[weight_label].add_to(term, val)
+
+    def get_static_terms(self):
+        """
+        return terms that do not depend on a certain weight set
+        :return:
+        """
+        return self._static_form.get_terms()
+
+    def get_dynamic_terms(self):
         """
         return dict of terms for each weight set
         :return:
         """
-        return {label: val.get_terms() for label, val in self._forms.iteritems()}
+        return {label: val.get_terms() for label, val in self._dynamic_forms.iteritems()}
 
 
 def parse_weak_formulation(weak_form):
@@ -488,7 +502,7 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     t = [time_interval[0]]
 
     def _rhs(t, q, a_mat, b_mat, u):
-        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(t, q)).flatten()
+        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(t, q, state_space.weight_lbl)).flatten()
         return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=time_step)

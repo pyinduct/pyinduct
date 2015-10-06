@@ -47,13 +47,13 @@ class Controller(SimulationInput):
         SimulationInput.__init__(self)
         self._evaluator = approximate_control_law(control_law)
 
-    def __call__(self, time, weights, **kwargs):
+    def __call__(self, time, weights, weight_lbl, **kwargs):
         """
         calculates the controller output based on the current_weights
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        return self._evaluator(weights, kwargs["weight_lbl"])
+        return self._evaluator(weights, weight_lbl)
 
 
 def approximate_control_law(control_law):
@@ -156,8 +156,8 @@ class LawEvaluator(object):
 
         # build block matrix
         part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])
-        trafo = np.hstack([part_trafo] + [np.zeros(((tar_order+1)*tar_funcs.size, src_funcs.size)) for i in range(
-            src_order-tar_order)])
+        trafo = np.hstack([part_trafo] + [np.zeros((part_trafo.shape[0], src_funcs.size))
+                                          for i in range(src_order-tar_order)])
         return trafo
 
     @staticmethod
@@ -177,23 +177,31 @@ class LawEvaluator(object):
         :return: control output u
         """
         output = 0
-        for lbl, law in self._cfs.get_terms().iteritems():
+
+        # add dynamic part
+        for lbl, law in self._cfs.get_dynamic_terms().iteritems():
             if law[0] is not None:
                 # build eval vector
                 if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # transform weights
-                if lbl not in self._transformations.keys():
-                    src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
-                    tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
-                    self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
-                                                                                   tar_order)
+                if lbl == weight_label:
+                    target_weights = weights
+                else:
+                    if lbl not in self._transformations.keys():
+                        src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
+                        tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
+                        self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
+                                                                                       tar_order)
 
-                target_weights = np.dot(self._transformations[lbl], weights)
+                    target_weights = np.dot(self._transformations[lbl], weights)
+
                 output += np.dot(self._eval_vectors[lbl], target_weights)
-            if law[1] is not None:
-                # add constant term (very unlikely)
-                output += law[1][0]
+
+        # add constant term
+        static_terms = self._cfs.get_static_terms()
+        if static_terms[1] is not None:
+            output += static_terms[1][0]
 
         return output

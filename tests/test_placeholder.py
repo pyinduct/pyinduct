@@ -79,6 +79,7 @@ class ProductTest(unittest.TestCase):
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
         register_initial_functions("ini_funcs", self.ini_funcs)
         self.field_var = ph.FieldVariable("ini_funcs")
+        self.field_var_dz = ph.SpatialDerivedFieldVariable("ini_funcs", 1)
 
     def test_product(self):
         self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed
@@ -103,6 +104,10 @@ class ProductTest(unittest.TestCase):
         p5 = ph.Product(ph.Product(self.field_var, self.scale_funcs),
                         ph.Product(self.test_funcs, self.scale_funcs))
         self.assertFalse(p5.b_empty)
+
+        p6 = ph.Product(ph.Product(self.field_var_dz, self.scale_funcs),
+                        ph.Product(self.test_funcs, self.scale_funcs))
+        self.assertFalse(p6.b_empty)
 
         res = ut.evaluate_placeholder_function(p5.args[0], 0)
         self.assertTrue(np.allclose(res, self.scale(0)*np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
