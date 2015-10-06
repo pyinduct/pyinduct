@@ -314,6 +314,7 @@ class CanonicalForm(object):
 
         return StateSpace(a_mat, b_vec)
 
+
 class CanonicalForms(object):
     """
     wrapper that holds several entities of canonical forms for different sets of weights
@@ -331,6 +332,13 @@ class CanonicalForms(object):
             self._forms[weight_label] = CanonicalForm("_".join([self.name+weight_label]))
 
         self._forms[weight_label].add_to(term, val)
+
+    def get_terms(self):
+        """
+        return dict of terms for each weight set
+        :return:
+        """
+        return {label: val.get_terms() for label, val in self._forms.iteritems()}
 
 
 def parse_weak_formulation(weak_form):
