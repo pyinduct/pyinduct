@@ -173,10 +173,10 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     def eval_spatially(weight_vector):
         if isinstance(function_label[0], LagrangeFirstOrder):
             # shortcut for fem approximations
-            nodes = [func.top for func in function_label]
+            nodes = [func.top for func in funcs]
             handle = interp1d(nodes, weight_vector)
         else:
-            handle = back_project_from_initial_functions(weight_vector, function_label)
+            handle = back_project_from_initial_functions(weight_vector, funcs)
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)

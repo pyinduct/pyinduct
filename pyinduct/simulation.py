@@ -123,7 +123,8 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
 
     # calculate initial state
     print(">>> deriving initial conditions")
-    q0 = np.array([project_on_initial_functions(initial_state, canonical_form.initial_functions) for initial_state in
+    q0 = np.array([project_on_initial_functions(initial_state, get_initial_functions(
+        canonical_form.initial_functions, 0)) for initial_state in
                    initial_states]).flatten()
 
     # include boundary conditions
@@ -134,11 +135,11 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
 
     # create handles and evaluate at given points
-    # TODO also generate spatial derivatives here
     print(">>> performing postprocessing")
     data = []
     ini_funcs = get_initial_functions(canonical_form.initial_functions, 0)
     for der_idx in range(initial_states.size):
+        # TODO also generate spatial derivatives here
         data.append(evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
                                            canonical_form.initial_functions,
                                            t, spatial_interval, spatial_step))
