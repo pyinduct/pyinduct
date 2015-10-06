@@ -1,9 +1,10 @@
 from __future__ import division
 import numpy as np
 
+from pyinduct import get_initial_functions
 from core import calculate_base_projection, project_weights, domain_intersection, integrate_function
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
-from simulation import CanonicalForm, SimulationInput
+from simulation import CanonicalForms, SimulationInput
 
 __author__ = 'Stefan Ecklebe'
 """
@@ -56,28 +57,88 @@ def approximate_control_law(control_law):
     :return:
     """
     if not isinstance(control_law, list):
-        raise TypeError("only list accepted.")
+        if isinstance(control_law , EquationTerm):
+            control_law = [control_law]
+        else:
+            raise TypeError("only list accepted.")
 
-    scal_terms = []
-    int_terms = []
+    # scal_terms = []
+    # int_terms = []
+    # coll_handle = _handle_collocated_terms(scal_terms)
+    # cont_handle = _handle_continuous_terms(int_terms)
+    #
+    # def eval_func(coll_weights, cont_weights):
+    #     return np.atleast_2d(coll_handle(coll_weights) + cont_handle(cont_weights))
 
-    # sort terms
-    for term in control_law:
+    control_handle = _parse_control_law(control_law)
+    return control_handle
+
+def _parse_control_law(law):
+    """
+    parses the given control law by approximating given terms
+    :param law:  list of equation terms
+    :return: evaluation handle
+    """
+    # check terms
+    for term in law:
         if not isinstance(term, EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-        if isinstance(term, ScalarTerm):
-            scal_terms.append(term)
-        elif isinstance(term, IntegralTerm):
-            int_terms.append(term)
+    cfs = CanonicalForms("control_law")
+
+    for term in law:
+        placeholders = dict([
+            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
+            ("scalars", term.arg.get_arg_by_class(Scalars)),
+        ])
+        if placeholders["field_variables"]:
+            field_var = placeholders["field_variables"][0]
+            temp_order = field_var.order[0]
+            func_lbl = field_var.data["func_lbl"]
+            weight_lbl = field_var.data["weight_lbl"]
+            init_funcs = get_initial_functions(func_lbl, field_var.order[1])
+
+            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
+                                     for func in init_funcs])
+
+            if placeholders["scalars"]:
+                scales = placeholders["scalars"][0]
+                res = np.prod(np.array([factors, scales]), axis=0)
+            else:
+                res = factors
+
+            cfs.add_to(weight_lbl, ("E", temp_order), res * term.scale)
+
+        elif placeholders["scalars"]:
+            # TODO make sure that all have the same target form!
+            scalars = placeholders["scalars"]
+            if len(scalars) > 1:
+                res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
+            else:
+                res = scalars[0].data
+
+            cfs.add_to(scalars[0].target_form, get_scalar_target(scalars), res * term.scale)
+
         else:
             raise NotImplementedError
 
-    coll_handle = _handle_collocated_terms(scal_terms)
-    cont_handle = _handle_continuous_terms(int_terms)
+    processed_terms = cfs.get_terms()
 
-    def eval_func(coll_weights, cont_weights):
-        return np.atleast_2d(coll_handle(coll_weights) + cont_handle(cont_weights))
+    def eval_func(weights):
+        """
+        evaluation function
+        :param weights:  dict of np.ndarray of approximation weights (axis 0) and their time derivatives (axis 1)
+        :return: result
+        """
+        result = 0
+        if processed_terms[0] is not None:
+            for temp_idx in range(processed_terms[0].shape[0]):
+                result += np.dot(processed_terms[0][temp_idx], weights[:, temp_idx])
+
+        if processed_terms[1] is not None:
+            result += processed_terms[1][0]
+
+        return result
 
     return eval_func
 

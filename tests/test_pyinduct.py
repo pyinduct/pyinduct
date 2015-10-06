@@ -14,6 +14,7 @@ test_pyinduct
 Tests for `pyinduct` module.
 """
 
+# TODO add TestCases
 class RegistryTests(unittest.TestCase):
 
     def setUp(self):

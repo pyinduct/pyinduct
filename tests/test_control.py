@@ -1,6 +1,7 @@
 from __future__ import division
 import unittest
 import numpy as np
+from pyinduct import register_initial_functions
 from pyinduct import core as cr
 from pyinduct import control as ct
 from pyinduct import placeholder as ph
@@ -15,17 +16,21 @@ class CollocatedTestCase(unittest.TestCase):
 
         interval = (0, 1)
         nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, 3)
-        x_at1 = ph.FieldVariable(funcs, location=1)
-        x_dt_at1 = ph.TemporalDerivedFieldVariable(funcs, 1, 1)
-        x_dz_at0 = ph.SpatialDerivedFieldVariable(funcs, 1, 0)
-        exp_at1 = ph.ScalarFunction(cr.Function(np.exp), location=1)
+        register_initial_functions("funcs", funcs)
+        x_at1 = ph.FieldVariable("funcs", location=1)
+        x_dt_at1 = ph.TemporalDerivedFieldVariable("funcs", 1, location=1)
+        x_dz_at0 = ph.SpatialDerivedFieldVariable("funcs", 1, location=0)
+
+        exp_func = cr.Function(np.exp)
+        register_initial_functions("exp_func", exp_func)
+        exp_at1 = ph.ScalarFunction("exp_func", location=1)
 
         alpha = 2
         self.term1 = ph.ScalarTerm(x_dt_at1, 1 + alpha)
         self.term2 = ph.ScalarTerm(x_dz_at0, 2)
         self.term3 = ph.ScalarTerm(ph.Product(x_at1, exp_at1))
 
-        self.weights = np.hstack([[[1], [1], [1]], [[2], [2], [2]]])
+        self.weights = {"funcs": np.hstack([[[1], [1], [1]], [[2], [2], [2]]])}
 
     def test_temp_term(self):
         law = ct.approximate_control_law([self.term1])
