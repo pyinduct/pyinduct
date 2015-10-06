@@ -202,7 +202,7 @@ class Product(object):
             elif isinstance(other_func, FieldVariable):
                 # overwrite spatial derivative order, since derivation has been performed
                 a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
-                                  order=(other_func.order[1], 0), location=other_func.location)
+                                  order=(other_func.order[0], 0), location=other_func.location)
             b = None
 
         return a, b

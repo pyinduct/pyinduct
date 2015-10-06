@@ -127,8 +127,7 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
         canonical_form.initial_functions, 0)) for initial_state in
                    initial_states]).flatten()
 
-    # include boundary conditions
-    # TODO
+    # TODO include boundary conditions
 
     # simulate
     print(">>> performing time step integration")
@@ -397,14 +396,15 @@ def parse_weak_formulation(weak_form):
                     result = calculate_function_matrix(test_funcs, init_funcs)
 
                 elif placeholders["inputs"]:
-                    # TODO think about this
+                    # TODO think about this case, is it relevant?
                     raise NotImplementedError
 
                 else:
                     factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
-                cf.initial_functions = field_var.data["func_lbl"]
+                if func.order[1] == 0:
+                    cf.initial_functions = field_var.data["func_lbl"]
                 cf.weights = field_var.data["weight_lbl"]
                 cf.add_to(("E", temp_order), result*term.scale)
                 continue
