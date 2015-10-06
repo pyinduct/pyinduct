@@ -152,7 +152,7 @@ class LawEvaluator(object):
         # build single transformation
         src_funcs = get_initial_functions(src_lbl, 0)
         tar_funcs = get_initial_functions(tar_lbl, 0)
-        single_transform = calculate_base_projection(tar_funcs, src_funcs)
+        single_transform = calculate_base_projection(src_funcs, tar_funcs)
 
         # build block matrix
         part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])

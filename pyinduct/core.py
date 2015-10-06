@@ -510,56 +510,53 @@ def calculate_function_matrix(functions_a, functions_b):
     return dot_product_l2(funcs_i, funcs_j)
 
 
-def project_on_initial_functions(function, initial_function_label):
+def project_on_initial_functions(function, initial_functions):
     """
     projects given function on a new basis
 
     :param function: function the approximate
-    :param initial_function_label: initial functions
+    :param initial_functions: initial functions
     :return: weights
     """
-    initial_funcs = get_initial_functions(initial_function_label, 0)
     if not isinstance(function, Function):
         raise TypeError("Only pyinduct.Function accepted as 'func'")
 
-    if isinstance(initial_funcs, Function):  # convenience case
-        initial_funcs = np.asarray([initial_funcs])
+    if isinstance(initial_functions, Function):  # convenience case
+        initial_functions = np.asarray([initial_functions])
 
-    if not isinstance(initial_funcs, np.ndarray):
-        raise TypeError("Only numpy.ndarray accepted as 'initial_funcs'")
+    if not isinstance(initial_functions, np.ndarray):
+        raise TypeError("Only numpy.ndarray accepted as 'initial_functions'")
 
     # compute <x(z, t), phi_i(z)>
-    projections = dot_product_l2(function, initial_funcs)
+    projections = dot_product_l2(function, initial_functions)
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
-    scale_mat = calculate_function_matrix(initial_funcs, initial_funcs)
+    scale_mat = calculate_function_matrix(initial_functions, initial_functions)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
 
-def back_project_from_initial_functions(weights, initial_function_label, order=0):
+def back_project_from_initial_functions(weights, initial_functions):
     # TODO check if usage of order makes sense (it only does if given funcs are (at least) of type C^order
     """
     build handle for function that was expressed in test functions with weights
 
     :param weights:
-    :param initial_function_label:
+    :param initial_functions:
     :return: evaluation handle
     """
     if isinstance(weights, Number):
         weights = np.asarray([weights])
-
-    funcs = get_initial_functions(initial_function_label, order)
-    if isinstance(funcs, Function):
-        funcs = np.asarray([funcs])
-
-    if not isinstance(weights, np.ndarray) or not isinstance(funcs, np.ndarray):
+    if isinstance(initial_functions, Function):
+        initial_functions = np.asarray([initial_functions])
+    if not isinstance(weights, np.ndarray) or not isinstance(initial_functions, np.ndarray):
         raise TypeError("Only numpy ndarrays accepted as input")
 
-    if weights.shape[0] != funcs.shape[0]:
-        raise ValueError("Lengths of weights and initial_funcs do not match!")
+    if weights.shape[0] != initial_functions.shape[0]:
+        raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
-    eval_handle = lambda z: sum([weights[i] * funcs[i](z) for i in range(weights.shape[0])])
+    def eval_handle(z):
+        return sum([weights[i] * initial_functions[i](z) for i in range(weights.shape[0])])
 
     # TODO test if bottom one is faster
     return np.vectorize(eval_handle)
@@ -576,8 +573,8 @@ def change_projection_base(src_weights, src_initial_funcs, dst_initial_funcs):
     :param dst_initial_funcs: target test functions (np.ndarray)
     :return: target weights
     """
-    pro_mat = calculate_base_projection(dst_initial_funcs, src_initial_funcs)
-    return project_weights(src_weights, pro_mat)
+    pro_mat = calculate_base_projection(src_initial_funcs, dst_initial_funcs)
+    return project_weights(pro_mat, src_weights)
 
 
 def project_weights(src_weights, projection_matrix):
@@ -595,7 +592,7 @@ def project_weights(src_weights, projection_matrix):
     return np.dot(src_weights, projection_matrix)
 
 
-def calculate_base_projection(dst_initial_funcs, src_initial_funcs):
+def calculate_base_projection(src_initial_funcs, dst_initial_funcs):
     """
     calculates the base transformation :math:`V` so that the vector of src_weights can be transformed in a vector of
     dst_weights, making the smallest error possible. Quadratic error is used as the error-norm for this case.
@@ -604,19 +601,16 @@ def calculate_base_projection(dst_initial_funcs, src_initial_funcs):
     :param src_initial_funcs: current projection base
     :return:
     """
-    # TODO check dimensions and convert to Form a= Ab instead of a = bA
     if isinstance(src_initial_funcs, Function):
         src_initial_funcs = np.asarray([src_initial_funcs])
     if isinstance(dst_initial_funcs, Function):
         dst_initial_funcs = np.asarray([dst_initial_funcs])
 
     # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-    # t_mat = calculate_function_matrix(src_initial_funcs, dst_initial_funcs)
     t_mat = calculate_function_matrix(dst_initial_funcs, src_initial_funcs)
     # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
     r_mat = calculate_function_matrix(dst_initial_funcs, dst_initial_funcs)
     # compute V matrix: T*inv(R)
-    # v_mat = np.dot(t_mat, np.linalg.inv(r_mat))
     v_mat = np.dot(np.linalg.inv(r_mat), t_mat)
 
     return v_mat
