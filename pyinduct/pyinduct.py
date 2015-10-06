@@ -18,7 +18,7 @@ def is_registered(label):
 
     return label in _registry.keys()
 
-def register_initial_functions(label, functions, overwrite=False):
+def register_functions(label, functions, overwrite=False):
     """
     register a set of initial functions to make them accessible all over the pyinduct framework
 

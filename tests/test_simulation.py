@@ -7,7 +7,7 @@ import numpy as np
 import pyqtgraph as pg
 import sys
 
-from pyinduct import register_initial_functions,\
+from pyinduct import register_functions,\
     core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
 import pyinduct as pi
@@ -69,7 +69,7 @@ class ParseTest(unittest.TestCase):
 
         # TestFunctions
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
-        register_initial_functions("ini_funcs", self.ini_funcs, overwrite=True)
+        register_functions("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
         self.phi_at1 = ph.TestFunction("ini_funcs", location=1)  # eigenfunction or something else
@@ -224,7 +224,7 @@ class StateSpaceTests(unittest.TestCase):
         self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
-        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
+        register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), interval)
@@ -297,7 +297,7 @@ class StringMassTest(unittest.TestCase):
 
         # enter string with mass equations
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
-        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
+        register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), self.spat_interval)
@@ -316,7 +316,7 @@ class StringMassTest(unittest.TestCase):
         ss = self.cf.convert_to_state_space()
 
         # generate initial conditions for weights
-        q0 = np.array([cr.project_on_initial_functions(self.ic[idx], "init_funcs") for idx in range(2)]).flatten()
+        q0 = np.array([cr.project_on_initial_functions(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
 
         # simulate
         t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, self.temp_interval)
@@ -398,7 +398,7 @@ class StringMassTest(unittest.TestCase):
         # normalize eigen vectors
         norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
         norm_eig_funcs = np.atleast_1d([vec.members[0] for vec in norm_eig_vectors])
-        register_initial_functions("norm_eig_funcs", norm_eig_funcs)
+        register_functions("norm_eig_funcs", norm_eig_funcs)
 
         # debug print eigenfunctions
         if 0:
@@ -478,11 +478,11 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
         nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
                                             spatial_domain,
                                             node_count=spatial_disc)
-        register_initial_functions("init_funcs", ini_funcs, overwrite=True)
+        register_functions("init_funcs", ini_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, "init_funcs")
+        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
 
         # TODO: implement twice differentiable testfunctions (e.g. LagrangeSecondOrder) for additional tests:
         # def test_dd():
@@ -593,13 +593,13 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
         rad_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
-        register_initial_functions("rad_eig_funcs", rad_eig_funcs)
+        register_functions("rad_eig_funcs", rad_eig_funcs)
         rad_adjoint_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
-        register_initial_functions("rad_adjoint_eig_funcs", rad_adjoint_eig_funcs)
+        register_functions("rad_adjoint_eig_funcs", rad_adjoint_eig_funcs)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, "rad_adjoint_eig_funcs")
+        initial_weights = cr.project_on_initial_functions(start_state, rad_adjoint_eig_funcs)
 
         # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
@@ -674,12 +674,12 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # register eigenfunctions
-        register_initial_functions("eig_funcs", eig_funcs)
-        register_initial_functions("adjoint_eig_funcs", adjoint_eig_funcs)
+        register_functions("eig_funcs", eig_funcs)
+        register_functions("adjoint_eig_funcs", adjoint_eig_funcs)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, "adjoint_eig_funcs")
+        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
 
         # init trajectory
         u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)

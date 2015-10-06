@@ -3,7 +3,7 @@ from numbers import Number
 
 import numpy as np
 
-from pyinduct import get_initial_functions, register_initial_functions, is_registered
+from pyinduct import get_initial_functions, register_functions, is_registered
 from core import sanitize_input
 
 __author__ = 'Stefan Ecklebe'
@@ -195,10 +195,11 @@ class Product(object):
 
             new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
             new_name = new_func.tostring()
-            register_initial_functions(new_name, new_func)
+            register_functions(new_name, new_func)
 
             if isinstance(other_func, (ScalarFunction, TestFunction)):
-                a = other_func.__class__(function_label=new_name, order=other_func.order, location=other_func.location)
+                a = other_func.__class__(function_label=new_name, order=other_func.order[1],
+                                         location=other_func.location)
             elif isinstance(other_func, FieldVariable):
                 # overwrite spatial derivative order, since derivation has been performed
                 a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],

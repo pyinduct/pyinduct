@@ -4,7 +4,7 @@
 from __future__ import division
 import unittest
 
-from pyinduct import register_initial_functions, deregister_initial_functions, get_initial_functions
+from pyinduct import register_functions, deregister_initial_functions, get_initial_functions
 
 
 """

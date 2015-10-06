@@ -2,12 +2,12 @@ from __future__ import division
 import unittest
 import numpy as np
 import pyqtgraph as pg
-from pyinduct import register_initial_functions, get_initial_functions, core, utils
+from pyinduct import register_functions, get_initial_functions, core, utils
 
 __author__ = 'stefan'
 
-# show_plots = False
-show_plots = True
+show_plots = False
+# show_plots = True
 
 if show_plots:
     app = pg.QtGui.QApplication([])
@@ -212,7 +212,7 @@ class ProjectionTest(unittest.TestCase):
         interval = (0, 10)
         node_cnt = 11
         self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
-        register_initial_functions("ini_funcs", self.initial_functions, overwrite=True)
+        register_functions("ini_funcs", self.initial_functions, overwrite=True)
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 100*node_cnt)  # because we are smarter
@@ -288,7 +288,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
         # approximation by lag1st
         self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
-        register_initial_functions("test_funcs", self.src_test_funcs, overwrite=True)
+        register_functions("test_funcs", self.src_test_funcs, overwrite=True)
         self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
         self.src_approx_handle = core.back_project_from_initial_functions(self.src_weights, self.src_test_funcs)

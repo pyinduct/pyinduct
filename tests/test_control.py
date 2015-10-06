@@ -1,7 +1,7 @@
 from __future__ import division
 import unittest
 import numpy as np
-from pyinduct import register_initial_functions
+from pyinduct import register_functions
 from pyinduct import core as cr
 from pyinduct import control as ct
 from pyinduct import placeholder as ph
@@ -18,13 +18,13 @@ class CollocatedTestCase(unittest.TestCase):
 
         interval = (0, 1)
         nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, 3)
-        register_initial_functions("funcs", funcs, overwrite=True)
+        register_functions("funcs", funcs, overwrite=True)
         x_at1 = ph.FieldVariable("funcs", location=1)
         x_dt_at1 = ph.TemporalDerivedFieldVariable("funcs", 1, location=1)
         x_dz_at0 = ph.SpatialDerivedFieldVariable("funcs", 1, location=0)
 
         exp_func = cr.Function(np.exp)
-        register_initial_functions("exp_func", exp_func, overwrite=True)
+        register_functions("exp_func", exp_func, overwrite=True)
         exp_at1 = ph.ScalarFunction("exp_func", location=1)
 
         alpha = 2
@@ -56,11 +56,11 @@ class ContinuousTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 1)
         nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, 3)
-        register_initial_functions("funcs", funcs, overwrite=True)
+        register_functions("funcs", funcs, overwrite=True)
         x = ph.FieldVariable("funcs")
         x_dt = ph.TemporalDerivedFieldVariable("funcs", 1)
         x_dz = ph.SpatialDerivedFieldVariable("funcs", 1)
-        register_initial_functions("scal_func", cr.Function(np.exp), overwrite=True)
+        register_functions("scal_func", cr.Function(np.exp), overwrite=True)
         exp = ph.ScalarFunction("scal_func")
 
         alpha = 2

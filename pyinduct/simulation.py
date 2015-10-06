@@ -403,7 +403,7 @@ def parse_weak_formulation(weak_form):
                     factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
-                if func.order[1] == 0:
+                if field_var.order[1] == 0:
                     cf.initial_functions = field_var.data["func_lbl"]
                 cf.weights = field_var.data["weight_lbl"]
                 cf.add_to(("E", temp_order), result*term.scale)

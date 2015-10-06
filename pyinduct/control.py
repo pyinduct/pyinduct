@@ -135,7 +135,7 @@ class LawEvaluator(object):
         self._eval_vectors = {}
 
     @staticmethod
-    def _build_transformation_matrix(src_lbl, tar_lbl, src_order, tar_order):
+    def _build_transformation_matrix(src_lbl, tar_lbl, src_order, tar_order, use_eye=False):
         """
         constructs a transformation matrix from basis given by 'src' to basis given by 'tar' that transforms all
         temporal derivatives at once.
@@ -144,6 +144,7 @@ class LawEvaluator(object):
         :param tar_lbl: label of target basis
         :param src_order: temporal derivative order of src basis
         :param tar_order: temporal derivative order of tar basis
+        :param use_eye: use identity as block matrix element
         :return: transformation matrix as 2d np.ndarray
         """
         if src_order < tar_order:
@@ -152,7 +153,10 @@ class LawEvaluator(object):
         # build single transformation
         src_funcs = get_initial_functions(src_lbl, 0)
         tar_funcs = get_initial_functions(tar_lbl, 0)
-        single_transform = calculate_base_projection(src_funcs, tar_funcs)
+        if use_eye:
+            single_transform = np.eye(src_funcs.size)
+        else:
+            single_transform = calculate_base_projection(src_funcs, tar_funcs)
 
         # build block matrix
         part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])
@@ -186,16 +190,14 @@ class LawEvaluator(object):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # transform weights
-                if lbl == weight_label:
-                    target_weights = weights
-                else:
-                    if lbl not in self._transformations.keys():
-                        src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
-                        tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
-                        self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
-                                                                                       tar_order)
+                identical = True if weight_label == lbl else False
+                if lbl not in self._transformations.keys():
+                    src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
+                    tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
+                    self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
+                                                                                   tar_order, use_eye=identical)
 
-                    target_weights = np.dot(self._transformations[lbl], weights)
+                target_weights = np.dot(self._transformations[lbl], weights)
 
                 output += np.dot(self._eval_vectors[lbl], target_weights)
 

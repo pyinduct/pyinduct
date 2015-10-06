@@ -1,7 +1,7 @@
 from __future__ import division
 import unittest
 import numpy as np
-from pyinduct import get_initial_functions, register_initial_functions, \
+from pyinduct import get_initial_functions, register_functions, \
     core as cr, \
     utils as ut, \
     visualization as vt, \
@@ -12,8 +12,8 @@ import pyqtgraph as pg
 __author__ = 'Stefan Ecklebe'
 
 
-show_plots = True
-# show_plots = False
+show_plots = False
+# show_plots = True
 
 if show_plots:
     app = pg.QtGui.QApplication([])
@@ -112,7 +112,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 
     def setUp(self):
         self.psi = cr.Function(np.sin)
-        register_initial_functions("funcs", self.psi)
+        register_functions("funcs", self.psi)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
@@ -133,13 +133,13 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
         # create initial functions
         self.nodes, self.funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        register_initial_functions("funcs", self.funcs)
+        register_functions("approx_funcs", self.funcs)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
 
     def test_eval_helper(self):
-        eval_data = ut.evaluate_approximation(self.weights, "funcs", self.dates, self.spat_int, .1)
+        eval_data = ut.evaluate_approximation(self.weights, "approx_funcs", self.dates, self.spat_int, .1)
         if show_plots:
             p = vt.AnimatedPlot(eval_data)
             app.exec_()
