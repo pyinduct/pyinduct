@@ -124,7 +124,7 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     # calculate initial state
     print(">>> deriving initial conditions")
     q0 = np.array([project_on_initial_functions(initial_state, get_initial_functions(
-        canonical_form.initial_functions, 0)) for initial_state in
+        canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
 
     # TODO include boundary conditions
@@ -136,11 +136,11 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     # create handles and evaluate at given points
     print(">>> performing postprocessing")
     data = []
-    ini_funcs = get_initial_functions(canonical_form.initial_functions, 0)
+    ini_funcs = get_initial_functions(canonical_form.weights, 0)
     for der_idx in range(initial_states.size):
         # TODO also generate spatial derivatives here
         data.append(evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                           canonical_form.initial_functions,
+                                           canonical_form.weights,
                                            t, spatial_interval, spatial_step))
         data[-1].name = "{0}{1}".format(canonical_form.name,
                                         "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
@@ -157,7 +157,6 @@ class CanonicalForm(object):
     def __init__(self, name=None):
         self.name = name
         self._max_idx = dict(E=0, f=0, g=0)
-        self._initial_functions = None
         self._weights = None
         self._input_function = None
 
@@ -175,19 +174,6 @@ class CanonicalForm(object):
             self._input_function = func
         if self._input_function != func:
             raise ValueError("already defined input is overridden!")
-
-    @property
-    def initial_functions(self):
-        return self._initial_functions
-
-    @initial_functions.setter
-    def initial_functions(self, func_lbl):
-        if not isinstance(func_lbl, str):
-            raise TypeError("only string allowed as function label!")
-        if self._initial_functions is None:
-            self._initial_functions = func_lbl
-        if self._initial_functions != func_lbl:
-            raise ValueError("already defined initial functions are overridden!")
 
     @property
     def weights(self):
@@ -403,8 +389,6 @@ def parse_weak_formulation(weak_form):
                     factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
                     result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
 
-                if field_var.order[1] == 0:
-                    cf.initial_functions = field_var.data["func_lbl"]
                 cf.weights = field_var.data["weight_lbl"]
                 cf.add_to(("E", temp_order), result*term.scale)
                 continue
