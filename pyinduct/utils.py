@@ -8,6 +8,7 @@ from core import Function, LagrangeFirstOrder, back_project_from_initial_functio
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
+from numbers import Number
 import warnings
 import pyqtgraph as pg
 
@@ -564,11 +565,13 @@ def return_real_part(to_return):
     if isinstance(to_return, (list, np.ndarray)):
         if not all([c.imag == 0. for c in to_return]):
             raise ValueError("Something goes wrong, imaginary part does not vanish")
-        return np.asarray([c.real for c in to_return])
-    elif isinstance(to_return, (float, int, long)):
+        return np.real([c for c in to_return])
+    elif isinstance(to_return, Number):
         if not to_return.imag == 0.:
             raise ValueError("Something goes wrong, imaginary part does not vanish")
-        return to_return.real
+        return np.real(to_return)
+    else:
+        raise ValueError("pyinduct.utils.return_real_part() support only types np.ndarray and numbers.Number")
 
 
 def normalize(phi, psi, l):

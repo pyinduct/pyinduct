@@ -6,9 +6,18 @@ from pyinduct import core as cr
 from pyinduct import control as ct
 from pyinduct import placeholder as ph
 from pyinduct import utils as ut
+from pyinduct import trajectory as tr
+from pyinduct import simulation as sim
+from pyinduct import visualization as vis
+import pyqtgraph as pg
 
 __author__ = 'Stefan Ecklebe'
 
+# show_plots = False
+show_plots = True
+
+if show_plots:
+    app = pg.QtGui.QApplication([])
 
 # TODO Test for ControlLaw and LawEvaluator
 
@@ -92,3 +101,141 @@ class SimulationInteractionTestCase(unittest.TestCase):
     # TODO
     pass
 
+
+class ReaAdvDifDirichletControlApproxTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_it(self):
+
+        # original system parameters
+        a2 = 1; a1 =0 # attention: only a2 = 1., a1 =0 supported in this test case
+        a0 = 14
+        param = [a2, a1, a0, None, None]
+
+        # target system parameters (controller parameters)
+        a1_t =0; a0_t =0 # attention: only a2 = 1., a1 =0 and a0 =0 supported in this test case
+        param_t = [a2, a1_t, a0_t, None, None]
+
+        # system/simulation parameters
+        actuation = 'dirichlet'
+        boundary_condition = 'dirichlet'
+        l = 1.; spatial_domain = (0, l); spatial_disc = 10 # attention: only l=1. supported in this test case
+        T = 1; temporal_domain = (0, T); temporal_disc = 1e2
+        n = 10
+
+        # eigenvalues /-functions original system
+        omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
+        eig_values = a0 - a2*omega**2 - a1**2/4./a2
+        norm_fac = np.ones(omega.shape)*np.sqrt(2)
+        eig_funcs = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
+        nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), 3)
+        register_functions("eig_funcs", eig_funcs)
+        register_functions("funcs", funcs)
+
+        # eigenfunctions target system
+        omega_t = np.sqrt(-eig_values.astype(complex))
+        norm_fac_t = norm_fac * omega / omega_t
+        eig_funcs_t = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
+        register_functions("eig_funcs_t", eig_funcs_t)
+        print [i(1) for i in eig_funcs_t]
+
+        # derive initial field variable x(z,0) and weights
+        start_state = cr.Function(lambda z: 0., domain=(0, l))
+        initial_weights = cr.project_on_initial_functions(start_state, eig_funcs)
+
+        # init trajectory / input of target system
+        traj = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
+
+        # init controller
+        x_at_1 = ph.FieldVariable("eig_funcs", location=1)
+        xt_at_1 = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=1)
+        controller = ct.Controller(ct.ControlLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
+
+        # input with feedback
+        control_law = sim.Mixer([traj, controller])
+
+        # determine (A,B) with modal-transfomation
+        A = np.diag(eig_values)
+        B = -a2*np.array([eig_funcs[i].derive()(l) for i in xrange(n)])
+        ss = sim.StateSpace("eig_funcs", A, B)
+
+        # simulate
+        t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
+        # TODO: get/plot x'(z,t) data and test (assert) result
+
+        # display results
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+            win1 = vis.AnimatedPlot([eval_d], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            app.exec_()
+
+
+class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
+    """
+    """
+    def setUp(self):
+        pass
+
+    def test_it(self):
+
+        # original system parameters
+        a2 = 1; a1 = 1; a0 = 1; alpha = -1; beta = -1
+        param = [a2, a1, a0, alpha, beta]
+        adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
+
+        # target system parameters (controller parameters)
+        a1_t = 1; a0_t = 1; alpha_t = -1; beta_t = -1
+        param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
+
+        # system/simulation parameters
+        actuation = 'robin'
+        boundary_condition = 'robin'
+        l = 1.; spatial_domain = (0, l); spatial_disc = 10
+        T = 1; temporal_domain = (0, T); temporal_disc = 1e2
+        n = 10
+
+        # create (not normalized) eigenfunctions
+        rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
+        eig_val = rad_eig_val.eig_values
+        om_squared = rad_eig_val.om_squared
+        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om2, param, spatial_domain) for om2 in om_squared])
+        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om2, adjoint_param, spatial_domain) for om2 in om_squared])
+
+        # normalize eigenfunctions and adjoint eigenfunctions
+        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
+        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
+        adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+
+        # eigenfunctions from target system
+        om_squared_t = -a1_t**2/4/a2 + (a0_t - eig_val)/a2
+        eig_funcs_t = np.array([ut.ReaAdvDifRobinEigenfunction(om_squared_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
+
+        # register eigenfunctions
+        register_functions("eig_funcs", eig_funcs)
+        register_functions("adjoint_eig_funcs", adjoint_eig_funcs)
+        register_functions("eig_funcs_t", eig_funcs_t)
+
+        # derive initial field variable x(z,0) and weights
+        start_state = cr.Function(lambda z: 0., domain=(0, l))
+        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
+
+        # init trajectory
+        u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+
+        # determine (A,B) with modal-transfomation
+        A = np.diag(eig_val)
+        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
+        ss_modal = sim.StateSpace("adjoint_eig_funcs", A, B)
+
+        # simulate
+        t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
+
+        # display results
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+            win1 = vis.AnimatedPlot([eval_d], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            app.exec_()
