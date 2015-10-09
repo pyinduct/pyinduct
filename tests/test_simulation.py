@@ -472,25 +472,83 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
         param = [2., -1.5, -3., 2., .5]
         a2, a1, a0, alpha, beta = param
         l = 1.; spatial_domain = (0, l); spatial_disc = 10
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
+        T = 1.; temporal_domain = (0, T); temporal_disc = 2e2
 
         # create testfunctions
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+        nodes_1, ini_funcs_1 = ut.cure_interval(cr.LagrangeFirstOrder,
                                             spatial_domain,
                                             node_count=spatial_disc)
-        register_functions("init_funcs", ini_funcs, overwrite=True)
+        register_functions("init_funcs_1", ini_funcs_1, overwrite=True)
+        nodes_2, ini_funcs_2 = ut.cure_interval(cr.LagrangeSecondOrder,
+                                            spatial_domain,
+                                            node_count=int(spatial_disc/2))
+        register_functions("init_funcs_2", ini_funcs_2, overwrite=True)
 
-        # derive initial field variable x(z,0) and weights
-        start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, ini_funcs)
+        def test_dd():
+            # trajectory
+            boundary_condition = 'dirichlet'
+            actuation = 'dirichlet'
+            u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+            # integral terms
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                              ph.TestFunction("init_funcs_2", order=2)), spatial_domain, -a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a0)
+            # scalar terms from int 2
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=l),
+                                          ph.TestFunction("init_funcs_2", order=0, location=l)), -a2)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=0),
+                                          ph.TestFunction("init_funcs_2", order=0, location=0)), a2)
+            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
+                                          ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
+                                          ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+            # derive state-space system
+            rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+            # simulate system
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.ones(ini_funcs_2.shape),
+                                            temporal_domain, time_step=T/temporal_disc)
 
-        # TODO: implement twice differentiable testfunctions (e.g. LagrangeSecondOrder) for additional tests:
-        # def test_dd():
-        #     boundary_condition = 'dirichlet'
-        #     actuation = 'dirichlet'
-        # def test_rd():
-        #     boundary_condition = 'robin'
-        #     actuation = 'dirichlet'
+            return t, q
+
+        def test_rd():
+            # trajectory
+            boundary_condition = 'robin'
+            actuation = 'dirichlet'
+            u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+            # integral terms
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                              ph.TestFunction("init_funcs_2", order=2)), spatial_domain, -a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a0)
+            # scalar terms from int 2
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=l),
+                                          ph.TestFunction("init_funcs_2", order=0, location=l)), -a2)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
+                                          ph.TestFunction("init_funcs_2", order=0, location=0)), a2*alpha)
+            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
+                                          ph.TestFunction("init_funcs_2", order=0, location=0)), -a2*alpha)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
+                                          ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+            # derive state-space system
+            rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+            # simulate system
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.ones(ini_funcs_2.shape),
+                                            temporal_domain, time_step=T/temporal_disc)
+
+            return t, q
 
         def test_dr():
             # trajectory
@@ -498,34 +556,34 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
             actuation = 'robin'
             u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
             # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", order=1),
-                                              ph.TestFunction("init_funcs", order=0)), spatial_domain)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
-                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
-                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
-                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a0)
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
+                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
+                                              ph.TestFunction("init_funcs_1", order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
+                                              ph.TestFunction("init_funcs_1", order=1)), spatial_domain, a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
+                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain, -a0)
             # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
-                                          ph.TestFunction("init_funcs", order=0, location=l)), -a1)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
-                                          ph.TestFunction("init_funcs", order=0, location=l)), a2*beta)
-            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1, location=0),
-                                          ph.TestFunction("init_funcs", order=0, location=0)), a2)
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a1)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), a2*beta)
+            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
+                                          ph.TestFunction("init_funcs_1", order=0, location=0)), a2)
             s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs", order=0, location=l)), -a2)
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
             cf = sim.parse_weak_formulation(rad_pde)
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, initial_weights,
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape),
                                             temporal_domain, time_step=T/temporal_disc)
 
             # check if (x'(0,t_end) - 1.) < 0.1
-            self.assertLess(np.abs(ini_funcs[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
+            self.assertLess(np.abs(ini_funcs_1[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
             return t, q
 
         def test_rr():
@@ -534,41 +592,44 @@ class ReaAdvDifFemTrajectoryTest(unittest.TestCase):
             actuation = 'robin'
             u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
             # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", order=1),
-                                              ph.TestFunction("init_funcs", order=0)), spatial_domain)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
-                                              ph.TestFunction("init_funcs", order=1)), spatial_domain, a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=1),
-                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0),
-                                              ph.TestFunction("init_funcs", order=0)), spatial_domain, -a0)
+            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
+                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain)
+            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
+                                              ph.TestFunction("init_funcs_1", order=1)), spatial_domain, a2)
+            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
+                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain, -a1)
+            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
+                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain, -a0)
             # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=0),
-                                          ph.TestFunction("init_funcs", order=0, location=0)), a2*alpha)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", order=0, location=l),
-                                          ph.TestFunction("init_funcs", order=0, location=l)), a2*beta)
+            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=0),
+                                          ph.TestFunction("init_funcs_1", order=0, location=0)), a2*alpha)
+            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), a2*beta)
             s3 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs", order=0, location=l)), -a2)
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
             cf = sim.parse_weak_formulation(rad_pde)
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, initial_weights,
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape),
                                             temporal_domain, time_step=T/temporal_disc)
 
             # check if (x(0,t_end) - 1.) < 0.1
-            self.assertLess(np.abs(ini_funcs[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
+            self.assertLess(np.abs(ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
             return t, q
 
         _, _ = test_dr()
         t, q = test_rr()
+        # TODO: fit LagrangeSecondOrder to test_dd and test_rd
+        # _, _ = test_dd()
+        # t, q = test_rd()
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "init_funcs", t, spatial_domain, l/spatial_disc)
-            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in init_funcs]), t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation(q, "init_funcs_1", t, spatial_domain, l/spatial_disc)
+            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in init_funcs_1]), t, spatial_domain, l/spatial_disc)
             # win1 = vis.AnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
