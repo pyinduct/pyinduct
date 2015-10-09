@@ -574,6 +574,20 @@ def return_real_part(to_return):
         raise ValueError("pyinduct.utils.return_real_part() support only types np.ndarray and numbers.Number")
 
 
+def transform2intermediate(param):
+
+    if not isinstance(param, (tuple, list)):
+        raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or string")
+
+    a2, a1, a0, alpha, beta = param
+    a2_n = a2
+    a1_n = 0.
+    a0_n = a0 - a1**2./4./a2
+    alpha_n = a1/2./a2 + alpha
+    beta_n = -a1/2./a2 + beta
+
+    return a2_n, a1_n, a0_n, alpha_n, beta_n
+
 def normalize(phi, psi, l):
     """ temporary """
     z_normalize = np.linspace(0., l, 1e5)

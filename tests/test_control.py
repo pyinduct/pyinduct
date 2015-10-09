@@ -130,9 +130,7 @@ class ReaAdvDifDirichletControlApproxTest(unittest.TestCase):
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fac = np.ones(omega.shape)*np.sqrt(2)
         eig_funcs = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
-        nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), 3)
         register_functions("eig_funcs", eig_funcs)
-        register_functions("funcs", funcs)
 
         # eigenfunctions target system
         omega_t = np.sqrt(-eig_values.astype(complex))
@@ -190,6 +188,10 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         a1_t = 1; a0_t = 1; alpha_t = -1; beta_t = -1
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
+        # original intermediate ("_i") and traget intermediate ("_ti") system parameters
+        param_i = ut.transform2intermediate(param); a1_i, _, a0_i, alpha_i, beta_i = param_i
+        param_ti = ut.transform2intermediate(param_t); a1_ti, _, a0_ti, alpha_ti, beta_ti = param_ti
+
         # system/simulation parameters
         actuation = 'robin'
         boundary_condition = 'robin'
@@ -209,7 +211,7 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
-        # eigenfunctions from target system
+        # eigenfunctions from target system ("_t")
         om_squared_t = -a1_t**2/4/a2 + (a0_t - eig_val)/a2
         eig_funcs_t = np.array([ut.ReaAdvDifRobinEigenfunction(om_squared_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
 
@@ -223,7 +225,32 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
 
         # init trajectory
-        u = tr.ReaAdvDifTrajectory(l, T, param, boundary_condition, actuation)
+        u = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
+
+        # init controller
+        x_at_l = ph.FieldVariable("eig_funcs", location=l)
+        xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
+        x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
+        xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
+        transform_i = cr.Function(lambda z: np.exp(a1/2/a2*z))
+        transform_ti = cr.Function(lambda z: np.exp(a1_t/2/a2*z))
+        register_functions("transform_i", transform_i)
+        register_functions("transform_ti", transform_ti)
+        transform_i_at_l = ph.ScalarFunction("transform_i", location=l)
+        transform_ti_at_l = ph.ScalarFunction("transform_ti", location=l)
+        exp_at1 = ph.ScalarFunction("transform_i", location=l)
+        x_i_at_l = ph.Product(x_at_l, transform_i_at_l)
+        xd_i_at_l = [ph.ScalarTerm(ph.Product(xd_at_l, transform_i_at_l)),
+                     ph.ScalarTerm(ph.Product(x_at_l, transform_i_at_l), a1/2/a2)]
+        x_ti_at_l = ph.Product(x_t_at_l, transform_ti_at_l)
+        xd_ti_at_l = [ph.ScalarTerm(ph.Product(xd_t_at_l, transform_ti_at_l)),
+                      ph.ScalarTerm(ph.Product(x_t_at_l, transform_ti_at_l), a1_t/2/a2)]
+        int_kernel_at_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
+        intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_at_zz(l)),
+                                    ph.ScalarTerm(x_ti_at_l, -beta_ti), ph.ScalarTerm(x_i_at_l, beta_ti),
+                                    ph.ScalarTerm(xd_ti_at_l, -1), ph.ScalarTerm(xd_i_at_l, 1),
+                                    ph.ScalarTerm(x_i_at_l, int_kernel_at_zz(l))]
+        controller = ct.Controller(ph.ScalarTerm(intermediate_control_law, np.exp(-a1/2/a2*l)))
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_val)
