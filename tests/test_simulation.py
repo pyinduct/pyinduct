@@ -296,7 +296,7 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_interval, node_count=10)
+        nodes, ini_funcs = ut.cure_interval(cr.LagrangeSecondOrder, self.spat_interval, node_count=10)
         register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),

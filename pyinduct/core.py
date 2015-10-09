@@ -40,7 +40,7 @@ class Function:
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
         if not callable(eval_handle):
             raise TypeError("callable has to be provided as function_handle")
-        self._function_handle = np.vectorize(eval_handle)
+        self._function_handle = np.vectorize(eval_handle, otypes=[np.float])
 
         for der_handle in derivative_handles:
             if not callable(der_handle):
@@ -248,11 +248,11 @@ class LagrangeSecondOrder(Function):
 
     def __init__(self, start, top, end, max_element_length):
         self._element_length = end-start
-        if not start <= top <= end or start == end or self._element_length not in {max_element_length, max_element_length/2}:
+        if not start <= top <= end or start == end or (not np.isclose(self._element_length, max_element_length) and not np.isclose(self._element_length, max_element_length/2)):
             raise ValueError("Input data is nonsense, see Definition.")
 
         self._start = start
-        self._top = top
+        self.top = top
         self._end = end
         self._e_2 = max_element_length/4
 
@@ -266,17 +266,19 @@ class LagrangeSecondOrder(Function):
             Function.__init__(self, self._lagrange2nd_border_right, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_border_right,
                                                   self._dder_lagrange2nd_border_right])
-        elif end-start == max_element_length:
+        elif np.isclose(end-start, max_element_length):
             self._gen_left_top_poly()
             self._gen_right_top_poly()
             Function.__init__(self, self._lagrange2nd_interior, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_interior,
                                                   self._dder_lagrange2nd_interior])
-        else:
+        elif np.isclose(end-start, max_element_length/2):
             self._gen_mid_top_poly()
             Function.__init__(self, self._lagrange2nd_interior_half, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_interior_half,
                                                   self._dder_lagrange2nd_interior_half])
+        else:
+            raise ValueError("Following arguments do not meet the specs from LagrangeSecondOrder: start, end")
 
     def _gen_left_top_poly(self):
         left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2*self._e_2)))
@@ -294,7 +296,7 @@ class LagrangeSecondOrder(Function):
         """
         left border equation for lagrange 2nd order
         """
-        if z < self._top or z >= self._end:
+        if z < self.top or z >= self._end:
             return 0
         else:
             return self._left_top_poly.deriv(der_order)(z)
@@ -314,12 +316,12 @@ class LagrangeSecondOrder(Function):
         """
         if z <= self._start or z >= self._end:
             return 0
-        elif z == self._top and der_order > 0:
+        elif z == self.top and der_order > 0:
             return 0
-        elif self._start <= z <= self._top:
+        elif self._start <= z <= self.top:
             return self._right_top_poly.deriv(der_order)(z-self._start)
         else:
-            return self._left_top_poly.deriv(der_order)(z-self._top)
+            return self._left_top_poly.deriv(der_order)(z-self.top)
 
     def _lagrange2nd_interior_half(self, z, der_order=0):
         """

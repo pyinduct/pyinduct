@@ -25,9 +25,9 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     """
     if not issubclass(test_function_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")
-    # TODO implement more
+
     if test_function_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
-        raise TypeError("only LagrangeFirstOrder supported as test_function_class for now.")
+        raise TypeError("LagrangeFirstOrder and LagrangeSecondOrder supported as test_function_class for now.")
 
     if not isinstance(interval, tuple):
         raise TypeError("interval must be given as tuple.")

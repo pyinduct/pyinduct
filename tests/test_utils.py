@@ -1,6 +1,7 @@
 from __future__ import division
 import unittest
 import numpy as np
+import matplotlib.pyplot as plt
 from pyinduct import get_initial_functions, register_functions, \
     core as cr, \
     utils as ut, \
@@ -48,10 +49,12 @@ class CureTestCase(unittest.TestCase):
             self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
 
     def test_lagrange_2nd_order(self):
-        nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 7), node_count=9)
+        nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 1), node_count=10)
         self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
                                     np.array([funcs[i](nodes) for i in range(len(funcs))])))
-
+        # z = np.linspace(0, 1, 10000)
+        # [plt.plot(z, funcs[i](z)) for i in range(len(funcs))]
+        # plt.show()
 
 class FindRootsTestCase(unittest.TestCase):
 
