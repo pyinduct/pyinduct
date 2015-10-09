@@ -4,7 +4,7 @@ import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from pyinduct import get_initial_functions
-from core import Function, LagrangeFirstOrder, back_project_from_initial_functions
+from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_initial_functions
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
@@ -26,7 +26,7 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     if not issubclass(test_function_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")
     # TODO implement more
-    if test_function_class is not LagrangeFirstOrder:
+    if test_function_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
         raise TypeError("only LagrangeFirstOrder supported as test_function_class for now.")
 
     if not isinstance(interval, tuple):
@@ -43,17 +43,36 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     end = max(interval)
 
     if node_count:
+        #  TODO: think about naming: element_length (better: node_distance)
         nodes, element_length = np.linspace(start=start, stop=end, num=node_count, retstep=True)
     else:
         nodes = np.arange(start, end + element_length, element_length)
         node_count = nodes.shape[0]
-
-    test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
-                      LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
-    for i in range(1, node_count - 1):
-        test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
-                                                     nodes[i],
-                                                     nodes[i] + element_length))
+    if test_function_class is LagrangeFirstOrder:
+        test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
+                          LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
+        for i in range(1, node_count - 1):
+            test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
+                                                         nodes[i],
+                                                         nodes[i] + element_length))
+    elif test_function_class is LagrangeSecondOrder:
+        node_count = 2*node_count - 1
+        element_length /= 2
+        nodes = np.sort(np.concatenate((nodes, nodes[:-1] + np.diff(nodes)/2)))
+        max_element_length = 4*element_length
+        test_functions = [LagrangeSecondOrder(nodes[0], nodes[0], nodes[0] + 2*element_length, max_element_length),
+                          LagrangeSecondOrder(nodes[-1] - 2*element_length, nodes[-1], nodes[-1], max_element_length)]
+        for i in range(1, node_count - 1):
+            if i%2 != 0:
+                test_functions.insert(-1, LagrangeSecondOrder(nodes[i] - element_length,
+                                                              nodes[i],
+                                                              nodes[i] + element_length,
+                                                              max_element_length))
+            else:
+                test_functions.insert(-1, LagrangeSecondOrder(nodes[i] - 2*element_length,
+                                                              nodes[i],
+                                                              nodes[i] + 2*element_length,
+                                                              max_element_length))
 
     return nodes, np.asarray(test_functions)
 

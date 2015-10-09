@@ -97,11 +97,6 @@ class ContinuousTestCase(unittest.TestCase):
         # self.assertAlmostEqual(res, 1*np.exp(1))
 
 
-class SimulationInteractionTestCase(unittest.TestCase):
-    # TODO
-    pass
-
-
 class ReaAdvDifDirichletControlApproxTest(unittest.TestCase):
 
     def setUp(self):
@@ -246,32 +241,32 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         # x_ti_at_l = ph.Product(x_t_at_l, transform_ti_at_l)
         # xd_ti_at_l = [ph.ScalarTerm(ph.Product(xd_t_at_l, transform_ti_at_l)),
         #               ph.ScalarTerm(ph.Product(x_t_at_l, transform_ti_at_l), a1_t/2/a2)]
-        # int_kernel_at_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
-        # intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_at_zz(l)),
+        # int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
+        # intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_zz(l)),
         #                             ph.ScalarTerm(x_ti_at_l, -beta_ti), ph.ScalarTerm(x_i_at_l, beta_ti),
         #                             ph.ScalarTerm(xd_ti_at_l, -1), ph.ScalarTerm(xd_i_at_l, 1),
-        #                             ph.ScalarTerm(x_i_at_l, int_kernel_at_zz(l))]
+        #                             ph.ScalarTerm(x_i_at_l, int_kernel_zz(l))]
         # controller = ct.Controller(ph.ScalarTerm(intermediate_control_law, np.exp(-a1/2/a2*l)))
 
-        # init controller
+        # controller initialization
         x_at_l = ph.FieldVariable("eig_funcs", location=l)
         xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
         x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
         xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
-        combined_transform_at_z = lambda z: np.exp((a1_t-a1)/2/a2*z)
-        int_kernel_at_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
+        combined_transform = lambda z: np.exp((a1_t-a1)/2/a2*z)
+        int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
         controller = ct.Controller(
-            ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i-beta_ti-int_kernel_at_zz(l))),
-                           ph.ScalarTerm(x_t_at_l, -beta_ti*combined_transform_at_z(l)),
+            ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i-beta_ti-int_kernel_zz(l))),
+                           ph.ScalarTerm(x_t_at_l, -beta_ti*combined_transform(l)),
                            ph.ScalarTerm(x_at_l, beta_ti),
-                           ph.ScalarTerm(xd_t_at_l, -combined_transform_at_z(l)),
-                           ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform_at_z(l)),
+                           ph.ScalarTerm(xd_t_at_l, -combined_transform(l)),
+                           ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform(l)),
                            ph.ScalarTerm(xd_at_l, l),
-                           ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_at_zz(l))
+                           ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_zz(l))
                            ]))
 
         # input with feedback
-        traj.scale = combined_transform_at_z(l)
+        traj.scale = combined_transform(l)
         control_law = sim.Mixer([traj, controller])
 
         # determine (A,B) with modal-transfomation

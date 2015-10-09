@@ -47,6 +47,11 @@ class CureTestCase(unittest.TestCase):
             self.assertEqual(self.test_functions[i].nonzero, funcs1[i].nonzero)
             self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
 
+    def test_lagrange_2nd_order(self):
+        nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 7), node_count=9)
+        self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
+                                    np.array([funcs[i](nodes) for i in range(len(funcs))])))
+
 
 class FindRootsTestCase(unittest.TestCase):
 

@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from numbers import Number
 import numpy as np
 from scipy import integrate
+from numpy.polynomial import polynomial as npoly
 
 from pyinduct import get_initial_functions
 
@@ -225,6 +226,133 @@ class LagrangeFirstOrder(Function):
             # TODO implement correct one
             # def quad_int():
             #     return 2/3
+
+
+class LagrangeSecondOrder(Function):
+    """
+    Implementation of an lagrangian initial function of order 2
+      ^                                    _
+    1-|           ^                      / | \
+      |          /|\                   /   |   \
+      |         / | \                 /    |    \
+      |        /  |  \               /     |     \
+    0-|--\----/   |   \----/--------/------|----- \---> z
+          \_/     |    \_/
+       start    top       end     start   top    end
+         |<----- d ------>|        |<---- d/2 --->|
+    :param start: start node
+    :param top: top node, where :math:`f(x) = 1`
+    :param end: end node
+    :param max_element_length: value of the length d (see sketch)
+    """
+
+    def __init__(self, start, top, end, max_element_length):
+        self._element_length = end-start
+        if not start <= top <= end or start == end or self._element_length not in {max_element_length, max_element_length/2}:
+            raise ValueError("Input data is nonsense, see Definition.")
+
+        self._start = start
+        self._top = top
+        self._end = end
+        self._e_2 = max_element_length/4
+
+        if start == top:
+            self._gen_left_top_poly()
+            Function.__init__(self, self._lagrange2nd_border_left, nonzero=(start, end),
+                              derivative_handles=[self._der_lagrange2nd_border_left,
+                                                  self._dder_lagrange2nd_border_left])
+        elif top == end:
+            self._gen_right_top_poly()
+            Function.__init__(self, self._lagrange2nd_border_right, nonzero=(start, end),
+                              derivative_handles=[self._der_lagrange2nd_border_right,
+                                                  self._dder_lagrange2nd_border_right])
+        elif end-start == max_element_length:
+            self._gen_left_top_poly()
+            self._gen_right_top_poly()
+            Function.__init__(self, self._lagrange2nd_interior, nonzero=(start, end),
+                              derivative_handles=[self._der_lagrange2nd_interior,
+                                                  self._dder_lagrange2nd_interior])
+        else:
+            self._gen_mid_top_poly()
+            Function.__init__(self, self._lagrange2nd_interior_half, nonzero=(start, end),
+                              derivative_handles=[self._der_lagrange2nd_interior_half,
+                                                  self._dder_lagrange2nd_interior_half])
+
+    def _gen_left_top_poly(self):
+        left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2*self._e_2)))
+        self._left_top_poly = npoly.Polynomial(left_top_poly.coef/left_top_poly(0))
+
+    def _gen_right_top_poly(self):
+        right_top_poly = npoly.Polynomial(npoly.polyfromroots((0, self._e_2)))
+        self._right_top_poly = npoly.Polynomial(right_top_poly.coef/right_top_poly(2*self._e_2))
+
+    def _gen_mid_top_poly(self):
+        mid_top_poly = npoly.Polynomial(npoly.polyfromroots((0, 2*self._e_2)))
+        self._mid_top_poly = npoly.Polynomial(mid_top_poly.coef/mid_top_poly(self._e_2))
+
+    def _lagrange2nd_border_left(self, z, der_order=0):
+        """
+        left border equation for lagrange 2nd order
+        """
+        if z < self._top or z >= self._end:
+            return 0
+        else:
+            return self._left_top_poly.deriv(der_order)(z)
+
+    def _lagrange2nd_border_right(self, z, der_order=0):
+        """
+        right border equation for lagrange 2nd order
+        """
+        if z <= self._start or z > self._end:
+            return 0
+        else:
+            return self._right_top_poly.deriv(der_order)(z-self._start)
+
+    def _lagrange2nd_interior(self, z, der_order=0):
+        """
+        wide (d) interior equations for lagrange 2nd order
+        """
+        if z <= self._start or z >= self._end:
+            return 0
+        elif z == self._top and der_order > 0:
+            return 0
+        elif self._start <= z <= self._top:
+            return self._right_top_poly.deriv(der_order)(z-self._start)
+        else:
+            return self._left_top_poly.deriv(der_order)(z-self._top)
+
+    def _lagrange2nd_interior_half(self, z, der_order=0):
+        """
+        small (d/2) interior equations for lagrange 2nd order
+        """
+        if z <= self._start or z >= self._end:
+            return 0
+        else:
+            return self._mid_top_poly.deriv(der_order)(z-self._start)
+
+    def _der_lagrange2nd_border_left(self, z):
+        return self._lagrange2nd_border_left(z, der_order=1)
+
+    def _der_lagrange2nd_border_right(self, z):
+        return self._lagrange2nd_border_right(z, der_order=1)
+
+    def _der_lagrange2nd_interior(self, z):
+        return self._lagrange2nd_interior(z, der_order=1)
+
+    def _der_lagrange2nd_interior_half(self, z):
+        return self._lagrange2nd_interior_half(z, der_order=1)
+
+    def _dder_lagrange2nd_border_left(self, z):
+        return self._lagrange2nd_border_left(z, der_order=2)
+
+    def _dder_lagrange2nd_border_right(self, z):
+        return self._lagrange2nd_border_right(z, der_order=2)
+
+    def _dder_lagrange2nd_interior(self, z):
+        return self._lagrange2nd_interior(z, der_order=2)
+
+    def _dder_lagrange2nd_interior_half(self, z):
+        return self._lagrange2nd_interior_half(z, der_order=2)
 
 
 class FunctionVector:
