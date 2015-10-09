@@ -14,8 +14,8 @@ import pyinduct as pi
 
 __author__ = 'Stefan Ecklebe'
 
-# show_plots = False
-show_plots = True
+show_plots = False
+# show_plots = True
 
 if show_plots:
     app = pg.QtGui.QApplication([])
@@ -654,9 +654,9 @@ class ReaAdvDifDirichletModalVsWeakFormulationTest(unittest.TestCase):
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
         rad_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
-        register_functions("rad_eig_funcs", rad_eig_funcs)
+        register_functions("rad_eig_funcs", rad_eig_funcs, overwrite=True)
         rad_adjoint_eig_funcs = np.array([ut.ReaAdvDifDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
-        register_functions("rad_adjoint_eig_funcs", rad_adjoint_eig_funcs)
+        register_functions("rad_adjoint_eig_funcs", rad_adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -735,8 +735,8 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # register eigenfunctions
-        register_functions("eig_funcs", eig_funcs)
-        register_functions("adjoint_eig_funcs", adjoint_eig_funcs)
+        register_functions("eig_funcs", eig_funcs, overwrite=True)
+        register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))

@@ -125,13 +125,13 @@ class ReaAdvDifDirichletControlApproxTest(unittest.TestCase):
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fac = np.ones(omega.shape)*np.sqrt(2)
         eig_funcs = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
-        register_functions("eig_funcs", eig_funcs)
+        register_functions("eig_funcs", eig_funcs, overwrite=True)
 
         # eigenfunctions target system
         omega_t = np.sqrt(-eig_values.astype(complex))
         norm_fac_t = norm_fac * omega / omega_t
         eig_funcs_t = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
-        register_functions("eig_funcs_t", eig_funcs_t)
+        register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
         print [i(1) for i in eig_funcs_t]
 
         # derive initial field variable x(z,0) and weights
@@ -211,9 +211,9 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         eig_funcs_t = np.array([ut.ReaAdvDifRobinEigenfunction(om_squared_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
 
         # register eigenfunctions
-        register_functions("eig_funcs", eig_funcs)
-        register_functions("adjoint_eig_funcs", adjoint_eig_funcs)
-        register_functions("eig_funcs_t", eig_funcs_t)
+        register_functions("eig_funcs", eig_funcs, overwrite=True)
+        register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+        register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -230,8 +230,8 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         # xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
         # transform_i = cr.Function(lambda z: np.exp(a1/2/a2*z))
         # transform_ti = cr.Function(lambda z: np.exp(a1_t/2/a2*z))
-        # register_functions("transform_i", transform_i)
-        # register_functions("transform_ti", transform_ti)
+        # register_functions("transform_i", transform_i, overwrite=True)
+        # register_functions("transform_ti", transform_ti, overwrite=True)
         # transform_i_at_l = ph.ScalarFunction("transform_i", location=l)
         # transform_ti_at_l = ph.ScalarFunction("transform_ti", location=l)
         # exp_at1 = ph.ScalarFunction("transform_i", location=l)
