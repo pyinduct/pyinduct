@@ -180,17 +180,17 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
     def test_it(self):
 
         # original system parameters
-        a2 = 1; a1 = 1; a0 = 1; alpha = -1; beta = -1
+        a2 = 1; a1 = 1; a0 = 10; alpha = -1; beta = -1
         param = [a2, a1, a0, alpha, beta]
         adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
 
         # target system parameters (controller parameters)
-        a1_t = 1; a0_t = 1; alpha_t = -1; beta_t = -1
+        a1_t = 2; a0_t = -5; alpha_t = 1; beta_t = 1
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        param_i = ut.transform2intermediate(param); a1_i, _, a0_i, alpha_i, beta_i = param_i
-        param_ti = ut.transform2intermediate(param_t); a1_ti, _, a0_ti, alpha_ti, beta_ti = param_ti
+        _, _, a0_i, alpha_i, beta_i = ut.transform2intermediate(param)
+        _, _, a0_ti, alpha_ti, beta_ti = ut.transform2intermediate(param_t)
 
         # system/simulation parameters
         actuation = 'robin'
@@ -225,40 +225,62 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
 
         # init trajectory
-        u = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
+        traj = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
+
+        # TODO: nesting ph.ScalarTerm
+        # # desired controller initialization
+        # x_at_l = ph.FieldVariable("eig_funcs", location=l)
+        # xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
+        # x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
+        # xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
+        # transform_i = cr.Function(lambda z: np.exp(a1/2/a2*z))
+        # transform_ti = cr.Function(lambda z: np.exp(a1_t/2/a2*z))
+        # register_functions("transform_i", transform_i)
+        # register_functions("transform_ti", transform_ti)
+        # transform_i_at_l = ph.ScalarFunction("transform_i", location=l)
+        # transform_ti_at_l = ph.ScalarFunction("transform_ti", location=l)
+        # exp_at1 = ph.ScalarFunction("transform_i", location=l)
+        # x_i_at_l = ph.Product(x_at_l, transform_i_at_l)
+        # xd_i_at_l = [ph.ScalarTerm(ph.Product(xd_at_l, transform_i_at_l)),
+        #              ph.ScalarTerm(ph.Product(x_at_l, transform_i_at_l), a1/2/a2)]
+        # x_ti_at_l = ph.Product(x_t_at_l, transform_ti_at_l)
+        # xd_ti_at_l = [ph.ScalarTerm(ph.Product(xd_t_at_l, transform_ti_at_l)),
+        #               ph.ScalarTerm(ph.Product(x_t_at_l, transform_ti_at_l), a1_t/2/a2)]
+        # int_kernel_at_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
+        # intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_at_zz(l)),
+        #                             ph.ScalarTerm(x_ti_at_l, -beta_ti), ph.ScalarTerm(x_i_at_l, beta_ti),
+        #                             ph.ScalarTerm(xd_ti_at_l, -1), ph.ScalarTerm(xd_i_at_l, 1),
+        #                             ph.ScalarTerm(x_i_at_l, int_kernel_at_zz(l))]
+        # controller = ct.Controller(ph.ScalarTerm(intermediate_control_law, np.exp(-a1/2/a2*l)))
 
         # init controller
         x_at_l = ph.FieldVariable("eig_funcs", location=l)
         xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
         x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
         xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
-        transform_i = cr.Function(lambda z: np.exp(a1/2/a2*z))
-        transform_ti = cr.Function(lambda z: np.exp(a1_t/2/a2*z))
-        register_functions("transform_i", transform_i)
-        register_functions("transform_ti", transform_ti)
-        transform_i_at_l = ph.ScalarFunction("transform_i", location=l)
-        transform_ti_at_l = ph.ScalarFunction("transform_ti", location=l)
-        exp_at1 = ph.ScalarFunction("transform_i", location=l)
-        x_i_at_l = ph.Product(x_at_l, transform_i_at_l)
-        xd_i_at_l = [ph.ScalarTerm(ph.Product(xd_at_l, transform_i_at_l)),
-                     ph.ScalarTerm(ph.Product(x_at_l, transform_i_at_l), a1/2/a2)]
-        x_ti_at_l = ph.Product(x_t_at_l, transform_ti_at_l)
-        xd_ti_at_l = [ph.ScalarTerm(ph.Product(xd_t_at_l, transform_ti_at_l)),
-                      ph.ScalarTerm(ph.Product(x_t_at_l, transform_ti_at_l), a1_t/2/a2)]
+        combined_transform_at_z = lambda z: np.exp((a1_t-a1)/2/a2*z)
         int_kernel_at_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
-        intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_at_zz(l)),
-                                    ph.ScalarTerm(x_ti_at_l, -beta_ti), ph.ScalarTerm(x_i_at_l, beta_ti),
-                                    ph.ScalarTerm(xd_ti_at_l, -1), ph.ScalarTerm(xd_i_at_l, 1),
-                                    ph.ScalarTerm(x_i_at_l, int_kernel_at_zz(l))]
-        controller = ct.Controller(ph.ScalarTerm(intermediate_control_law, np.exp(-a1/2/a2*l)))
+        controller = ct.Controller(
+            ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i-beta_ti-int_kernel_at_zz(l))),
+                           ph.ScalarTerm(x_t_at_l, -beta_ti*combined_transform_at_z(l)),
+                           ph.ScalarTerm(x_at_l, beta_ti),
+                           ph.ScalarTerm(xd_t_at_l, -combined_transform_at_z(l)),
+                           ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform_at_z(l)),
+                           ph.ScalarTerm(xd_at_l, l),
+                           ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_at_zz(l))
+                           ]))
+
+        # input with feedback
+        traj.scale = combined_transform_at_z(l)
+        control_law = sim.Mixer([traj, controller])
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_val)
         B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
-        ss_modal = sim.StateSpace("adjoint_eig_funcs", A, B)
+        ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # simulate
-        t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
+        t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
         # display results
         if show_plots:

@@ -195,6 +195,8 @@ class ReaAdvDifTrajectory(SimulationInput):
         # with the following back transformation are also
         # pde's with advection term a_1 x'(z,t) considered
         self._u *= np.exp(-self._a1_original/2./a2*l)
+        # TODO: scale: maybe better a SimulationInput functionality
+        self.scale = 1.
 
     def _gevrey_tanh(self, t, n, sigma, K):
         """
@@ -308,4 +310,4 @@ class ReaAdvDifTrajectory(SimulationInput):
         :param kwargs:
         :return:
         """
-        return np.interp(t, self._t, self._u)
+        return np.interp(t, self._t, self._u)*self.scale
