@@ -412,8 +412,8 @@ class ReaAdvDifRobinEigenvalues(object):
         # real part of the roots from the characteristic equation (eigen value problem dgl)
         self.eta = -a1 / 2. / a2
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
-        self.om = self.compute_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
-        self.eig_values = a0 - a2 * self.om**2 - a1 ** 2 / 4. / a2
+        self.eig_freq = self.compute_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
+        self.eig_values = a0 - a2 * self.eig_freq**2 - a1 ** 2 / 4. / a2
 
     def compute_eigen_frequencies(self, param, eta, l, n_roots):
         a2, a1, a0, alpha, beta = param

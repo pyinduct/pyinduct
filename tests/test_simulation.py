@@ -724,9 +724,9 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
-        om_squared = rad_eig_val.om_squared
-        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, param, spatial_domain) for ii in om_squared])
-        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(ii, adjoint_param, spatial_domain) for ii in om_squared])
+        eig_freq = rad_eig_val.eig_freq
+        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # TODO: "vectorize" cr.normalize
         # normalize eigenfunctions and adjoint eigenfunctions
@@ -769,8 +769,8 @@ class ReaAdvDifRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_weak = cf.convert_to_state_space()
 
         # determine (A,B) with modal-transfomation
-        A = np.diag(eig_val)
-        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
+        A = np.diag(np.real(eig_val))
+        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(eig_freq))])
         ss_modal = sim.StateSpace("adjoint_eig_funcs", A, B)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
