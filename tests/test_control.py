@@ -121,18 +121,17 @@ class ReaAdvDifDirichletControlApproxTest(unittest.TestCase):
         n = 10
 
         # eigenvalues /-functions original system
-        omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
-        eig_values = a0 - a2*omega**2 - a1**2/4./a2
-        norm_fac = np.ones(omega.shape)*np.sqrt(2)
-        eig_funcs = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
+        eig_freq = np.array([(i+1)*np.pi/l for i in xrange(n)])
+        eig_values = a0 - a2*eig_freq**2 - a1**2/4./a2
+        norm_fac = np.ones(eig_freq.shape)*np.sqrt(2)
+        eig_funcs = np.asarray([ut.ReaAdvDifDirichletEigenfunction(eig_freq[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
         register_functions("eig_funcs", eig_funcs, overwrite=True)
 
         # eigenfunctions target system
-        omega_t = np.sqrt(-eig_values.astype(complex))
-        norm_fac_t = norm_fac * omega / omega_t
-        eig_funcs_t = np.asarray([ut.ReaAdvDifDirichletEigenfunction(omega_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
+        eig_freq_t = np.sqrt(-eig_values.astype(complex))
+        norm_fac_t = norm_fac * eig_freq / eig_freq_t
+        eig_funcs_t = np.asarray([ut.ReaAdvDifDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
         register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
-        print [i(1) for i in eig_funcs_t]
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -175,12 +174,13 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
     def test_it(self):
 
         # original system parameters
-        a2 = 1; a1 = 1; a0 = 10; alpha = -1; beta = -1
+        a2 = 1.5; a1 = 2.5; a0 = 28; alpha = -2; beta = -3
         param = [a2, a1, a0, alpha, beta]
         adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
 
         # target system parameters (controller parameters)
-        a1_t = 2; a0_t = -5; alpha_t = 1; beta_t = 1
+        a1_t = -5; a0_t = -25; alpha_t = 3; beta_t = 2
+        # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
@@ -197,9 +197,9 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         # create (not normalized) eigenfunctions
         rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
-        om_squared = rad_eig_val.om_squared
-        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om2, param, spatial_domain) for om2 in om_squared])
-        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om2, adjoint_param, spatial_domain) for om2 in om_squared])
+        eig_freq = rad_eig_val.om
+        init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
@@ -207,8 +207,8 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # eigenfunctions from target system ("_t")
-        om_squared_t = -a1_t**2/4/a2 + (a0_t - eig_val)/a2
-        eig_funcs_t = np.array([ut.ReaAdvDifRobinEigenfunction(om_squared_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
+        eig_freq_t = np.sqrt(-a1_t**2/4/a2**2 + (a0_t - eig_val)/a2)
+        eig_funcs_t = np.array([ut.ReaAdvDifRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
 
         # register eigenfunctions
         register_functions("eig_funcs", eig_funcs, overwrite=True)
@@ -218,9 +218,6 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
         initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
-
-        # init trajectory
-        traj = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
 
         # TODO: nesting ph.ScalarTerm
         # # desired controller initialization
@@ -265,13 +262,17 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
                            ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_zz(l))
                            ]))
 
-        # input with feedback
+        # init trajectory
+        traj = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
         traj.scale = combined_transform(l)
+
+        # input with feedback
         control_law = sim.Mixer([traj, controller])
+        # control_law = sim.Mixer([traj])
 
         # determine (A,B) with modal-transfomation
-        A = np.diag(eig_val)
-        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(om_squared))])
+        A = np.diag(np.real(eig_val))
+        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(eig_freq))])
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # simulate

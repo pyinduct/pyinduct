@@ -52,9 +52,6 @@ class CureTestCase(unittest.TestCase):
         nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 1), node_count=10)
         self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
                                     np.array([funcs[i](nodes) for i in range(len(funcs))])))
-        # z = np.linspace(0, 1, 10000)
-        # [plt.plot(z, funcs[i](z)) for i in range(len(funcs))]
-        # plt.show()
 
 class FindRootsTestCase(unittest.TestCase):
 

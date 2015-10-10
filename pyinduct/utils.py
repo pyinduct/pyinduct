@@ -412,10 +412,10 @@ class ReaAdvDifRobinEigenvalues(object):
         # real part of the roots from the characteristic equation (eigen value problem dgl)
         self.eta = -a1 / 2. / a2
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
-        self.om_squared = self.compute_squared_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
-        self.eig_values = a0 - a2 * self.om_squared - a1 ** 2 / 4. / a2
+        self.om = self.compute_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
+        self.eig_values = a0 - a2 * self.om**2 - a1 ** 2 / 4. / a2
 
-    def compute_squared_eigen_frequencies(self, param, eta, l, n_roots):
+    def compute_eigen_frequencies(self, param, eta, l, n_roots):
         a2, a1, a0, alpha, beta = param
 
         def characteristic_equation(om):
@@ -434,7 +434,7 @@ class ReaAdvDifRobinEigenvalues(object):
 
         # assume 1 root per pi/l (safety factor = 2)
         om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=-6).tolist()
+        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=int(np.log10(l)-6)).tolist()
 
         # delete all around om = 0
         om.reverse()
@@ -453,11 +453,14 @@ class ReaAdvDifRobinEigenvalues(object):
         if round(complex_root, 6 + int(np.log10(l))) != 0.:
             om_squared.insert(0, -complex_root[0] ** 2)
 
-        if len(om_squared) < n_roots:
-            raise ValueError("ReaAdvDifRobinEigenvalues.compute_squared_eigen_frequencies()"
+        # basically complex eigenfrequencies
+        om = np.sqrt(np.array(om_squared).astype(complex))
+
+        if len(om) < n_roots:
+            raise ValueError("ReaAdvDifRobinEigenvalues.compute_eigen_frequencies()"
                              "can not find enough roots")
 
-        return np.array(om_squared[:n_roots])
+        return np.array(om[:n_roots])
 
 
 class ReaAdvDifDirichletEigenvalues(object):
@@ -486,57 +489,40 @@ class ReaAdvDifDirichletEigenvalues(object):
 
 
 class ReaAdvDifRobinEigenfunction(Function):
-    def __init__(self, om_squared, param, spatial_domain, norm_fak=1.):
-        self._om_squared = om_squared
+    def __init__(self, om, param, spatial_domain):
+        self._om = om
         self._param = param
-        self.norm_fak = norm_fak
         Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi])
 
     def _phi(self, z):
         a2, a1, a0, alpha, beta = self._param
+        om = self._om
         eta = -a1 / 2. / a2
 
-        if self._om_squared >= 0.:
-            om = np.sqrt(self._om_squared)
-            cosX_term = np.cos(om * z)
-            if round(om, 200) != 0.:
-                sinX_term = (alpha - eta) / om * np.sin(om * z)
-            else:
-                sinX_term = (alpha - eta) * z
+        cosX_term = np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = (alpha - eta) / om * np.sin(om * z)
         else:
-            om = np.sqrt(-self._om_squared)
-            cosX_term = np.cosh(om * z)
-            if round(om, 200) != 0.:
-                sinX_term = (alpha - eta) / om * np.sinh(om * z)
-            else:
-                sinX_term = (alpha - eta) * z
+            sinX_term = (alpha - eta) * z
 
         phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return phi_i * self.norm_fak
+        return return_real_part(phi_i)
 
     def _d_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
+        om = self._om
         eta = -a1 / 2. / a2
 
-        if self._om_squared >= 0.:
-            om = np.sqrt(self._om_squared)
-            cosX_term = alpha * np.cos(om * z)
-            if round(om, 200) != 0.:
-                sinX_term = (eta * (alpha - eta) / om - om) * np.sin(om * z)
-            else:
-                sinX_term = eta * (alpha - eta) * z - om * np.sin(om * z)
+        cosX_term = alpha * np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = (eta * (alpha - eta) / om - om) * np.sin(om * z)
         else:
-            om = np.sqrt(-self._om_squared)
-            cosX_term = alpha * np.cosh(om * z)
-            if round(om, 200) != 0.:
-                sinX_term = (eta * (alpha - eta) / om + om) * np.sinh(om * z)
-            else:
-                sinX_term = eta * (alpha - eta) * z + om * np.sinh(om * z)
+            sinX_term = eta * (alpha - eta) * z - om * np.sin(om * z)
 
         d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return d_phi_i * self.norm_fak
+        return return_real_part(d_phi_i)
 
 
 class ReaAdvDifDirichletEigenfunction(Function):
@@ -581,17 +567,18 @@ def return_real_part(to_return):
     :param to_return:
     :return:
     """
+    if not isinstance(to_return, (Number, list, np.ndarray)):
+        raise TypeError
     if isinstance(to_return, (list, np.ndarray)):
-        if not all([c.imag == 0. for c in to_return]):
-            raise ValueError("Something goes wrong, imaginary part does not vanish")
-        return np.real([c for c in to_return])
-    elif isinstance(to_return, Number):
-        if not to_return.imag == 0.:
-            raise ValueError("Something goes wrong, imaginary part does not vanish")
-        return np.real(to_return)
-    else:
-        raise ValueError("pyinduct.utils.return_real_part() support only types np.ndarray and numbers.Number")
+        if not all([isinstance(num, Number) for num in to_return]):
+            raise TypeError
 
+    maybe_real = np.real_if_close(to_return)
+
+    if maybe_real.dtype == 'complex':
+        raise ValueError("Something goes wrong, imaginary part does not vanish")
+    else:
+        return maybe_real
 
 def transform2intermediate(param):
 
