@@ -4,12 +4,16 @@ import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from pyinduct import get_initial_functions
+import simulation as sim
+import control as ct
+import placeholder as ph
 from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_initial_functions
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
 from numbers import Number
 import warnings
+import copy as cp
 import pyqtgraph as pg
 
 __author__ = 'stefan'
@@ -603,6 +607,43 @@ def normalize(phi, psi, l):
     scale = 1. / np.sqrt(integral)
 
     return scale
+
+def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
+                                                d_approx_target_state, unsteady_operator_factor,
+                                                original_param, target_param, trajectory=None, scale=None):
+    args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
+    if not all([isinstance(arg, list) for arg in args]):
+        raise TypeError
+    terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
+    if not all([isinstance(term, (ph.ScalarTerm, ph.IntegralTerm)) for term in  terms]):
+        raise TypeError
+    if not all([isinstance(num, Number) for num in original_param+target_param+(unsteady_operator_factor,)]):
+        raise TypeError
+    if not isinstance(scale, (Number, type(None))):
+        raise TypeError
+    if not issubclass(trajectory, sim.SimulationInput) or not trajectory == None:
+        raise TypeError
+
+
+    a2, _, a0_i, alpha_i, beta_i = original_param
+    a2, _, a0_ti, alpha_ti, beta_ti = target_param
+
+    unsteady_term = cp.deepcopy(state)
+    print state.scale
+    unsteady_term.scale *= unsteady_operator_factor
+    print unsteady_term.scale
+
+
+    if not scale is None:
+        for term in terms:
+            term.scale *= scale
+        if not trajectory is None:
+            trajectory *= scale
+
+    if not trajectory is None:
+        return sim.Mixer([trajectory, ct.Controller(ct.ControlLaw(terms))])
+    else:
+        return sim.Mixer([ct.Controller(ct.ControlLaw(terms))])
 
 
 if __name__ == '__main__':

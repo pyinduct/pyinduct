@@ -296,7 +296,7 @@ class LagrangeSecondOrder(Function):
         """
         left border equation for lagrange 2nd order
         """
-        if z < self.top or z >= self._end:
+        if z < self.top or z > self._end:
             return 0
         else:
             return self._left_top_poly.deriv(der_order)(z)
@@ -305,7 +305,7 @@ class LagrangeSecondOrder(Function):
         """
         right border equation for lagrange 2nd order
         """
-        if z <= self._start or z > self._end:
+        if z < self._start or z > self._end:
             return 0
         else:
             return self._right_top_poly.deriv(der_order)(z-self._start)
@@ -314,7 +314,7 @@ class LagrangeSecondOrder(Function):
         """
         wide (d) interior equations for lagrange 2nd order
         """
-        if z <= self._start or z >= self._end:
+        if z < self._start or z > self._end:
             return 0
         elif z == self.top and der_order > 0:
             return 0
@@ -327,7 +327,7 @@ class LagrangeSecondOrder(Function):
         """
         small (d/2) interior equations for lagrange 2nd order
         """
-        if z <= self._start or z >= self._end:
+        if z < self._start or z > self._end:
             return 0
         else:
             return self._mid_top_poly.deriv(der_order)(z-self._start)

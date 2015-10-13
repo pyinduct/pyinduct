@@ -9,6 +9,7 @@ from pyinduct import utils as ut
 from pyinduct import trajectory as tr
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
+from numbers import Number
 import pyqtgraph as pg
 
 __author__ = 'Stefan Ecklebe'
@@ -179,13 +180,15 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
 
         # target system parameters (controller parameters)
-        a1_t = -5; a0_t = -25; alpha_t = 3; beta_t = 2
-        # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
+        # a1_t = -5; a0_t = -25; alpha_t = 3; beta_t = 2
+        a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
         _, _, a0_i, alpha_i, beta_i = ut.transform2intermediate(param)
+        param_i = a2, 0, a0_i, alpha_i, beta_i
         _, _, a0_ti, alpha_ti, beta_ti = ut.transform2intermediate(param_t)
+        param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
         # system/simulation parameters
         actuation = 'robin'
@@ -197,7 +200,7 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         # create (not normalized) eigenfunctions
         rad_eig_val = ut.ReaAdvDifRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
-        eig_freq = rad_eig_val.om
+        eig_freq = rad_eig_val.eig_freq
         init_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
         init_adjoint_eig_funcs = np.array([ut.ReaAdvDifRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
@@ -219,52 +222,64 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
         start_state = cr.Function(lambda z: 0., domain=(0, l))
         initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
 
-        # TODO: nesting ph.ScalarTerm
-        # # desired controller initialization
+        # init trajectory
+        traj = tr.ReaAdvDifTrajectory(l, T, param_ti, boundary_condition, actuation)
+
+        # intermediate and target intermediate field variable
+        # original () and target (_t) field variable
+        field_variable = ph.FieldVariable("eig_funcs", location=l)
+        d_field_variable = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
+        field_variable_t = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
+        d_field_variable_t = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
+        # wrap field variables in scalar terms
+        x_at_l = [ph.ScalarTerm(field_variable)]
+        xd_at_l = [ph.ScalarTerm(d_field_variable)]
+        x_t_at_l = [ph.ScalarTerm(field_variable_t)]
+        xd_t_at_l = [ph.ScalarTerm(d_field_variable_t)]
+        # intermediate (_i) and target intermediate (_ti) transformations by z=l
+        transform_i = lambda z: np.exp(a1/2/a2*z)         # x_i  = x   * transform_i
+        transform_ti = lambda z: np.exp(a1_t/2/a2*z)      # x_ti = x_t * transform_ti
+        # intermediate (_i) and target intermediate (_ti) field variable (scalar terms)
+        x_i_at_l = [ph.ScalarTerm(field_variable, transform_i(l))]
+        xd_i_at_l = [ph.ScalarTerm(d_field_variable, transform_i(l)),
+                     ph.ScalarTerm(field_variable, transform_i(l)*a1/2/a2)]
+        x_ti_at_l = [ph.ScalarTerm(field_variable_t, transform_ti(l))]
+        xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, transform_ti(l)),
+                      ph.ScalarTerm(field_variable_t, transform_ti(l)*a1_t/2/a2)]
+
+        # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
+        int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
+
+        # controller initialization
+        control_law = ut.get_parabolic_robin_backstepping_controller(state=x_at_l,
+                                                                     approx_state=x_at_l,
+                                                                     d_approx_state=xd_at_l,
+                                                                     approx_target_state=x_t_at_l,
+                                                                     d_approx_target_state=xd_t_at_l,
+                                                                     unsteady_operator_factor=int_kernel_zz(l),
+                                                                     original_param=param_i,
+                                                                     target_param=param_ti,
+                                                                     trajectory=traj,
+                                                                     scale=transform_i(-l))
+
+
+        # # controller initialization
         # x_at_l = ph.FieldVariable("eig_funcs", location=l)
         # xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
         # x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
         # xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
-        # transform_i = cr.Function(lambda z: np.exp(a1/2/a2*z))
-        # transform_ti = cr.Function(lambda z: np.exp(a1_t/2/a2*z))
-        # register_functions("transform_i", transform_i, overwrite=True)
-        # register_functions("transform_ti", transform_ti, overwrite=True)
-        # transform_i_at_l = ph.ScalarFunction("transform_i", location=l)
-        # transform_ti_at_l = ph.ScalarFunction("transform_ti", location=l)
-        # exp_at1 = ph.ScalarFunction("transform_i", location=l)
-        # x_i_at_l = ph.Product(x_at_l, transform_i_at_l)
-        # xd_i_at_l = [ph.ScalarTerm(ph.Product(xd_at_l, transform_i_at_l)),
-        #              ph.ScalarTerm(ph.Product(x_at_l, transform_i_at_l), a1/2/a2)]
-        # x_ti_at_l = ph.Product(x_t_at_l, transform_ti_at_l)
-        # xd_ti_at_l = [ph.ScalarTerm(ph.Product(xd_t_at_l, transform_ti_at_l)),
-        #               ph.ScalarTerm(ph.Product(x_t_at_l, transform_ti_at_l), a1_t/2/a2)]
+        # combined_transform = lambda z: np.exp((a1_t-a1)/2/a2*z)
         # int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
-        # intermediate_control_law = [ph.ScalarTerm(x_i_at_l, beta_i-beta_ti-int_kernel_zz(l)),
-        #                             ph.ScalarTerm(x_ti_at_l, -beta_ti), ph.ScalarTerm(x_i_at_l, beta_ti),
-        #                             ph.ScalarTerm(xd_ti_at_l, -1), ph.ScalarTerm(xd_i_at_l, 1),
-        #                             ph.ScalarTerm(x_i_at_l, int_kernel_zz(l))]
-        # controller = ct.Controller(ph.ScalarTerm(intermediate_control_law, np.exp(-a1/2/a2*l)))
+        # controller = ct.Controller(
+        #     ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i-beta_ti-int_kernel_zz(l))),
+        #                    ph.ScalarTerm(x_t_at_l, -beta_ti*combined_transform(l)),
+        #                    ph.ScalarTerm(x_at_l, beta_ti),
+        #                    ph.ScalarTerm(xd_t_at_l, -combined_transform(l)),
+        #                    ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform(l)),
+        #                    ph.ScalarTerm(xd_at_l, l),
+        #                    ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_zz(l))
+        #                    ]))
 
-        # controller initialization
-        x_at_l = ph.FieldVariable("eig_funcs", location=l)
-        xd_at_l = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=l)
-        x_t_at_l = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=l)
-        xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=l)
-        combined_transform = lambda z: np.exp((a1_t-a1)/2/a2*z)
-        int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
-        controller = ct.Controller(
-            ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i-beta_ti-int_kernel_zz(l))),
-                           ph.ScalarTerm(x_t_at_l, -beta_ti*combined_transform(l)),
-                           ph.ScalarTerm(x_at_l, beta_ti),
-                           ph.ScalarTerm(xd_t_at_l, -combined_transform(l)),
-                           ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform(l)),
-                           ph.ScalarTerm(xd_at_l, l),
-                           ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_zz(l))
-                           ]))
-
-        # init trajectory
-        traj = tr.ReaAdvDifTrajectory(l, T, param_t, boundary_condition, actuation)
-        traj.scale = combined_transform(l)
 
         # input with feedback
         control_law = sim.Mixer([traj, controller])
@@ -284,3 +299,13 @@ class ReaAdvDifRobinControlApproxTest(unittest.TestCase):
             win1 = vis.AnimatedPlot([eval_d], title="Test")
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
+
+
+
+class InheriateTest(unittest.TestCase):
+    """
+    """
+    def setUp(self):
+        self.traj = tr.ReaAdvDifTrajectory(1,1,[1,1,1,1,1],"robin","robin")
+    def test_sim(self):
+        print isinstance(self.traj, sim.SimulationInput)

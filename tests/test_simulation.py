@@ -14,8 +14,8 @@ import pyinduct as pi
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = False
-# show_plots = True
+# show_plots = False
+show_plots = True
 
 if show_plots:
     app = pg.QtGui.QApplication([])
