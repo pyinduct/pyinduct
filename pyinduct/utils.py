@@ -621,7 +621,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
-    if not issubclass(trajectory, sim.SimulationInput) or not trajectory == None:
+    if not isinstance(trajectory, (sim.SimulationInput, type(None))):
         raise TypeError
 
 
@@ -629,9 +629,9 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     a2, _, a0_ti, alpha_ti, beta_ti = target_param
 
     unsteady_term = cp.deepcopy(state)
-    print state.scale
-    unsteady_term.scale *= unsteady_operator_factor
-    print unsteady_term.scale
+    unsteady_term[0].scale *= unsteady_operator_factor
+    print unsteady_term[0].scale
+    print state[0].scale
 
 
     if not scale is None:
@@ -658,3 +658,4 @@ if __name__ == '__main__':
                                   )
 
     print Phi
+    print isinstance(1, sim.SimulationInput)

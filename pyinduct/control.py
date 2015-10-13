@@ -5,8 +5,8 @@ from scipy.linalg import block_diag
 from pyinduct import get_initial_functions
 from core import calculate_base_projection, project_weights, domain_intersection, integrate_function
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
-from simulation import CanonicalForms, SimulationInput
-
+# from simulation import CanonicalForms, SimulationInput
+import simulation as sim
 __author__ = 'Stefan Ecklebe'
 """
 This module contains all classes and functions related to the creation of controllers as well as the implementation
@@ -36,7 +36,7 @@ class ControlLaw(object):
         self.name = name
 
 
-class Controller(SimulationInput):
+class Controller(sim.SimulationInput):
     """
     wrapper class for all controllers that have to interact with the simulation environment
 
@@ -44,7 +44,7 @@ class Controller(SimulationInput):
     """
 
     def __init__(self, control_law):
-        SimulationInput.__init__(self)
+        sim.SimulationInput.__init__(self)
         self._evaluator = approximate_control_law(control_law)
 
     def __call__(self, time, weights, weight_lbl, **kwargs):
@@ -84,7 +84,7 @@ def _parse_control_law(law):
         if not isinstance(term, EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-    cfs = CanonicalForms(law.name)
+    cfs = sim.CanonicalForms(law.name)
 
     for term in law.terms:
         placeholders = dict([
