@@ -14,11 +14,12 @@ import pyinduct as pi
 
 __author__ = 'Stefan Ecklebe'
 
-# show_plots = False
-show_plots = True
-
-if show_plots:
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    show_plots = True
     app = pg.QtGui.QApplication([])
+
 
 class CanonicalFormTest(unittest.TestCase):
 

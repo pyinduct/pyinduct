@@ -7,7 +7,13 @@ import numpy as np
 
 from pyinduct import core, utils, trajectory as tr, visualization as vis
 import pyqtgraph as pg
+import sys
 
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    show_plots = True
+    app = pg.QtGui.QApplication([])
 
 class SmoothTransitionTestCase(unittest.TestCase):
     def setUp(self):
@@ -22,8 +28,6 @@ class SmoothTransitionTestCase(unittest.TestCase):
         self.y0 = -5
         self.y1 = 10
 
-        self.app = pg.QtGui.QApplication([])
-
     def test_trajectory(self):
         # build flatness based trajectory generator
         fs = tr.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2, sigma=1,
@@ -33,12 +37,9 @@ class SmoothTransitionTestCase(unittest.TestCase):
         u_values = fs.control_input(self.t_values)
         eval_data_x = vis.EvalData([self.t_values, self.z_values], x_values)
 
-        # plot stuff
-        pw = pg.plot(title="control_input")
-        pw.plot(self.t_values, u_values)
-        ap = vis.AnimatedPlot(eval_data_x)
-
-        self.app.exec_()
-
-    def tearDown(self):
-        del self.app
+        if show_plots:
+            # plot stuff
+            pw = pg.plot(title="control_input")
+            pw.plot(self.t_values, u_values)
+            ap = vis.AnimatedPlot(eval_data_x)
+            app.exec_()

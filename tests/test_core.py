@@ -3,13 +3,14 @@ import unittest
 import numpy as np
 import pyqtgraph as pg
 from pyinduct import register_functions, get_initial_functions, core, utils
+import sys
 
 __author__ = 'stefan'
 
-show_plots = False
-# show_plots = True
-
-if show_plots:
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    show_plots = True
     app = pg.QtGui.QApplication([])
 
 

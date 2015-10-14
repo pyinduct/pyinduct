@@ -3,10 +3,17 @@ import unittest
 import numpy as np
 from pyinduct import register_functions
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
+import pyqtgraph as pg
+import sys
 
 __author__ = 'Stefan Ecklebe'
 # TODO Test for all Placeholders
 
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    show_plots = True
+    app = pg.QtGui.QApplication([])
 
 class FieldVariableTest(unittest.TestCase):
 

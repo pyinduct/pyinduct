@@ -8,19 +8,16 @@ from pyinduct import get_initial_functions, register_functions, \
     utils as ut, \
     visualization as vt, \
     placeholder as ph
-
+import sys
 import pyqtgraph as pg
 
 __author__ = 'Stefan Ecklebe'
 
-
-show_plots = False
-# show_plots = True
-
-if show_plots:
-    app = pg.QtGui.QApplication([])
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
 else:
-    app = None
+    show_plots = True
+    app = pg.QtGui.QApplication([])
 
 
 class CureTestCase(unittest.TestCase):
@@ -53,12 +50,13 @@ class CureTestCase(unittest.TestCase):
         nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 1), node_count=2)
         self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
                                     np.array([funcs[i](nodes) for i in range(len(funcs))])))
-        fig = plt.figure(figsize=(14, 6), facecolor='white')
-        mpl.rcParams.update({'font.size': 50})
-        plt.xticks(nodes)
-        plt.yticks([0, 1])
-        z = np.linspace(0,1,1000)
-        [plt.plot(z, fun.derive(0)(z)) for fun in funcs]; plt.grid(True); plt.show()
+        if show_plots:
+            fig = plt.figure(figsize=(14, 6), facecolor='white')
+            mpl.rcParams.update({'font.size': 50})
+            plt.xticks(nodes)
+            plt.yticks([0, 1])
+            z = np.linspace(0,1,1000)
+            [plt.plot(z, fun.derive(0)(z)) for fun in funcs]; plt.grid(True); plt.show()
 
 class FindRootsTestCase(unittest.TestCase):
 

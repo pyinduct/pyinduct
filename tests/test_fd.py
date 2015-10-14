@@ -12,6 +12,14 @@ from __future__ import division
 import unittest
 import numpy as np
 from pyinduct import fd
+import pyqtgraph as pg
+import sys
+
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    show_plots = True
+    app = pg.QtGui.QApplication([])
 
 
 class TestFD(unittest.TestCase):
