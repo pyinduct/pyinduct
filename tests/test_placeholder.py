@@ -76,15 +76,15 @@ class ProductTest(unittest.TestCase):
         phi = cr.Function(np.sin)
         psi = cr.Function(np.cos)
         self.t_funcs = np.array([phi, psi])
-        register_functions("funcs", self.t_funcs)
+        register_functions("funcs", self.t_funcs, overwrite=True)
         self.test_funcs = ph.TestFunction("funcs")
 
         self.s_funcs = np.array([cr.Function(self.scale)])[[0, 0]]
-        register_functions("scale_funcs", self.s_funcs)
+        register_functions("scale_funcs", self.s_funcs, overwrite=True)
         self.scale_funcs = ph.ScalarFunction("scale_funcs")
 
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
-        register_functions("prod_ini_funcs", self.ini_funcs)
+        register_functions("prod_ini_funcs", self.ini_funcs, overwrite=True)
         self.field_var = ph.FieldVariable("prod_ini_funcs")
         self.field_var_dz = ph.SpatialDerivedFieldVariable("ini_funcs", 1)
 

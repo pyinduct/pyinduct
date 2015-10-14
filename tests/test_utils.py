@@ -122,7 +122,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 
     def setUp(self):
         self.psi = cr.Function(np.sin)
-        register_functions("funcs", self.psi)
+        register_functions("funcs", self.psi, overwrite=True)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
@@ -143,7 +143,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
         # create initial functions
         self.nodes, self.funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        register_functions("approx_funcs", self.funcs)
+        register_functions("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))

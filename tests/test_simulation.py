@@ -399,7 +399,7 @@ class StringMassTest(unittest.TestCase):
         # normalize eigen vectors
         norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
         norm_eig_funcs = np.atleast_1d([vec.members[0] for vec in norm_eig_vectors])
-        register_functions("norm_eig_funcs", norm_eig_funcs)
+        register_functions("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
         # debug print eigenfunctions
         if 0:
