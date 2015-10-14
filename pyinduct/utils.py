@@ -4,8 +4,6 @@ import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from pyinduct import get_initial_functions
-import simulation as sim
-import control as ct
 import placeholder as ph
 from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_initial_functions
 from placeholder import FieldVariable, TestFunction
@@ -404,7 +402,7 @@ def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
     return M
 
 
-class ReaAdvDifRobinEigenvalues(object):
+class RadRobinEigenvalues(object):
     """ temporary """
 
     def __init__(self, param, l, n_roots=10):
@@ -461,13 +459,13 @@ class ReaAdvDifRobinEigenvalues(object):
         om = np.sqrt(np.array(om_squared).astype(complex))
 
         if len(om) < n_roots:
-            raise ValueError("ReaAdvDifRobinEigenvalues.compute_eigen_frequencies()"
+            raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
                              "can not find enough roots")
 
         return np.array(om[:n_roots])
 
 
-class ReaAdvDifDirichletEigenvalues(object):
+class RadDirichletEigenvalues(object):
     """ temporary """
 
     def __init__(self, param, l, n_roots=10):
@@ -492,7 +490,7 @@ class ReaAdvDifDirichletEigenvalues(object):
         return om_squared
 
 
-class ReaAdvDifRobinEigenfunction(Function):
+class RadRobinEigenfunction(Function):
     def __init__(self, om, param, spatial_domain):
         self._om = om
         self._param = param
@@ -529,7 +527,7 @@ class ReaAdvDifRobinEigenfunction(Function):
         return return_real_part(d_phi_i)
 
 
-class ReaAdvDifDirichletEigenfunction(Function):
+class RadDirichletEigenfunction(Function):
     def __init__(self, omega, param, spatial_domain, norm_fak=1.):
         self._omega = omega
         self._param = param
@@ -608,16 +606,39 @@ def normalize(phi, psi, l):
 
     return scale
 
+def scale_equation_term_list(eqt_list, factor):
+    """
+    Temporary function, as long pyinduct.placeholder.EquationTerm can only be scaled individually.
+    Return a scaled copy of eqt_list.
+    :param eqt_list: list of EquationTerms: [scalar_term_1, integral_term_1, ....]
+    :param factor: isinstance from numbers.Number
+    :return:
+    """
+    if not isinstance(eqt_list, list):
+        raise TypeError
+    if not all([isinstance(term, (ph.ScalarTerm, ph.IntegralTerm)) for term in  eqt_list]):
+        raise TypeError
+    if not isinstance(factor, Number):
+        raise TypeError
+
+    eqt_list_copy = cp.deepcopy(eqt_list)
+    for term in eqt_list_copy:
+        term.scale *= factor
+
+    return eqt_list_copy
+
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, unsteady_operator_factor,
+                                                d_approx_target_state, integral_kernel_zz,
                                                 original_param, target_param, trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
+    import control as ct
+    import simulation as sim
     if not all([isinstance(arg, list) for arg in args]):
         raise TypeError
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
     if not all([isinstance(term, (ph.ScalarTerm, ph.IntegralTerm)) for term in  terms]):
         raise TypeError
-    if not all([isinstance(num, Number) for num in original_param+target_param+(unsteady_operator_factor,)]):
+    if not all([isinstance(num, Number) for num in original_param+target_param+(integral_kernel_zz,)]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
@@ -625,25 +646,80 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         raise TypeError
 
 
-    a2, _, a0_i, alpha_i, beta_i = original_param
-    a2, _, a0_ti, alpha_ti, beta_ti = target_param
+    a2, _, a0, alpha, beta = original_param
+    a2, _, a0_t, alpha_t, beta_t = target_param
 
-    unsteady_term = cp.deepcopy(state)
-    unsteady_term[0].scale *= unsteady_operator_factor
-    print unsteady_term[0].scale
-    print state[0].scale
+    unsteady_term = scale_equation_term_list(state, beta - beta_t - integral_kernel_zz)
+    first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
+    first_sum_2nd_term = scale_equation_term_list(approx_state, beta_t)
+    second_sum_1st_term = scale_equation_term_list(d_approx_target_state, -1)
+    second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
+    second_sum_3rd_term = scale_equation_term_list(approx_state, integral_kernel_zz)
 
+    control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + \
+                   second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
 
     if not scale is None:
-        for term in terms:
-            term.scale *= scale
+        scaled_control_law = scale_equation_term_list(control_law, scale)
         if not trajectory is None:
-            trajectory *= scale
+            trajectory.scale *= scale
+    else:
+        scaled_control_law = control_law
 
     if not trajectory is None:
-        return sim.Mixer([trajectory, ct.Controller(ct.ControlLaw(terms))])
+        return sim.Mixer([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
     else:
-        return sim.Mixer([ct.Controller(ct.ControlLaw(terms))])
+        return sim.Mixer([ct.Controller(ct.ControlLaw(scaled_control_law))])
+
+def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
+    import simulation as sim
+    a2, a1, a0, alpha, beta = param
+    l = spatial_domain[1]
+    # integral terms
+    int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain)
+    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
+                                      ph.TestFunction(test_func_label, order=2)), spatial_domain, -a2)
+    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
+                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a1)
+    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+    # scalar terms
+    s1 = ph.ScalarTerm(ph.Product(ph.Input(input),
+                                  ph.TestFunction(test_func_label, order=1, location=l)), a2)
+    s2 = ph.ScalarTerm(ph.Product(ph.Input(input),
+                                  ph.TestFunction(test_func_label, order=0, location=l)), -a1)
+    s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=l),
+                                  ph.TestFunction(test_func_label, order=0, location=l)), -a2)
+    s4 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=0),
+                                  ph.TestFunction(test_func_label, order=0, location=0)), a2)
+
+    # derive state-space system
+    return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+
+def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
+    import simulation as sim
+    a2, a1, a0, alpha, beta = param
+    l = spatial_domain[1]
+    # integral terms
+    int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain)
+    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
+                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a2)
+    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a1)
+    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+
+    # scalar terms
+    s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=0),
+                                  ph.TestFunction(test_func_label, order=0, location=0)), a2*alpha)
+    s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
+                                  ph.TestFunction(test_func_label, order=0, location=l)), a2*beta)
+    s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
+                                  ph.TestFunction(test_func_label, order=0, location=l)), -a2)
+    # derive state-space system
+    return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 
 
 if __name__ == '__main__':

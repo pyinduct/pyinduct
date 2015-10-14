@@ -139,7 +139,7 @@ class FlatString(SimulationInput):
         return self._control_input(t)
 
 
-class ReaAdvDifTrajectory(SimulationInput):
+class RadTrajectory(SimulationInput):
     """
     Class that implements a flatness based control approach
     for the reaction-advection-diffusion equation
