@@ -156,3 +156,17 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+
+class ReturnRealPartTest(unittest.TestCase):
+
+    def test_it(self):
+        self.assertTrue(np.isreal(ut.return_real_part(1)))
+        self.assertTrue(np.isreal(ut.return_real_part(1+0j)))
+        self.assertTrue(np.isreal(ut.return_real_part(1+1e-20j)))
+        self.assertRaises(TypeError, ut.return_real_part, None)
+        self.assertRaises(TypeError, ut.return_real_part, (1, 2., 2+2j))
+        self.assertRaises(TypeError, ut.return_real_part, [None, 2., 2+2j])
+        self.assertRaises(ValueError, ut.return_real_part, [1, 2., 2+2j])
+        self.assertRaises(ValueError, ut.return_real_part, 1+1e-10j)
+        self.assertRaises(ValueError, ut.return_real_part, 1j)
