@@ -7,8 +7,10 @@ from pyinduct import control as ct
 from pyinduct import placeholder as ph
 from pyinduct import utils as ut
 from pyinduct import trajectory as tr
+from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
+import matplotlib.pyplot as plt
 from numbers import Number
 import pyqtgraph as pg
 import sys
@@ -126,13 +128,13 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         eig_freq = np.array([(i+1)*np.pi/l for i in xrange(n)])
         eig_values = a0 - a2*eig_freq**2 - a1**2/4./a2
         norm_fac = np.ones(eig_freq.shape)*np.sqrt(2)
-        eig_funcs = np.asarray([ut.RadDirichletEigenfunction(eig_freq[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
+        eig_funcs = np.asarray([ut.SecondOrderDirichletEigenfunction(eig_freq[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
         register_functions("eig_funcs", eig_funcs, overwrite=True)
 
         # eigenfunctions target system
         eig_freq_t = np.sqrt(-eig_values.astype(complex))
         norm_fac_t = norm_fac * eig_freq / eig_freq_t
-        eig_funcs_t = np.asarray([ut.RadDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
+        eig_funcs_t = np.asarray([ut.SecondOrderDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
         register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -200,8 +202,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         rad_eig_val = ut.RadRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
         eig_freq = rad_eig_val.eig_freq
-        init_eig_funcs = np.array([ut.RadRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ut.RadRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
+        init_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
@@ -210,7 +212,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t**2/4/a2**2 + (a0_t - eig_val)/a2)
-        eig_funcs_t = np.array([ut.RadRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
+        eig_funcs_t = np.array([ut.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
 
         # register eigenfunctions
         register_functions("eig_funcs", eig_funcs, overwrite=True)
@@ -234,7 +236,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
                            ph.ScalarTerm(x_at_l, beta_ti),
                            ph.ScalarTerm(xd_t_at_l, -combined_transform(l)),
                            ph.ScalarTerm(x_t_at_l, -a1_t/2/a2*combined_transform(l)),
-                           ph.ScalarTerm(xd_at_l, l),
+                           ph.ScalarTerm(xd_at_l, 1),
                            ph.ScalarTerm(x_at_l, a1/2/a2+int_kernel_zz(l))
                            ]))
 
@@ -278,10 +280,10 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = ut.transform2intermediate(self.param)
-        self.param_i = a2, 0, a0_i, alpha_i, beta_i
-        _, _, a0_ti, alpha_ti, beta_ti = ut.transform2intermediate(self.param_t)
-        self.param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
+        _, _, a0_i, self.alpha_i, self.beta_i = ut.transform2intermediate(self.param)
+        self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = ut.transform2intermediate(self.param_t)
+        self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
         actuation = 'robin'
@@ -291,11 +293,9 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.n = 10
 
         # create (not normalized) eigenfunctions
-        rad_eig_val = ut.RadRobinEigenvalues(self.param, self.l, self.n)
-        self.eig_val = rad_eig_val.eig_values
-        eig_freq = rad_eig_val.eig_freq
-        init_eig_funcs = np.array([ut.RadRobinEigenfunction(om, self.param, self.spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ut.RadRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in eig_freq])
+        eig_freq, self.eig_val = ut.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
+        init_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, self.param, self.spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(self.n)]
@@ -304,7 +304,13 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t**2/4/a2**2 + (a0_t - self.eig_val)/a2)
-        eig_funcs_t = np.array([ut.RadRobinEigenfunction(eig_freq_t[i], self.param_t, self.spatial_domain).scale(eig_funcs[i](0)) for i in range(self.n)])
+        eig_funcs_t = np.array([ut.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, self.spatial_domain).scale(eig_funcs[i](0)) for i in range(self.n)])
+
+        for i in [0,3,6]:
+            plt.figure()
+            z = np.linspace(0, self.l)
+            plt.plot(z, eig_funcs[i](z), z, eig_funcs_t[i](z))
+            plt.show()
 
         # create testfunctions
         nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
@@ -329,6 +335,9 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         # intermediate (_i) and target intermediate (_ti) transformations by z=l
         self.transform_i = lambda z: np.exp(a1/2/a2*z)         # x_i  = x   * transform_i
         self.transform_ti = lambda z: np.exp(a1_t/2/a2*z)      # x_ti = x_t * transform_ti
+        print self.transform_i(self.l)
+        print self.transform_i(-self.l)
+        print self.transform_ti(self.l)
         # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
         self.x_fem_i_at_l = [ph.ScalarTerm(fem_field_variable, self.transform_i(self.l))]
         self.x_i_at_l = [ph.ScalarTerm(field_variable, self.transform_i(self.l))]
@@ -339,36 +348,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                       ph.ScalarTerm(field_variable_t, self.transform_ti(self.l)*a1_t/2/a2)]
 
         # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
-        self.int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i-a0_ti)/2/a2*z
-
-    def test_modal(self):
-        a2, a1, a0, alpha, beta = self.param
-        controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l,
-                                                                    approx_state=self.x_i_at_l,
-                                                                    d_approx_state=self.xd_i_at_l,
-                                                                    approx_target_state=self.x_ti_at_l,
-                                                                    d_approx_target_state=self.xd_ti_at_l,
-                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_param=self.param_i,
-                                                                    target_param=self.param_ti,
-                                                                    trajectory=self.traj,
-                                                                    scale=self.transform_i(-self.l))
-
-        # determine (A,B) with modal-transfomation
-        A = np.diag(np.real(self.eig_val))
-        B = a2*np.array([self.adjoint_eig_funcs[i](self.l) for i in xrange(self.n)])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
-
-        # simulate
-        t, q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
-                                        self.temporal_domain, time_step=self.T/self.temporal_disc)
-
-        # display results
-        if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
-            app.exec_()
+        self.int_kernel_zz = lambda z: self.alpha_ti - self.alpha_i + (a0_i-a0_ti)/2/a2*z
+        print self.int_kernel_zz(self.l)
 
     def test_fem(self):
         controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
@@ -377,8 +358,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_param=self.param_i,
-                                                                    target_param=self.param_ti,
+                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
+                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
@@ -398,6 +379,147 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
 
+    def test_modal(self):
+        a2, a1, a0, alpha, beta = self.param
+        controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l,
+                                                                    approx_state=self.x_i_at_l,
+                                                                    d_approx_state=self.xd_i_at_l,
+                                                                    approx_target_state=self.x_ti_at_l,
+                                                                    d_approx_target_state=self.xd_ti_at_l,
+                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
+                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
+                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    trajectory=self.traj,
+                                                                    scale=self.transform_i(-self.l))
+
+        # determine (A,B) with modal-transfomation
+        A = np.diag(np.real(self.eig_val))
+        B = a2*np.array([self.adjoint_eig_funcs[i](self.l) for i in xrange(self.n)])
+        ss_modal = sim.StateSpace("eig_funcs", A, B)
+
+        # simulate
+        t, q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
+                                        self.temporal_domain, time_step=self.T/self.temporal_disc)
+
+        # display results
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+            win1 = vis.AnimatedPlot([eval_d], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            app.exec_()
+
+
+class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
+    """
+    """
+    def test_it(self):
+
+        # system/simulation parameters
+        actuation = 'robin'
+        boundary_condition = 'robin'
+        self.l = 1.; self.spatial_domain = (0, self.l); self.spatial_disc = 30
+        self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
+        self.n = 10
+
+        # original system parameters
+        a2 = 1.5
+        a1_z = cr.Function(lambda z: 2+np.sin(2*np.pi/self.l*z), derivative_handles=[lambda z: 2*np.pi/self.l*np.cos(2*np.pi/self.l*z)])
+        a0_z = lambda z: 10+5*np.cos(5*np.pi/self.l*z)
+        alpha = -2
+        beta = -3
+        # a2 = 1.5; a1_z = cr.Function(lambda z: 1+z, derivative_handles=[lambda z: 1]); a0_z = lambda z: 2-z; alpha = -2; beta = -3
+        # a2 = 1.5; a1_z = cr.Function(lambda z: 2.5, derivative_handles=[lambda z: 0]); a0_z = lambda z: 28; alpha = -2; beta = -3
+        self.param = [a2, a1_z, a0_z, alpha, beta]
+
+        # target system parameters (controller parameters)
+        a1_t = -5; a0_t = -25; alpha_t = 3; beta_t = 2
+        self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
+        adjoint_param_t = ut.get_adjoint_rad_robin_evp_param(self.param_t)
+
+        # original intermediate ("_i") and traget intermediate ("_ti") system parameters
+        _, _, a0_i, alpha_i, beta_i = ut.transform2intermediate(self.param, d_end=self.l)
+        self.param_i = a2, 0, a0_i, alpha_i, beta_i
+        _, _, a0_ti, alpha_ti, beta_ti = ut.transform2intermediate(self.param_t)
+        self.param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
+
+        # create (not normalized) target (_t) eigenfunctions
+        eig_freq_t, self.eig_val_t = ut.compute_rad_robin_eigenfrequencies(self.param_t, self.l, self.n)
+        init_eig_funcs_t = np.array([ut.SecondOrderRobinEigenfunction(om, self.param_t, self.spatial_domain) for om in eig_freq_t])
+        init_adjoint_eig_funcs_t = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param_t, self.spatial_domain) for om in eig_freq_t])
+
+        # normalize eigenfunctions and adjoint eigenfunctions
+        adjoint_and_eig_funcs_t = [cr.normalize_function(init_eig_funcs_t[i], init_adjoint_eig_funcs_t[i]) for i in range(self.n)]
+        eig_funcs_t = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs_t])
+        self.adjoint_eig_funcs_t = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs_t])
+
+        # # transformed original eigenfunctions
+        self.eig_funcs = [ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
+                                                                 [eig_funcs_t[i](0), alpha*eig_funcs_t[i](0), 0, 0],
+                                                                 [a2, a1_z, a0_z],
+                                                                 np.linspace(0, self.l, 1e4))
+                                      for i in range(self.n) ]
+
+        # create testfunctions
+        nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+                                            self.spatial_domain,
+                                            node_count=self.spatial_disc)
+
+        # register functions
+        register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
+        register_functions("adjoint_eig_funcs_t", self.adjoint_eig_funcs_t, overwrite=True)
+        register_functions("eig_funcs", self.eig_funcs, overwrite=True)
+        register_functions("fem_funcs", self.fem_funcs, overwrite=True)
+
+        # init trajectory
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+
+        # original () and target (_t) field variable
+        fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
+        field_variable_t = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=self.l)
+        d_field_variable_t = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=self.l)
+        field_variable = ph.FieldVariable("eig_funcs", location=self.l)
+        d_field_variable = ph.SpatialDerivedFieldVariable("eig_funcs", 1, location=self.l)
+        # intermediate (_i) and target intermediate (_ti) transformations by z=l
+        self.transform_i_at_l = np.exp(cr.integrate_function(lambda z: a1_z(z)/2/a2, [(0, self.l)])[0])   # x_i  = x   * transform_i
+        self.inv_transform_i_at_l = np.exp(-cr.integrate_function(lambda z: a1_z(z)/2/a2, [(0, self.l)])[0])
+        self.transform_ti_at_l = np.exp(a1_t/2/a2*self.l)                                                       # x_ti = x_t * transform_ti
+        # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
+        self.x_fem_i_at_l = [ph.ScalarTerm(fem_field_variable, self.transform_i_at_l)]
+        self.x_i_at_l = [ph.ScalarTerm(field_variable, self.transform_i_at_l)]
+        self.xd_i_at_l = [ph.ScalarTerm(d_field_variable, self.transform_i_at_l),
+                     ph.ScalarTerm(field_variable, self.transform_i_at_l*a1_z(self.l)/2/a2)]
+        self.x_ti_at_l = [ph.ScalarTerm(field_variable_t, self.transform_ti_at_l)]
+        self.xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, self.transform_ti_at_l),
+                      ph.ScalarTerm(field_variable_t, self.transform_ti_at_l*a1_t/2/a2)]
+
+        # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
+        self.int_kernel_zz = alpha_ti - alpha_i + cr.integrate_function(lambda z: (a0_i(z)-a0_ti)/2/a2, [(0, self.l)])[0]
+
+        controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
+                                                                    approx_state=self.x_i_at_l,
+                                                                    d_approx_state=self.xd_i_at_l,
+                                                                    approx_target_state=self.x_ti_at_l,
+                                                                    d_approx_target_state=self.xd_ti_at_l,
+                                                                    integral_kernel_zz=self.int_kernel_zz,
+                                                                    original_boundary_param=(alpha_i, beta_i),
+                                                                    target_boundary_param=(alpha_ti, beta_ti),
+                                                                    trajectory=self.traj,
+                                                                    scale=self.inv_transform_i_at_l)
+
+        rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.spatial_domain)
+        cf = sim.parse_weak_formulation(rad_pde)
+        ss_weak = cf.convert_to_state_space()
+
+        # simulate
+        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
+                                        self.temporal_domain, time_step=self.T/self.temporal_disc)
+
+        # display results
+        if show_plots:
+            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+            win1 = vis.AnimatedPlot([eval_d], title="Test")
+            win2 = vis.SurfacePlot(eval_d)
+            app.exec_()
 
 
 class SimulationError(unittest.TestCase):
@@ -435,8 +557,8 @@ class SimulationError(unittest.TestCase):
         rad_eig_val = ut.RadRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
         eig_freq = rad_eig_val.eig_freq
-        init_eig_funcs = np.array([ut.RadRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ut.RadRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
+        init_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
@@ -445,7 +567,7 @@ class SimulationError(unittest.TestCase):
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t**2/4/a2**2 + (a0_t - eig_val)/a2)
-        eig_funcs_t = np.array([ut.RadRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
+        eig_funcs_t = np.array([ut.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain).scale(eig_funcs[i](0)) for i in range(n)])
 
         # register eigenfunctions
         register_functions("eig_funcs", eig_funcs, overwrite=True)

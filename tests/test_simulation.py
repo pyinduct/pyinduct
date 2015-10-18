@@ -620,9 +620,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
-        eig_funcs = np.array([ut.RadDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
+        eig_funcs = np.array([ut.SecondOrderDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
         register_functions("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ut.RadDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
+        adjoint_eig_funcs = np.array([ut.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
         register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -677,8 +677,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         rad_eig_val = ut.RadRobinEigenvalues(param, l, n)
         eig_val = rad_eig_val.eig_values
         eig_freq = rad_eig_val.eig_freq
-        init_eig_funcs = np.array([ut.RadRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ut.RadRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
+        init_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # TODO: "vectorize" cr.normalize
         # normalize eigenfunctions and adjoint eigenfunctions

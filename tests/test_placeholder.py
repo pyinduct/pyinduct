@@ -86,7 +86,7 @@ class ProductTest(unittest.TestCase):
         nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=2)
         register_functions("prod_ini_funcs", self.ini_funcs, overwrite=True)
         self.field_var = ph.FieldVariable("prod_ini_funcs")
-        self.field_var_dz = ph.SpatialDerivedFieldVariable("ini_funcs", 1)
+        self.field_var_dz = ph.SpatialDerivedFieldVariable("prod_ini_funcs", 1)
 
     def test_product(self):
         self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed

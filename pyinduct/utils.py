@@ -3,7 +3,8 @@ import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
-from pyinduct import get_initial_functions
+from pyinduct import get_initial_functions, register_functions
+import pyinduct
 import placeholder as ph
 from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_initial_functions
 from placeholder import FieldVariable, TestFunction
@@ -155,10 +156,11 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
     if show_plot:
         points = np.arange(0, area_end, .1)
-        values = function(points)
+        vec_function = np.vectorize(function)
+        values = vec_function(points)
         pw = pg.plot(title="function + roots")
         pw.plot(points, values)
-        pw.plot(found_roots, function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
+        pw.plot(found_roots, vec_function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
         pg.QtGui.QApplication.instance().exec_()
 
     return found_roots
@@ -203,38 +205,6 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return EvalData([temporal_steps, spatial_steps], data)
-
-
-def transform_eigenfunction(target_eigenvalue, init_eigenfunction, dgl_coefficients, domain):
-    """
-    Provide the eigenfunction y to an eigenvalue-problem of the form
-    a2(z)y''(z) + a1(z)y'(z) + a0(z)y(z) = w y(z)
-    where w is a predefined (potentially complex) eigenvalue and z0 <= z <= z1 is the domain.
-    :param target_eigenvalue: w (float)
-    :param init_eigenfunction: y(0) = [Re{y(0)}, Re{y'(0)}, Im{y(0)}, Im{y'(0)}] (list of floats)
-    :param dgl_coefficients: [a0(z), a1(z), a2(z)] (list of function handles)
-    :param domain: [z0, ..... , z1] (list of floats)
-    :return: y(z) = [Re{y(z)}, Re{y'(z)}, Im{y(z)}, Im{y'(z)}] (list of numpy arrays)
-    """
-
-    def ff(y, z):
-        a2, a1, a0 = dgl_coefficients
-        wr = target_eigenvalue.real
-        wi = target_eigenvalue.imag
-        d_y = np.array([y[1],
-                        -(a0(z) - wr) / a2(z) * y[0] - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2],
-                        y[3],
-                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2] - a1(z) / a2(z) * y[3]
-                        ])
-        return d_y
-
-    eigenfunction = si.odeint(ff, init_eigenfunction, domain)
-
-    return [eigenfunction[:, 0],
-            eigenfunction[:, 1],
-            eigenfunction[:, 2],
-            eigenfunction[:, 3]]
-
 
 def get_transformed_parameter_without_advection(param):
     """
@@ -401,68 +371,57 @@ def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
         raise ValueError("String in variable 'mode' not understood.")
     return M
 
+def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
-class RadRobinEigenvalues(object):
-    """ temporary """
+    a2, a1, a0, alpha, beta = param
+    eta = -a1 / 2. / a2
 
-    def __init__(self, param, l, n_roots=10):
-        self.param = param
-        self.l = l
-        self.n_roots = n_roots
+    def characteristic_equation(om):
+        if round(om, 200) != 0.:
+            zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+        else:
+            zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
+        return zero
 
-        a2, a1, a0, alpha, beta = self.param
-        # real part of the roots from the characteristic equation (eigen value problem dgl)
-        self.eta = -a1 / 2. / a2
-        # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
-        self.eig_freq = self.compute_eigen_frequencies(self.param, self.eta, self.l, self.n_roots)
-        self.eig_values = a0 - a2 * self.eig_freq**2 - a1 ** 2 / 4. / a2
+    def complex_characteristic_equation(om):
+        if round(om, 200) != 0.:
+            zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
+        else:
+            zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
+        return zero
 
-    def compute_eigen_frequencies(self, param, eta, l, n_roots):
-        a2, a1, a0, alpha, beta = param
+    # assume 1 root per pi/l (safety factor = 2)
+    om_end = 2 * n_roots * np.pi / l
+    om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=int(np.log10(l)-6), show_plot=show_plot).tolist()
 
-        def characteristic_equation(om):
-            if round(om, 200) != 0.:
-                zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
-            else:
-                zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
-            return zero
+    # delete all around om = 0
+    om.reverse()
+    for i in xrange(np.sum(np.array(om) < np.pi / l / 2e1)):
+        om.pop()
+    om.reverse()
 
-        def complex_characteristic_equation(om):
-            if round(om, 200) != 0.:
-                zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
-            else:
-                zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
-            return zero
+    # if om = 0 is a root then add 0 to the list
+    zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
+    if round(zero_limit, 6 + int(np.log10(l))) == 0.:
+        om.insert(0, 0.)
 
-        # assume 1 root per pi/l (safety factor = 2)
-        om_end = 2 * n_roots * np.pi / l
-        om = find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=int(np.log10(l)-6)).tolist()
+    # regard complex roots
+    om_squared = np.power(om, 2).tolist()
+    complex_root = fsolve(complex_characteristic_equation, om_end)
+    if round(complex_root, 6 + int(np.log10(l))) != 0.:
+        om_squared.insert(0, -complex_root[0] ** 2)
 
-        # delete all around om = 0
-        om.reverse()
-        for i in xrange(np.sum(np.array(om) < np.pi / l / 2e1)):
-            om.pop()
-        om.reverse()
+    # basically complex eigenfrequencies
+    om = np.sqrt(np.array(om_squared).astype(complex))
 
-        # if om = 0 is a root then add 0 to the list
-        zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
-        if round(zero_limit, 6 + int(np.log10(l))) == 0.:
-            om.insert(0, 0.)
+    if len(om) < n_roots:
+        raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
+                         "can not find enough roots")
 
-        # regard complex roots
-        om_squared = np.power(om, 2).tolist()
-        complex_root = fsolve(complex_characteristic_equation, om_end)
-        if round(complex_root, 6 + int(np.log10(l))) != 0.:
-            om_squared.insert(0, -complex_root[0] ** 2)
 
-        # basically complex eigenfrequencies
-        om = np.sqrt(np.array(om_squared).astype(complex))
-
-        if len(om) < n_roots:
-            raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
-                             "can not find enough roots")
-
-        return np.array(om[:n_roots])
+    eig_frequencies = om[:n_roots]
+    eig_values = a0 - a2 * eig_frequencies**2 - a1 ** 2 / 4. / a2
+    return eig_frequencies, eig_values
 
 
 class RadDirichletEigenvalues(object):
@@ -477,12 +436,6 @@ class RadDirichletEigenvalues(object):
         # squared imaginary part of the roots from the characteristic equation (eigen value problem dgl)
         self.om_squared = self._compute_eigen_frequencies(self._l, self._n_roots)
         self.eig_values = a0 - a2 * self.om_squared - a1 ** 2 / 4. / a2
-        print 'eigen_val: '
-        print self.eig_values
-        print 'om: '
-        print np.sqrt(self.om_squared)
-        print 'eta: '
-        print -a1 / 2. / a2
 
     def _compute_eigen_frequencies(self, l, n_roots):
         om_squared = np.array([(i * np.pi / l) ** 2 for i in xrange(1, n_roots + 1)])
@@ -490,11 +443,11 @@ class RadDirichletEigenvalues(object):
         return om_squared
 
 
-class RadRobinEigenfunction(Function):
+class SecondOrderRobinEigenfunction(Function):
     def __init__(self, om, param, spatial_domain):
         self._om = om
         self._param = param
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi])
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -526,12 +479,27 @@ class RadRobinEigenfunction(Function):
 
         return return_real_part(d_phi_i)
 
+    def _dd_phi(self, z):
+        a2, a1, a0, alpha, beta = self._param
+        om = self._om
+        eta = -a1 / 2. / a2
 
-class RadDirichletEigenfunction(Function):
-    def __init__(self, omega, param, spatial_domain, norm_fak=1.):
+        cosX_term = (eta*(2*alpha-eta)-om**2) * np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = ((eta**2 * (alpha - eta) / om - (eta+alpha)*om)) * np.sin(om * z)
+        else:
+            sinX_term = eta**2 * (alpha - eta) * z - (eta+alpha)*om * np.sin(om * z)
+
+        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+
+        return return_real_part(d_phi_i)
+
+
+class SecondOrderDirichletEigenfunction(Function):
+    def __init__(self, omega, param, spatial_domain, norm_fac=1.):
         self._omega = omega
         self._param = param
-        self.norm_fak = norm_fak
+        self.norm_fac = norm_fac
 
         a2, a1, a0, _, _ = self._param
         self._eta = -a1 / 2. / a2
@@ -543,7 +511,7 @@ class RadDirichletEigenfunction(Function):
 
         phi_i = np.exp(eta * z) * np.sin(om * z)
 
-        return return_real_part(phi_i * self.norm_fak)
+        return return_real_part(phi_i * self.norm_fac)
 
     def _d_phi(self, z):
         eta = self._eta
@@ -551,7 +519,7 @@ class RadDirichletEigenfunction(Function):
 
         d_phi_i = np.exp(eta * z) * (om * np.cos(om * z) + eta * np.sin(om * z))
 
-        return return_real_part(d_phi_i * self.norm_fak)
+        return return_real_part(d_phi_i * self.norm_fac)
 
     def _dd_phi(self, z):
         eta = self._eta
@@ -559,7 +527,7 @@ class RadDirichletEigenfunction(Function):
 
         d_phi_i = np.exp(eta * z) * (om * (eta + 1) * np.cos(om * z) + (eta - om ** 2) * np.sin(om * z))
 
-        return return_real_part(d_phi_i * self.norm_fak)
+        return return_real_part(d_phi_i * self.norm_fac)
 
 
 def return_real_part(to_return):
@@ -582,17 +550,27 @@ def return_real_part(to_return):
     else:
         return maybe_real
 
-def transform2intermediate(param):
+def transform2intermediate(param, d_end=None):
 
-    if not isinstance(param, (tuple, list)):
+    if not isinstance(param, (tuple, list)) or not len(param) == 5:
         raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or string")
 
     a2, a1, a0, alpha, beta = param
+    if callable(a1) or callable(a0):
+        if not len(a1._derivative_handles) >= 1:
+            raise TypeError
+        a0_z = _convert_to_function(a0)
+        a0_n = lambda z: a0_z(z) - a1(z)**2/4/a2 - a1.derive(1)(z)/2
+        alpha_n = a1(0)/2/a2 + alpha
+        beta_n = -a1(d_end)/2/a2 + beta
+
+    else:
+        a0_n = a0 - a1**2/4/a2
+        alpha_n = a1/2/a2 + alpha
+        beta_n = -a1/2/a2 + beta
+
     a2_n = a2
-    a1_n = 0.
-    a0_n = a0 - a1**2./4./a2
-    alpha_n = a1/2./a2 + alpha
-    beta_n = -a1/2./a2 + beta
+    a1_n = 0
 
     return a2_n, a1_n, a0_n, alpha_n, beta_n
 
@@ -628,8 +606,8 @@ def scale_equation_term_list(eqt_list, factor):
     return eqt_list_copy
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz,
-                                                original_param, target_param, trajectory=None, scale=None):
+                                                d_approx_target_state, integral_kernel_zz, original_boundary_param,
+                                                target_boundary_param, trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     import control as ct
     import simulation as sim
@@ -638,7 +616,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
     if not all([isinstance(term, (ph.ScalarTerm, ph.IntegralTerm)) for term in  terms]):
         raise TypeError
-    if not all([isinstance(num, Number) for num in original_param+target_param+(integral_kernel_zz,)]):
+    if not all([isinstance(num, Number) for num in original_boundary_param+target_boundary_param+(integral_kernel_zz,)]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
@@ -646,8 +624,8 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         raise TypeError
 
 
-    a2, _, a0, alpha, beta = original_param
-    a2, _, a0_t, alpha_t, beta_t = target_param
+    alpha, beta = original_boundary_param
+    alpha_t, beta_t = target_boundary_param
 
     unsteady_term = scale_equation_term_list(state, beta - beta_t - integral_kernel_zz)
     first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
@@ -670,6 +648,20 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         return sim.Mixer([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
     else:
         return sim.Mixer([ct.Controller(ct.ControlLaw(scaled_control_law))])
+
+def _convert_to_function(coef):
+    if not callable(coef):
+        return lambda z: coef
+    else:
+        return coef
+
+def _convert_to_scalar_function(coef, label):
+    import core as cr
+    if not callable(coef):
+        register_functions(label, cr.Function(lambda z: coef), overwrite=True)
+    else:
+        register_functions(label, cr.Function(coef), overwrite=True)
+    return ph.ScalarFunction(label)
 
 def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
     import simulation as sim
@@ -701,15 +693,20 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     import simulation as sim
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
+    # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
+    # a2 = _convert_to_scalar_function(a2, "a2_z")
+    a1_z = _convert_to_scalar_function(a1, "a1_z")
+    a0_z = _convert_to_scalar_function(a0, "a0_z")
+
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain)
     int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=1)), spatial_domain, a2)
-    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a1)
-    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+    int3 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), a1_z),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
+    int4 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), a0_z),
+                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
 
     # scalar terms
     s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=0),
@@ -722,7 +719,11 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 
 
+
 if __name__ == '__main__':
+
+    import simulation as sim
+
     def ax(z):
         return np.sin(np.pi * z) + 1
 
@@ -734,4 +735,3 @@ if __name__ == '__main__':
                                   )
 
     print Phi
-    print isinstance(1, sim.SimulationInput)
