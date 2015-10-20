@@ -7,7 +7,7 @@ import numpy as np
 import pyqtgraph as pg
 import sys
 
-from pyinduct import register_functions,\
+from pyinduct import register_functions, eigenfunctions as ef,\
     core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
 import pyinduct as pi
@@ -601,6 +601,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
 
+
 class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
@@ -611,7 +612,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         actuation = 'dirichlet'
         boundary_condition = 'dirichlet'
         param = [1., -2., -1., None, None]
-        adjoint_param = ut.get_adjoint_rad_dirichlet_evp_param(param)
+        adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, _, _ = param
         l = 1.; spatial_domain = (0, l); spatial_disc = 10
         T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
@@ -620,9 +621,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
-        eig_funcs = np.array([ut.SecondOrderDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
+        eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
         register_functions("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ut.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
+        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
         register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -658,6 +659,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
 
+
 class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
@@ -668,17 +670,16 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         actuation = 'robin'
         boundary_condition = 'robin'
         param = [2., 1.5, -3., -1., -.5]
-        adjoint_param = ut.get_adjoint_rad_robin_evp_param(param)
+        adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, alpha, beta = param
         l = 1.; spatial_domain = (0, l); spatial_disc = 10
         T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
 
-        rad_eig_val = ut.RadRobinEigenvalues(param, l, n)
-        eig_val = rad_eig_val.eig_values
-        eig_freq = rad_eig_val.eig_freq
-        init_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
+        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
 
         # TODO: "vectorize" cr.normalize
         # normalize eigenfunctions and adjoint eigenfunctions

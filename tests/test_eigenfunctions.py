@@ -32,8 +32,8 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         l = 1.; spatial_domain = (0, l); self.z = np.linspace(0, l, 1e2)
         self.n = 10
 
-        eig_freq, self.eig_val = ut.compute_rad_robin_eigenfrequencies(self.param, l, self.n)
-        self.eig_funcs = np.array([ut.SecondOrderRobinEigenfunction(om, self.param, spatial_domain) for om in eig_freq])
+        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, l, self.n)
+        self.eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, spatial_domain) for om in eig_freq])
         self.a2_z = lambda z: a2
         self.a1_z = a1
         self.a0_z = lambda z: a0
@@ -66,3 +66,17 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
                                            self.a0_z(self.z)*eig_f(self.z),
                                            eig_v.real*eig_f(self.z),
                                            rtol=1e-3)))
+
+
+class ReturnRealPartTest(unittest.TestCase):
+
+    def test_it(self):
+        self.assertTrue(np.isreal(ef.return_real_part(1)))
+        self.assertTrue(np.isreal(ef.return_real_part(1+0j)))
+        self.assertTrue(np.isreal(ef.return_real_part(1+1e-20j)))
+        self.assertRaises(TypeError, ef.return_real_part, None)
+        self.assertRaises(TypeError, ef.return_real_part, (1, 2., 2+2j))
+        self.assertRaises(TypeError, ef.return_real_part, [None, 2., 2+2j])
+        self.assertRaises(ValueError, ef.return_real_part, [1, 2., 2+2j])
+        self.assertRaises(ValueError, ef.return_real_part, 1+1e-10j)
+        self.assertRaises(ValueError, ef.return_real_part, 1j)

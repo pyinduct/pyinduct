@@ -85,3 +85,228 @@ class TransformedSecondOrderEigenfunction(Function):
 
     def _d_phi(self, z):
         return np.interp(z, self._domain, self._transf_d_eig_func_real)
+
+
+class SecondOrderRobinEigenfunction(Function):
+    def __init__(self, om, param, spatial_domain):
+        self._om = om
+        self._param = param
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+
+    def _phi(self, z):
+        a2, a1, a0, alpha, beta = self._param
+        om = self._om
+        eta = -a1 / 2. / a2
+
+        cosX_term = np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = (alpha - eta) / om * np.sin(om * z)
+        else:
+            sinX_term = (alpha - eta) * z
+
+        phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+
+        return return_real_part(phi_i)
+
+    def _d_phi(self, z):
+        a2, a1, a0, alpha, beta = self._param
+        om = self._om
+        eta = -a1 / 2. / a2
+
+        cosX_term = alpha * np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = (eta * (alpha - eta) / om - om) * np.sin(om * z)
+        else:
+            sinX_term = eta * (alpha - eta) * z - om * np.sin(om * z)
+
+        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+
+        return return_real_part(d_phi_i)
+
+    def _dd_phi(self, z):
+        a2, a1, a0, alpha, beta = self._param
+        om = self._om
+        eta = -a1 / 2. / a2
+
+        cosX_term = (eta*(2*alpha-eta)-om**2) * np.cos(om * z)
+        if not np.isclose(0, np.abs(om), atol=1e-100):
+            sinX_term = ((eta**2 * (alpha - eta) / om - (eta+alpha)*om)) * np.sin(om * z)
+        else:
+            sinX_term = eta**2 * (alpha - eta) * z - (eta+alpha)*om * np.sin(om * z)
+
+        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+
+        return return_real_part(d_phi_i)
+
+
+class SecondOrderDirichletEigenfunction(Function):
+    def __init__(self, omega, param, spatial_domain, norm_fac=1.):
+        self._omega = omega
+        self._param = param
+        self.norm_fac = norm_fac
+
+        a2, a1, a0, _, _ = self._param
+        self._eta = -a1 / 2. / a2
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+
+    def _phi(self, z):
+        eta = self._eta
+        om = self._omega
+
+        phi_i = np.exp(eta * z) * np.sin(om * z)
+
+        return return_real_part(phi_i * self.norm_fac)
+
+    def _d_phi(self, z):
+        eta = self._eta
+        om = self._omega
+
+        d_phi_i = np.exp(eta * z) * (om * np.cos(om * z) + eta * np.sin(om * z))
+
+        return return_real_part(d_phi_i * self.norm_fac)
+
+    def _dd_phi(self, z):
+        eta = self._eta
+        om = self._omega
+
+        d_phi_i = np.exp(eta * z) * (om * (eta + 1) * np.cos(om * z) + (eta - om ** 2) * np.sin(om * z))
+
+        return return_real_part(d_phi_i * self.norm_fac)
+
+def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
+
+    a2, a1, a0, alpha, beta = param
+    eta = -a1 / 2. / a2
+
+    def characteristic_equation(om):
+        if round(om, 200) != 0.:
+            zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+        else:
+            zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
+        return zero
+
+    def complex_characteristic_equation(om):
+        if round(om, 200) != 0.:
+            zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
+        else:
+            zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
+        return zero
+
+    # assume 1 root per pi/l (safety factor = 2)
+    om_end = 2 * n_roots * np.pi / l
+    om = ut.find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=int(np.log10(l)-6), show_plot=show_plot).tolist()
+
+    # delete all around om = 0
+    om.reverse()
+    for i in xrange(np.sum(np.array(om) < np.pi / l / 2e1)):
+        om.pop()
+    om.reverse()
+
+    # if om = 0 is a root then add 0 to the list
+    zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
+    if round(zero_limit, 6 + int(np.log10(l))) == 0.:
+        om.insert(0, 0.)
+
+    # regard complex roots
+    om_squared = np.power(om, 2).tolist()
+    complex_root = fsolve(complex_characteristic_equation, om_end)
+    if round(complex_root, 6 + int(np.log10(l))) != 0.:
+        om_squared.insert(0, -complex_root[0] ** 2)
+
+    # basically complex eigenfrequencies
+    om = np.sqrt(np.array(om_squared).astype(complex))
+
+    if len(om) < n_roots:
+        raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
+                         "can not find enough roots")
+
+
+    eig_frequencies = om[:n_roots]
+    eig_values = a0 - a2 * eig_frequencies**2 - a1 ** 2 / 4. / a2
+    return eig_frequencies, eig_values
+
+def return_real_part(to_return):
+    """
+    Check if the imaginary part of to_return vanishes
+    and return the real part
+    :param to_return:
+    :return:
+    """
+    if not isinstance(to_return, (Number, list, np.ndarray)):
+        raise TypeError
+    if isinstance(to_return, (list, np.ndarray)):
+        if not all([isinstance(num, Number) for num in to_return]):
+            raise TypeError
+
+    maybe_real = np.real_if_close(to_return)
+
+    if maybe_real.dtype == 'complex':
+        raise ValueError("Something goes wrong, imaginary part does not vanish")
+    else:
+        return maybe_real
+
+def get_adjoint_rad_evp_param(param):
+    """
+    Return to the eigen value problem of the reaction-advection-diffusion
+    equation with robin and/or dirichlet boundary conditions
+    a2 y''(z) + a1 y'(z) + a0 y(z) = w y(z)
+    y'(0) = alpha y(0) / y(0) = 0, y'(l) = -beta y(l) / y(l) = 0
+    the parameters for the adjoint Problem (with the same structure).
+    """
+    a2, a1, a0, alpha, beta = param
+
+    if alpha == None:
+        alpha_n = None
+    else:
+        alpha_n = a1 / a2 + alpha
+
+    if beta == None:
+        beta_n = None
+    else:
+        beta_n = -a1 / a2 + beta
+    a1_n = -a1
+
+    return a2, a1_n, a0, alpha_n, beta_n
+
+def transform2intermediate(param, d_end=None):
+    """
+    Transformation which eliminate the advection term 'a1 x(z,t)' from the
+    reaction-advection-diffusion equation
+    d/dt x(z,t) = a2 x''(z,t) + a1(z) x'(z,t) + a0(z) x(z,t)
+    with robin
+    x'(0,t) = alpha x(0,t), x'(l,t) = -beta x(l,t)
+    or dirichlet
+    x(0,t) = 0, x(l,t) = 0
+    or mixed boundary condition.
+    """
+    if not isinstance(param, (tuple, list)) or not len(param) == 5:
+        raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or list")
+
+    a2, a1, a0, alpha, beta = param
+    if callable(a1) or callable(a0):
+        if not len(a1._derivative_handles) >= 1:
+            raise TypeError
+        a0_z = ut._convert_to_function(a0)
+        a0_n = lambda z: a0_z(z) - a1(z)**2/4/a2 - a1.derive(1)(z)/2
+    else:
+        a0_n = a0 - a1**2/4/a2
+
+    if alpha is None:
+        alpha_n = None
+    elif callable(a1):
+        alpha_n = a1(0) / 2. / a2 + alpha
+    else:
+        alpha_n = a1 / 2. / a2 + alpha
+
+    if beta is None:
+        beta_n = None
+    elif callable(a1):
+        beta_n = -a1(d_end) / 2. / a2 + beta
+    else:
+        beta_n = -a1 / 2. / a2 + beta
+
+    a2_n = a2
+    a1_n = 0
+
+    return a2_n, a1_n, a0_n, alpha_n, beta_n
+

@@ -4,6 +4,7 @@ import numpy as np
 
 from simulation import SimulationInput
 import utils as ut
+import eigenfunctions as ef
 import scipy.misc as sm
 
 __author__ = 'stefan ecklebe'
@@ -172,7 +173,7 @@ class RadTrajectory(SimulationInput):
         self._l = l
         self._T = T
         self._a1_original = param_original[1]
-        self._param = ut.get_transformed_parameter_without_advection(param_original)
+        self._param = ef.transform2intermediate(param_original)
         self._boundary_condition = boundary_condition
         self._actuation = actuation
         self._n = n
