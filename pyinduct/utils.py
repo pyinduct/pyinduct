@@ -206,7 +206,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return EvalData([temporal_steps, spatial_steps], data)
 
-def split_domain(n, a_desired, l, mode='one_even_one_odd'):
+def split_domain(n, a_desired, l, mode='coprime'):
     """
     Consider a domain [0,l] which is divided into two subdomains [0,a] and [a,l].
     With the dicretisation l_0 = l/n an partion a+b=l respectivly k1+k2=n
@@ -222,10 +222,14 @@ def split_domain(n, a_desired, l, mode='one_even_one_odd'):
     :return:
     """
 
-    if not isinstance(n, (long, int)):
+    if not isinstance(n, (long, int, float)):
         raise TypeError("Integer excepted.")
+    if not int(n) - n == 0:
+        raise TypeError("n must be a natural number")
     if n % 2 == 0:
         raise ValueError("n must be odd.")
+    else:
+        n = int(n)
     if l <= 0:
         raise ValueError("l can not be <= 0")
     if not 0. < a_desired < l:
@@ -271,7 +275,7 @@ def split_domain(n, a_desired, l, mode='one_even_one_odd'):
 
     return cand[min_index]
 
-def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
+def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     """
     Returns the transformation matrix M. M is one part of a transformation
     x = My + Ty
@@ -293,8 +297,11 @@ def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
     :param mode:
     :return:
     """
-    if not all(isinstance(i, (int, long)) for i in [n, k1, k2]):
+    if not all(isinstance(i, (int, long, float)) for i in [k1, k2]):
         raise TypeError("TypeErrorMessage")
+    if not all(i%1 == 0 for i in [k1, k2]):
+        raise TypeError("TypeErrorMessage")
+    n = k1 + k2
     if k1 + k2 != n or n < 2 or k1 < 0 or k2 < 0:
         raise ValueError("The sum of two positive integers k1 and k2 must be n.")
     if (k1 != 0 and k2 != 0) and n % 2 == 0:
@@ -312,7 +319,7 @@ def get_inn_domain_transformation_matrix(n, k1, k2, mode='n_plus_1'):
         M = mod_diag(2 * n, k2) + mod_diag(2 * n, -k2) + mod_diag(2 * n, n + k1) + mod_diag(2 * n, -n - k1)
     else:
         raise ValueError("String in variable 'mode' not understood.")
-    return M
+    return M*0.5
 
 def scale_equation_term_list(eqt_list, factor):
     """

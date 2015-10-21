@@ -12,12 +12,78 @@ from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
 from numbers import Number
+from functools import partial
 import warnings
 import copy as cp
 import pyqtgraph as pg
 
 
 __author__ = 'marcus'
+
+
+class AddMulFunction(object):
+
+    def __init__(self, function):
+        self.function = function
+
+    def __call__(self, z):
+        return self.function(z)
+
+    def __mul__(self, other):
+        return AddMulFunction(lambda z: self.function(z)*other)
+
+    def __add__(self, other):
+        return AddMulFunction(lambda z: self.function(z) + other(z))
+
+
+class FiniteTransformFunction(Function):
+    """
+    Provide a transformed function y(z) = T x(z) for a given matrix T and function y(z)
+    """
+    def __init__(self, function, M, b, l):
+
+        if not callable(function):
+            raise TypeError
+
+        if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0]%1 != 0:
+            raise TypeError
+
+        if not all([isinstance(num, (int, long, float)) for num in [b, l]]):
+            raise TypeError
+
+        self.function = function
+        self.M = M
+        self.b = b
+        self.l = l
+
+        self.n = int(M.shape[0]/2)
+        self.l0 = l/self.n
+        self.z_disc = np.array([(i+1)*self.l0 for i in range(self.n)])
+
+        self.x_func_vec = list()
+        for i in range(self.n):
+            self.x_func_vec.append(AddMulFunction(partial(lambda z, k: self.function(k*self.l0 + z), k=i)))
+        for i in range(self.n):
+            self.x_func_vec.append(AddMulFunction(partial(lambda z, k: self.function(self.l - k*self.l0 - z), k=i)))
+
+        self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
+
+        Function.__init__(self,
+                          self._call_transformed_func_vec,
+                          nonzero=(0, l),
+                          derivative_handles=[])
+
+    def _call_original_func_vec(self, z):
+        if any(np.isclose(z, self.z_disc)):
+            z -= 1e-6
+        return self.x_func_vec[int(z/self.l0)](z%self.l0)
+
+    def _call_transformed_func_vec(self, z):
+        # TODO: find a better way to prevent rounding error, e.g. a=4-1e-16; int(a) = 4; a%1=0
+        if any(np.isclose(z, self.z_disc)):
+            z -= 1e-6
+        return self.y_func_vec[int(z/self.l0)](z%self.l0)
+
 
 
 class TransformedSecondOrderEigenfunction(Function):
