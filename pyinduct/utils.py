@@ -232,8 +232,12 @@ def split_domain(n, a_desired, l, mode='coprime'):
         n = int(n)
     if l <= 0:
         raise ValueError("l can not be <= 0")
-    if not 0. < a_desired < l:
+    if not 0. <= a_desired <= l:
         raise ValueError("a_desired not in interval (0,l).")
+    elif a_desired == 0.:
+        return 0, n, 0, None, None
+    elif a_desired == l:
+        return n, 0, a_desired, None, None
 
     def get_candidate_tuple(n, num):
         """
@@ -426,8 +430,10 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
 
-def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
+def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain, actuation_point=None):
     import simulation as sim
+    if actuation_point == None:
+        actuation_point = spatial_domain[1]
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
     # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
@@ -451,24 +457,6 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), a2*beta)
     s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), -a2)
+                                  ph.TestFunction(test_func_label, order=0, location=actuation_point)), -a2)
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
-
-
-
-if __name__ == '__main__':
-
-    import simulation as sim
-
-    def ax(z):
-        return np.sin(np.pi * z) + 1
-
-
-    Phi = transform_eigenfunction(1.5,
-                                  [1., 1., 1., 1.],
-                                  [ax, ax, ax],
-                                  np.linspace(0, 1, 1e1),
-                                  )
-
-    print Phi

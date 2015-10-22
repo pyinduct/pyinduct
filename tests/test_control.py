@@ -12,6 +12,7 @@ from pyinduct import simulation as sim
 from pyinduct import visualization as vis
 from scipy import integrate
 import pyqtgraph as pg
+import matplotlib.pyplot as plt
 import sys
 
 __author__ = 'Stefan Ecklebe'
@@ -440,11 +441,11 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         self.adjoint_eig_funcs_t = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs_t])
 
         # # transformed original eigenfunctions
-        self.eig_funcs = [ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
+        self.eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
                                                                  [eig_funcs_t[i](0), alpha*eig_funcs_t[i](0), 0, 0],
                                                                  [a2, a1_z, a0_z],
                                                                  np.linspace(0, self.l, 1e4))
-                                      for i in range(self.n) ]
+                                      for i in range(self.n) ])
 
         # create testfunctions
         nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
@@ -506,6 +507,156 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
             win1 = vis.AnimatedPlot([eval_d], title="Test")
             win2 = vis.SurfacePlot(eval_d)
+            app.exec_()
+
+
+class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
+    """
+    """
+    def test_fem(self):
+
+        # system/simulation parameters
+        actuation = 'robin'
+        boundary_condition = 'robin'
+        self.l = 1; self.spatial_domain = (0, self.l); self.spatial_disc = 30
+        self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
+        self.n = 10
+
+        # original system parameters
+        a2 = 1.5; a1 = 2.5; a0 = 28; alpha = -2; beta = -3
+        # a2 = 1; a1 = 0; a0 = -6; alpha = 0; beta = 0
+        self.param = [a2, a1, a0, alpha, beta]
+        adjoint_param = ef.get_adjoint_rad_evp_param(self.param)
+
+        # target system parameters (controller parameters)
+        a1_t = -5; a0_t = -25; alpha_t = 3; beta_t = 2
+        # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
+        self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
+
+        # actuation by b which is close to b_desired on a k times subdivided spatial domain
+        b_desired = self.l/2
+        k = 51 # = k1 + k2
+        k1, k2, self.b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
+        M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
+
+        # original intermediate ("_i") and traget intermediate ("_ti") system parameters
+        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform2intermediate(self.param)
+        self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform2intermediate(self.param_t)
+        self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
+
+        # create (not normalized) eigenfunctions
+        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.spatial_domain) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in eig_freq])
+
+        # normalize eigenfunctions and adjoint eigenfunctions
+        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(self.n)]
+        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
+        self.adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+
+        # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
+        eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
+        self.assertTrue(all(np.isclose(eig_val_i, self.eig_val)))
+        eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
+                                                                  self.param_i,
+                                                                  self.spatial_domain,
+                                                                  eig_funcs[i](0))
+                                 for i in range(self.n)])
+        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction( eig_freq_i[i],
+                                                                  self.param_i,
+                                                                  self.spatial_domain,
+                                                                  eig_funcs[i](0)*eig_funcs_id[i](self.l)/eig_funcs_id[i](self.b))
+                                for i in range(self.n)])
+
+
+        # eigenfunctions from target system ("_ti")
+        eig_freq_ti = np.sqrt((a0_ti - self.eig_val)/a2)
+        eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i],
+                                                                  self.param_ti,
+                                                                  self.spatial_domain,
+                                                                  eig_funcs_i[i](0) )
+                                 for i in range(self.n)])
+
+        # create testfunctions
+        nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+                                                 self.spatial_domain,
+                                                 node_count=self.spatial_disc)
+
+        # register eigenfunctions
+        # register_functions("eig_funcs", eig_funcs, overwrite=True)
+        register_functions("adjoint_eig_funcs", self.adjoint_eig_funcs, overwrite=True)
+        register_functions("eig_funcs", eig_funcs, overwrite=True)
+        register_functions("eig_funcs_i", eig_funcs_i, overwrite=True)
+        register_functions("eig_funcs_ti", eig_funcs_ti, overwrite=True)
+        register_functions("fem_funcs", self.fem_funcs, overwrite=True)
+
+        # init trajectory
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+
+        # original () and target (_t) field variable
+        fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
+        field_variable_i = ph.FieldVariable("eig_funcs_i", weight_label="eig_funcs", location=self.l)
+        d_field_variable_i = ph.SpatialDerivedFieldVariable("eig_funcs_i", 1, weight_label="eig_funcs", location=self.l)
+        field_variable_ti = ph.FieldVariable("eig_funcs_ti", weight_label="eig_funcs", location=self.l)
+        d_field_variable_ti = ph.SpatialDerivedFieldVariable("eig_funcs_ti", 1, weight_label="eig_funcs", location=self.l)
+        # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
+        self.x_fem_i_at_l = [ph.ScalarTerm(fem_field_variable)]
+        self.x_i_at_l = [ph.ScalarTerm(field_variable_i)]
+        self.xd_i_at_l = [ph.ScalarTerm(d_field_variable_i)]
+        self.x_ti_at_l = [ph.ScalarTerm(field_variable_ti)]
+        self.xd_ti_at_l = [ph.ScalarTerm(d_field_variable_ti)]
+
+        # shift transformation
+        shifted_fem_funcs_i = np.array(
+            [ef.FiniteTransformFunction(func, M, self.b, self.l, scale_func=lambda z: np.exp(a1/2/a2*z))
+             for func in self.fem_funcs])
+        shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, self.b, self.l) for func in eig_funcs_id])
+        register_functions("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
+        register_functions("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
+        sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=self.l)
+        sh_field_variable_id = ph.FieldVariable("sh_eig_funcs_id", weight_label="eig_funcs", location=self.l)
+        self.sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i),
+                                ph.ScalarTerm(field_variable_i),
+                                ph.ScalarTerm(sh_field_variable_id, -1)]
+
+        # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
+        self.int_kernel_zz = lambda z: self.alpha_ti - self.alpha_i + (a0_i-a0_ti)/2/a2*z
+
+        a2, a1, _, _, _ = self.param
+        controller = ut.get_parabolic_robin_backstepping_controller(state=self.sh_x_fem_i_at_l,
+                                                                    approx_state=self.x_i_at_l,
+                                                                    d_approx_state=self.xd_i_at_l,
+                                                                    approx_target_state=self.x_ti_at_l,
+                                                                    d_approx_target_state=self.xd_ti_at_l,
+                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
+                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
+                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    trajectory=self.traj,
+                                                                    scale=np.exp(-a1/2/a2*self.b) )
+
+        # determine (A,B) with modal-transfomation
+        rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.spatial_domain, self.b)
+        cf = sim.parse_weak_formulation(rad_pde)
+        ss_weak = cf.convert_to_state_space()
+
+        # simulate
+        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
+                                        self.temporal_domain, time_step=self.T/self.temporal_disc)
+
+        mat = cr.calculate_base_projection(self.fem_funcs, eig_funcs)
+        q_i = np.zeros((q.shape[0], len(eig_funcs_i)))
+        for i in range(q.shape[0]):
+            q_i[i,:] = np.dot(q[i,:], np.transpose(mat))
+
+        # display results
+        if show_plots:
+            eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
+            win1 = vis.AnimatedPlot([eval_i], title="eigfuncs")
+            win2 = vis.SurfacePlot(eval_i)
+            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+            win3 = vis.AnimatedPlot([eval_d], title="fem")
+            win4 = vis.SurfacePlot(eval_d)
             app.exec_()
 
 
@@ -597,4 +748,3 @@ class SimulationError(unittest.TestCase):
         a = np.arange(1,3)
         b = np.array([1])
         # np.dot(a, b)
-

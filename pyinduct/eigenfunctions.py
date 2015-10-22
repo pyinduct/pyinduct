@@ -40,14 +40,12 @@ class FiniteTransformFunction(Function):
     """
     Provide a transformed function y(z) = T x(z) for a given matrix T and function y(z)
     """
-    def __init__(self, function, M, b, l):
+    def __init__(self, function, M, b, l, scale_func=None, nested_lambda=False):
 
         if not callable(function):
             raise TypeError
-
         if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0]%1 != 0:
             raise TypeError
-
         if not all([isinstance(num, (int, long, float)) for num in [b, l]]):
             raise TypeError
 
@@ -55,35 +53,65 @@ class FiniteTransformFunction(Function):
         self.M = M
         self.b = b
         self.l = l
+        if scale_func == None:
+            self.scale_func = lambda z: 1
+        else:
+            self.scale_func = scale_func
 
         self.n = int(M.shape[0]/2)
         self.l0 = l/self.n
         self.z_disc = np.array([(i+1)*self.l0 for i in range(self.n)])
 
-        self.x_func_vec = list()
-        for i in range(self.n):
-            self.x_func_vec.append(AddMulFunction(partial(lambda z, k: self.function(k*self.l0 + z), k=i)))
-        for i in range(self.n):
-            self.x_func_vec.append(AddMulFunction(partial(lambda z, k: self.function(self.l - k*self.l0 - z), k=i)))
+        if not nested_lambda:
+            # iteration mode
+            Function.__init__(self,
+                              self._call_transformed_func,
+                              nonzero=(0, l),
+                              derivative_handles=[])
+        else:
+            # nested lambda mode
+            self.x_func_vec = list()
 
-        self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
+            for i in range(self.n):
+                self.x_func_vec.append(AddMulFunction(
+                    partial(lambda z, k: self.scale_func(k*self.l0 + z)*self.function(k*self.l0 + z), k=i)))
+            for i in range(self.n):
+                self.x_func_vec.append(AddMulFunction(
+                    partial(lambda z, k: self.scale_func(self.l - k*self.l0 - z)*self.function(self.l - k*self.l0 - z), k=i)))
 
-        Function.__init__(self,
-                          self._call_transformed_func_vec,
-                          nonzero=(0, l),
-                          derivative_handles=[])
+            self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
-    def _call_original_func_vec(self, z):
-        if any(np.isclose(z, self.z_disc)):
-            z -= 1e-6
-        return self.x_func_vec[int(z/self.l0)](z%self.l0)
+            Function.__init__(self,
+                              self._call_transformed_func_vec,
+                              nonzero=(0, l),
+                              derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
-        # TODO: find a better way to prevent rounding error, e.g. a=4-1e-16; int(a) = 4; a%1=0
-        if any(np.isclose(z, self.z_disc)):
-            z -= 1e-6
-        return self.y_func_vec[int(z/self.l0)](z%self.l0)
+        i = int(z/self.l0)
+        zz = z%self.l0
+        if np.isclose(z, self.l0*i) and not np.isclose(0, zz):
+            zz = 0
+        return self.y_func_vec[i](zz)
 
+    def _call_transformed_func(self, z):
+        i = int(z/self.l0)
+        if i < 0 or i > self.n*2-1:
+            raise ValueError
+        zz = z%self.l0
+        if np.isclose(z, self.l0*i) and not np.isclose(0, zz):
+            zz = 0
+        to_return = 0
+        for j in range(self.n*2):
+            mat_el = self.M[i, j]
+            if mat_el != 0:
+                if j <= self.n-1:
+                    to_return += mat_el*self.function(j*self.l0 + zz) * self.scale_func(j*self.l0 + zz)
+                elif j >= self.n:
+                    jj = j-self.n
+                    to_return += mat_el*self.function(self.l - jj*self.l0 - zz) * self.scale_func(self.l - jj*self.l0 - zz)
+                elif j < 0 or j > 2*self.n-1:
+                    raise ValueError
+        return to_return
 
 
 class TransformedSecondOrderEigenfunction(Function):
@@ -154,9 +182,10 @@ class TransformedSecondOrderEigenfunction(Function):
 
 
 class SecondOrderRobinEigenfunction(Function):
-    def __init__(self, om, param, spatial_domain):
+    def __init__(self, om, param, spatial_domain, phi_0=1):
         self._om = om
         self._param = param
+        self.phi_0 = phi_0
         Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
@@ -172,7 +201,7 @@ class SecondOrderRobinEigenfunction(Function):
 
         phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(phi_i)
+        return return_real_part(phi_i*self.phi_0)
 
     def _d_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -187,7 +216,7 @@ class SecondOrderRobinEigenfunction(Function):
 
         d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(d_phi_i)
+        return return_real_part(d_phi_i*self.phi_0)
 
     def _dd_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -202,7 +231,7 @@ class SecondOrderRobinEigenfunction(Function):
 
         d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(d_phi_i)
+        return return_real_part(d_phi_i*self.phi_0)
 
 
 class SecondOrderDirichletEigenfunction(Function):
