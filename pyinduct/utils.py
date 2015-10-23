@@ -460,3 +460,7 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
                                   ph.TestFunction(test_func_label, order=0, location=actuation_point)), -a2)
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
+
+
+def find_nearest_idx(array, value):
+    return (np.abs(array-value)).argmin()
