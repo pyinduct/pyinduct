@@ -8,7 +8,7 @@ from pyinduct import get_initial_functions, is_registered
 from core import (Function, integrate_function, calculate_function_matrix,
                   project_on_initial_functions)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
-from utils import evaluate_approximation
+from utils import evaluate_approximation, find_nearest_idx
 
 __author__ = 'Stefan Ecklebe'
 
@@ -20,7 +20,8 @@ class SimulationInput(object):
     __metaclass__ = ABCMeta
 
     def __init__(self):
-        pass
+        self._time_storage = []
+        self._value_storage = []
 
     @abstractmethod
     def __call__(self, time, weights, weight_lbl, **kwargs):
@@ -28,6 +29,13 @@ class SimulationInput(object):
         handle that will be used to retrieve input
         """
         pass
+
+    def get_results(self, time_steps):
+        """
+        return results from storage for given time steps
+        """
+        idxs = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
+        return np.array(self._value_storage).flatten()[idxs]
 
 
 class Mixer(SimulationInput):

@@ -53,7 +53,10 @@ class Controller(sim.SimulationInput):
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        return self._evaluator(weights, weight_lbl)
+        out = self._evaluator(weights, weight_lbl)
+        self._time_storage.append(time)
+        self._value_storage.append(out)
+        return out
 
 
 def approximate_control_law(control_law):
