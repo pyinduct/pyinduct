@@ -706,7 +706,7 @@ def change_projection_base(src_weights, src_initial_funcs, dst_initial_funcs):
     return project_weights(pro_mat, src_weights)
 
 
-def project_weights(src_weights, projection_matrix):
+def project_weights(projection_matrix, src_weights):
     """
     project weights on new basis using the provided projection
 
@@ -714,11 +714,10 @@ def project_weights(src_weights, projection_matrix):
     :param projection_matrix: projection
     :return:
     """
-    # TODO check dimensions and convert to Form a= Ab instead of a = bA
     if isinstance(src_weights, Number):
         src_weights = np.asarray([src_weights])
 
-    return np.dot(src_weights, projection_matrix)
+    return np.dot(projection_matrix, src_weights)
 
 
 def calculate_base_projection(src_initial_funcs, dst_initial_funcs):
