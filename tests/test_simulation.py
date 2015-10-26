@@ -460,6 +460,7 @@ class StringMassTest(unittest.TestCase):
 
     # TODO test "forbidden" terms like derivatives on the borders
 
+
 class RadFemTrajectoryTest(unittest.TestCase):
     """
     Tests FEM simulation with cr.LagrangeFirstOrder and cr.LagrangeSecondOrder testfunctions
@@ -472,17 +473,21 @@ class RadFemTrajectoryTest(unittest.TestCase):
     def test_it(self):
         param = [2., -1.5, -3., 2., .5]
         a2, a1, a0, alpha, beta = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 10
-        T = 1.; temporal_domain = (0, T); temporal_disc = 2e2
+        l = 1.
+        spatial_domain = (0, l)
+        spatial_disc = 10
+        T = 1.
+        temporal_domain = (0, T)
+        temporal_disc = 2e2
 
-        # create testfunctions
+        # create test functions
         nodes_1, ini_funcs_1 = ut.cure_interval(cr.LagrangeFirstOrder,
-                                            spatial_domain,
-                                            node_count=spatial_disc)
+                                                spatial_domain,
+                                                node_count=spatial_disc)
         register_functions("init_funcs_1", ini_funcs_1, overwrite=True)
         nodes_2, ini_funcs_2 = ut.cure_interval(cr.LagrangeSecondOrder,
-                                            spatial_domain,
-                                            node_count=int(spatial_disc))
+                                                spatial_domain,
+                                                node_count=int(spatial_disc))
         register_functions("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
@@ -720,3 +725,5 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
             win1 = vis.AnimatedPlot([eval_d], title="Test")
             win2 = vis.SurfacePlot(eval_d)
             app.exec_()
+
+    # TODO Tests for SimulationInput
