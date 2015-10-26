@@ -6,6 +6,8 @@ import unittest
 import numpy as np
 
 from pyinduct import core, utils, trajectory as tr, visualization as vis
+import pyinduct.eigenfunctions as ef
+import pyinduct.utils as ut
 import pyqtgraph as pg
 import sys
 
@@ -43,3 +45,55 @@ class SmoothTransitionTestCase(unittest.TestCase):
             pw.plot(self.t_values, u_values)
             ap = vis.AnimatedPlot(eval_data_x)
             app.exec_()
+
+class FormalPowerSeriesTest(unittest.TestCase):
+
+    def setUp(self):
+
+        self.l=1; self.T=1
+        a2 = 1; a1 = 0; a0 = 6; self.alpha = 0.5; self.beta = 0.5
+        self.param = [a2, a1, a0, self.alpha, self.beta]
+        self.n_y = 80
+        self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 1)
+
+    def test_temporal_derive(self):
+
+        b_desired = 0.4
+        k = 5 # = k1 + k2
+        k1, k2, b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
+        # q
+        E = tr.coefficient_recursion(self.y, self.beta*self.y, self.param)
+        q = tr.temporal_derived_power_series(self.l-b, E, int(self.n_y/2)-1, self.n_y)
+        # u
+        B = tr.coefficient_recursion(self.y, self.alpha*self.y, self.param)
+        xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y/2)-1, self.n_y, spatial_der_order=0)
+        d_xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y/2)-1, self.n_y, spatial_der_order=1)
+        u = d_xq + self.beta*xq
+        # x(0,t)
+        C = tr.coefficient_recursion(q, self.beta*q, self.param)
+        D = tr.coefficient_recursion(np.zeros(u.shape), u, self.param)
+        x_0t = tr.power_series(0, self.t, C)
+        if show_plots:
+            pw = pg.plot(title="control_input")
+            pw.plot(self.t, x_0t)
+            app.exec_()
+
+    def test_recursion_vs_explicit(self):
+
+        # recursion
+        B = tr.coefficient_recursion(self.y, self.alpha*self.y, self.param)
+        x_l = tr.power_series(self.l, self.t, B)
+        d_x_l = tr.power_series(self.l, self.t, B, spatial_der_order=1)
+        u_c = d_x_l + self.beta*x_l
+        u_a = tr.InterpTrajectory(self.t, u_c, show_plot=show_plots)
+        u_a_t = u_a(self.t, None, None)
+        # explicit
+        u_b = tr.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
+        u_b_t = u_b(self.t, None, None)
+        self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
+        if show_plots:
+            pw = pg.plot(title="control_input")
+            pw.plot(self.t, u_a_t)
+            pw.plot(self.t, u_b_t)
+            app.exec_()
+
