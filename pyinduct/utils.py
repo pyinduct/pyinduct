@@ -192,7 +192,8 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
-    spatial_steps = np.arange(spatial_interval[0], spatial_interval[1] + spatial_step, spatial_step)
+    step_cnt = int((spatial_interval[1] - spatial_interval[0])/ spatial_step)
+    spatial_steps = np.linspace(spatial_interval[0], spatial_interval[1], step_cnt)
 
     def eval_spatially(weight_vector):
         if isinstance(function_label[0], LagrangeFirstOrder):

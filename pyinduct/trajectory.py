@@ -302,7 +302,7 @@ class RadTrajectory(SimulationInput):
 
         return x, d_x
 
-    def __call__(self, t, q, weight_label, **kwargs):
+    def _calc_output(self, **kwargs):
         """
         use time to calculate system input and return force
         :param t:
@@ -310,4 +310,4 @@ class RadTrajectory(SimulationInput):
         :param kwargs:
         :return:
         """
-        return np.interp(t, self._t, self._u)*self.scale
+        return np.interp(kwargs["time"], self._t, self._u)*self.scale
