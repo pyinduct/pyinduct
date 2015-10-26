@@ -207,6 +207,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return EvalData([temporal_steps, spatial_steps], data)
 
+
 def split_domain(n, a_desired, l, mode='coprime'):
     """
     Consider a domain [0,l] which is divided into two subdomains [0,a] and [a,l].
@@ -280,6 +281,7 @@ def split_domain(n, a_desired, l, mode='coprime'):
 
     return cand[min_index]
 
+
 def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     """
     Returns the transformation matrix M. M is one part of a transformation
@@ -326,6 +328,7 @@ def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
         raise ValueError("String in variable 'mode' not understood.")
     return M*0.5
 
+
 def scale_equation_term_list(eqt_list, factor):
     """
     Temporary function, as long pyinduct.placeholder.EquationTerm can only be scaled individually.
@@ -346,6 +349,7 @@ def scale_equation_term_list(eqt_list, factor):
         term.scale *= factor
 
     return eqt_list_copy
+
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
                                                 d_approx_target_state, integral_kernel_zz, original_boundary_param,
@@ -391,11 +395,13 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     else:
         return sim.Mixer([ct.Controller(ct.ControlLaw(scaled_control_law))])
 
+
 def _convert_to_function(coef):
     if not callable(coef):
         return lambda z: coef
     else:
         return coef
+
 
 def _convert_to_scalar_function(coef, label):
     import core as cr
@@ -404,6 +410,7 @@ def _convert_to_scalar_function(coef, label):
     else:
         register_functions(label, cr.Function(coef), overwrite=True)
     return ph.ScalarFunction(label)
+
 
 def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
     import simulation as sim
