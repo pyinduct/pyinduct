@@ -47,16 +47,13 @@ class Controller(sim.SimulationInput):
         sim.SimulationInput.__init__(self)
         self._evaluator = approximate_control_law(control_law)
 
-    def __call__(self, time, weights, weight_lbl, **kwargs):
+    def _calc_output(self, **kwargs):
         """
         calculates the controller output based on the current_weights
         :param current_weights: current weights of the simulations system approximation
         :return: control output :math:`u`
         """
-        out = self._evaluator(weights, weight_lbl)
-        self._time_storage.append(time)
-        self._value_storage.append(out)
-        return out
+        return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
 
 
 def approximate_control_law(control_law):

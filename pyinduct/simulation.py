@@ -23,10 +23,19 @@ class SimulationInput(object):
         self._time_storage = []
         self._value_storage = []
 
-    @abstractmethod
-    def __call__(self, time, weights, weight_lbl, **kwargs):
+    def __call__(self, **kwargs):
         """
         handle that will be used to retrieve input
+        """
+        out = self._calc_output(**kwargs)
+        self._time_storage.append(kwargs["time"])
+        self._value_storage.append(out)
+        return out
+
+    @abstractmethod
+    def _calc_output(self, **kwargs):
+        """
+        handle that has to be implemented for output calculation
         """
         pass
 
@@ -46,8 +55,8 @@ class Mixer(SimulationInput):
         SimulationInput.__init__(self)
         self._inputs = inputs
 
-    def __call__(self, time, weights, weight_lbl, **kwargs):
-        outs = np.array([handle(time, weights, weight_lbl, **kwargs) for handle in self._inputs])
+    def _calc_output(self, **kwargs):
+        outs = np.array([handle(**kwargs) for handle in self._inputs])
         return np.sum(outs)
 
 
@@ -495,7 +504,7 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     t = [time_interval[0]]
 
     def _rhs(t, q, a_mat, b_mat, u):
-        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(t, q, state_space.weight_lbl)).flatten()
+        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(time=t, weights=q, weight_lbl=state_space.weight_lbl)).flatten()
         return q_t
 
     r = ode(_rhs).set_integrator("vode", max_step=time_step)
