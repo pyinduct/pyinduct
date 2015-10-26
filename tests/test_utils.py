@@ -58,6 +58,7 @@ class CureTestCase(unittest.TestCase):
             z = np.linspace(0,1,1000)
             [plt.plot(z, fun.derive(0)(z)) for fun in funcs]; plt.grid(True); plt.show()
 
+
 class FindRootsTestCase(unittest.TestCase):
 
     def setUp(self):

@@ -25,6 +25,7 @@ else:
 
 # TODO Test for ControlLaw and LawEvaluator
 
+
 class CollocatedTestCase(unittest.TestCase):
 
     def setUp(self):
