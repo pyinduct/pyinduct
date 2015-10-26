@@ -140,7 +140,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, eig_funcs)
+        initial_weights = cr.project_on_base(start_state, eig_funcs)
 
         # init trajectory / input of target system
         traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)
@@ -220,7 +220,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
+        initial_weights = cr.project_on_base(start_state, adjoint_eig_funcs)
 
         # controller initialization
         x_at_l = ph.FieldVariable("eig_funcs", location=l)
@@ -713,7 +713,7 @@ class SimulationError(unittest.TestCase):
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_initial_functions(start_state, adjoint_eig_funcs)
+        initial_weights = cr.project_on_base(start_state, adjoint_eig_funcs)
 
         # init trajectory
         traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)

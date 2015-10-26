@@ -6,7 +6,7 @@ from scipy.optimize import fsolve
 from pyinduct import get_initial_functions, register_functions
 import pyinduct
 import placeholder as ph
-from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_initial_functions
+from core import Function, LagrangeFirstOrder, LagrangeSecondOrder, back_project_from_base
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
@@ -200,7 +200,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
             nodes = [func.top for func in funcs]
             handle = interp1d(nodes, weight_vector)
         else:
-            handle = back_project_from_initial_functions(weight_vector, funcs)
+            handle = back_project_from_base(weight_vector, funcs)
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)

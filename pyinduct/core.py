@@ -17,7 +17,6 @@ def sanitize_input(input_object, allowed_type):
     :param allowed_type:
     :return:
     """
-    # input_object = np.atleast_2d(input_object)
     if isinstance(input_object, allowed_type):
         input_object = np.asarray([input_object])
     elif isinstance(input_object, np.ndarray):
@@ -357,10 +356,9 @@ class LagrangeSecondOrder(Function):
         return self._lagrange2nd_interior_half(z, der_order=2)
 
 
-class FunctionVector:
+class BaseFraction(object):
     """
-    class that implements vectors of function and scalars to cope with situations where distributed as well as
-    concentrated elements have to be provided
+    abstract base class representing a basis that can be used to describe functions of several variables
     """
     __metaclass__ = ABCMeta
 
@@ -370,22 +368,39 @@ class FunctionVector:
     @abstractmethod
     def scalar_product(first, second):
         """
-        define how the scalar product is defined between certain FunctionVectors.
+        defines how the scalar product between two base fractions is calculated.
         Implementations must be static
+        """
+        pass
+
+    @abstractmethod
+    def scalar_product_hint(self):
+        """
+        hint that returns steps for scalar product calculation.
+        In detail this means a list object containing function calls to fill with (first, second) parameters
+        that will calculate the scalar product when summed up
+        :return:
         """
         pass
 
     @abstractmethod
     def scale(self, factor):
         """
-        factory method to obtain instances of this vector scaled by the given factor.
+        factory method to obtain instances of this base fraction, scaled by the given factor.
 
         :param factor: factor to scale the vector
         """
         pass
 
 
-class SimpleFunctionVector(FunctionVector):
+class FunctionVector(BaseFraction):
+    """
+    class that implements vectors of function and scalars to cope with situations where distributed as well as
+    concentrated elements have to be provided
+    """
+
+
+class SimpleFunctionVector(BaseFraction):
     """
     implementation of the "simple" distributed case, only one member which is a Function
     """
@@ -393,7 +408,11 @@ class SimpleFunctionVector(FunctionVector):
     def __init__(self, function):
         if not isinstance(function, Function):
             raise TypeError("Only Function objects accepted as function")
-        FunctionVector.__init__(self, function)
+        BaseFraction.__init__(self, function)
+
+    @staticmethod
+    def scalar_product_hint(self):
+        return [dot_product_l2]
 
     @staticmethod
     def scalar_product(first, second):
@@ -402,28 +421,37 @@ class SimpleFunctionVector(FunctionVector):
         return dot_product_l2(first.members, second.members)
 
     def scale(self, factor):
+        """
+        easy one, let cr.Function handle the scaling
+        """
         return SimpleFunctionVector(self.members.scale(factor))
 
 
 class ComposedFunctionVector(FunctionVector):
     """
     implementation of composite function vector :math:`\\boldsymbol{x}`.
-    It contains one Function member :math:`x(t)` and one scalar member :math:`\\xi.`
+    It contains n Function members :math:`x(t)` and m scalar members :math:`\\xi.`
 
     .. math::
         \\boldsymbol{x} = \\begin{pmatrix}
-            x(z) \\\\
-            \\xi
+            x_1(z) \\\\
+            \\vdots \\\\
+            x_n(z) \\\\
+            \\xi_1 \\\\
+            \vdots \\\\
+            \\xi_m \\\\
         \\end{pmatrix}
     """
 
-    def __init__(self, function, scalar):
-        if not isinstance(function, Function):
-            raise TypeError("Only Function objects accepted as function")
-        if not isinstance(scalar, (int, long, float)):
-            raise TypeError("Only int or float objects accepted as scalar")
+    def __init__(self, functions, scalars):
+        funcs = sanitize_input(functions, Function)
+        scals = sanitize_input(scalars, Number)
 
-        FunctionVector.__init__(self, [function, scalar])
+        FunctionVector.__init__(self, {"funcs": funcs, "scalars": scals})
+
+    def scalar_product_hint(self):
+        return [[dot_product_l2 for funcs in self.members["funcs"]],
+                [np.mul for scals in self.members["scalars"]]]
 
     @staticmethod
     def scalar_product(first, second):
@@ -432,11 +460,17 @@ class ComposedFunctionVector(FunctionVector):
         """
         if not isinstance(first, ComposedFunctionVector) or not isinstance(second, ComposedFunctionVector):
             raise TypeError("only ComposedFunctionVector supported")
-        return dot_product_l2(first.members[0], second.members[0]) + first.members[1] * second.members[1]
+        if first.members["funcs"].size != second.members["funcs"].size or\
+                        first.members["scalars"].size != second.members["scalars"].size:
+            raise TypeError("dimension mismatch in vector dimensions!")
+
+        cont_part = np.sum(dot_product_l2(first.members["funcs"], second.members["funcs"]))
+        coll_part = np.sum(dot_product(first.members["scalars"], second.members["scalars"]))
+        return cont_part + coll_part
 
     def scale(self, factor):
-        return ComposedFunctionVector(self.members[0].scale(factor),
-                                      self.members[1] * factor)
+        return ComposedFunctionVector([func.scale(factor) for func in self.members["funcs"]],
+                                      [scal * factor for scal in self.members["scalars"]])
 
 
 def domain_intersection(first, second):
@@ -516,7 +550,7 @@ def _dot_product_l2(first, second):
     :return: inner product
     """
     if not isinstance(first, Function) or not isinstance(second, Function):
-        raise TypeError("Wrong type(s) supplied both must be a {0}".format(Function))
+        raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
 
     # TODO remember not only 1d possible here!
     limits = domain_intersection(first.domain, second.domain)
@@ -577,6 +611,26 @@ def dot_product_l2(first, second):
     :param second: numpy.ndarray of function
     :return: numpy.nadarray of inner product
     """
+    # TODO seems like for now vectorize is the better alternative here
+    # frst = sanitize_input(first, Function)
+    # scnd = sanitize_input(second, Function)
+    #
+    # res = np.zeros_like(frst)
+    #
+    # first_iter = frst.flat
+    # second_iter = scnd.flat
+    # res_iter = res.flat
+    #
+    # while True:
+    #     try:
+    #         f = first_iter.next()
+    #         s = second_iter.next()
+    #         r = res_iter.next()
+    #         r[...] = _dot_product_l2(f, s)
+    #     except StopIteration:
+    #         break
+    #
+    # return res
     if "handle" not in dot_product_l2.__dict__:
         dot_product_l2.handle = np.vectorize(_dot_product_l2)
     return dot_product_l2.handle(first, second)
@@ -640,52 +694,52 @@ def calculate_function_matrix(functions_a, functions_b):
     return dot_product_l2(funcs_i, funcs_j)
 
 
-def project_on_initial_functions(function, initial_functions):
+def project_on_base(function, base):
     """
-    projects given function on a new basis
+    projects given function on a basis given by base
 
     :param function: function the approximate
-    :param initial_functions: initial functions
+    :param base: functions or function vectors that generate the base
     :return: weights
     """
     if not isinstance(function, Function):
         raise TypeError("Only pyinduct.Function accepted as 'func'")
 
-    if isinstance(initial_functions, Function):  # convenience case
-        initial_functions = np.asarray([initial_functions])
+    if isinstance(base, Function):  # convenience case
+        base = np.asarray([base])
 
-    if not isinstance(initial_functions, np.ndarray):
+    if not isinstance(base, np.ndarray):
         raise TypeError("Only numpy.ndarray accepted as 'initial_functions'")
 
     # compute <x(z, t), phi_i(z)>
-    projections = dot_product_l2(function, initial_functions)
+    projections = np.array([dot_product_l2(function, frac) for frac in base])
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
-    scale_mat = calculate_function_matrix(initial_functions, initial_functions)
+    scale_mat = calculate_function_matrix(base, base)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
 
-def back_project_from_initial_functions(weights, initial_functions):
+def back_project_from_base(weights, base):
     """
-    build handle for function that was expressed in test functions with weights
+    build handle for function that was expressed in a certain basis with weights
 
     :param weights:
-    :param initial_functions:
+    :param base:
     :return: evaluation handle
     """
     if isinstance(weights, Number):
         weights = np.asarray([weights])
-    if isinstance(initial_functions, Function):
-        initial_functions = np.asarray([initial_functions])
-    if not isinstance(weights, np.ndarray) or not isinstance(initial_functions, np.ndarray):
+    if isinstance(base, Function):
+        base = np.asarray([base])
+    if not isinstance(weights, np.ndarray) or not isinstance(base, np.ndarray):
         raise TypeError("Only numpy ndarrays accepted as input")
 
-    if weights.shape[0] != initial_functions.shape[0]:
+    if weights.shape[0] != base.shape[0]:
         raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
     def eval_handle(z):
-        return sum([weights[i] * initial_functions[i](z) for i in range(weights.shape[0])])
+        return sum([weights[i] * base[i](z) for i in range(weights.shape[0])])
 
     # TODO test if bottom one is faster
     return np.vectorize(eval_handle)
@@ -750,12 +804,14 @@ def normalize_function(x1, x2=None):
     that :math:`\\langle\\boldsymbol{x}_1\\,,\:\\boldsymbol{x}_2\\rangle = 1`.
     If only one function is given, :math:`\\boldsymbol{x}_2` is set to :math:`\\boldsymbol{x}_1`.
 
-    :param x1: core.Function or core.FunctionVector :math:`\\boldsymbol{x}_1`
-    :param x2: core.Function or core.FunctionVector :math:`\\boldsymbol{x}_2`
+    :param x1: core.BaseFraction :math:`\\boldsymbol{x}_1`
+    :param x2: core.BaseFraction :math:`\\boldsymbol{x}_2`
     :return:
     """
-    if not isinstance(x1, FunctionVector) and not isinstance(x1, Function):
-        raise TypeError("only core.Function and core.FunctionVector supported.")
+    if not isinstance(x1, BaseFraction):
+        # for the good times sake
+        if not isinstance(x1, Function) :
+            raise TypeError("only core.BaseFraction supported.")
 
     if x2 is None:
         x2 = x1
@@ -765,10 +821,11 @@ def normalize_function(x1, x2=None):
     if isinstance(x1, Function):
         product = dot_product_l2(x1, x2)
     else:
+        # TODO make use of scalar product hints here
         product = x1.scalar_product(x1, x2)
 
     if abs(product) < np.finfo(float).eps:
-        raise ValueError("given function are orthogonal. no normalization possible.")
+        raise ValueError("given base fractions are orthogonal. no normalization possible.")
 
     scale_factor = np.sqrt(1 / product)
     if x1 == x2:

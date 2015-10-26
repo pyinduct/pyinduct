@@ -10,7 +10,8 @@ __author__ = 'stefan'
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
+    show_plots = False
+    # show_plots = True
     app = pg.QtGui.QApplication([])
 
 
@@ -225,26 +226,26 @@ class ProjectionTest(unittest.TestCase):
         self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
 
     def test_types_projection(self):
-        self.assertRaises(TypeError, core.project_on_initial_functions, 1, 2)
-        self.assertRaises(TypeError, core.project_on_initial_functions, np.sin, np.sin)
+        self.assertRaises(TypeError, core.project_on_base, 1, 2)
+        self.assertRaises(TypeError, core.project_on_base, np.sin, np.sin)
 
     def test_projection_on_lag1st(self):
         weights = []
 
         # convenience wrapper for non array input -> constant function
-        weight = core.project_on_initial_functions(self.funcs[0], self.initial_functions[1])
+        weight = core.project_on_base(self.funcs[0], self.initial_functions[1])
         self.assertAlmostEqual(weight, 1.5*self.funcs[0](self.nodes[1]))
 
         # linear function -> should be fitted exactly
-        weights.append(core.project_on_initial_functions(self.funcs[1], self.initial_functions))
+        weights.append(core.project_on_base(self.funcs[1], self.initial_functions))
         self.assertTrue(np.allclose(weights[-1], self.funcs[1](self.nodes)))
 
         # quadratic function -> should be fitted somehow close
-        weights.append(core.project_on_initial_functions(self.funcs[2], self.initial_functions))
+        weights.append(core.project_on_base(self.funcs[2], self.initial_functions))
         self.assertTrue(np.allclose(weights[-1], self.funcs[2](self.nodes), atol=.5))
 
         # trig function -> will be crappy
-        weights.append(core.project_on_initial_functions(self.funcs[3], self.initial_functions))
+        weights.append(core.project_on_base(self.funcs[3], self.initial_functions))
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
@@ -255,14 +256,14 @@ class ProjectionTest(unittest.TestCase):
                 app.exec_()
 
     def test_types_back_projection(self):
-        self.assertRaises(TypeError, core.back_project_from_initial_functions, 1, 2)
-        self.assertRaises(TypeError, core.back_project_from_initial_functions, 1.0, np.sin)
+        self.assertRaises(TypeError, core.back_project_from_base, 1, 2)
+        self.assertRaises(TypeError, core.back_project_from_base, 1.0, np.sin)
 
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.funcs[1])
         real_weights = vec_real_func(self.nodes)
-        approx_func = core.back_project_from_initial_functions(real_weights, self.initial_functions)
-        approx_func_dz = core.back_project_from_initial_functions(real_weights, get_initial_functions("ini_funcs", 1))
+        approx_func = core.back_project_from_base(real_weights, self.initial_functions)
+        approx_func_dz = core.back_project_from_base(real_weights, get_initial_functions("ini_funcs", 1))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
@@ -290,9 +291,9 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # approximation by lag1st
         self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
         register_functions("test_funcs", self.src_test_funcs, overwrite=True)
-        self.src_weights = core.project_on_initial_functions(self.real_func, self.src_test_funcs)
+        self.src_weights = core.project_on_base(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
-        self.src_approx_handle = core.back_project_from_initial_functions(self.src_weights, self.src_test_funcs)
+        self.src_approx_handle = core.back_project_from_base(self.src_weights, self.src_test_funcs)
 
         # approximation by sin(w*x)
         def trig_factory(freq):
@@ -307,11 +308,11 @@ class ChangeProjectionBaseTest(unittest.TestCase):
     def test_lag1st_to_trig(self):
         # scalar case
         dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
-        dest_approx_handle_s = core.back_project_from_initial_functions(dest_weight, self.trig_test_funcs[0])
+        dest_approx_handle_s = core.back_project_from_base(dest_weight, self.trig_test_funcs[0])
 
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
-        dest_approx_handle = core.back_project_from_initial_functions(dest_weights, self.trig_test_funcs)
+        dest_approx_handle = core.back_project_from_base(dest_weights, self.trig_test_funcs)
         error = np.sum(np.power(
             np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
             2))

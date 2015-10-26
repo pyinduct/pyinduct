@@ -6,7 +6,7 @@ from scipy.integrate import ode
 
 from pyinduct import get_initial_functions, is_registered
 from core import (Function, integrate_function, calculate_function_matrix,
-                  project_on_initial_functions)
+                  project_on_base)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
 from utils import evaluate_approximation, find_nearest_idx
 
@@ -140,7 +140,7 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
 
     # calculate initial state
     print(">>> deriving initial conditions")
-    q0 = np.array([project_on_initial_functions(initial_state, get_initial_functions(
+    q0 = np.array([project_on_base(initial_state, get_initial_functions(
         canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
 
