@@ -12,7 +12,7 @@ if any([arg == 'discover' for arg in sys.argv]):
 else:
     show_plots = False
     # show_plots = True
-    app = pg.QtGui.QApplication([])
+    # app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTest(unittest.TestCase):

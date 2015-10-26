@@ -392,6 +392,12 @@ class BaseFraction(object):
         """
         pass
 
+    @abstractmethod
+    def get_member(self, idx):
+        """
+        getter function to access members of BaseFraction
+        """
+        pass
 
 class FunctionVector(BaseFraction):
     """
@@ -410,7 +416,6 @@ class SimpleFunctionVector(BaseFraction):
             raise TypeError("Only Function objects accepted as function")
         BaseFraction.__init__(self, function)
 
-    @staticmethod
     def scalar_product_hint(self):
         return [dot_product_l2]
 
@@ -419,6 +424,11 @@ class SimpleFunctionVector(BaseFraction):
         if not isinstance(first, SimpleFunctionVector) or not isinstance(second, SimpleFunctionVector):
             raise TypeError("only SimpleFunctionVectors supported")
         return dot_product_l2(first.members, second.members)
+
+    def get_member(self, idx):
+        if idx != 0:
+            raise ValueError("only one member available!")
+        return self.members
 
     def scale(self, factor):
         """
@@ -452,6 +462,14 @@ class ComposedFunctionVector(FunctionVector):
     def scalar_product_hint(self):
         return [[dot_product_l2 for funcs in self.members["funcs"]],
                 [np.mul for scals in self.members["scalars"]]]
+
+    def get_member(self, idx):
+        if idx < len(self.members["funcs"]):
+            return self.members["funcs"][idx]
+        elif idx - len(self.members["funcs"]) < len(self.members["scalars"]):
+            return self.members["scalars"][idx - len(self.members["funcs"])]
+        else:
+            raise ValueError("wrong index")
 
     @staticmethod
     def scalar_product(first, second):
@@ -652,7 +670,7 @@ def calculate_function_matrix_differential(functions_a, functions_b,
     der_a = np.asarray([func.derive(derivative_order_a) for func in functions_a])
     der_b = np.asarray([func.derive(derivative_order_b) for func in functions_b])
     if locations is None:
-        return calculate_function_matrix(der_a, der_b)
+        return calculate_product_matrix(dot_product_l2, der_a, der_b)
     else:
         if not isinstance(locations, tuple) or len(locations) != 2:
             raise TypeError("only tuples of len 2 allowed for locations.")
@@ -676,22 +694,22 @@ def calculate_scalar_matrix(values_a, values_b):
     return np.multiply(vals_i, vals_j)
 
 
-def calculate_function_matrix(functions_a, functions_b):
+def calculate_product_matrix(product_handle, first_member, second_member):
     """
     calculates a matrix :math:`A` whose elements are the scalar products of each element from functions_a and
     functions_b, so that :math:`a_{ij} = \\langle \\mathrm{functions_a}_i\\,,\\: \\mathrm{functions_b}_j\\rangle`.
 
-    :param functions_a: (np.ndarray of) :py:class:`Function`
-    :param functions_b: (np.ndarray of) :py:class:`Function`
+    :param second_member: (np.ndarray of) :py:class:`Function`
+    :param first_member: (np.ndarray of) :py:class:`Function`
     :return: matrix :math:`A` as np.ndarray
     """
-    funcs_a = sanitize_input(functions_a, Function)
-    funcs_b = sanitize_input(functions_b, Function)
+    # funcs_a = sanitize_input(second_member, Function)
+    # funcs_b = sanitize_input(second_member, Function)
 
-    i, j = np.mgrid[0:funcs_a.shape[0], 0:funcs_b.shape[0]]
-    funcs_i = funcs_a[i]
-    funcs_j = funcs_b[j]
-    return dot_product_l2(funcs_i, funcs_j)
+    i, j = np.mgrid[0:first_member.shape[0], 0:second_member.shape[0]]
+    funcs_i = first_member[i]
+    funcs_j = second_member[j]
+    return product_handle(funcs_i, funcs_j)
 
 
 def project_on_base(function, base):
@@ -715,7 +733,7 @@ def project_on_base(function, base):
     projections = np.array([dot_product_l2(function, frac) for frac in base])
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
-    scale_mat = calculate_function_matrix(base, base)
+    scale_mat = calculate_product_matrix(dot_product_l2, base, base)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
@@ -746,17 +764,17 @@ def back_project_from_base(weights, base):
     return eval_handle
 
 
-def change_projection_base(src_weights, src_initial_funcs, dst_initial_funcs):
+def change_projection_base(src_weights, src_base, dst_base):
     """
-    converts given weights that form an approximation using src_test_functions to the best possible fit using
-    dst_test_functions.
+    converts given weights that form an approximation using src_base to the best possible fit using
+    dst_base. bases can be given as BaseFraction Array or Function Array.
 
     :param src_weights: current weights
-    :param src_initial_funcs: original test functions (np.ndarray)
-    :param dst_initial_funcs: target test functions (np.ndarray)
+    :param src_base: original basis (np.ndarray)
+    :param dst_base: target basis (np.ndarray)
     :return: target weights
     """
-    pro_mat = calculate_base_projection(src_initial_funcs, dst_initial_funcs)
+    pro_mat = calculate_base_projection(src_base, dst_base)
     return project_weights(pro_mat, src_weights)
 
 
@@ -774,26 +792,49 @@ def project_weights(projection_matrix, src_weights):
     return np.dot(projection_matrix, src_weights)
 
 
-def calculate_base_projection(src_initial_funcs, dst_initial_funcs):
+def calculate_base_projection(src_base, dst_base):
     """
     calculates the base transformation :math:`V` so that the vector of src_weights can be transformed in a vector of
     dst_weights, making the smallest error possible. Quadratic error is used as the error-norm for this case.
 
-    :param dst_initial_funcs: new projection base
-    :param src_initial_funcs: current projection base
+    :param dst_base: new projection base
+    :param src_base: current projection base
     :return:
     """
-    if isinstance(src_initial_funcs, Function):
-        src_initial_funcs = np.asarray([src_initial_funcs])
-    if isinstance(dst_initial_funcs, Function):
-        dst_initial_funcs = np.asarray([dst_initial_funcs])
+    src_base = np.atleast_1d(src_base)
+    dst_base = np.atleast_1d(dst_base)
 
-    # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-    t_mat = calculate_function_matrix(dst_initial_funcs, src_initial_funcs)
-    # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
-    r_mat = calculate_function_matrix(dst_initial_funcs, dst_initial_funcs)
-    # compute V matrix: T*inv(R)
-    v_mat = np.dot(np.linalg.inv(r_mat), t_mat)
+    if isinstance(src_base[0], Function):
+        # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
+        t_mat = calculate_product_matrix(dot_product_l2, dst_base, src_base)
+
+        # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
+        r_mat = calculate_product_matrix(dot_product_l2, dst_base, dst_base)
+
+        # compute V matrix: T*inv(R)
+        v_mat = np.dot(np.linalg.inv(r_mat), t_mat)
+    elif isinstance(src_base[0], BaseFraction):
+        # compute P and Q matrices
+        hints = src_base[0].scalar_product_hint()
+        p_matrices = []
+        q_matrices = []
+        for idx, hint in enumerate(hints):
+            dst_members = [dst_frac.get_member(idx) for dst_frac in dst_base]
+            src_members = [src_frac.get_member(idx) for src_frac in src_base]
+
+            # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
+            p_matrices.append(calculate_product_matrix(hint, dst_members, src_members))
+
+            # compute Q_n matrix: <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
+            q_matrices.append(calculate_product_matrix(hint, dst_members, dst_members))
+
+        p_mat = np.sum(p_matrices)
+        q_mat = np.sum(q_matrices)
+
+        # compute V matrix: T*inv(R)
+        v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
+    else:
+        raise TypeError("input not supported.")
 
     return v_mat
 
@@ -819,15 +860,17 @@ def normalize_function(x1, x2=None):
         raise TypeError("only arguments of same type allowed.")
 
     if isinstance(x1, Function):
-        product = dot_product_l2(x1, x2)
+        res = dot_product_l2(x1, x2)
     else:
-        # TODO make use of scalar product hints here
-        product = x1.scalar_product(x1, x2)
+        hints = x1.scalar_product_hint()
+        res = 0
+        for idx, hint in enumerate(hints):
+            res += hint(x1.get_member(idx), x2.get_member(idx))
 
-    if abs(product) < np.finfo(float).eps:
+    if abs(res) < np.finfo(float).eps:
         raise ValueError("given base fractions are orthogonal. no normalization possible.")
 
-    scale_factor = np.sqrt(1 / product)
+    scale_factor = np.sqrt(1 / res)
     if x1 == x2:
         return x1.scale(scale_factor)
     else:
