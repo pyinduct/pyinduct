@@ -17,7 +17,8 @@ __author__ = 'Stefan Ecklebe'
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
+    # show_plots = True
+    show_plots = False
     app = pg.QtGui.QApplication([])
 
 
@@ -378,13 +379,13 @@ class StringMassTest(unittest.TestCase):
             """
             String With Mass Function Vector, necessary due to manipulated scalar product
             """
+            @property
+            def func(self):
+                return self.members["funcs"][0]
 
-            @staticmethod
-            def scalar_product(first, second):
-                if not isinstance(first, SWMFunctionVector) or not isinstance(second, cr.ComposedFunctionVector):
-                    raise TypeError("only SWMFunctionVector supported")
-                return cr.dot_product_l2(first.members[0], second.members[0]) + self.mass * first.members[1] * \
-                                                                                second.members[1]
+            @property
+            def scalar(self):
+                return self.members["scalars"][0]
 
         eig_vectors = []
         for n in range(order):
@@ -398,14 +399,14 @@ class StringMassTest(unittest.TestCase):
 
         # normalize eigen vectors
         norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
-        norm_eig_funcs = np.atleast_1d([vec.members[0] for vec in norm_eig_vectors])
+        norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
         register_functions("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
         # debug print eigenfunctions
         if 0:
             func_vals = []
             for vec in eig_vectors:
-                func_vals.append(np.vectorize(vec.members[0])(self.z_values))
+                func_vals.append(np.vectorize(vec.func)(self.z_values))
 
             norm_func_vals = []
             for func in norm_eig_funcs:

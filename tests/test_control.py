@@ -19,8 +19,10 @@ __author__ = 'Stefan Ecklebe'
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
+    app = None
 else:
-    show_plots = True
+    # show_plots = True
+    show_plots = False
     app = pg.QtGui.QApplication([])
 
 # TODO Test for ControlLaw and LawEvaluator

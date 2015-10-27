@@ -30,15 +30,96 @@ def sanitize_input(input_object, allowed_type):
     return input_object
 
 
-class Function:
+class BaseFraction(object):
+    """
+    abstract base class representing a basis that can be used to describe functions of several variables
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self, members):
+        self.members = members
+
+    # TODO remove this method since hints should be used
+    # @abstractmethod
+    # def scalar_product(first, second):
+    #     """
+    #     defines how the scalar product between two base fractions is calculated.
+    #     Implementations must be static
+    #     """
+    #     pass
+
+    @abstractmethod
+    def scalar_product_hint(self):
+        """
+        hint that returns steps for scalar product calculation.
+        In detail this means a list object containing function calls to fill with (first, second) parameters
+        that will calculate the scalar product when summed up
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def scale(self, factor):
+        """
+        factory method to obtain instances of this base fraction, scaled by the given factor.
+
+        :param factor: factor to scale the vector
+        """
+        pass
+
+    @abstractmethod
+    def get_member(self, idx):
+        """
+        getter function to access members of BaseFraction
+        """
+        pass
+
+
+# TODO remove
+# class SimpleFunctionVector(BaseFraction):
+#     """
+#     implementation of the "simple" distributed case, only one member which is a Function
+#     """
+#
+#     def __init__(self, function):
+#         if not isinstance(function, Function):
+#             raise TypeError("Only Function objects accepted as function")
+#         BaseFraction.__init__(self, function)
+#
+#     def scalar_product_hint(self):
+#         return [dot_product_l2]
+#
+#     @staticmethod
+#     def scalar_product(first, second):
+#         if not isinstance(first, SimpleFunctionVector) or not isinstance(second, SimpleFunctionVector):
+#             raise TypeError("only SimpleFunctionVectors supported")
+#         return dot_product_l2(first.members, second.members)
+#
+#     def get_member(self, idx):
+#         if idx != 0:
+#             raise ValueError("only one member available!")
+#         return self.members
+#
+#     def scale(self, factor):
+#         """
+#         easy one, let cr.Function handle the scaling
+#         """
+#         return SimpleFunctionVector(self.members.scale(factor))
+
+
+class Function(BaseFraction):
     """
     To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
 
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
+        BaseFraction.__init__(self,  self)
         if not callable(eval_handle):
             raise TypeError("callable has to be provided as function_handle")
+        if isinstance(eval_handle, Function):
+            raise TypeError("Function cannot be initialized with Function!")
+
         self._function_handle = np.vectorize(eval_handle, otypes=[np.float])
 
         for der_handle in derivative_handles:
@@ -53,6 +134,37 @@ class Function:
                 else:
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
+
+    def scalar_product_hint(self):
+        """
+        most simple way possible
+        """
+        return [dot_product_l2]
+
+    def get_member(self, idx):
+        return self
+
+    def scale(self, factor):
+        """
+        factory method to scale this function.
+        factor can be a number or a function
+        """
+        # TODO if factor is a function, deny scaling of derivatives and delete them!
+        if factor == 1:
+            return self
+
+        def scale_factory(func):
+            def _scaled_func(z):
+                if callable(factor):
+                    return factor(z) * func(z)
+                else:
+                    return factor * func(z)
+
+            return _scaled_func
+
+        scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                          derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
+        return scaled
 
     def _check_domain(self, value):
         """
@@ -101,27 +213,44 @@ class Function:
                               derivative_handles=self._derivative_handles[order:])
         return derivative
 
+
+class ComposedFunctionVector(BaseFraction):
+    """
+    implementation of composite function vector :math:`\\boldsymbol{x}`.
+    It contains n Function members :math:`x(t)` and m scalar members :math:`\\xi.`
+
+    .. math::
+        \\boldsymbol{x} = \\begin{pmatrix}
+            x_1(z) \\\\
+            \\vdots \\\\
+            x_n(z) \\\\
+            \\xi_1 \\\\
+            \vdots \\\\
+            \\xi_m \\\\
+        \\end{pmatrix}
+    """
+
+    def __init__(self, functions, scalars):
+        funcs = sanitize_input(functions, Function)
+        scals = sanitize_input(scalars, Number)
+
+        BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
+
+    def scalar_product_hint(self):
+        return [dot_product_l2 for funcs in self.members["funcs"]]\
+               + [np.multiply for scals in self.members["scalars"]]
+
+    def get_member(self, idx):
+        if idx < len(self.members["funcs"]):
+            return self.members["funcs"][idx]
+        elif idx - len(self.members["funcs"]) < len(self.members["scalars"]):
+            return self.members["scalars"][idx - len(self.members["funcs"])]
+        else:
+            raise ValueError("wrong index")
+
     def scale(self, factor):
-        """
-        factory method to scale this function.
-        factor can be a number or a function
-        """
-        # TODO if factor is a function, deny scaling of derivatives and delete them!
-        if factor == 1:
-            return self
-
-        def scale_factory(func):
-            def _scaled_func(z):
-                if callable(factor):
-                    return factor(z) * func(z)
-                else:
-                    return factor * func(z)
-
-            return _scaled_func
-
-        scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                          derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
-        return scaled
+        return self.__class__(np.array([func.scale(factor) for func in self.members["funcs"]]),
+                              np.array([scal * factor for scal in self.members["scalars"]]))
 
 
 class LagrangeFirstOrder(Function):
@@ -354,141 +483,6 @@ class LagrangeSecondOrder(Function):
 
     def _dder_lagrange2nd_interior_half(self, z):
         return self._lagrange2nd_interior_half(z, der_order=2)
-
-
-class BaseFraction(object):
-    """
-    abstract base class representing a basis that can be used to describe functions of several variables
-    """
-    __metaclass__ = ABCMeta
-
-    def __init__(self, members):
-        self.members = members
-
-    @abstractmethod
-    def scalar_product(first, second):
-        """
-        defines how the scalar product between two base fractions is calculated.
-        Implementations must be static
-        """
-        pass
-
-    @abstractmethod
-    def scalar_product_hint(self):
-        """
-        hint that returns steps for scalar product calculation.
-        In detail this means a list object containing function calls to fill with (first, second) parameters
-        that will calculate the scalar product when summed up
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    def scale(self, factor):
-        """
-        factory method to obtain instances of this base fraction, scaled by the given factor.
-
-        :param factor: factor to scale the vector
-        """
-        pass
-
-    @abstractmethod
-    def get_member(self, idx):
-        """
-        getter function to access members of BaseFraction
-        """
-        pass
-
-class FunctionVector(BaseFraction):
-    """
-    class that implements vectors of function and scalars to cope with situations where distributed as well as
-    concentrated elements have to be provided
-    """
-
-
-class SimpleFunctionVector(BaseFraction):
-    """
-    implementation of the "simple" distributed case, only one member which is a Function
-    """
-
-    def __init__(self, function):
-        if not isinstance(function, Function):
-            raise TypeError("Only Function objects accepted as function")
-        BaseFraction.__init__(self, function)
-
-    def scalar_product_hint(self):
-        return [dot_product_l2]
-
-    @staticmethod
-    def scalar_product(first, second):
-        if not isinstance(first, SimpleFunctionVector) or not isinstance(second, SimpleFunctionVector):
-            raise TypeError("only SimpleFunctionVectors supported")
-        return dot_product_l2(first.members, second.members)
-
-    def get_member(self, idx):
-        if idx != 0:
-            raise ValueError("only one member available!")
-        return self.members
-
-    def scale(self, factor):
-        """
-        easy one, let cr.Function handle the scaling
-        """
-        return SimpleFunctionVector(self.members.scale(factor))
-
-
-class ComposedFunctionVector(FunctionVector):
-    """
-    implementation of composite function vector :math:`\\boldsymbol{x}`.
-    It contains n Function members :math:`x(t)` and m scalar members :math:`\\xi.`
-
-    .. math::
-        \\boldsymbol{x} = \\begin{pmatrix}
-            x_1(z) \\\\
-            \\vdots \\\\
-            x_n(z) \\\\
-            \\xi_1 \\\\
-            \vdots \\\\
-            \\xi_m \\\\
-        \\end{pmatrix}
-    """
-
-    def __init__(self, functions, scalars):
-        funcs = sanitize_input(functions, Function)
-        scals = sanitize_input(scalars, Number)
-
-        FunctionVector.__init__(self, {"funcs": funcs, "scalars": scals})
-
-    def scalar_product_hint(self):
-        return [[dot_product_l2 for funcs in self.members["funcs"]],
-                [np.mul for scals in self.members["scalars"]]]
-
-    def get_member(self, idx):
-        if idx < len(self.members["funcs"]):
-            return self.members["funcs"][idx]
-        elif idx - len(self.members["funcs"]) < len(self.members["scalars"]):
-            return self.members["scalars"][idx - len(self.members["funcs"])]
-        else:
-            raise ValueError("wrong index")
-
-    @staticmethod
-    def scalar_product(first, second):
-        """
-        special way the scalar product of this composite vector is calculated
-        """
-        if not isinstance(first, ComposedFunctionVector) or not isinstance(second, ComposedFunctionVector):
-            raise TypeError("only ComposedFunctionVector supported")
-        if first.members["funcs"].size != second.members["funcs"].size or\
-                        first.members["scalars"].size != second.members["scalars"].size:
-            raise TypeError("dimension mismatch in vector dimensions!")
-
-        cont_part = np.sum(dot_product_l2(first.members["funcs"], second.members["funcs"]))
-        coll_part = np.sum(dot_product(first.members["scalars"], second.members["scalars"]))
-        return cont_part + coll_part
-
-    def scale(self, factor):
-        return ComposedFunctionVector([func.scale(factor) for func in self.members["funcs"]],
-                                      [scal * factor for scal in self.members["scalars"]])
 
 
 def domain_intersection(first, second):
@@ -804,38 +798,28 @@ def calculate_base_projection(src_base, dst_base):
     src_base = np.atleast_1d(src_base)
     dst_base = np.atleast_1d(dst_base)
 
-    if isinstance(src_base[0], Function):
-        # compute T matrix: <phi_tilde_i(z), phi_dash_j(z)> for 0 < i < n, 0 < j < m
-        t_mat = calculate_product_matrix(dot_product_l2, dst_base, src_base)
+    if not hasattr(src_base[0], "scalar_product_hint"):
+        raise TypeError("Input type not supported.")
 
-        # compute R matrix: <phi_dash_i(z), phi_dash_j(z)> for 0 < i, j < m
-        r_mat = calculate_product_matrix(dot_product_l2, dst_base, dst_base)
+    # compute P and Q matrices, where P = Sum(P_n) and Q = Sum(Q_n)
+    hints = src_base[0].scalar_product_hint()  # assume that all are the same (if not error will occur anyway)
+    p_matrices = []
+    q_matrices = []
+    for idx, hint in enumerate(hints):
+        dst_members = np.array([dst_frac.get_member(idx) for dst_frac in dst_base])
+        src_members = np.array([src_frac.get_member(idx) for src_frac in src_base])
 
-        # compute V matrix: T*inv(R)
-        v_mat = np.dot(np.linalg.inv(r_mat), t_mat)
-    elif isinstance(src_base[0], BaseFraction):
-        # compute P and Q matrices
-        hints = src_base[0].scalar_product_hint()
-        p_matrices = []
-        q_matrices = []
-        for idx, hint in enumerate(hints):
-            dst_members = [dst_frac.get_member(idx) for dst_frac in dst_base]
-            src_members = [src_frac.get_member(idx) for src_frac in src_base]
+        # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
+        p_matrices.append(calculate_product_matrix(hint, dst_members, src_members))
 
-            # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
-            p_matrices.append(calculate_product_matrix(hint, dst_members, src_members))
+        # compute Q_n matrix: <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
+        q_matrices.append(calculate_product_matrix(hint, dst_members, dst_members))
 
-            # compute Q_n matrix: <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
-            q_matrices.append(calculate_product_matrix(hint, dst_members, dst_members))
+    p_mat = np.sum(p_matrices, axis=0)
+    q_mat = np.sum(q_matrices, axis=0)
 
-        p_mat = np.sum(p_matrices)
-        q_mat = np.sum(q_matrices)
-
-        # compute V matrix: T*inv(R)
-        v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
-    else:
-        raise TypeError("input not supported.")
-
+    # compute V matrix: inv(Q)*P
+    v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
     return v_mat
 
 
@@ -849,23 +833,18 @@ def normalize_function(x1, x2=None):
     :param x2: core.BaseFraction :math:`\\boldsymbol{x}_2`
     :return:
     """
-    if not isinstance(x1, BaseFraction):
-        # for the good times sake
-        if not isinstance(x1, Function) :
-            raise TypeError("only core.BaseFraction supported.")
-
     if x2 is None:
         x2 = x1
     if type(x1) != type(x2):
         raise TypeError("only arguments of same type allowed.")
 
-    if isinstance(x1, Function):
-        res = dot_product_l2(x1, x2)
-    else:
-        hints = x1.scalar_product_hint()
-        res = 0
-        for idx, hint in enumerate(hints):
-            res += hint(x1.get_member(idx), x2.get_member(idx))
+    if not hasattr(x1, "scalar_product_hint"):
+        raise TypeError("Input type not supported.")
+
+    hints = x1.scalar_product_hint()
+    res = 0
+    for idx, hint in enumerate(hints):
+        res += hint(x1.get_member(idx), x2.get_member(idx))
 
     if abs(res) < np.finfo(float).eps:
         raise ValueError("given base fractions are orthogonal. no normalization possible.")

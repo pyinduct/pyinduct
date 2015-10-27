@@ -407,6 +407,8 @@ def _convert_to_scalar_function(coef, label):
     import core as cr
     if not callable(coef):
         register_functions(label, cr.Function(lambda z: coef), overwrite=True)
+    elif isinstance(coef, cr.Function):
+        register_functions(label, coef, overwrite=True)
     else:
         register_functions(label, cr.Function(coef), overwrite=True)
     return ph.ScalarFunction(label)

@@ -1,7 +1,6 @@
 from __future__ import division
 import unittest
 import numpy as np
-import pyqtgraph as pg
 from pyinduct import register_functions, get_initial_functions, core, utils
 import sys
 
@@ -9,10 +8,12 @@ __author__ = 'stefan'
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
+    app = None
 else:
+    import pyqtgraph as pg
+    app = pg.QtGui.QApplication([])
     show_plots = False
     # show_plots = True
-    # app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTest(unittest.TestCase):
@@ -281,8 +282,6 @@ class ProjectionTest(unittest.TestCase):
 class ChangeProjectionBaseTest(unittest.TestCase):
 
     def setUp(self):
-        self.app = pg.QtGui.QApplication([])
-
         # real function
         self.z_values = np.linspace(0, 1, 1000)
         self.real_func = core.Function(lambda x: x)
@@ -345,16 +344,12 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.g = core.Function(np.cos, domain=(0, np.pi*2))
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
-        self.v1 = core.SimpleFunctionVector(self.f)
-        self.v2 = core.SimpleFunctionVector(self.g)
-        self.v3 = core.SimpleFunctionVector(self.l)
-
     def test_self_scale(self):
         f = core.normalize_function(self.f)
         prod = core.dot_product_l2(f, f)
         self.assertAlmostEqual(prod, 1)
 
-        p = core.normalize_function(self.v1)
+        p = core.normalize_function(self.f)
         prod = core.dot_product_l2(p.members, p.members)
         self.assertAlmostEqual(prod, 1)
 
@@ -363,9 +358,9 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         prod = core.dot_product_l2(f, l)
         self.assertAlmostEqual(prod, 1)
 
-        p, q = core.normalize_function(self.v1, self.v3)
+        p, q = core.normalize_function(self.f, self.l)
         prod = core.dot_product_l2(p.members, q.members)
         self.assertAlmostEqual(prod, 1)
 
     def test_orthogonal(self):
-        self.assertRaises(ValueError, core.normalize_function, self.v1, self.v2)
+        self.assertRaises(ValueError, core.normalize_function, self.f, self.g)
