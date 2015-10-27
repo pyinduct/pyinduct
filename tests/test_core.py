@@ -59,22 +59,38 @@ class FunctionTestCase(unittest.TestCase):
                 pass
 
     def test_derivation(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos])
+        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
-        self.assertRaises(ValueError, f.derive, 2)  # unknown derivative
+        self.assertRaises(ValueError, f.derive, 3)  # unknown derivative
+
         d0 = f.derive(0)
         self.assertEqual(f, d0)
-        d1 = f.derive(1)
+
+        d1 = f.derive()  # default arg should be one
         self.assertTrue(np.array_equal(d1._function_handle(range(10)), np.cos(range(10))))
-        self.assertRaises(ValueError, d1.derive, 1)  # unknown derivative
+
+        d2 = f.derive(2)
+        self.assertTrue(np.array_equal(d2._function_handle(range(10)), np.sin(range(10))))
+
+        self.assertRaises(ValueError, d2.derive, 1)  # unknown derivative
 
     def test_scale(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos])
+        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        # scale with scalar
         g1 = f.scale(1)
         self.assertEqual(f, g1)
 
-        g2 = f.scale(2)
-        self.assertAlmostEqual(2*f(np.pi/2), g2(np.pi/2))
+        # scale with function
+        g2 = f.scale(lambda z: z)
+
+        def check_handle(z):
+            return z*f(z)
+        self.assertTrue(np.array_equal(g2(range(10)), check_handle(range(10))))
+        self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
+
+    def test_call(self):
+        f = core.Function(np.sin, derivative_handles=[np.cos])
+        vals = f(range(100))
 
 
 class LagrangeFirstOrderTestCase(unittest.TestCase):
@@ -224,7 +240,7 @@ class ProjectionTest(unittest.TestCase):
                       core.Function(lambda x: x**2),
                       core.Function(lambda x: np.sin(x))
                       ]
-        self.real_values = [[func(val) for val in self.z_values] for func in self.funcs]
+        self.real_values = [func(self.z_values) for func in self.funcs]
 
     def test_types_projection(self):
         self.assertRaises(TypeError, core.project_on_base, 1, 2)

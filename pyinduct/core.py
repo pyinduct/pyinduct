@@ -113,14 +113,15 @@ class Function(BaseFraction):
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
 
-    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[]):
+    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[],
+                 vectorial=False):
         BaseFraction.__init__(self,  self)
         if not callable(eval_handle):
             raise TypeError("callable has to be provided as function_handle")
+        self._function_handle = eval_handle
+
         if isinstance(eval_handle, Function):
             raise TypeError("Function cannot be initialized with Function!")
-
-        self._function_handle = np.vectorize(eval_handle, otypes=[np.float])
 
         for der_handle in derivative_handles:
             if not callable(der_handle):
@@ -134,6 +135,8 @@ class Function(BaseFraction):
                 else:
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
+
+        self.vectorial = vectorial
 
     def scalar_product_hint(self):
         """
@@ -162,8 +165,11 @@ class Function(BaseFraction):
 
             return _scaled_func
 
-        scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                          derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
+        if callable(factor):
+            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero)
+        else:
+            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                              derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
         return scaled
 
     def _check_domain(self, value):
@@ -174,29 +180,34 @@ class Function(BaseFraction):
         :raises: ValueError if value not in domain
         """
         in_domain = False
+        value = np.atleast_1d(value)
         for interval in self.domain:
-            # TODO support multi dimensional access
-            if interval[0] <= value <= interval[1]:
+            if all(value >= interval[0]) and all(value <= interval[1]):
                 in_domain = True
                 break
 
         if not in_domain:
             raise ValueError("Function evaluated outside its domain!")
 
-    def __call__(self, args):
+    def __call__(self, argument):
         """
         handle that is used to evaluate the function on a given point
 
-        :param args: function parameter
+        :param argument: function parameter
         :return: function value
         """
-        args = np.atleast_1d(args)
-        self._check_domain(args[0])
-        ret_val = self._function_handle(args)
-        if ret_val.size == 1:
-            return ret_val[0]
+        self._check_domain(argument)
+        if self.vectorial:
+            return self._function_handle(argument)
         else:
-            return ret_val
+            try:
+                ret_val = []
+                for arg in argument:
+                    ret_val.append(self._function_handle(arg))
+
+                return np.array(ret_val)
+            except TypeError, e:
+                return self._function_handle(argument)
 
     def derive(self, order=1):
         """
