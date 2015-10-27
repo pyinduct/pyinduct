@@ -192,10 +192,17 @@ class LawEvaluator(object):
                 # transform weights
                 identical = True if weight_label == lbl else False
                 if lbl not in self._transformations.keys():
+                    dst_funcs = get_initial_functions(lbl, 0)
                     src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
-                    tar_order = int(self._eval_vectors[lbl].size / get_initial_functions(lbl, 0).size)-1
-                    self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
-                                                                                   tar_order, use_eye=identical)
+                    dst_order = int(self._eval_vectors[lbl].size / dst_funcs.size)-1
+                    if hasattr(dst_funcs[0], "transformation_hint"):
+                        transform = dst_funcs[0].transformation_hint(src_order, dst_order, weight_label, lbl)
+                        if transform:
+                            self._transformations[lbl] = transform
+
+                    else:
+                        self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
+                                                                                       dst_order, use_eye=identical)
 
                 target_weights = np.dot(self._transformations[lbl], weights)
 

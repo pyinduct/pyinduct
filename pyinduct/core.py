@@ -39,14 +39,14 @@ class BaseFraction(object):
     def __init__(self, members):
         self.members = members
 
-    # TODO remove this method since hints should be used
-    # @abstractmethod
-    # def scalar_product(first, second):
-    #     """
-    #     defines how the scalar product between two base fractions is calculated.
-    #     Implementations must be static
-    #     """
-    #     pass
+    def transformation_hint(self, information):
+        """
+        method that provides information about how to transform from one BaseFraction into another
+
+        information contain: target BaseFraction, own and target Derivative Order as well as
+        """
+        # TODO
+        pass
 
     @abstractmethod
     def scalar_product_hint(self):
@@ -813,7 +813,7 @@ def calculate_base_projection(src_base, dst_base):
         raise TypeError("Input type not supported.")
 
     # compute P and Q matrices, where P = Sum(P_n) and Q = Sum(Q_n)
-    hints = src_base[0].scalar_product_hint()  # assume that all are the same (if not error will occur anyway)
+    hints = src_base[0].scalar_product_hint()  # assume that all are the same (if not an error will occur anyway)
     p_matrices = []
     q_matrices = []
     for idx, hint in enumerate(hints):
