@@ -47,14 +47,32 @@ class BaseFraction(object):
             raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
                              "own!")
 
-    def transformation_hint(self, information):
+    def transformation_hint(self, info):
         """
-        method that provides information about how to transform from one BaseFraction into another
+        method that provides a information about how to transform weights from one BaseFraction into another.
 
-        information contain: target BaseFraction, own and target Derivative Order as well as
+        In Detail this function has to return a callable, which will take the weights of the source and will return the
+        weights of the target system. It can have keyword arguments for other data which is required to perform the
+        transformation.
+        Information about theses extra keyword arguments should be provided in form of a dictionary which is returned
+        is keyword arguments are need by the transformation handle.
+
+        The input object will contain the following information:
+            - source basis in form of an array of the source Fractions
+            - destination basis in form of an array of the destination Fractions
+            - available temporal derivative order of source weights
+            - needed temporal derivative order for destination weights
+
+        Overwrite this Method in your implementation.
         """
-        # TODO
-        pass
+        msg = "This is {0} speaking, \n" \
+              "You requested information about how to transform from {1} to {2} \n" \
+              "furthermore the source derivative order is {3} and the target one is {4}" \
+              "but this is just a dummy method so implement your own hint to make this work!".format(
+            self.__class__.__name__, info.src_base[0].__class__.__name__, info.dst_base[0].__class__.__name__,
+            info.src_der_order, info.dst_der_order)
+
+        raise NotImplementedError(msg)
 
     @abstractmethod
     def scalar_product_hint(self):

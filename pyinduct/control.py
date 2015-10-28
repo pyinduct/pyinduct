@@ -173,6 +173,44 @@ class LawEvaluator(object):
         """
         return np.hstack([vec for vec in terms[0]])
 
+    def _transform_weights(self, weights, src_lbl, dst_lbl, src_order, dst_order):
+        """
+        evaluates the given term by transforming the given weights in dst_weights and multiplying them by the given
+        vector.
+
+        :param src_lbl:
+        :param dst_lbl:
+        :param term:
+        :return:
+        """
+        # TODO move this special case one level up since it requires labels which should be dropped
+        if src_lbl == dst_lbl:
+            mat = self._build_transformation_matrix(src_lbl, dst_lbl, src_order, dst_order, use_eye=True)
+
+            def trafo(weights):
+                return np.dot(mat, weights)
+
+        # TODO make use of caching again
+        # if lbl not in self._transformations.keys():
+        #     self._transformations[lbl] = transform
+
+
+            dst_funcs = get_initial_functions(lbl, 0)
+            src_order = int(weights.size / get_initial_functions(weight_label, 0).size) - 1
+            dst_order = int(self._eval_vectors[lbl].size / dst_funcs.size) - 1
+            # TODO use only hints
+            if hasattr(dst_funcs[0], "transformation_hint") and False:
+                transform = dst_funcs[0].transformation_hint(src_order, dst_order, weight_label, lbl)
+                if transform:
+
+            else:
+                self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
+                                                                               dst_order, use_eye=identical)
+
+        target_weights = np.dot(self._transformations[lbl], weights)
+        return trafo_handle(weights)
+
+
     def __call__(self, weights, weight_label):
         """
         evaluation function for approximated control law
@@ -189,24 +227,9 @@ class LawEvaluator(object):
                 if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
-                # transform weights
-                identical = True if weight_label == lbl else False
-                if lbl not in self._transformations.keys():
-                    dst_funcs = get_initial_functions(lbl, 0)
-                    src_order = int(weights.size / get_initial_functions(weight_label, 0).size)-1
-                    dst_order = int(self._eval_vectors[lbl].size / dst_funcs.size)-1
-                    if hasattr(dst_funcs[0], "transformation_hint"):
-                        transform = dst_funcs[0].transformation_hint(src_order, dst_order, weight_label, lbl)
-                        if transform:
-                            self._transformations[lbl] = transform
+                dst_weights = self._transform_weights(weights, src_base, dst_base)
+                return np.dot(self._eval_vectors[lbl], dst_weights)
 
-                    else:
-                        self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
-                                                                                       dst_order, use_eye=identical)
-
-                target_weights = np.dot(self._transformations[lbl], weights)
-
-                output += np.dot(self._eval_vectors[lbl], target_weights)
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
