@@ -11,21 +11,16 @@ from pyinduct import get_initial_functions
 
 def sanitize_input(input_object, allowed_type):
     """
-    sanitizes input data
+    sanitizes input data by testing if input is an array of type allowed_type.
 
     :param input_object:
     :param allowed_type:
     :return:
     """
-    if isinstance(input_object, allowed_type):
-        input_object = np.asarray([input_object])
-    elif isinstance(input_object, np.ndarray):
-        # test if input is an array of type allowed_type.
-        for obj in np.nditer(input_object, flags=["refs_ok"]):
-            if not isinstance(np.asscalar(obj), allowed_type):
-                raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
-    else:
-        raise TypeError("input must be (an numpy.ndarray) of type: {0}".format(allowed_type))
+    input_object = np.atleast_1d(input_object)
+    for obj in np.nditer(input_object, flags=["refs_ok"]):
+        if not isinstance(np.asscalar(obj), allowed_type):
+            raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
 
     return input_object
 
@@ -38,6 +33,19 @@ class BaseFraction(object):
 
     def __init__(self, members):
         self.members = members
+
+    def derive(self, order):
+        """
+        basic implementation of derive function.
+        overwrite when subclassing to add more functionality
+        :param order: derivative order
+        :return: derived object
+        """
+        if order == 0:
+            return self
+        else:
+            raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
+                             "own!")
 
     def transformation_hint(self, information):
         """
@@ -140,7 +148,7 @@ class Function(BaseFraction):
 
     def scalar_product_hint(self):
         """
-        most simple way possible
+        this one is easy
         """
         return [dot_product_l2]
 
@@ -228,7 +236,7 @@ class Function(BaseFraction):
 class ComposedFunctionVector(BaseFraction):
     """
     implementation of composite function vector :math:`\\boldsymbol{x}`.
-    It contains n Function members :math:`x(t)` and m scalar members :math:`\\xi.`
+
 
     .. math::
         \\boldsymbol{x} = \\begin{pmatrix}
@@ -236,9 +244,10 @@ class ComposedFunctionVector(BaseFraction):
             \\vdots \\\\
             x_n(z) \\\\
             \\xi_1 \\\\
-            \vdots \\\\
+            \\vdots \\\\
             \\xi_m \\\\
         \\end{pmatrix}
+
     """
 
     def __init__(self, functions, scalars):
