@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 from abc import ABCMeta, abstractmethod
+from copy import copy
 from numbers import Number
-
 import numpy as np
 from scipy import integrate
+from scipy.linalg import block_diag
+from pyinduct import get_initial_functions
 
 
 def sanitize_input(input_object, allowed_type):
@@ -46,7 +48,7 @@ class BaseFraction(object):
             raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
                              "own!")
 
-    def transformation_hint(self, info):
+    def transformation_hint(self, info, target):
         """
         method that provides a information about how to transform weights from one BaseFraction into another.
 
@@ -62,16 +64,29 @@ class BaseFraction(object):
             - available temporal derivative order of source weights
             - needed temporal derivative order for destination weights
 
-        Overwrite this Method in your implementation.
+        Overwrite this Method in your implementation to support conversion between bases that differ from yours.
         """
-        msg = "This is {0} speaking, \n" \
-              "You requested information about how to transform from {1} to {2} \n" \
-              "furthermore the source derivative order is {3} and the target one is {4}" \
-              "but this is just a dummy method so implement your own hint to make this work!".format(
-            self.__class__.__name__, info.src_base[0].__class__.__name__, info.dst_base[0].__class__.__name__,
-            info.src_der_order, info.dst_der_order)
+        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
+        if cls == self.__class__:
+            return self._transformation_factory(info), None
+        else:
+            # No Idea what to do.
+            msg = "This is {0} speaking, \n" \
+                  "You requested information about how to transform from {1} to {2} \n" \
+                  "furthermore the source derivative order is {3} and the target one is {4}" \
+                  "but this is just a dummy method so implement your own hint to make this work!".format(
+                self.__class__.__name__, info.src_base[0].__class__.__name__, info.dst_base[0].__class__.__name__,
+                info.src_order, info.dst_order)
+            raise NotImplementedError(msg)
 
-        raise NotImplementedError(msg)
+    @staticmethod
+    def _transformation_factory(info):
+        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
+                                                            info.dst_order)
+
+        def handle(weights):
+            return np.dot(mat, weights)
+        return handle
 
     @abstractmethod
     def scalar_product_hint(self):
@@ -98,38 +113,6 @@ class BaseFraction(object):
         getter function to access members of BaseFraction
         """
         pass
-
-
-# TODO remove
-# class SimpleFunctionVector(BaseFraction):
-#     """
-#     implementation of the "simple" distributed case, only one member which is a Function
-#     """
-#
-#     def __init__(self, function):
-#         if not isinstance(function, Function):
-#             raise TypeError("Only Function objects accepted as function")
-#         BaseFraction.__init__(self, function)
-#
-#     def scalar_product_hint(self):
-#         return [dot_product_l2]
-#
-#     @staticmethod
-#     def scalar_product(first, second):
-#         if not isinstance(first, SimpleFunctionVector) or not isinstance(second, SimpleFunctionVector):
-#             raise TypeError("only SimpleFunctionVectors supported")
-#         return dot_product_l2(first.members, second.members)
-#
-#     def get_member(self, idx):
-#         if idx != 0:
-#             raise ValueError("only one member available!")
-#         return self.members
-#
-#     def scale(self, factor):
-#         """
-#         easy one, let cr.Function handle the scaling
-#         """
-#         return SimpleFunctionVector(self.members.scale(factor))
 
 
 class Function(BaseFraction):
@@ -265,7 +248,6 @@ class ComposedFunctionVector(BaseFraction):
         \\end{pmatrix}
 
     """
-
     def __init__(self, functions, scalars):
         funcs = sanitize_input(functions, Function)
         scals = sanitize_input(scalars, Number)
@@ -451,33 +433,6 @@ def dot_product_l2(first, second):
     return dot_product_l2.handle(first, second)
 
 
-# TODO remove this function
-# def calculate_function_matrix_differential(functions_a, functions_b,
-#                                            derivative_order_a, derivative_order_b, locations=None):
-#     """
-#     see calculate function matrix, except for the circumstance that derivatives of given order will be used and the
-#     derivatives can be evaluated at location before calculation. (saves integral computation)
-#
-#     :param functions_a:
-#     :param functions_b:
-#     :param derivative_order_a:
-#     :param derivative_order_b:
-#     :param locations: points to evaluate
-#     :return:
-#     """
-#     der_a = np.asarray([func.derive(derivative_order_a) for func in functions_a])
-#     der_b = np.asarray([func.derive(derivative_order_b) for func in functions_b])
-#     if locations is None:
-#         return calculate_scalar_product_matrix(dot_product_l2, der_a, der_b)
-#     else:
-#         if not isinstance(locations, tuple) or len(locations) != 2:
-#             raise TypeError("only tuples of len 2 allowed for locations.")
-#
-#         vals_a = np.atleast_1d([der(locations[0]) for der in der_a])
-#         vals_b = np.asarray([der(locations[1]) for der in der_b])
-#         return calculate_scalar_matrix(vals_a, vals_b.T)
-
-
 def calculate_scalar_matrix(values_a, values_b):
     """
     convenience function wrapper of :py:function:`calculate_scalar_product_matrix` for the case of scalar elements.
@@ -592,6 +547,100 @@ def project_weights(projection_matrix, src_weights):
     return np.dot(projection_matrix, src_weights)
 
 
+class TransformationInfo(object):
+    """
+    wrapper that holds information about transformations
+    """
+    def __init__(self):
+        self.src_lbl = None
+        self.dst_lbl = None
+        self.src_base = None
+        self.dst_base = None
+        self.src_order = None
+        self.dst_order = None
+
+    def __hash__(self):
+        return hash((self.src_lbl, self.dst_lbl, self.src_order, self.dst_order))
+
+    def __eq__(self, other):
+        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == \
+               (other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
+
+
+def get_weight_transformation(info):
+    """
+    somehow calculates a handle that will transform weights from src into weights for dst with the given derivative
+    orders.
+
+    :param info: transformation info
+    :return: handle
+    """
+    # trivial case
+    def identity(weights):
+        return weights
+    if info.src_lbl == info.dst_lbl:
+        return identity
+
+    # try to get help from the destination base
+    handle, hint = info.dst_base[0].transformation_hint(info, True)
+    if handle is None:
+        # try source instead
+        handle, hint = info.src_base[0].transformation_hint(info, False)
+
+    if handle is None:
+        raise TypeError("no transformation between given bases possible!")
+
+    # check termination criterion
+    if hint is None:
+        return handle
+
+    # try to gain transformation that will satisfy the extra terms
+    args = {}
+    for dep_lbl, dep_order in hint.iteritems():
+        new_info = copy(info)
+        new_info.dst_base = get_initial_functions(dep_lbl, 0)
+        new_info.dst_order = dep_order
+        dep_handle = get_weight_transformation(new_info)
+
+        def temp_handle(weights):
+            return dep_handle(weights)
+
+        args[dep_lbl] = temp_handle
+
+    def last_handle(weights):
+        return handle(weights, **args)
+
+    return last_handle
+
+
+def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order, dst_order, use_eye=False):
+    """
+    constructs a transformation matrix from basis given by 'src_base' to basis given by 'dst_base' that also
+    transforms all temporal derivatives of the given weights.
+
+    :param src_base: the source basis, given by an array of BaseFractions
+    :param dst_base: the destination basis, given by an array of BaseFractions
+    :param src_order: temporal derivative order available in src
+    :param dst_order: temporal derivative order needed in dst
+    :param use_eye: use identity as base transformation matrix
+    :return: transformation matrix as 2d np.ndarray
+    """
+    if src_order < dst_order:
+        raise ValueError("higher derivative order needed than provided!")
+
+    # build core transformation
+    if use_eye:
+        core_transformation = np.eye(src_base.size)
+    else:
+        core_transformation = calculate_base_transformation_matrix(src_base, dst_base)
+
+    # build block matrix
+    part_transformation = block_diag(*[core_transformation for i in range(dst_order + 1)])
+    complete_transformation = np.hstack([part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size))
+                                                                 for i in range(src_order - dst_order)])
+    return complete_transformation
+
+
 def calculate_base_transformation_matrix(src_base, dst_base):
     """
     calculates the transformation matrix :math:`V` so that the vector of src_weights can be transformed in a vector of
@@ -636,7 +685,7 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     return v_mat
 
 
-# TODO rename to something that emphasizes the general application a little more
+# TODO rename to something that emphasizes the general application a little more e.g. normalize_base_fraction
 def normalize_function(x1, x2=None):
     """
     takes two the two BaseFractions :math:`\\boldsymbol{x}_1` and  :math:`\\boldsymbol{x}_2` and normalizes them so

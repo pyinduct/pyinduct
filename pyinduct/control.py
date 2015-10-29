@@ -1,11 +1,10 @@
 from __future__ import division
 import numpy as np
-from scipy.linalg import block_diag
 
 from pyinduct import get_initial_functions
-from core import calculate_base_transformation_matrix, project_weights, domain_intersection, integrate_function
+from core import domain_intersection, integrate_function, \
+    TransformationInfo, get_weight_transformation
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
-# from simulation import CanonicalForms, SimulationInput
 import simulation as sim
 __author__ = 'Stefan Ecklebe'
 """
@@ -135,36 +134,6 @@ class LawEvaluator(object):
         self._eval_vectors = {}
 
     @staticmethod
-    def _build_transformation_matrix(src_lbl, tar_lbl, src_order, tar_order, use_eye=False):
-        """
-        constructs a transformation matrix from basis given by 'src' to basis given by 'tar' that transforms all
-        temporal derivatives at once.
-
-        :param src_lbl: label of source basis
-        :param tar_lbl: label of target basis
-        :param src_order: temporal derivative order of src basis
-        :param tar_order: temporal derivative order of tar basis
-        :param use_eye: use identity as block matrix element
-        :return: transformation matrix as 2d np.ndarray
-        """
-        if src_order < tar_order:
-            raise ValueError("higher derivative order needed than provided!")
-
-        # build single transformation
-        src_funcs = get_initial_functions(src_lbl, 0)
-        tar_funcs = get_initial_functions(tar_lbl, 0)
-        if use_eye:
-            single_transform = np.eye(src_funcs.size)
-        else:
-            single_transform = calculate_base_transformation_matrix(src_funcs, tar_funcs)
-
-        # build block matrix
-        part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])
-        trafo = np.hstack([part_trafo] + [np.zeros((part_trafo.shape[0], src_funcs.size))
-                                          for i in range(src_order-tar_order)])
-        return trafo
-
-    @staticmethod
     def _build_eval_vector(terms):
         """
         build a vector that will compute the output by multiplication with the corresponding weight vector
@@ -172,44 +141,6 @@ class LawEvaluator(object):
         :return: evaluation vector
         """
         return np.hstack([vec for vec in terms[0]])
-
-    def _transform_weights(self, weights, src_lbl, dst_lbl, src_order, dst_order):
-        """
-        evaluates the given term by transforming the given weights in dst_weights and multiplying them by the given
-        vector.
-
-        :param src_lbl:
-        :param dst_lbl:
-        :param term:
-        :return:
-        """
-        # TODO move this special case one level up since it requires labels which should be dropped
-        if src_lbl == dst_lbl:
-            mat = self._build_transformation_matrix(src_lbl, dst_lbl, src_order, dst_order, use_eye=True)
-
-            def trafo(weights):
-                return np.dot(mat, weights)
-
-        # TODO make use of caching again
-        # if lbl not in self._transformations.keys():
-        #     self._transformations[lbl] = transform
-
-
-            dst_funcs = get_initial_functions(lbl, 0)
-            src_order = int(weights.size / get_initial_functions(weight_label, 0).size) - 1
-            dst_order = int(self._eval_vectors[lbl].size / dst_funcs.size) - 1
-            # TODO use only hints
-            if hasattr(dst_funcs[0], "transformation_hint") and False:
-                transform = dst_funcs[0].transformation_hint(src_order, dst_order, weight_label, lbl)
-                if transform:
-
-            else:
-                self._transformations[lbl] = self._build_transformation_matrix(weight_label, lbl, src_order,
-                                                                               dst_order, use_eye=identical)
-
-        target_weights = np.dot(self._transformations[lbl], weights)
-        return trafo_handle(weights)
-
 
     def __call__(self, weights, weight_label):
         """
@@ -227,9 +158,22 @@ class LawEvaluator(object):
                 if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
-                dst_weights = self._transform_weights(weights, src_base, dst_base)
-                return np.dot(self._eval_vectors[lbl], dst_weights)
+                # collect information
+                info = TransformationInfo()
+                info.src_lbl = weight_label
+                info.dst_lbl = lbl
+                info.src_base = get_initial_functions(weight_label, 0)
+                info.dst_base = get_initial_functions(lbl, 0)
+                info.src_order = int(weights.size / info.src_base.size) - 1
+                info.dst_order = int(self._eval_vectors[lbl].size / info.dst_base.size) - 1
 
+                if info not in self._transformations.keys():
+                    # fetch handle
+                    handle = get_weight_transformation(info)
+                    self._transformations[info] = handle
+
+                dst_weights = self._transformations[info](weights)
+                return np.dot(self._eval_vectors[lbl], dst_weights)
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
