@@ -1,15 +1,16 @@
 from __future__ import division
 import unittest
+import sys
+
 import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from pyinduct import get_initial_functions, register_functions, \
+import pyqtgraph as pg
+
+from pyinduct import register_functions, \
     core as cr, \
+    shapefunctions as sh, \
     utils as ut, \
     visualization as vt, \
     placeholder as ph
-import sys
-import pyqtgraph as pg
 
 __author__ = 'Stefan Ecklebe'
 
@@ -18,45 +19,6 @@ if any([arg == 'discover' for arg in sys.argv]):
 else:
     show_plots = True
     app = pg.QtGui.QApplication([])
-
-
-class CureTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.node_cnt = 3
-        self.nodes = np.linspace(0, 2, self.node_cnt)
-        self.dz = (2 - 0) / (self.node_cnt-1)
-        self.test_functions = np.array([cr.LagrangeFirstOrder(0, 0, 1),
-                                        cr.LagrangeFirstOrder(0, 1, 2),
-                                        cr.LagrangeFirstOrder(1, 2, 2)])
-
-    def test_init(self):
-        self.assertRaises(TypeError, ut.cure_interval, np.sin, [2, 3])
-        self.assertRaises(TypeError, ut.cure_interval, np.sin, (2, 3))
-        self.assertRaises(ValueError, ut.cure_interval, cr.LagrangeFirstOrder, (0, 2))
-        self.assertRaises(ValueError, ut.cure_interval, cr.LagrangeFirstOrder, (0, 2), 2, 1)
-
-    def test_rest(self):
-        nodes1, funcs1 = ut.cure_interval(cr.LagrangeFirstOrder, (0, 2), node_count=self.node_cnt)
-        self.assertTrue(np.allclose(nodes1, self.nodes))
-        nodes2, funcs2 = ut.cure_interval(cr.LagrangeFirstOrder, (0, 2), element_length=self.dz)
-        self.assertTrue(np.allclose(nodes2, self.nodes))
-
-        for i in range(self.test_functions.shape[0]):
-            self.assertEqual(self.test_functions[i].nonzero, funcs1[i].nonzero)
-            self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
-
-    def test_lagrange_2nd_order(self):
-        nodes, funcs = ut.cure_interval(cr.LagrangeSecondOrder, (0, 1), node_count=2)
-        self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
-                                    np.array([funcs[i](nodes) for i in range(len(funcs))])))
-        if show_plots:
-            fig = plt.figure(figsize=(14, 6), facecolor='white')
-            mpl.rcParams.update({'font.size': 50})
-            plt.xticks(nodes)
-            plt.yticks([0, 1])
-            z = np.linspace(0,1,1000)
-            [plt.plot(z, fun.derive(0)(z)) for fun in funcs]; plt.grid(True); plt.show()
 
 
 class FindRootsTestCase(unittest.TestCase):
@@ -143,7 +105,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.nodes = np.linspace(self.spat_int[0], self.spat_int[1], self.node_cnt)
 
         # create initial functions
-        self.nodes, self.funcs = ut.cure_interval(cr.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
+        self.nodes, self.funcs = sh.cure_interval(sh.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
         register_functions("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
@@ -154,8 +116,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         if show_plots:
             p = vt.AnimatedPlot(eval_data)
             app.exec_()
+            del p
 
     def tearDown(self):
         pass
-
-

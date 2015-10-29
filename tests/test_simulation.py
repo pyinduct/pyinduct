@@ -11,6 +11,7 @@ from pyinduct import register_functions, eigenfunctions as ef,\
     core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
 import pyinduct as pi
+import pyinduct.shapefunctions
 
 __author__ = 'Stefan Ecklebe'
 
@@ -70,7 +71,7 @@ class ParseTest(unittest.TestCase):
         self.input = ph.Input(self.u)  # control input
 
         # TestFunctions
-        nodes, self.ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, (0, 1), node_count=3)
+        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=3)
         register_functions("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
@@ -225,7 +226,7 @@ class StateSpaceTests(unittest.TestCase):
         # enter string with mass equations
         self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, node_count=3)
+        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, node_count=3)
         register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
@@ -298,7 +299,7 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = ut.cure_interval(cr.LagrangeSecondOrder, self.spat_interval, node_count=10)
+        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder, self.spat_interval, node_count=10)
         register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
@@ -482,11 +483,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
         temporal_disc = 2e2
 
         # create test functions
-        nodes_1, ini_funcs_1 = ut.cure_interval(cr.LagrangeFirstOrder,
+        nodes_1, ini_funcs_1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                                 spatial_domain,
                                                 node_count=spatial_disc)
         register_functions("init_funcs_1", ini_funcs_1, overwrite=True)
-        nodes_2, ini_funcs_2 = ut.cure_interval(cr.LagrangeSecondOrder,
+        nodes_2, ini_funcs_2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
                                                 spatial_domain,
                                                 node_count=int(spatial_disc))
         register_functions("init_funcs_2", ini_funcs_2, overwrite=True)

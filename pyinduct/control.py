@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import block_diag
 
 from pyinduct import get_initial_functions
-from core import calculate_base_projection, project_weights, domain_intersection, integrate_function
+from core import calculate_base_transformation_matrix, project_weights, domain_intersection, integrate_function
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
 # from simulation import CanonicalForms, SimulationInput
 import simulation as sim
@@ -156,7 +156,7 @@ class LawEvaluator(object):
         if use_eye:
             single_transform = np.eye(src_funcs.size)
         else:
-            single_transform = calculate_base_projection(src_funcs, tar_funcs)
+            single_transform = calculate_base_transformation_matrix(src_funcs, tar_funcs)
 
         # build block matrix
         part_trafo = block_diag(*[single_transform for i in range(tar_order+1)])

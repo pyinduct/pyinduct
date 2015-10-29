@@ -14,6 +14,7 @@ from scipy import integrate
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import sys
+import pyinduct.shapefunctions
 
 __author__ = 'Stefan Ecklebe'
 
@@ -33,7 +34,7 @@ class CollocatedTestCase(unittest.TestCase):
     def setUp(self):
 
         interval = (0, 1)
-        nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, 3)
+        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, 3)
         register_functions("funcs", funcs, overwrite=True)
         x_at1 = ph.FieldVariable("funcs", location=1)
         x_dt_at1 = ph.TemporalDerivedFieldVariable("funcs", 1, location=1)
@@ -71,7 +72,7 @@ class ContinuousTestCase(unittest.TestCase):
 
     def setUp(self):
         interval = (0, 1)
-        nodes, funcs = ut.cure_interval(cr.LagrangeFirstOrder, interval, 3)
+        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, 3)
         register_functions("funcs", funcs, overwrite=True)
         x = ph.FieldVariable("funcs")
         x_dt = ph.TemporalDerivedFieldVariable("funcs", 1)
@@ -308,7 +309,7 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, self.spatial_domain).scale(eig_funcs[i](0)) for i in range(self.n)])
 
         # create testfunctions
-        nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                             self.spatial_domain,
                                             node_count=self.spatial_disc)
 
@@ -451,7 +452,7 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
                                       for i in range(self.n) ])
 
         # create testfunctions
-        nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                             self.spatial_domain,
                                             node_count=self.spatial_disc)
 
@@ -582,7 +583,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
                                  for i in range(self.n)])
 
         # create testfunctions
-        nodes, self.fem_funcs = ut.cure_interval(cr.LagrangeFirstOrder,
+        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                                  self.spatial_domain,
                                                  node_count=self.spatial_disc)
 
@@ -647,7 +648,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
-        mat = cr.calculate_base_projection(self.fem_funcs, eig_funcs)
+        mat = cr.calculate_base_transformation_matrix(self.fem_funcs, eig_funcs)
         q_i = np.zeros((q.shape[0], len(eig_funcs_i)))
         for i in range(q.shape[0]):
             q_i[i,:] = np.dot(q[i,:], np.transpose(mat))

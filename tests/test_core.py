@@ -1,22 +1,24 @@
 from __future__ import division
 import unittest
-import numpy as np
-from pyinduct import register_functions, get_initial_functions, core, utils
 import sys
 
-__author__ = 'stefan'
+import numpy as np
 
-if any([arg == 'discover' for arg in sys.argv]):
-    show_plots = False
-    app = None
-else:
+from pyinduct import register_functions, get_initial_functions, core, shapefunctions
+
+__author__ = 'Stefan Ecklebe'
+
+# show_plots = True
+show_plots = False
+app = None
+
+if not any([arg == 'discover' for arg in sys.argv]):
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
     show_plots = False
-    # show_plots = True
 
 
-class SanitizeInputTest(unittest.TestCase):
+class SanitizeInputTestCase(unittest.TestCase):
 
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
@@ -89,87 +91,49 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
+        # vectorial arguments should be understood
         f = core.Function(np.sin, derivative_handles=[np.cos])
         vals = f(range(100))
+        self.assertTrue(np.array_equal(vals, np.sin(range(100))))
 
 
-class LagrangeFirstOrderTestCase(unittest.TestCase):
-    def test_init(self):
-        self.assertRaises(ValueError, core.LagrangeFirstOrder, 1, 0, 0)
-        self.assertRaises(ValueError, core.LagrangeFirstOrder, 0, 1, 0)
-
-    def test_edge_cases(self):
-        p1 = core.LagrangeFirstOrder(0, 0, 1)
-        self.assertEqual(p1.domain, [(-np.inf, np.inf)])
-        self.assertEqual(p1.nonzero, [(0, 1)])
-        self.assertEqual(p1(-.5), 0)
-        self.assertEqual(p1(0), 1)
-        self.assertEqual(p1(0.5), 0.5)
-        self.assertEqual(p1(1), 0)
-        self.assertEqual(p1(1.5), 0)
-
-        p2 = core.LagrangeFirstOrder(0, 1, 1)
-        self.assertEqual(p2.domain, [(-np.inf, np.inf)])
-        self.assertEqual(p2.nonzero, [(0, 1)])
-        self.assertEqual(p2(-.5), 0)
-        self.assertEqual(p2(0), 0)
-        self.assertEqual(p2(0.5), 0.5)
-        self.assertEqual(p2(1), 1)
-        self.assertEqual(p2(1.5), 0)
-
-    def test_interior_case(self):
-        p2 = core.LagrangeFirstOrder(0, 1, 2)
-        self.assertEqual(p2.domain, [(-np.inf, np.inf)])
-        self.assertEqual(p2.nonzero, [(0, 2)])
-        self.assertEqual(p2(0), 0)
-        self.assertEqual(p2(0.5), 0.5)
-        self.assertEqual(p2(1), 1)
-        self.assertEqual(p2(1.5), .5)
-        self.assertEqual(p2(2), 0)
-
-        # verify equality to zero anywhere outside of nonzero
-        self.assertEqual(p2(-1e3), 0)
-        self.assertEqual(p2(1e3), 0)
-
-        # integral over whole nonzero area of self**2
-        # self.assertEqual(p1.quad_int(), 2/3)
-
-
-class MatrixFunctionTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
-
-    def test_functional_call(self):
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 0)
-        real_result = np.array([[1/3, 1/6], [1/6, 1/3]])
-        self.assertTrue(np.allclose(res, real_result))
-
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 0)
-        real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-        self.assertTrue(np.allclose(res, real_result))
-
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 1)
-        real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
-        self.assertTrue(np.allclose(res, real_result))
-
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-        real_result = np.array([[1, -1], [-1, 1]])
-        self.assertTrue(np.allclose(res, real_result))
-
-        self.nodes, self.init_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=3)
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-        real_result = np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])
-        self.assertTrue(np.allclose(res, real_result))
-
-    def test_scalar_call(self):
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0,  0, locations=(0.5, 0.5))
-        real_result = np.array([[1/4, 1/4], [1/4, 1/4]])
-        self.assertTrue(np.allclose(res, real_result))
-
-        res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
-        real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-        self.assertTrue(np.allclose(res, real_result))
+# class MatrixFunctionTestCase(unittest.TestCase):
+#
+#     def setUp(self):
+#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder,
+#                                                                    (0, 1), node_count=2)
+#
+#     def test_functional_call(self):
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 0)
+#         real_result = np.array([[1/3, 1/6], [1/6, 1/3]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 0)
+#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 1)
+#         real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
+#         real_result = np.array([[1, -1], [-1, 1]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
+#                                                                    node_count=3)
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
+#         real_result = np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#     def test_scalar_call(self):
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0,  0, locations=(0.5, 0.5))
+#         real_result = np.array([[1/4, 1/4], [1/4, 1/4]])
+#         self.assertTrue(np.allclose(res, real_result))
+#
+#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
+#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
+#         self.assertTrue(np.allclose(res, real_result))
 
 
 class IntersectionTestCase(unittest.TestCase):
@@ -207,9 +171,9 @@ class DotProductL2TestCase(unittest.TestCase):
         self.f3 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
         self.f4 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2+1e-1))
 
-        self.f5 = core.LagrangeFirstOrder(0, 1, 2)
-        self.f6 = core.LagrangeFirstOrder(1, 2, 3)
-        self.f7 = core.LagrangeFirstOrder(2, 3, 4)
+        self.f5 = shapefunctions.LagrangeFirstOrder(0, 1, 2)
+        self.f6 = shapefunctions.LagrangeFirstOrder(1, 2, 3)
+        self.f7 = shapefunctions.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
         self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
@@ -230,7 +194,8 @@ class ProjectionTest(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         node_cnt = 11
-        self.nodes, self.initial_functions = utils.cure_interval(core.LagrangeFirstOrder, interval, node_count=node_cnt)
+        self.nodes, self.initial_functions = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
+                                                                          node_count=node_cnt)
         register_functions("ini_funcs", self.initial_functions, overwrite=True)
 
         # "real" functions
@@ -304,7 +269,8 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.real_func_handle = np.vectorize(self.real_func)
 
         # approximation by lag1st
-        self.nodes, self.src_test_funcs = utils.cure_interval(core.LagrangeFirstOrder, (0, 1), node_count=2)
+        self.nodes, self.src_test_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
+                                                                       node_count=2)
         register_functions("test_funcs", self.src_test_funcs, overwrite=True)
         self.src_weights = core.project_on_base(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure

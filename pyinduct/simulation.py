@@ -5,7 +5,7 @@ import numpy as np
 from scipy.integrate import ode
 
 from pyinduct import get_initial_functions, is_registered
-from core import (Function, integrate_function, calculate_product_matrix,
+from core import (Function, integrate_function, calculate_scalar_product_matrix,
                   project_on_base, dot_product_l2)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
 from utils import evaluate_approximation, find_nearest_idx
@@ -396,7 +396,7 @@ def parse_weak_formulation(weak_form):
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
-                    result = calculate_product_matrix(dot_product_l2, test_funcs, init_funcs)
+                    result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, init_funcs)
 
                 elif placeholders["inputs"]:
                     # TODO think about this case, is it relevant?
@@ -419,7 +419,7 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["functions"]) == 2:
                     func2 = placeholders["functions"][1]
                     test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order[2])
-                    result = calculate_product_matrix(dot_product_l2, test_funcs, test_funcs2)
+                    result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
 
