@@ -583,32 +583,35 @@ def get_weight_transformation(info):
 
     # try to get help from the destination base
     handle, hint = info.dst_base[0].transformation_hint(info, True)
-    if handle is None:
-        # try source instead
-        handle, hint = info.src_base[0].transformation_hint(info, False)
+    # if handle is None:
+    #     # try source instead
+    #     handle, hint = info.src_base[0].transformation_hint(info, False)
 
     if handle is None:
         raise TypeError("no transformation between given bases possible!")
 
     # check termination criterion
     if hint is None:
+        # direct transformation possible
         return handle
 
-    # try to gain transformation that will satisfy the extra terms
-    args = {}
-    for dep_lbl, dep_order in hint.iteritems():
-        new_info = copy(info)
-        new_info.dst_base = get_initial_functions(dep_lbl, 0)
-        new_info.dst_order = dep_order
-        dep_handle = get_weight_transformation(new_info)
+    # use hint to get the dst_transform
+    new_handle = get_weight_transformation(hint)
 
-        def temp_handle(weights):
-            return dep_handle(weights)
-
-        args[dep_lbl] = temp_handle
+    if hasattr(hint, "extras"):
+        # try to gain transformations that will satisfy the extra terms
+        kwargs = {}
+        for dep_lbl, dep_order in hint.extras.iteritems():
+            new_info = copy(info)
+            new_info.dst_base = get_initial_functions(dep_lbl, 0)
+            new_info.dst_order = dep_order
+            dep_handle = get_weight_transformation(new_info)
+            kwargs[dep_lbl] = dep_handle
+    else:
+        kwargs = {}
 
     def last_handle(weights):
-        return handle(weights, **args)
+        return handle(new_handle(weights), **kwargs)
 
     return last_handle
 
