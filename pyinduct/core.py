@@ -66,6 +66,10 @@ class BaseFraction(object):
 
         Overwrite this Method in your implementation to support conversion between bases that differ from yours.
         """
+        # TODO handle target option!
+        if target is False:
+            raise NotImplementedError
+
         cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
         if cls == self.__class__:
             return self._transformation_factory(info), None
@@ -595,23 +599,27 @@ def get_weight_transformation(info):
         # direct transformation possible
         return handle
 
-    # use hint to get the dst_transform
-    new_handle = get_weight_transformation(hint)
-
+    kwargs = {}
+    new_handle = None
     if hasattr(hint, "extras"):
         # try to gain transformations that will satisfy the extra terms
-        kwargs = {}
         for dep_lbl, dep_order in hint.extras.iteritems():
             new_info = copy(info)
+            new_info.dst_lbl = dep_lbl
             new_info.dst_base = get_initial_functions(dep_lbl, 0)
             new_info.dst_order = dep_order
             dep_handle = get_weight_transformation(new_info)
             kwargs[dep_lbl] = dep_handle
-    else:
-        kwargs = {}
+
+    if hint.src_lbl is not None:
+        # transformation to assistant system required
+        new_handle = get_weight_transformation(hint)
 
     def last_handle(weights):
-        return handle(new_handle(weights), **kwargs)
+        if new_handle:
+            return handle(new_handle(weights), **kwargs)
+        else:
+            return handle(weights, **kwargs)
 
     return last_handle
 
