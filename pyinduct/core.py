@@ -433,7 +433,7 @@ def dot_product_l2(first, second):
     #
     # return res
     if "handle" not in dot_product_l2.__dict__:
-        dot_product_l2.handle = np.vectorize(_dot_product_l2)
+        dot_product_l2.handle = np.vectorize(_dot_product_l2, otypes=[np.float])
     return dot_product_l2.handle(first, second)
 
 
@@ -519,7 +519,7 @@ def back_project_from_base(weights, base):
         return sum([weights[i] * base[i](z) for i in range(weights.shape[0])])
 
     # TODO test if bottom one is faster
-    return np.vectorize(eval_handle)
+    return np.vectorize(eval_handle, otypes=[np.float])
     return eval_handle
 
 

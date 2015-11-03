@@ -94,7 +94,7 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
     if show_plot:
         points = np.arange(0, area_end, .1)
-        vec_function = np.vectorize(function)
+        vec_function = np.vectorize(function, otypes=[np.float])
         values = vec_function(points)
         pw = pg.plot(title="function + roots")
         pw.plot(points, values)

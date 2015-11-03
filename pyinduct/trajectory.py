@@ -93,8 +93,8 @@ class FlatString(SimulationInput):
         self._sigma = sigma     # []=kgm/s**2 pretension of string
 
         # create vectorized functions
-        self.control_input = np.vectorize(self._control_input)
-        self.system_state = np.vectorize(self._system_sate)
+        self.control_input = np.vectorize(self._control_input, otypes=[np.float])
+        self.system_state = np.vectorize(self._system_sate, otypes=[np.float])
 
     def _trans_arg(self, t):
         """
