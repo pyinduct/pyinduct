@@ -76,11 +76,11 @@ class BaseFraction(object):
         else:
             # No Idea what to do.
             msg = "This is {0} speaking, \n" \
-                  "You requested information about how to transform from {1} to {2} \n" \
-                  "furthermore the source derivative order is {3} and the target one is {4}" \
-                  "but this is just a dummy method so implement your own hint to make this work!".format(
-                self.__class__.__name__, info.src_base[0].__class__.__name__, info.dst_base[0].__class__.__name__,
-                info.src_order, info.dst_order)
+                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
+                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
+                  "But this is a dumb method so implement your own hint to make things work!".format(
+                info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
     @staticmethod
@@ -464,6 +464,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, first_member, second_
     :param second_member: (array of) something that generates a base
     :return: matrix :math:`A` as np.ndarray
     """
+    # TODO make use of symmetry to save some operations
     i, j = np.mgrid[0:first_member.shape[0], 0:second_member.shape[0]]
     funcs_i = first_member[i]
     funcs_j = second_member[j]
