@@ -265,7 +265,7 @@ class CanonicalForm(object):
             if not all(x is None for x in term):
                 # fill empty places with good dimensions and construct output array
                 # TODO F**K this shit. No better way for that?
-                result_term = np.zeros(tuple([len(term)] + [dim for dim in shape]))
+                result_term = np.zeros(tuple([len(term)] + [dim for dim in shape]), dtype=np.complex)
                 for idx, mat in enumerate(term):
                     if mat is None:
                         mat = np.zeros(shape)
@@ -273,7 +273,7 @@ class CanonicalForm(object):
             else:
                 result_term = None
 
-            terms.update({entry: result_term})
+            terms.update({entry: np.real_if_close(result_term) if result_term is not None else None})
 
         return terms["E"], terms["f"], terms["g"]
 

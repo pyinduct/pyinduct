@@ -174,11 +174,17 @@ class LawEvaluator(object):
                     self._transformations[info] = handle
 
                 dst_weights = self._transformations[info](weights)
-                return np.dot(self._eval_vectors[lbl], dst_weights)
+                output += np.dot(self._eval_vectors[lbl], dst_weights)
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
         if static_terms[1] is not None:
             output += static_terms[1][0]
 
-        return output
+        out = np.real_if_close(output)
+        if np.imag(out) != 0:
+            raise ValueError("calculated complex control output u={0}, check for errors in control law!".format(
+                out
+            ))
+
+        return out

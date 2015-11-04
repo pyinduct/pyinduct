@@ -386,11 +386,34 @@ def integrate_function(function, interval):
     result = 0
     err = 0
     for area in interval:
-        res = integrate.quad(function, area[0], area[1])
+        # res = integrate.quad(function, area[0], area[1])
+        res = complex_quadrature(function, area[0], area[1])
         result += res[0]
         err += res[1]
 
-    return result, err
+    return np.real_if_close(result), err
+
+
+def complex_quadrature(func, a, b, **kwargs):
+    """
+    wraps the scipy qaudpack routines to handle complex valued functions
+
+    :param func: callable
+    :param a: lower limit
+    :param b: upper limit
+    :param kwargs: kwargs for func
+    :return:
+    """
+    def real_func(x):
+        return np.real(func(x))
+
+    def imag_func(x):
+        return np.imag(func(x))
+
+    real_integral = integrate.quad(real_func, a, b, **kwargs)
+    imag_integral = integrate.quad(imag_func, a, b, **kwargs)
+
+    return real_integral[0] +1j*imag_integral[0], real_integral[1] + imag_integral[1]
 
 
 def dot_product(first, second):
@@ -433,8 +456,8 @@ def dot_product_l2(first, second):
     #
     # return res
     if "handle" not in dot_product_l2.__dict__:
-        dot_product_l2.handle = np.vectorize(_dot_product_l2, otypes=[np.float])
-    return dot_product_l2.handle(first, second)
+        dot_product_l2.handle = np.vectorize(_dot_product_l2, otypes=[np.complex])
+    return np.real_if_close(dot_product_l2.handle(first, second))
 
 
 def calculate_scalar_matrix(values_a, values_b):
@@ -517,7 +540,7 @@ def back_project_from_base(weights, base):
         raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
     def eval_handle(z):
-        return sum([weights[i] * base[i](z) for i in range(weights.shape[0])])
+        return np.real_if_close(sum([weights[i] * base[i](z) for i in range(weights.shape[0])]))
 
     # TODO test if bottom one is faster
     return np.vectorize(eval_handle, otypes=[np.float])

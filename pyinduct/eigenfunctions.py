@@ -7,8 +7,8 @@ from pyinduct import get_initial_functions, register_functions
 import pyinduct
 import utils as ut
 import placeholder as ph
-from core import Function, LagrangeSecondOrder, back_project_from_base
-from pyinduct.shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
+from core import Function, back_project_from_base
+from shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData
 import pyqtgraph as pg
