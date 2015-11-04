@@ -15,12 +15,14 @@ import pyqtgraph as pg
 
 __author__ = 'marcus'
 
+# show_plots = True
+show_plots = False
+app = None
 
-if any([arg == 'discover' for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
+if not any([arg == 'discover' for arg in sys.argv]):
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+    show_plots = False
 
 
 class TestAddMulFunction(unittest.TestCase):
@@ -131,10 +133,11 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         self.a1_z = a1
         self.a0_z = lambda z: a0
         self.transformed_eig_funcs = [ef.TransformedSecondOrderEigenfunction(self.eig_val[i],
-                                                                            [self.eig_funcs[i](0), self.eig_funcs[i].derive(1)(0), 0, 0],
-                                                                            [self.a2_z, self.a1_z, self.a0_z],
-                                                                            self.z)
-                                      for i in range(len(self.eig_funcs)) ]
+                                                                             [self.eig_funcs[i](0),
+                                                                              self.eig_funcs[i].derive(1)(0), 0, 0],
+                                                                             [self.a2_z, self.a1_z, self.a0_z],
+                                                                             self.z)
+                                      for i in range(len(self.eig_funcs))]
 
     def test_constant_coefficient(self):
 

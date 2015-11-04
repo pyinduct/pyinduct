@@ -65,6 +65,9 @@ class BaseFraction(object):
             - needed temporal derivative order for destination weights
 
         Overwrite this Method in your implementation to support conversion between bases that differ from yours.
+
+        This implementation will cover the most basic case, where to two baseFractions are of same type. For any other
+        case it will raise an exception.
         """
         # TODO handle target option!
         if target is False:
@@ -149,6 +152,23 @@ class Function(BaseFraction):
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
         self.vectorial = vectorial
+
+    def transformation_hint(self, info, target):
+        """
+        default method for Functions. If src is a subclass of Function, use default strategy.
+        If a different behaviour is desired, overwrite this method.
+        :param info:
+        :param target:
+        :return:
+        """
+        # TODO handle target option!
+        if target is False:
+            raise NotImplementedError
+
+        if isinstance(info.src_base[0], Function) and isinstance(info.dst_base[0], Function):
+            return self._transformation_factory(info), None
+        else:
+            raise NotImplementedError
 
     def scalar_product_hint(self):
         """
