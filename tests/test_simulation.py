@@ -4,7 +4,6 @@ import os
 from cPickle import dumps
 
 import numpy as np
-import pyqtgraph as pg
 import sys
 
 from pyinduct import register_functions, eigenfunctions as ef,\
@@ -20,7 +19,12 @@ if any([arg == 'discover' for arg in sys.argv]):
 else:
     # show_plots = True
     show_plots = False
+
+if show_plots:
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+else:
+    app = None
 
 
 class CanonicalFormTest(unittest.TestCase):

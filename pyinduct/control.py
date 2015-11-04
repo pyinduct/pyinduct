@@ -112,7 +112,7 @@ def _parse_control_law(law):
             # TODO make sure that all have the same target form!
             scalars = placeholders["scalars"]
             if len(scalars) > 1:
-                # TODO if one of 'em is hust a scalar and no array an error occurs
+                # TODO if one of 'em is just a scalar and no array an error occurs
                 res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
             else:
                 res = scalars[0].data
