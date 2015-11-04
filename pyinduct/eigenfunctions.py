@@ -334,11 +334,13 @@ def return_real_part(to_return):
         if not all([isinstance(num, Number) for num in to_return]):
             raise TypeError
 
-    maybe_real = np.real_if_close(to_return)
+    maybe_real = np.atleast_1d(np.real_if_close(to_return))
 
     if maybe_real.dtype == 'complex':
         raise ValueError("Something goes wrong, imaginary part does not vanish")
     else:
+        if maybe_real.shape == (1,):
+            maybe_real = maybe_real[0]
         return maybe_real
 
 def get_adjoint_rad_evp_param(param):
