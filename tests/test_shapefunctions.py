@@ -9,8 +9,8 @@ import pyinduct.shapefunctions
 
 __author__ = 'Stefan Ecklebe'
 
-show_plots = True
-# show_plots = False
+# show_plots = True
+show_plots = False
 app = None
 
 if not any([arg == 'discover' for arg in sys.argv]):
