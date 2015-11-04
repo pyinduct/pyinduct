@@ -18,13 +18,14 @@ import pyinduct.shapefunctions
 
 __author__ = 'Stefan Ecklebe'
 
-if any([arg == 'discover' for arg in sys.argv]):
-    show_plots = False
-    app = None
-else:
-    # show_plots = True
-    show_plots = False
+# show_plots = True
+show_plots = False
+app = None
+
+if not any([arg == 'discover' for arg in sys.argv]):
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+    show_plots = False
 
 # TODO Test for ControlLaw and LawEvaluator
 
@@ -50,7 +51,7 @@ class CollocatedTestCase(unittest.TestCase):
         self.term3 = ph.ScalarTerm(ph.Product(x_at1, exp_at1))
 
         self.weight_label = "funcs"
-        self.weights = np.hstack([1, 1, 1, 2, 2, 2])
+        self.weights = np.array([1, 1, 1, 2, 2, 2])
 
     def test_temp_term(self):
         law = ct.approximate_control_law(ct.ControlLaw([self.term1]))

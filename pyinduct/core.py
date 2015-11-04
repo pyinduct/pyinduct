@@ -75,7 +75,7 @@ class BaseFraction(object):
             return self._transformation_factory(info), None
         else:
             # No Idea what to do.
-            msg = "This is {0} speaking, \n" \
+            msg = "This is {1} speaking, \n" \
                   "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
                   "furthermore the source derivative order is {4} and the target one is {4}. \n" \
                   "But this is a dumb method so implement your own hint to make things work!".format(
@@ -604,9 +604,12 @@ def get_weight_transformation(info):
     :return: handle
     """
     # trivial case
-    def identity(weights):
-        return weights
     if info.src_lbl == info.dst_lbl:
+        mat = calculate_expanded_base_transformation_matrix(info.src_base, None, info.src_order, info.dst_order, True)
+
+        def identity(weights):
+            return np.dot(mat, weights)
+
         return identity
 
     # try to get help from the destination base
