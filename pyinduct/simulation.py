@@ -9,6 +9,7 @@ from core import (Function, integrate_function, calculate_scalar_product_matrix,
                   project_on_base, dot_product_l2)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
 from utils import evaluate_approximation, find_nearest_idx
+from visualization import EvalData
 
 __author__ = 'Stefan Ecklebe'
 
@@ -19,9 +20,10 @@ class SimulationInput(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, name=""):
         self._time_storage = []
         self._value_storage = []
+        self.name = name
 
     def __call__(self, **kwargs):
         """
@@ -30,6 +32,7 @@ class SimulationInput(object):
         out = self._calc_output(**kwargs)
         self._time_storage.append(kwargs["time"])
         self._value_storage.append(out)
+
         return out
 
     @abstractmethod
@@ -44,7 +47,8 @@ class SimulationInput(object):
         return results from storage for given time steps
         """
         idxs = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
-        return np.array(self._value_storage).flatten()[idxs]
+        results = np.array(self._value_storage).flatten()[idxs]
+        return EvalData([time_steps], results, name=self.name)
 
 
 class Mixer(SimulationInput):

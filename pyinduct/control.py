@@ -43,7 +43,7 @@ class Controller(sim.SimulationInput):
     """
 
     def __init__(self, control_law):
-        sim.SimulationInput.__init__(self)
+        sim.SimulationInput.__init__(self, name=control_law.name)
         self._evaluator = approximate_control_law(control_law)
 
     def _calc_output(self, **kwargs):
@@ -181,7 +181,10 @@ class LawEvaluator(object):
         if static_terms[1] is not None:
             output += static_terms[1][0]
 
-        out = np.real_if_close(output)
+        if abs(np.imag(output)) > np.finfo(np.complex128).eps:
+            print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
+
+        out = np.real_if_close(output, tol=1e10)
         if np.imag(out) != 0:
             raise ValueError("calculated complex control output u={0}, check for errors in control law!".format(
                 out
