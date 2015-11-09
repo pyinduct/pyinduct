@@ -527,7 +527,7 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
         try:
             q.append(r.integrate(r.t + time_step))
         except SimulationException as e:
-            print("Simulation failed: {0}".format(e))
+            print("Simulation failed at t={0}: {1}".format(r.t, e))
             t.pop()
             break
 

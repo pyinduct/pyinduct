@@ -186,8 +186,7 @@ class LawEvaluator(object):
 
         out = np.real_if_close(output, tol=1e3)
         if np.imag(out) != 0:
-            raise sim.SimulationException("calculated complex control output u={0}, check for errors in control law!".format(
-                out
-            ))
+            raise sim.SimulationException("calculated complex control output u={0},"
+                                          " check for errors in control law!".format(out))
 
         return out
