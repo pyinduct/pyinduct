@@ -13,6 +13,8 @@ from visualization import EvalData
 
 __author__ = 'Stefan Ecklebe'
 
+class SimulationException(Exception):
+    pass
 
 class SimulationInput(object):
     """
@@ -522,7 +524,12 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     precision = -int(np.log10(time_step))
     while r.successful() and np.round(r.t, precision) < time_interval[1]:
         t.append(r.t + time_step)
-        q.append(r.integrate(r.t + time_step))
+        try:
+            q.append(r.integrate(r.t + time_step))
+        except SimulationException as e:
+            print("Simulation failed: {0}".format(e))
+            t.pop()
+            break
 
     # create results
     t = np.array(t)

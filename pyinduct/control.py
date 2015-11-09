@@ -150,7 +150,7 @@ class LawEvaluator(object):
         :param weight_label: string, label of functions the weights correspond to.
         :return: control output u
         """
-        output = 0
+        output = 0+0j
 
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().iteritems():
@@ -181,12 +181,12 @@ class LawEvaluator(object):
         if static_terms[1] is not None:
             output += static_terms[1][0]
 
-        if abs(np.imag(output)) > np.finfo(np.complex128).eps:
+        if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
             print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
 
-        out = np.real_if_close(output, tol=1e10)
+        out = np.real_if_close(output, tol=1e3)
         if np.imag(out) != 0:
-            raise ValueError("calculated complex control output u={0}, check for errors in control law!".format(
+            raise sim.SimulationException("calculated complex control output u={0}, check for errors in control law!".format(
                 out
             ))
 
