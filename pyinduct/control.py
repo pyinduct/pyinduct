@@ -44,7 +44,8 @@ class Controller(sim.SimulationInput):
 
     def __init__(self, control_law):
         sim.SimulationInput.__init__(self, name=control_law.name)
-        self._evaluator = approximate_control_law(control_law)
+        c_forms = approximate_control_law(control_law)
+        self._evaluator = LawEvaluator(c_forms, self._value_storage)
 
     def _calc_output(self, **kwargs):
         """
@@ -68,8 +69,7 @@ def approximate_control_law(control_law):
     if not isinstance(control_law, ControlLaw):
         raise TypeError("only input of Type ControlLaw allowed!")
 
-    approximated_forms = _parse_control_law(control_law)
-    return LawEvaluator(approximated_forms)
+    return _parse_control_law(control_law)
 
 
 def _parse_control_law(law):
@@ -129,10 +129,11 @@ class LawEvaluator(object):
     """
     object that evaluates the control law approximation given by a CanonicalForms object
     """
-    def __init__(self, cfs):
+    def __init__(self, cfs, storage=None):
         self._cfs = cfs
         self._transformations = {}
         self._eval_vectors = {}
+        self._storage = storage
 
     @staticmethod
     def _build_eval_vector(terms):
@@ -174,6 +175,11 @@ class LawEvaluator(object):
                     self._transformations[info] = handle
 
                 dst_weights = self._transformations[info](weights)
+                if self._storage:
+                    entry = self._storage.get(info.dst_lbl, [])
+                    entry.append(dst_weights)
+                    self._storage[info.dst_lbl] = entry
+
                 output += np.dot(self._eval_vectors[lbl], dst_weights)
 
         # add constant term

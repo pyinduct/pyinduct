@@ -53,17 +53,17 @@ class CollocatedTestCase(unittest.TestCase):
         self.weights = np.array([1, 1, 1, 2, 2, 2])
 
     def test_temp_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term1]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
         res = law(self.weights, self.weight_label)
         self.assertAlmostEqual(res, 6)
 
     def test_spat_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term2]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
         res = law(self.weights, self.weight_label)
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term3]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
         res = law(self.weights, self.weight_label)
         self.assertAlmostEqual(res, 1*np.exp(1))
 
@@ -89,17 +89,17 @@ class ContinuousTestCase(unittest.TestCase):
         self.weights = np.hstack([1, 1, 1, 2, 2, 2])
 
     def test_temp_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term1]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
         res = law(self.weights, self.weight_label)
         self.assertAlmostEqual(res, 6)
 
     def test_spat_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term2]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
         res = law(self.weights, self.weight_label)
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.approximate_control_law(ct.ControlLaw([self.term3]))
+        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
         res = law(self.weights, self.weight_label)
         # TODO calculate expected result
         # self.assertAlmostEqual(res, 1*np.exp(1))

@@ -69,7 +69,8 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
         except StopIteration:
             break
 
-        if info['fvec'] > atol:
+        error = abs(info['fvec'])
+        if error > atol:
             continue
         if root < 0:
             continue
@@ -77,17 +78,17 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
         rounded_root = np.round(root, -rtol)
         if rounded_root in rounded_roots:
             idx = rounded_roots.index(rounded_root)
-            if errors[idx] > info['fvec']:
+            if errors[idx] > error:
                 roots[idx] = root
-                errors[idx] = info['fvec']
+                errors[idx] = error
             continue
 
         roots.append(root)
         rounded_roots.append(rounded_root)
-        errors.append(info['fvec'])
+        errors.append(error)
 
     if len(roots) < n_roots:
-        raise ValueError("Insufficient number of roots {0} detected. "
+        raise ValueError("Insufficient number of roots detected. ({0}) "
                          "Try to increase the area to search in.".format(len(roots)))
 
     found_roots = np.atleast_1d(sorted(roots)[:n_roots]).flatten()
@@ -118,7 +119,7 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step):
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step, spat_order=0):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
@@ -126,7 +127,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     :param function_label: functions to use for back-projection
     :return:
     """
-    funcs = get_initial_functions(function_label, 0)
+    funcs = get_initial_functions(function_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 

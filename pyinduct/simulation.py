@@ -24,7 +24,7 @@ class SimulationInput(object):
 
     def __init__(self, name=""):
         self._time_storage = []
-        self._value_storage = []
+        self._value_storage = {}
         self.name = name
 
     def __call__(self, **kwargs):
@@ -33,8 +33,9 @@ class SimulationInput(object):
         """
         out = self._calc_output(**kwargs)
         self._time_storage.append(kwargs["time"])
-        self._value_storage.append(out)
-
+        entries = self._value_storage.get("output", [])
+        entries.append(out)
+        self._value_storage["output"] = entries
         return out
 
     @abstractmethod
@@ -44,13 +45,19 @@ class SimulationInput(object):
         """
         pass
 
-    def get_results(self, time_steps):
+    def get_results(self, time_steps, result_key="output"):
         """
         return results from storage for given time steps
+        :param time_steps: time points where values are demanded
+        :param result_key: type of values to be returned
         """
+        # TODO change to more uniform behaviour
         idxs = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
-        results = np.array(self._value_storage).flatten()[idxs]
-        return EvalData([time_steps], results, name=self.name)
+        results = np.array(self._value_storage[result_key])[idxs]
+        if result_key == "output":
+            return EvalData([time_steps], results.flatten(), name=self.name)
+        else:
+            return results
 
 
 class Mixer(SimulationInput):
@@ -156,20 +163,41 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     print(">>> performing time step integration")
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
 
-    # create handles and evaluate at given points
     print(">>> performing postprocessing")
+    data = process_sim_data(canonical_form.weights, initial_states.size-1, 0, q, spatial_interval, spatial_step, t,
+                            name=canonical_form.name)
+
+    print("finished simulation.")
+    return data
+
+
+def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, spatial_step, t, name=""):
+    """
+    create handles and evaluate at given points
+    :param name:
+    :param weight_lbl:
+    :param t:
+    :param spatial_step:
+    :param spatial_interval:
+    :param q:
+    :param temp_order:
+    """
     data = []
-    ini_funcs = get_initial_functions(canonical_form.weights, 0)
-    for der_idx in range(initial_states.size):
-        # TODO also generate spatial derivatives here
-        data.append(evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                           canonical_form.weights,
-                                           t, spatial_interval, spatial_step))
-        data[-1].name = "{0}{1}".format(canonical_form.name,
+    # temporal
+    ini_funcs = get_initial_functions(weight_lbl, 0)
+    for der_idx in range(temp_order+1):
+        data.append(evaluate_approximation(q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                                           weight_lbl, t, spatial_interval, spatial_step))
+        data[-1].name = "{0}{1}".format(name,
                                         "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
 
-    # return results
-    print("finished simulation.")
+    # spatial (0th derivative is skipped since this is already handled above)
+    for der_idx in range(1, spat_order+1):
+        data.append(evaluate_approximation(q[:, :ini_funcs.size],
+                                           weight_lbl, t, spatial_interval, spatial_step, der_idx))
+        data[-1].name = "{0}{1}".format(name,
+                                        "_" + "".join(["d" for x in range(der_idx)] + ["z"]) if der_idx > 0 else "")
+
     return data
 
 
