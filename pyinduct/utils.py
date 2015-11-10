@@ -5,7 +5,7 @@ import copy as cp
 
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 import pyqtgraph as pg
 
 from pyinduct import get_initial_functions, register_functions
@@ -18,7 +18,7 @@ from visualization import EvalData
 __author__ = 'Stefan Ecklebe'
 
 
-def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7, show_plot=False):
+def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7, show_plot=False, cmplx=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
@@ -51,58 +51,76 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     if not isinstance(show_plot, bool):
         raise TypeError("show_plot must be of type bool")
 
-    # increase n_roots and area_end
-    # TODO maybe the scaling stuff should be completely removed. basically it is undocumented behavior.
-    safety_factor = 2
-    own_n_roots = safety_factor * n_roots
-    own_area_end = safety_factor * area_end
-    values = np.linspace(0, own_area_end, own_n_roots * points_per_root)
+    if cmplx:
+        dim = 2
+    else:
+        dim = 1
 
-    roots = []
-    rounded_roots = []
-    errors = []
+    roots = np.empty((n_roots, dim))
+    rounded_roots = np.empty((n_roots, dim))
+    errors = np.empty((n_roots, dim))
+    found_roots = 0
 
+    values = np.arange(0, area_end, rtol*.1)
     val = iter(values)
-    while len(roots) < own_n_roots:
+    if cmplx:
+        re_vals, im_vals = np.meshgrid(values, values)
+        cvalues = np.vstack([re_vals.flatten(), im_vals.flatten()]).T
+        val = iter(cvalues)
+
+    while found_roots < n_roots:
         try:
-            root, info, ier, msg = fsolve(function, val.next(), full_output=True)
+            calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
 
-        error = abs(info['fvec'])
-        if error > atol:
+        if not cmplx:
+            calculated_root = [calculated_root]
+
+        error = np.abs(info['fvec'])
+        if all(error > atol):
             continue
-        if root < 0:
+        if any(calculated_root < 0):
             continue
 
-        rounded_root = np.round(root, -rtol)
-        if rounded_root in rounded_roots:
-            idx = rounded_roots.index(rounded_root)
-            if errors[idx] > error:
-                roots[idx] = root
+        rounded_root = np.round(calculated_root, -rtol)
+        cmp_arr = [a and b for a, b in rounded_root == rounded_roots]
+        if any(cmp_arr):
+            idx = cmp_arr.index(True)
+            if all(errors[idx] > error):
+                roots[idx] = calculated_root
                 errors[idx] = error
             continue
 
-        roots.append(root)
-        rounded_roots.append(rounded_root)
-        errors.append(error)
+        roots[found_roots] = calculated_root
+        rounded_roots[found_roots] = rounded_root
+        errors[found_roots] = error
 
-    if len(roots) < n_roots:
-        raise ValueError("Insufficient number of roots detected. ({0}) "
-                         "Try to increase the area to search in.".format(len(roots)))
+        found_roots += 1
 
-    found_roots = np.atleast_1d(sorted(roots)[:n_roots]).flatten()
+        # if found_roots == n_roots:
+        #     break
+
+    if found_roots < n_roots:
+        raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
+                         "Try to increase the area to search in.".format(found_roots, n_roots))
+
+    good_roots = np.sort(roots, 0)[:n_roots]
 
     if show_plot:
-        points = np.arange(0, area_end, .1)
-        vec_function = np.vectorize(function, otypes=[np.float])
-        values = vec_function(points)
         pw = pg.plot(title="function + roots")
-        pw.plot(points, values)
-        pw.plot(found_roots, vec_function(found_roots), pen=None, symbolPen=pg.mkPen("g"))
+        if cmplx:
+            res = function(cvalues)
+            pw.plot(values, res[0, :])
+            pw.plot(values, res[1, :])
+        else:
+            vec_function = np.vectorize(function, otypes=[np.float])
+            pw.plot(values, vec_function(values))
+            pw.plot(good_roots, vec_function(good_roots), pen=None, symbolPen=pg.mkPen("g"))
+
         pg.QtGui.QApplication.instance().exec_()
 
-    return found_roots
+    return good_roots
 
 
 def evaluate_placeholder_function(placeholder, input_values):
