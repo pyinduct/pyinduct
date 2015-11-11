@@ -13,8 +13,10 @@ from visualization import EvalData
 
 __author__ = 'Stefan Ecklebe'
 
+
 class SimulationException(Exception):
     pass
+
 
 class SimulationInput(object):
     """

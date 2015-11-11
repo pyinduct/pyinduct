@@ -13,12 +13,27 @@ import placeholder as ph
 from core import back_project_from_base
 from shapefunctions import LagrangeFirstOrder
 from placeholder import FieldVariable, TestFunction
-from visualization import EvalData
+from visualization import EvalData, create_colormap
 
 __author__ = 'Stefan Ecklebe'
 
 
-def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7, show_plot=False, cmplx=False):
+def complex_wrapper(func):
+    """
+    wraps complex valued function into 2 dimensional function for easier handling
+    :param func:
+    :return: 2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)]
+    """
+    def wrapper(x):
+        # return np.linalg.norm([np.real(func(np.complex(x[0], x[1]))),
+        #                        np.imag(func(np.complex(x[0], x[1])))])
+        return np.array([np.real(func(np.complex(x[0], x[1]))),
+                         np.imag(func(np.complex(x[0], x[1])))])
+
+    return wrapper
+
+
+def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=False, complex=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
@@ -28,9 +43,9 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
     :param function: function handle for f(x) whose roots shall be found
     :param n_roots: number of roots to find
-    :param area_end: end of interval to search in
+    :param area: tuple of interval to search in (dimension should fit the input dimension of the provided func)
+    :param step_size: stepwidths for each dimension, if only one is given it will be used for all dimensions
     :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
-    :param points_per_root: number of solver start-points around each root
     :param atol: absolute tolerance to zero  f(root) < atol
     :param show_plot: shows a debug plot containing the given functions behavior completed by the extracted roots
     :return: numpy.ndarray of roots
@@ -40,54 +55,73 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
     error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
     the present entry.
     """
-    positive_numbers = [n_roots, points_per_root, area_end, atol]
-    integers = [n_roots, points_per_root, rtol]
-    if not callable(function):
-        raise TypeError("callable handle is needed")
-    if not all([isinstance(num, int) for num in integers]):
-        raise TypeError("n_roots, points_per_root and rtol must be of type int")
-    if any([num <= 0 for num in positive_numbers]):
-        raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
-    if not isinstance(show_plot, bool):
-        raise TypeError("show_plot must be of type bool")
+    # positive_numbers = [n_roots, points_per_root, area, atol]
+    # integers = [n_roots, points_per_root, rtol]
+    # if not callable(function):
+    #     raise TypeError("callable handle is needed")
+    # if not all([isinstance(num, int) for num in integers]):
+    #     raise TypeError("n_roots, points_per_root and rtol must be of type int")
+    # if any([num <= 0 for num in positive_numbers]):
+    #     raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
+    # if not isinstance(show_plot, bool):
+    #     raise TypeError("show_plot must be of type bool")
 
-    if cmplx:
-        dim = 2
-    else:
-        dim = 1
+    if complex:
+        function = complex_wrapper(function)
+        area = [area, (-area[1], area[1])]
 
-    roots = np.empty((n_roots, dim))
-    rounded_roots = np.empty((n_roots, dim))
-    errors = np.empty((n_roots, dim))
+    if isinstance(area, tuple):
+        area = [area]
+
+    dim = len(area)
+    if isinstance(step_size, Number):
+        step_size = [step_size]*dim
+
+    roots = np.full((n_roots, dim), np.nan)
+    rounded_roots = np.full((n_roots, dim), np.nan)
+    errors = np.full((n_roots, ), np.nan)
     found_roots = 0
 
-    values = np.arange(0, area_end, rtol*.1)
-    val = iter(values)
-    if cmplx:
-        re_vals, im_vals = np.meshgrid(values, values)
-        cvalues = np.vstack([re_vals.flatten(), im_vals.flatten()]).T
-        val = iter(cvalues)
+    ranges = [np.arange(ar[0], ar[1] + step, step) for ar, step in zip(area, step_size)]
+    grids = np.meshgrid(*ranges)
+    values = np.vstack([arr.flatten() for arr in grids]).T
 
+    # iterate over test_values
+    val = iter(values)
     while found_roots < n_roots:
         try:
-            calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
+            res = root(function, val.next())
+            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
 
-        if not cmplx:
-            calculated_root = [calculated_root]
-
-        error = np.abs(info['fvec'])
-        if all(error > atol):
+        if not res.success:
             continue
-        if any(calculated_root < 0):
+        calculated_root = np.atleast_1d(res.x)
+        error = np.linalg.norm(res.fun)
+
+        # calculated_root = np.atleast_1d(calculated_root)
+        # error = np.linalg.norm(info['fvec'])
+
+        # check for absolute tolerance
+        if error > atol:
             continue
 
+        # check if roots lies in expected area
+        abort = False
+        for rt, ar in zip(calculated_root, area):
+            if ar[0] > rt or ar[1] < rt:
+                abort = True
+                break
+        if abort:
+            continue
+
+        # check whether root is already present in cache
         rounded_root = np.round(calculated_root, -rtol)
-        cmp_arr = [a and b for a, b in rounded_root == rounded_roots]
+        cmp_arr = [all(bools) for bools in rounded_root == rounded_roots[:found_roots]]
         if any(cmp_arr):
             idx = cmp_arr.index(True)
-            if all(errors[idx] > error):
+            if errors[idx] > error:
                 roots[idx] = calculated_root
                 errors[idx] = error
             continue
@@ -98,25 +132,31 @@ def find_roots(function, n_roots, area_end, rtol, points_per_root=10, atol=1e-7,
 
         found_roots += 1
 
-        # if found_roots == n_roots:
-        #     break
+    # sort roots
+    valid_roots = roots[:found_roots]
+    good_roots = np.sort(valid_roots, 0)
 
     if found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(found_roots, n_roots))
 
-    good_roots = np.sort(roots, 0)[:n_roots]
-
     if show_plot:
         pw = pg.plot(title="function + roots")
-        if cmplx:
-            res = function(cvalues)
-            pw.plot(values, res[0, :])
-            pw.plot(values, res[1, :])
+        if complex:
+            pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+            # results = np.linalg.norm(function(values), axis=0)
+            # results = vec_function(grids)
+            # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
+            # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
+            # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
+            # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
         else:
-            vec_function = np.vectorize(function, otypes=[np.float])
-            pw.plot(values, vec_function(values))
-            pw.plot(good_roots, vec_function(good_roots), pen=None, symbolPen=pg.mkPen("g"))
+            if dim == 1:
+                results = function(grids)
+                colors = create_colormap(len(ranges))
+                for idx, (intake, output) in enumerate(zip(ranges, results)):
+                    pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
+                    pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
 
         pg.QtGui.QApplication.instance().exec_()
 

@@ -290,7 +290,8 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
     # assume 1 root per pi/l (safety factor = 2)
     om_end = 2 * n_roots * np.pi / l
-    om = ut.find_roots(characteristic_equation, 2 * n_roots, om_end, rtol=int(np.log10(l)-6), show_plot=show_plot).tolist()
+    om = ut.find_roots(characteristic_equation, 2 * n_roots, om_end, step_size=show_plot, rtol=int(np.log10(l) - 6),
+                       show_plot=show_plot).tolist()
 
     # delete all around om = 0
     om.reverse()

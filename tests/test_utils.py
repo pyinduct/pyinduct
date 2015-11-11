@@ -27,9 +27,19 @@ class FindRootsTestCase(unittest.TestCase):
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
+        def _univar_equation(x):
+            return [np.cos(x[0]), np.cos(4*x[1])]
+
+        def _cmplx_equation(lamda):
+            return np.real(lamda)**2 - 1 + 1j*(np.imag(lamda)-1)
+
         self.char_eq = _char_equation
+        self.univar_eq = _univar_equation
+        self.cmplx_eq = _cmplx_equation
+
         self.n_roots = 10
         self.area_end = 50.
+        self.step = 1
         self.rtol = -1
 
     def test_in_fact_roots(self):
@@ -75,7 +85,18 @@ class FindRootsTestCase(unittest.TestCase):
 
     def test_debug_plot(self):
         if show_plots:
-            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area_end, self.rtol, show_plot=True)
+            self.roots = ut.find_roots(self.char_eq, self.n_roots, (0, self.area_end), step_size=True, rtol=self.rtol,
+                                       show_plot=True)
+
+    def test_cmplx_func(self):
+        roots = ut.find_roots(self.cmplx_eq, 3, (0, 10),
+                              .1, -1, show_plot=True, complex=True)
+        print(roots)
+
+    def test_n_dim_func(self):
+        roots = ut.find_roots(self.univar_eq, self.n_roots, 2*[(0, self.area_end)], self.step, self.rtol,
+                              show_plot=True)
+        print(roots)
 
     def tearDown(self):
         pass

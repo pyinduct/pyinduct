@@ -155,6 +155,7 @@ class LawEvaluator(object):
 
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().iteritems():
+            dst_weights = [0]
             if law[0] is not None:
                 # build eval vector
                 if lbl not in self._eval_vectors.keys():
@@ -175,12 +176,12 @@ class LawEvaluator(object):
                     self._transformations[info] = handle
 
                 dst_weights = self._transformations[info](weights)
-                if self._storage:
-                    entry = self._storage.get(info.dst_lbl, [])
-                    entry.append(dst_weights)
-                    self._storage[info.dst_lbl] = entry
-
                 output += np.dot(self._eval_vectors[lbl], dst_weights)
+
+            if hasattr(self, "_storage"):
+                entry = self._storage.get(info.dst_lbl, [])
+                entry.append(dst_weights)
+                self._storage[info.dst_lbl] = entry
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
