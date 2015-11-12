@@ -68,7 +68,7 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
 
     if complex:
         function = complex_wrapper(function)
-        area = [area, (-area[1], area[1])]
+        assert len(area) == 2
 
     if isinstance(area, tuple):
         area = [area]
@@ -159,6 +159,9 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
                     pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
 
         pg.QtGui.QApplication.instance().exec_()
+
+    if complex:
+        return good_roots[:, 0] + 1j*good_roots[:, 1]
 
     return good_roots
 
