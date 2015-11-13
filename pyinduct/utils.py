@@ -25,8 +25,6 @@ def complex_wrapper(func):
     :return: 2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)]
     """
     def wrapper(x):
-        # return np.linalg.norm([np.real(func(np.complex(x[0], x[1]))),
-        #                        np.imag(func(np.complex(x[0], x[1])))])
         return np.array([np.real(func(np.complex(x[0], x[1]))),
                          np.imag(func(np.complex(x[0], x[1])))])
 
@@ -67,8 +65,8 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
     #     raise TypeError("show_plot must be of type bool")
 
     if complex:
-        function = complex_wrapper(function)
         assert len(area) == 2
+        function = complex_wrapper(function)
 
     if isinstance(area, tuple):
         area = [area]
@@ -97,11 +95,9 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
 
         if not res.success:
             continue
+
         calculated_root = np.atleast_1d(res.x)
         error = np.linalg.norm(res.fun)
-
-        # calculated_root = np.atleast_1d(calculated_root)
-        # error = np.linalg.norm(info['fvec'])
 
         # check for absolute tolerance
         if error > atol:
