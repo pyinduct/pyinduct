@@ -143,13 +143,19 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
 
         a2, a1, a0, alpha, beta = self.param
         z = self.z
+        if show_plots:
+            plt.figure()
         for i in range(len(self.eig_funcs)):
             eig_v = self.eig_val[i]
             eig_f = self.eig_funcs[i]
+            if show_plots:
+                plt.plot(self.z, eig_f.derive(1)(self.z))
             self.assertTrue(all(np.isclose(a2*eig_f.derive(2)(z) +
                                            a1*eig_f.derive(1)(z) +
                                            a0*eig_f(z),
                                            eig_v.real*eig_f(z))))
+        if show_plots:
+            plt.show()
 
     def test_spatially_varying_coefficient(self):
 
