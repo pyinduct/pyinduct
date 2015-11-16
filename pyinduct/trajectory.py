@@ -352,8 +352,6 @@ class InterpTrajectory(SimulationInput):
     def _calc_output(self, **kwargs):
         """
         use time to calculate system input and return force
-        :param t:
-        :param q:
         :param kwargs:
         :return:
         """
