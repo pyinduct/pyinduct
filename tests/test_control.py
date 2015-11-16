@@ -18,13 +18,12 @@ import pyinduct.shapefunctions
 
 __author__ = 'Stefan Ecklebe'
 
-# show_plots = True
-show_plots = False
-app = None
 
 if not any([arg == 'discover' for arg in sys.argv]):
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+    show_plots = True
+else:
     show_plots = False
 
 # TODO Test for ControlLaw and LawEvaluator
@@ -169,8 +168,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
+            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
 
@@ -262,8 +261,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
+            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
 
@@ -368,8 +367,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
+            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
     def test_modal(self):
@@ -397,8 +396,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
+            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
 
@@ -512,8 +511,8 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.AnimatedPlot([eval_d], title="Test")
-            win2 = vis.SurfacePlot(eval_d)
+            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
 
@@ -659,9 +658,9 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.AnimatedPlot([eval_i], title="eigfuncs")
-            win2 = vis.SurfacePlot(eval_i)
+            win1 = vis.PgAnimatedPlot([eval_i], title="eigfuncs")
+            win2 = vis.PgSurfacePlot(eval_i)
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win3 = vis.AnimatedPlot([eval_d], title="fem")
-            win4 = vis.SurfacePlot(eval_d)
+            win3 = vis.PgAnimatedPlot([eval_d], title="fem")
+            win4 = vis.PgSurfacePlot(eval_d)
             app.exec_()

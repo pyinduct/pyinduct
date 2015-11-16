@@ -4,8 +4,9 @@ import unittest
 import numpy as np
 from cPickle import loads
 
-from pyinduct.visualization import SlicePlot, LinePLot3d
+import pyinduct.visualization as vis
 import pyqtgraph as pg
+import matplotlib.pyplot as plt
 import sys
 
 __author__ = 'stefan'
@@ -28,13 +29,25 @@ class PlotTestCase(unittest.TestCase):
 
     def test_slice_plot(self):
         if show_plots:
-            pt = SlicePlot(self.test_data[0])
+            pt = vis.PgSlicePlot(self.test_data[0])
             app.exec_()
 
     def test_3d_line_plot(self):
         if show_plots:
-            pt = LinePLot3d(self.test_data)
+            pt = vis.PgLinePlot3d(self.test_data)
             app.exec_()
 
+    def test_animated_plot(self):
+        if show_plots:
+            pt = vis.PgAnimatedPlot(self.test_data)
+            app.exec_()
 
+    def test_surface_plot(self):
+        if show_plots:
+            pt = vis.PgSurfacePlot(self.test_data[1])
+            app.exec_()
 
+    def test_mpl_surface_plot(self):
+        if show_plots:
+            vis.MplSurfacePlot(self.test_data[1], keep_aspect=False)
+            plt.show()

@@ -114,7 +114,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
     def test_eval_helper(self):
         eval_data = ut.evaluate_approximation(self.weights, "approx_funcs", self.dates, self.spat_int, .1)
         if show_plots:
-            p = vt.AnimatedPlot(eval_data)
+            p = vt.PgAnimatedPlot(eval_data)
             app.exec_()
             del p
 

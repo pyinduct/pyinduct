@@ -43,7 +43,7 @@ class SmoothTransitionTestCase(unittest.TestCase):
             # plot stuff
             pw = pg.plot(title="control_input")
             pw.plot(self.t_values, u_values)
-            ap = vis.AnimatedPlot(eval_data_x)
+            ap = vis.PgAnimatedPlot(eval_data_x)
             app.exec_()
 
 class FormalPowerSeriesTest(unittest.TestCase):

@@ -3,6 +3,11 @@ import numpy as np
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from mpl_toolkits.mplot3d import axes3d
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
@@ -30,12 +35,11 @@ class EvalData:
         self.name = name
 
 
-class DataPlot(QtCore.QObject):
+class DataPlot:
     """
     base class for all plotting related classes
     """
     def __init__(self, data):
-        QtCore.QObject.__init__(self)
 
         # just to be sure
         assert isinstance(data, list) or isinstance(data, EvalData)
@@ -48,7 +52,16 @@ class DataPlot(QtCore.QObject):
         self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
-class AnimatedPlot(DataPlot):
+class PgDataPlot(DataPlot, QtCore.QObject):
+    """
+    base class for all pyqtgraph plotting related classes
+    """
+    def __init__(self, data):
+        QtCore.QObject.__init__(self)
+        DataPlot.__init__(self, data)
+
+
+class PgAnimatedPlot(PgDataPlot):
     """
     wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
     It is assumed that time propagates along axis1 and and location along axis2 of values
@@ -58,7 +71,7 @@ class AnimatedPlot(DataPlot):
     # TODO generalize to n-d spatial domain
 
     def __init__(self, data, title="", dt=None):
-        DataPlot.__init__(self, data)
+        PgDataPlot.__init__(self, data)
 
         self._pw = pg.plot(title=title)
         self._pw.addLegend()
@@ -111,12 +124,12 @@ class AnimatedPlot(DataPlot):
             self._curr_frame += 1
 
 
-class SurfacePlot(DataPlot):
+class PgSurfacePlot(PgDataPlot):
     """
     plot as 3d surface
     """
     def __init__(self, data):
-        DataPlot.__init__(self, data)
+        PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.gl_widget.show()
 
@@ -133,18 +146,18 @@ class SurfacePlot(DataPlot):
             self.gl_widget.addItem(plot_item)
 
 
-class SlicePlot(DataPlot):
+class PgSlicePlot(PgDataPlot):
     """
     plot selected slice of given DataSets
     """
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
     def __init__(self, data, title=None):
-        DataPlot.__init__(self, data)
+        PgDataPlot.__init__(self, data)
         self.dim = self._data[0].output_data.shape
 
         self.win = QtGui.QMainWindow()
         self.win.resize(800, 800)
-        self.win.setWindowTitle("SlicePlot: {}".format(title))
+        self.win.setWindowTitle("PgSlicePlot: {}".format(title))
         self.cw = QtGui.QWidget()
         self.win.setCentralWidget(self.cw)
         self.l = QtGui.QGridLayout()
@@ -171,14 +184,14 @@ class SlicePlot(DataPlot):
         #                           name=data.name)
 
 
-class LinePLot3d(DataPlot):
+class PgLinePlot3d(PgDataPlot):
     """
     plots a series of n-lines of the systems state.
     scaling in z-direction can be changed with the scale setting
     """
 
     def __init__(self, data, n=50, scale=1):
-        DataPlot.__init__(self, data)
+        PgDataPlot.__init__(self, data)
 
         self.w = gl.GLViewWidget()
         self.w.opts['distance'] = 40
@@ -211,3 +224,56 @@ class LinePLot3d(DataPlot):
                                     width=2,
                                     antialias=True)
             self.w.addItem(plt)
+
+
+class MplSurfacePlot(DataPlot):
+    """
+    plot as 3d surface
+    """
+    def __init__(self, data, keep_aspect=True, show=False):
+        DataPlot.__init__(self, data)
+
+        for i in range(len(self._data)):
+
+            disc = 3
+            axespad = 0.02
+            mpl.rcParams['font.size'] = 15
+            mpl.rcParams['ytick.major.pad'] = 0
+            mpl.rcParams['ytick.minor.pad'] = 0
+            mpl.rcParams['axes.labelsize'] = 25
+            x = self._data[i].input_data[1]
+            y = self._data[i].input_data[0]
+            z = (self._data[i].output_data)
+            x_min, x_max = (int(x.min()), int(x.max()))
+            y_min, y_max = (int(y.min()), int(y.max()))
+            z_min, z_max = (z.min(), z.max())
+            xx, yy = np.meshgrid(x, y)
+
+            fig = plt.figure(figsize=(12, 12), facecolor='white')
+            ax = fig.add_subplot(111, projection='3d')
+            if keep_aspect:
+                ax.set_aspect('equal', 'box')
+            ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            # plt.title(r'$ $')
+            ax.set_ylabel('\n'+r'$t$')
+            ax.set_xlabel('\n'+r'$z$')
+            ax.zaxis.set_rotate_label(False)
+            ax.set_zlabel('\t'+r'$x(z,t)$', rotation=0)
+            ax.set_xlim((x_min+0.025, x_max-axespad))
+            plt.xticks(np.linspace(x_min, x_max, disc))
+            ax.set_ylim((y_min+axespad, y_max-axespad))
+            plt.yticks(np.linspace(y_min, y_max, disc))
+            # # ax.w_xaxis.gridlines.set_lw(3.0)
+            # # ax.w_yaxis.gridlines.set_lw(3.0)
+            # # ax.w_zaxis.gridlines.set_lw(3.0)
+            ax.w_xaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
+            ax.w_yaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
+            ax.w_zaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
+
+            ax.plot_wireframe(xx, yy, z, rstride=2, cstride=4, color="#222222")
+            # ax.view_init(elev=10, azim=-45)
+
+        if show:
+            plt.show()
