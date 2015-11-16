@@ -51,3 +51,8 @@ class PlotTestCase(unittest.TestCase):
         if show_plots:
             vis.MplSurfacePlot(self.test_data[1], keep_aspect=False)
             plt.show()
+
+    def test_mpl_compare_plot(self):
+        if show_plots:
+            vis.MplComparePlot(self.test_data[0], [self.test_data[1], self.test_data[1]], spatial_point=0.5, ylabel=u'$x(0,t)$')
+            plt.show()

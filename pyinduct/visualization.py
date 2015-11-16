@@ -8,6 +8,9 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from numbers import Number
+from types import NoneType
+import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
@@ -274,6 +277,73 @@ class MplSurfacePlot(DataPlot):
 
             ax.plot_wireframe(xx, yy, z, rstride=2, cstride=4, color="#222222")
             # ax.view_init(elev=10, azim=-45)
+
+        if show:
+            plt.show()
+
+class MplComparePlot(PgDataPlot):
+    """
+    get one desired EvalData-object and up to five simulation/experiment EvalData-object's
+    """
+
+    def __init__(self, desired_data, actual_data, time_point=None, spatial_point=None, ylabel="", show=False):
+
+        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
+                (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
+            raise TypeError("Only one kwarg *_point can be passed, which has to be an instance from type numbers.Number")
+
+        DataPlot.__init__(self, [desired_data]+actual_data)
+
+        len_data = len(self._data)
+        time_data = [data_set.input_data[0] for data_set in self._data]
+        spatial_data = [data_set.input_data[1] for data_set in self._data]
+        interp_funcs = [si.interp2d(spatial_data[i], time_data[i], self._data[i].output_data) for i in range(len_data)]
+
+        plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
+        params = {'text.usetex' : True,
+                  'font.size' : 15,
+                  'font.family' : 'lmodern',
+                  'text.latex.unicode': True,
+                  }
+        plt.rcParams.update(params)
+        mpl.rcParams['axes.labelsize'] = 25
+        mpl.rcParams['axes.linewidth'] = 2
+        mpl.rcParams['xtick.major.width'] = 2
+        mpl.rcParams['xtick.major.size'] = 10
+        mpl.rcParams['ytick.major.width'] = 2
+        mpl.rcParams['ytick.major.size'] = 10
+        fig = plt.figure(figsize=(12, 12), facecolor='white')
+
+        if time_point == None:
+            point_input = time_data
+            point_data = [interp_funcs[i](spatial_point, time_data[i]) for i in range(len_data)]
+            plt.xlabel(u'Ort $z$', size=30)
+        elif spatial_point == None:
+            point_input = spatial_data
+            point_data = [interp_funcs[i](spatial_data[i], time_point) for i in range(len_data)]
+            plt.xlabel(u'Zeit $t$', size=30)
+        else:
+            raise StandardError
+        plt.ylabel(ylabel, size=30, rotation='vertical')
+        plt.yticks(fontsize=30)
+        plt.xticks(fontsize=30)
+        plt.grid(True, which='both', color='0.0',linestyle='--')
+        input_min = np.min([np.min(data) for data in point_input])
+        input_max = np.max([np.max(data) for data in point_input])
+        output_min = np.min([np.min(data) for data in point_data])
+        output_max = np.max([np.max(data) for data in point_data])
+
+        ls = ['None', '--', '-']
+        m_nonf = [u'1', u'x', u'|', u'+', ]
+        m_filled = [u'o', u'^', u's', u'd']
+        plt.plot(point_input[0], point_data[0], ls=ls.pop(), lw=3, c='black')
+        for i in range(1, len_data):
+            if i < len(ls):
+                plt.plot(point_input[i], point_data[i], ls=ls.pop(), lw=3, c='black')
+            elif False:
+                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled.pop(), ms=10, c='black')
+            else:
+                plt.plot(point_input[i], point_data[i], ls='--', lw=3, marker=m_nonf.pop(), ms=10, mew=3, c='black')
 
         if show:
             plt.show()
