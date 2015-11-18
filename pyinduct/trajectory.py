@@ -12,6 +12,23 @@ import scipy.misc as sm
 __author__ = 'stefan ecklebe'
 
 
+class ConstantTrajectory(SimulationInput):
+    """
+    trivial trajectory generator for a constant value as simulation input signal
+    """
+    def __init__(self, const=0):
+        SimulationInput.__init__(self)
+        self._const = const
+
+    def _calc_output(self, **kwargs):
+        if isinstance(kwargs["time"], (list, np.ndarray)):
+            return np.ones(len(kwargs["time"]))*self._const
+        elif isinstance(kwargs["time"], Number):
+            return self._const
+        else:
+            raise NotImplementedError
+
+
 class SmoothTransition(object):
     """
     trajectory generator for a smooth transition between to states with derivatives of arbitrary height.

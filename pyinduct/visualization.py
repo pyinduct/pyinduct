@@ -8,12 +8,43 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib import cm
 from numbers import Number
 from types import NoneType
 import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
+
+# to avoid stupid useless margins in 3d plots
+###patch start###
+from mpl_toolkits.mplot3d.axis3d import Axis
+if not hasattr(Axis, "_get_coord_info_old"):
+    def _get_coord_info_new(self, renderer):
+        mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
+        mins += deltas / 4
+        maxs -= deltas / 4
+        return mins, maxs, centers, deltas, tc, highs
+    Axis._get_coord_info_old = Axis._get_coord_info
+    Axis._get_coord_info = _get_coord_info_new
+###patch end###
+
+# matplotlib parameters
+plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
+params = {'text.usetex' : True,
+          'font.size' : 15,
+          'font.family' : 'lmodern',
+          'text.latex.unicode': True,
+          }
+plt.rcParams.update(params)
+mpl.rcParams['axes.labelpad'] = 25
+mpl.rcParams['axes.labelsize'] = 30
+mpl.rcParams['axes.linewidth'] = 2
+mpl.rcParams['xtick.major.width'] = 2
+mpl.rcParams['xtick.major.size'] = 10
+mpl.rcParams['ytick.major.width'] = 2
+mpl.rcParams['ytick.major.size'] = 10
+mpl.rcParams['figure.facecolor'] = 'white'
 
 
 class EvalData:
@@ -233,50 +264,61 @@ class MplSurfacePlot(DataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data, keep_aspect=True, show=False):
+    def __init__(self, data, hack_xdata=None, hack_ydata=None, keep_aspect=True, show=False, own_cmap=plt.cm.Greys, dpi=80, azim = -60, elev = 30):
         DataPlot.__init__(self, data)
+
 
         for i in range(len(self._data)):
 
             disc = 3
-            axespad = 0.02
-            mpl.rcParams['font.size'] = 15
-            mpl.rcParams['ytick.major.pad'] = 0
-            mpl.rcParams['ytick.minor.pad'] = 0
-            mpl.rcParams['axes.labelsize'] = 25
+
             x = self._data[i].input_data[1]
+            if hack_xdata != None:
+                x[-1] = hack_xdata
             y = self._data[i].input_data[0]
+            if hack_ydata != None:
+                y[-1] = hack_ydata
             z = (self._data[i].output_data)
-            x_min, x_max = (int(x.min()), int(x.max()))
-            y_min, y_max = (int(y.min()), int(y.max()))
+            x_min, x_max = (x.min(), x.max())
+            y_min, y_max = (y.min(), y.max())
             z_min, z_max = (z.min(), z.max())
             xx, yy = np.meshgrid(x, y)
 
-            fig = plt.figure(figsize=(12, 12), facecolor='white')
+            fig = plt.figure(figsize=(12, 12), dpi=dpi)
             ax = fig.add_subplot(111, projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
             ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            # plt.title(r'$ $')
-            ax.set_ylabel('\n'+r'$t$')
-            ax.set_xlabel('\n'+r'$z$')
+
+            # labels
+            ax.set_ylabel('$t$')
+            ax.set_xlabel('$z$')
             ax.zaxis.set_rotate_label(False)
-            ax.set_zlabel('\t'+r'$x(z,t)$', rotation=0)
-            ax.set_xlim((x_min+0.025, x_max-axespad))
-            plt.xticks(np.linspace(x_min, x_max, disc))
-            ax.set_ylim((y_min+axespad, y_max-axespad))
-            plt.yticks(np.linspace(y_min, y_max, disc))
-            # # ax.w_xaxis.gridlines.set_lw(3.0)
-            # # ax.w_yaxis.gridlines.set_lw(3.0)
-            # # ax.w_zaxis.gridlines.set_lw(3.0)
+            ax.set_zlabel('$\quad x(z,t)$', rotation=0, labelpad=40)
+
+            # ticks
+            ax.set_xlim((x_min, x_max))
+            plt.xticks(np.linspace(x_min, x_max, disc), ha='right')
+            ax.set_ylim((y_min, y_max))
+            plt.yticks(np.linspace(y_min, y_max, disc), ha='left')
+            ax.tick_params(axis='z', pad=10)
+            ax.tick_params(labelsize=20)
+
+            # grid
+            # ax.w_xaxis.gridlines.set_lw(3.0)
+            # ax.w_yaxis.gridlines.set_lw(3.0)
+            # ax.w_zaxis.gridlines.set_lw(3.0)
             ax.w_xaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
             ax.w_yaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
             ax.w_zaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
 
-            ax.plot_wireframe(xx, yy, z, rstride=2, cstride=4, color="#222222")
-            # ax.view_init(elev=10, azim=-45)
+            # ax.plot_wireframe(xx, yy, z, rstride=2, cstride=1, color="#222222")
+            ax.plot_surface(xx, yy, z, rstride=10, cstride=1, cmap=own_cmap, linewidth=1, antialiased=False)
+
+            # default: azim=-60, elev=30
+            ax.view_init(elev=elev, azim=azim)
 
         if show:
             plt.show()
@@ -299,20 +341,7 @@ class MplComparePlot(PgDataPlot):
         spatial_data = [data_set.input_data[1] for data_set in self._data]
         interp_funcs = [si.interp2d(spatial_data[i], time_data[i], self._data[i].output_data) for i in range(len_data)]
 
-        plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
-        params = {'text.usetex' : True,
-                  'font.size' : 15,
-                  'font.family' : 'lmodern',
-                  'text.latex.unicode': True,
-                  }
-        plt.rcParams.update(params)
-        mpl.rcParams['axes.labelsize'] = 25
-        mpl.rcParams['axes.linewidth'] = 2
-        mpl.rcParams['xtick.major.width'] = 2
-        mpl.rcParams['xtick.major.size'] = 10
-        mpl.rcParams['ytick.major.width'] = 2
-        mpl.rcParams['ytick.major.size'] = 10
-        fig = plt.figure(figsize=(12, 12), facecolor='white')
+        fig = plt.figure(figsize=(12, 12))
 
         if time_point == None:
             point_input = time_data
