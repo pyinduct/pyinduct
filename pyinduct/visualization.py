@@ -9,6 +9,7 @@ from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import cm
+import matplotlib.lines as mlines
 from numbers import Number
 from types import NoneType
 import scipy.interpolate as si
@@ -344,7 +345,8 @@ class MplComparePlot(PgDataPlot):
     get one desired EvalData-object and up to five simulation/experiment EvalData-object's
     """
 
-    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="", leg_lbl=None, show=False):
+    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
+                 leg_lbl=None, show=False, leg_pos=1):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
                 (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
@@ -357,7 +359,7 @@ class MplComparePlot(PgDataPlot):
         spatial_data = [data_set.input_data[1] for data_set in self._data]
         interp_funcs = [si.interp2d(spatial_data[i], time_data[i], self._data[i].output_data) for i in range(len_data)]
 
-        fig = plt.figure(figsize=(10, 8))
+        fig = plt.figure(figsize=(10, 6))
 
         if time_point == None:
             point_input = time_data
@@ -373,31 +375,33 @@ class MplComparePlot(PgDataPlot):
         plt.yticks(va='bottom')
         plt.xticks(ha='left')
         plt.grid(True, which='both', color='0.0',linestyle='--')
-        input_min = np.min([np.min(data) for data in point_input])
-        input_max = np.max([np.max(data) for data in point_input])
-        output_min = np.min([np.min(data) for data in point_data])
-        output_max = np.max([np.max(data) for data in point_data])
 
         if leg_lbl == None:
             show_leg = False
-            leg_lbl = ['1', '2', '3', '4']
+            leg_lbl = ['1', '2', '3', '4', '5']
         else:
             show_leg = True
-        ls = ['None', '--', '-']
-        m_nonf = [u'+', u'|', u'x', u'1']
-        m_filled = [u'o', u'^', u's', u'd']
-        plt.plot(point_input[0], point_data[0], ls=ls.pop(), lw=3, c='black', label=leg_lbl.pop())
-        for i in range(1, len_data):
-            if i < len(ls):
-                plt.plot(point_input[i], point_data[i], ls=ls.pop(), lw=3, c='black', label=leg_lbl.pop())
+        ls = ['-', '--', '-.', ':']
+        m_nonf = [ u'1', u'x', u'+', u'|', u'd',  u's']
+        m_filled = [ u'o', u'^']
+        marker_point_input = [np.linspace(data[0], data[-1], 8) for data in point_input]
+        marker_point_data = [np.interp(marker_point_input[i], point_input[i], point_data[i].flatten()) for i in range(len(point_data))]
+        lines = []
+        for i in range(0, len_data):
+            if i < 2:
+                plt.plot(point_input[i], point_data[i], ls=ls[i], lw=2, c='black')
+                lines.append(mlines.Line2D([], [], ls=ls[i], lw=2, c='black', label=leg_lbl[i]))
             elif False:
-                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled.pop(), ms=10, c='black', label=leg_lbl.pop())
+                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled[1-i], ms=10, c='black', label=leg_lbl[i])
             else:
-                plt.plot(point_input[i], point_data[i], ls='-', lw=1, marker=m_nonf.pop(), ms=10, mew=3, c='black', label=leg_lbl.pop())
+                plt.plot(point_input[i], point_data[i], ls='-', lw=1, c='black', label=leg_lbl[i])
+                plt.plot(marker_point_input[i], marker_point_data[i], ls='None', lw=1, marker=m_filled[2-i], ms=10, mfc='None', mew=1, c='black', label=leg_lbl[i])
+                lines.append(mlines.Line2D([], [], ls='-', lw=1, c='black', label=leg_lbl[i],
+                                           marker=m_filled[2-i], ms=10, mfc='None', mew=1))
 
         plt.margins(x=0.0, y=0.05)
         if show_leg:
-            plt.legend(fontsize=23)
+            plt.legend(fontsize=23, handles=lines, loc=leg_pos)
         fig.tight_layout()
 
         if show:
