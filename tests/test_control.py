@@ -114,7 +114,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # original system parameters
         a2 = 1; a1 =0 # attention: only a2 = 1., a1 =0 supported in this test case
-        a0 = 14
+        a0 = 0
         param = [a2, a1, a0, None, None]
 
         # target system parameters (controller parameters)
@@ -168,7 +168,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            eval_dd = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc, spatial_derivativ=1)
+            win1 = vis.PgSurfacePlot(eval_dd)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 

@@ -396,7 +396,7 @@ class RadTrajectory(InterpTrajectory):
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
     #TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=1.1, K=1., show_plot=False):
+    def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=1.1, K=2., show_plot=False):
 
         cases = {'dirichlet', 'robin'}
         if boundary_condition not in cases:
