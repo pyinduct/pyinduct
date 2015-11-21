@@ -54,7 +54,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
         a2 = 1; a1 = 0; a0 = 6; self.alpha = 0.5; self.beta = 0.5
         self.param = [a2, a1, a0, self.alpha, self.beta]
         self.n_y = 80
-        self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 1)
+        self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 2)
 
     def test_temporal_derive(self):
 
@@ -90,6 +90,8 @@ class FormalPowerSeriesTest(unittest.TestCase):
         # explicit
         u_b = tr.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
         u_b_t = u_b(time=self.t)
+        print u_b_t
+        print u_a_t
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:
             pw = pg.plot(title="control_input")

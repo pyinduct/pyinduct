@@ -353,22 +353,32 @@ class MplComparePlot(PgDataPlot):
             raise TypeError("Only one kwarg *_point can be passed, which has to be an instance from type numbers.Number")
 
         DataPlot.__init__(self, eval_data_list)
-
         len_data = len(self._data)
-        time_data = [data_set.input_data[0] for data_set in self._data]
-        spatial_data = [data_set.input_data[1] for data_set in self._data]
-        interp_funcs = [si.interp2d(spatial_data[i], time_data[i], self._data[i].output_data) for i in range(len_data)]
+
+        if len(self._data[0].input_data) == 1:
+            point_input = [data_set.input_data[0] for data_set in self._data]
+            point_data = [data_set.output_data for data_set in self._data]
+        elif len(self._data[0].input_data) == 2:
+            interp_funcs = [si.interp2d(self._data[i].input_data[1], self._data[i].input_data[0],
+                                        self._data[i].output_data)
+                            for i in range(len_data)]
+            if time_point == None:
+                point_input = [data_set.input_data[0] for data_set in self._data]
+                point_data = [interp_funcs[i](spatial_point, point_input[i]) for i in range(len_data)]
+            elif spatial_point == None:
+                point_input = [data_set.input_data[1] for data_set in self._data]
+                point_data = [interp_funcs[i](point_input[i], time_point) for i in range(len_data)]
+            else:
+                raise TypeError
+        else:
+            NotImplementedError
 
         fig = plt.figure(figsize=(10, 6))
 
         if time_point == None:
-            point_input = time_data
-            point_data = [interp_funcs[i](spatial_point, time_data[i]) for i in range(len_data)]
-            plt.xlabel(u'$z$', size=30)
-        elif spatial_point == None:
-            point_input = spatial_data
-            point_data = [interp_funcs[i](spatial_data[i], time_point) for i in range(len_data)]
             plt.xlabel(u'$t$', size=30)
+        elif spatial_point == None:
+            plt.xlabel(u'$z$', size=30)
         else:
             raise StandardError
         plt.ylabel(ylabel, size=25, rotation='vertical')
@@ -382,20 +392,23 @@ class MplComparePlot(PgDataPlot):
         else:
             show_leg = True
         ls = ['-', '--', '-.', ':']
-        m_nonf = [ u'1', u'x', u'+', u'|', u'd',  u's']
+        m_reserve = [ u'1', u'x', u'+', u'|', u'd',  u's']
         m_filled = [ u'o', u'^']
         marker_point_input = [np.linspace(data[0], data[-1], 8) for data in point_input]
-        marker_point_data = [np.interp(marker_point_input[i], point_input[i], point_data[i].flatten()) for i in range(len(point_data))]
+        marker_point_data = [np.interp(marker_point_input[i], point_input[i], point_data[i].flatten())
+                             for i in range(len(point_data))]
         lines = []
         for i in range(0, len_data):
             if i < 2:
                 plt.plot(point_input[i], point_data[i], ls=ls[i], lw=2, c='black')
                 lines.append(mlines.Line2D([], [], ls=ls[i], lw=2, c='black', label=leg_lbl[i]))
             elif False:
-                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled[1-i], ms=10, c='black', label=leg_lbl[i])
+                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled[1-i], ms=10, c='black',
+                         label=leg_lbl[i])
             else:
                 plt.plot(point_input[i], point_data[i], ls='-', lw=1, c='black', label=leg_lbl[i])
-                plt.plot(marker_point_input[i], marker_point_data[i], ls='None', lw=1, marker=m_filled[2-i], ms=10, mfc='None', mew=1, c='black', label=leg_lbl[i])
+                plt.plot(marker_point_input[i], marker_point_data[i], ls='None', lw=1, marker=m_filled[2-i], ms=10,
+                         mfc='None', mew=1, c='black', label=leg_lbl[i])
                 lines.append(mlines.Line2D([], [], ls='-', lw=1, c='black', label=leg_lbl[i],
                                            marker=m_filled[2-i], ms=10, mfc='None', mew=1))
 
