@@ -12,6 +12,7 @@ from matplotlib import cm
 import matplotlib.lines as mlines
 from numbers import Number
 from types import NoneType
+import time
 import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
@@ -110,18 +111,27 @@ class PgAnimatedPlot(PgDataPlot):
     def __init__(self, data, title="", dt=None):
         PgDataPlot.__init__(self, data)
 
+
+        len_data = len(self._data)
+        interp_funcs = [si.interp2d(data.input_data[1], data.input_data[0], data.output_data) for data in self._data]
+        time_data = [self._data[0].input_data[0] for data_set in self._data]
+        spatial_data = [self._data[0].input_data[1] for data_set in self._data]
+        state_data = [interp_func(spatial_data[0], time_data[0]) for interp_func in interp_funcs]
+
+        # TODO: remove the next 4 lines and replace (from here) self._data with state_data, time_data and spatial_data
+        for i in range(len(self._data)):
+            self._data[i].input_data[0] = time_data[0]
+            self._data[i].input_data[1] = spatial_data[0]
+            self._data[i].output_data = state_data[i]
+
         self._pw = pg.plot(title=title)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
-        time_data = [data_set.input_data[0] for data_set in self._data]
         max_times = [max(data) for data in time_data]
         self._longest_idx = max_times.index(max(max_times))
         if dt is not None:
             self._dt = dt
-
-        spatial_data = [data_set.input_data[1] for data_set in self._data]
-        state_data = [data_set.output_data for data_set in self._data]
 
         spat_min = np.min([np.min(data) for data in spatial_data])
         spat_max = np.max([np.max(data) for data in spatial_data])
@@ -165,9 +175,10 @@ class PgSurfacePlot(PgDataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data):
+    def __init__(self, data, title=""):
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
+        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S")+' - '+title)
         self.gl_widget.show()
 
         self._grid = gl.GLGridItem()
@@ -268,7 +279,8 @@ class MplSurfacePlot(DataPlot):
     plot as 3d surface
     """
     def __init__(self, data, hack_xdata=None, hack_ydata=None, keep_aspect=True, show=False, own_cmap=plt.cm.Greys,
-                 dpi=80, azim = -60, elev = 30, nbins=3, wire_f=False, left_corner=False, zticks=None):
+                 dpi=80, azim = -60, elev = 30, nbins=3, wire_f=False, left_corner=False, zticks=None,
+                 fig_size=(12, 8), zlabel='$\quad x(z,t)$', zpadding=0):
         DataPlot.__init__(self, data)
 
         disc = 3
@@ -290,7 +302,7 @@ class MplSurfacePlot(DataPlot):
             z_min, z_max = (z.min(), z.max())
             xx, yy = np.meshgrid(x, y)
 
-            fig = plt.figure(figsize=(12, 8), dpi=dpi)
+            fig = plt.figure(figsize=fig_size, dpi=dpi)
             ax = fig.add_subplot(111, projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
@@ -302,7 +314,7 @@ class MplSurfacePlot(DataPlot):
             ax.set_ylabel('$t$')
             ax.set_xlabel('$z$')
             ax.zaxis.set_rotate_label(False)
-            ax.set_zlabel('$\quad x(z,t)$', rotation=0, labelpad=50)
+            ax.set_zlabel(zlabel, rotation=0, labelpad=50+zpadding)
 
             # ticks
             ax.set_xlim((x_min, x_max))
@@ -318,7 +330,7 @@ class MplSurfacePlot(DataPlot):
             for tick in ax.get_zticklabels():
                 tick.set_verticalalignment('bottom')
             plt.locator_params(axis='z', nbins=nbins)
-            ax.tick_params(axis='z', pad=12)
+            ax.tick_params(axis='z', pad=12+zpadding)
             ax.tick_params(width=10, length=10, size=10)
             ax.tick_params(labelsize=ticklabelsize)
             if zticks != None:
@@ -346,7 +358,7 @@ class MplComparePlot(PgDataPlot):
     """
 
     def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
-                 leg_lbl=None, show=False, leg_pos=1):
+                 leg_lbl=None, show=False, leg_pos=1, fig_size=(10, 6)):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
                 (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
@@ -373,15 +385,16 @@ class MplComparePlot(PgDataPlot):
         else:
             NotImplementedError
 
-        fig = plt.figure(figsize=(10, 6))
+        fig = plt.figure(figsize=fig_size)
 
+        xlabelpad=10
         if time_point == None:
-            plt.xlabel(u'$t$', size=30)
+            plt.xlabel(u'$t$', size=30, labelpad=xlabelpad)
         elif spatial_point == None:
-            plt.xlabel(u'$z$', size=30)
+            plt.xlabel(u'$z$', size=30, labelpad=xlabelpad)
         else:
             raise StandardError
-        plt.ylabel(ylabel, size=25, rotation='vertical')
+        plt.ylabel(ylabel, size=25, rotation='horizontal', ha='right', labelpad=10)
         plt.yticks(va='bottom')
         plt.xticks(ha='left')
         plt.grid(True, which='both', color='0.0',linestyle='--')

@@ -17,8 +17,8 @@ __author__ = 'Stefan Ecklebe'
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg

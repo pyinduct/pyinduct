@@ -90,8 +90,6 @@ class FormalPowerSeriesTest(unittest.TestCase):
         # explicit
         u_b = tr.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
         u_b_t = u_b(time=self.t)
-        print u_b_t
-        print u_a_t
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:
             pw = pg.plot(title="control_input")

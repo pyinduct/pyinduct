@@ -324,7 +324,7 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
     for i in range(up_to_order+1):
         sum_Q = np.zeros(len_t)
         for j in range(series_termination_index+1-spatial_der_order):
-            sum_Q += C[j][i+spatial_der_order, :]*z**(j)/sm.factorial(j)
+            sum_Q += C[j+spatial_der_order][i, :]*z**(j)/sm.factorial(j)
         Q[i, :] = sum_Q
 
     return Q

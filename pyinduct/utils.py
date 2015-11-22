@@ -118,7 +118,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step, spatial_derivativ=0):
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step,
+                           spatial_derivativ=0, name=""):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
@@ -143,7 +144,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temporal_steps, spatial_steps], data)
+    return EvalData([temporal_steps, spatial_steps], data, name=name)
 
 
 def split_domain(n, a_desired, l, mode='coprime'):
