@@ -11,6 +11,8 @@ import scipy.misc as sm
 
 __author__ = 'stefan ecklebe'
 
+sigma_tanh = 1.1
+K_tanh = 2.
 
 class ConstantTrajectory(SimulationInput):
     """
@@ -159,7 +161,7 @@ class FlatString(SimulationInput):
         return self._control_input(kwargs["time"])
 
 #TODO: kwarg: t_step
-def gevrey_tanh(T, n, sigma, K):
+def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     """
     Provide the flat output y(t) = phi(t), with the gevrey-order
     1+1/sigma, and the derivatives up to order n.
@@ -396,7 +398,7 @@ class RadTrajectory(InterpTrajectory):
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
     #TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=1.1, K=2., show_plot=False):
+    def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=sigma_tanh, K=K_tanh, show_plot=False):
 
         cases = {'dirichlet', 'robin'}
         if boundary_condition not in cases:

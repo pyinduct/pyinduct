@@ -163,7 +163,12 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # simulate
         t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
-        # TODO: get/plot x'(z,t) data and test (assert) result
+
+        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 0.5)
 
         # display results
         if show_plots:
@@ -259,9 +264,14 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
+        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -345,6 +355,7 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.int_kernel_zz = lambda z: self.alpha_ti - self.alpha_i + (a0_i-a0_ti)/2/a2*z
 
     def test_fem(self):
+        self.act_funcs = "fem_funcs"
         controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
                                                                     approx_state=self.x_i_at_l,
                                                                     d_approx_state=self.xd_i_at_l,
@@ -357,22 +368,16 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                                                     scale=self.transform_i(-self.l))
 
         # determine (A,B) with modal-transfomation
-        rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.spatial_domain)
+        rad_pde = ut.get_parabolic_robin_weak_form(self.act_funcs, self.act_funcs, controller, self.param, self.spatial_domain)
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
         # simulate
-        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
-        # display results
-        if show_plots:
-            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d)
-            app.exec_()
-
     def test_modal(self):
+        self.act_funcs = "eig_funcs"
         a2, a1, a0, alpha, beta = self.param
         controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l,
                                                                     approx_state=self.x_i_at_l,
@@ -388,15 +393,21 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(self.eig_val))
         B = a2*np.array([self.adjoint_eig_funcs[i](self.l) for i in xrange(self.n)])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
+        ss_modal = sim.StateSpace(self.act_funcs, A, B)
 
         # simulate
-        t, q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
+
+    def tearDown(self):
+        eval_d = ut.evaluate_approximation(self.q, self.act_funcs, self.t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(self.t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -509,9 +520,14 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
+        eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -650,18 +666,22 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
-
+        # weights of the intermediate system
         mat = cr.calculate_base_transformation_matrix(self.fem_funcs, eig_funcs)
         q_i = np.zeros((q.shape[0], len(eig_funcs_i)))
         for i in range(q.shape[0]):
             q_i[i,:] = np.dot(q[i,:], np.transpose(mat))
 
+        eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_i.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
+
         # display results
         if show_plots:
-            eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_i], title="eigfuncs")
-            win2 = vis.PgSurfacePlot(eval_i)
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win3 = vis.PgAnimatedPlot([eval_d], title="fem")
-            win4 = vis.PgSurfacePlot(eval_d)
+            win1 = vis.PgSurfacePlot(eval_i)
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()

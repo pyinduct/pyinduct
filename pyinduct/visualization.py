@@ -18,19 +18,6 @@ import scipy.interpolate as si
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
 
-# to avoid stupid useless margins in 3d plots
-###patch start###
-from mpl_toolkits.mplot3d.axis3d import Axis
-if not hasattr(Axis, "_get_coord_info_old"):
-    def _get_coord_info_new(self, renderer):
-        mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
-        mins += deltas / 4
-        maxs -= deltas / 4
-        return mins, maxs, centers, deltas, tc, highs
-    Axis._get_coord_info_old = Axis._get_coord_info
-    Axis._get_coord_info = _get_coord_info_new
-###patch end###
-
 # matplotlib parameters
 plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
 params = {'text.usetex' : True,
@@ -49,6 +36,20 @@ mpl.rcParams['ytick.labelsize'] = 25
 mpl.rcParams['ytick.major.width'] = 2
 mpl.rcParams['ytick.major.size'] = 10
 mpl.rcParams['figure.facecolor'] = 'white'
+mpl.rcParams['legend.borderaxespad'] = 0.3
+
+## form here: http://stackoverflow.com/questions/16488182/
+###source code patch start###
+from mpl_toolkits.mplot3d.axis3d import Axis
+if not hasattr(Axis, "_get_coord_info_old"):
+    def _get_coord_info_new(self, renderer):
+        mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
+        mins += deltas / 4
+        maxs -= deltas / 4
+        return mins, maxs, centers, deltas, tc, highs
+    Axis._get_coord_info_old = Axis._get_coord_info
+    Axis._get_coord_info = _get_coord_info_new
+###source code patch end###
 
 
 class EvalData:
