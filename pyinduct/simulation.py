@@ -552,7 +552,8 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     r.set_initial_value(initial_state, time_interval[0])
 
     precision = -int(np.log10(time_step))
-    while r.successful() and np.round(r.t, precision) < time_interval[1]:
+    # while r.successful() and np.round(r.t, precision) < time_interval[1]:
+    while np.round(r.t, precision) < time_interval[1]:
         t.append(r.t + time_step)
         try:
             q.append(r.integrate(r.t + time_step))

@@ -191,7 +191,7 @@ class LawEvaluator(object):
         if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
             print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
 
-        out = np.real_if_close(output, tol=1e3)
+        out = np.real_if_close(output, tol=10000)
         if np.imag(out) != 0:
             raise sim.SimulationException("calculated complex control output u={0},"
                                           " check for errors in control law!".format(out))
