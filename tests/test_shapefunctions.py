@@ -1,9 +1,11 @@
 from __future__ import division
+
+import sys
 import unittest
-from matplotlib import pyplot as plt
+
 import matplotlib as mpl
 import numpy as np
-import sys
+from matplotlib import pyplot as plt
 
 import pyinduct.shapefunctions
 

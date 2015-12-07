@@ -178,7 +178,7 @@ class LawEvaluator(object):
                 dst_weights = self._transformations[info](weights)
                 output += np.dot(self._eval_vectors[lbl], dst_weights)
 
-            if hasattr(self, "_storage"):
+            if self._storage:
                 entry = self._storage.get(info.dst_lbl, [])
                 entry.append(dst_weights)
                 self._storage[info.dst_lbl] = entry

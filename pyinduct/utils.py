@@ -31,7 +31,7 @@ def complex_wrapper(func):
     return wrapper
 
 
-def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=False, complex=False):
+def find_roots(function, n_roots, grid, rtol, atol=1e-7, show_plot=False, complex=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
@@ -41,7 +41,8 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
 
     :param function: function handle for f(x) whose roots shall be found
     :param n_roots: number of roots to find
-    :param area: tuple of interval to search in (dimension should fit the input dimension of the provided func)
+    :param range: np.ndarray (first dimension should fit the input dimension of the provided func) of values where to
+    start searching
     :param step_size: stepwidths for each dimension, if only one is given it will be used for all dimensions
     :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
     :param atol: absolute tolerance to zero  f(root) < atol
@@ -64,24 +65,21 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
     # if not isinstance(show_plot, bool):
     #     raise TypeError("show_plot must be of type bool")
 
+    grid = np.atleast_2d(grid)
+    if not isinstance(grid, np.ndarray):
+        raise TypeError
+
     if complex:
-        assert len(area) == 2
+        assert grid.shape[0] == 2
         function = complex_wrapper(function)
 
-    if isinstance(area, tuple):
-        area = [area]
-
-    dim = len(area)
-    if isinstance(step_size, Number):
-        step_size = [step_size]*dim
-
+    dim = grid.shape[0]
     roots = np.full((n_roots, dim), np.nan)
     rounded_roots = np.full((n_roots, dim), np.nan)
     errors = np.full((n_roots, ), np.nan)
     found_roots = 0
 
-    ranges = [np.arange(ar[0], ar[1] + step, step) for ar, step in zip(area, step_size)]
-    grids = np.meshgrid(*ranges)
+    grids = np.meshgrid(*([tuple(row) for row in grid]))
     values = np.vstack([arr.flatten() for arr in grids]).T
 
     # iterate over test_values
@@ -103,10 +101,10 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
         if error > atol:
             continue
 
-        # check if roots lies in expected area
+        # check if root lies in expected area
         abort = False
-        for rt, ar in zip(calculated_root, area):
-            if ar[0] > rt or ar[1] < rt:
+        for rt, ar in zip(calculated_root, grid):
+            if ar.min() > rt or ar.max() < rt:
                 abort = True
                 break
         if abort:
@@ -120,6 +118,7 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
             if errors[idx] > error:
                 roots[idx] = calculated_root
                 errors[idx] = error
+            # TODO check jacobian (if provided) to identify roots of higher order
             continue
 
         roots[found_roots] = calculated_root
@@ -131,10 +130,6 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
     # sort roots
     valid_roots = roots[:found_roots]
     good_roots = np.sort(valid_roots, 0)
-
-    if found_roots < n_roots:
-        raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(found_roots, n_roots))
 
     if show_plot:
         pw = pg.plot(title="function + roots")
@@ -149,15 +144,22 @@ def find_roots(function, n_roots, area, step_size, rtol, atol=1e-7, show_plot=Fa
         else:
             if dim == 1:
                 results = function(grids)
-                colors = create_colormap(len(ranges))
-                for idx, (intake, output) in enumerate(zip(ranges, results)):
+                colors = create_colormap(len(grids))
+                for idx, (intake, output) in enumerate(zip(grids, results)):
                     pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
                     pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
 
         pg.QtGui.QApplication.instance().exec_()
 
+    if found_roots < n_roots:
+        raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
+                         "Try to increase the area to search in.".format(found_roots, n_roots))
+
     if complex:
         return good_roots[:, 0] + 1j*good_roots[:, 1]
+
+    if dim == 1:
+        return good_roots.flatten()
 
     return good_roots
 

@@ -15,15 +15,15 @@ import pyqtgraph as pg
 
 __author__ = 'marcus'
 
-# show_plots = True
-show_plots = False
 app = None
 
 if not any([arg == 'discover' for arg in sys.argv]):
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
-    show_plots = False
+    show_plots = True
 
+# show_plots = True
+show_plots = False
 
 class TestAddMulFunction(unittest.TestCase):
 
@@ -83,7 +83,7 @@ class FiniteTransformTest(unittest.TestCase):
         b_desired = 2
         k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
         M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
         eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
         shifted_eig_funcs = np.array([ef.FiniteTransformFunction(func, M, b, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
         z = np.linspace(0, l, 1e3)
@@ -127,7 +127,7 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         l = 1.; spatial_domain = (0, l); self.z = np.linspace(0, l, 1e2)
         self.n = 10
 
-        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, l, self.n)
+        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, l, self.n, show_plot=show_plots)
         self.eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, spatial_domain) for om in eig_freq])
         self.a2_z = lambda z: a2
         self.a1_z = a1

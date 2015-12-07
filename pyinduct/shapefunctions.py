@@ -32,6 +32,14 @@ class LagrangeFirstOrder(Function):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
 
+        self._start = start
+        self.top = top
+        self._end = end
+
+        # speed
+        self._a = self.top - self._start
+        self._b = self._end - self.top
+
         if start == top:
             Function.__init__(self, self._lagrange1st_border_left,
                               nonzero=(start, end), derivative_handles=[self._der_lagrange1st_border_left])
@@ -42,13 +50,6 @@ class LagrangeFirstOrder(Function):
             Function.__init__(self, self._lagrange1st_interior,
                               nonzero=(start, end), derivative_handles=[self._der_lagrange1st_interior])
 
-        self._start = start
-        self.top = top
-        self._end = end
-
-        # speed
-        self._a = self.top - self._start
-        self._b = self._end - self.top
 
     def _lagrange1st_border_left(self, z):
         """

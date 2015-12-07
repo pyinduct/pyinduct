@@ -269,6 +269,7 @@ class SecondOrderDirichletEigenfunction(Function):
 
         return return_real_part(d_phi_i * self.norm_fac)
 
+
 def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
     a2, a1, a0, alpha, beta = param
@@ -288,9 +289,10 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
             zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
         return zero
 
-    # assume 1 root per pi/l (safety factor = 2)
-    om_end = 2 * n_roots * np.pi / l
-    om = ut.find_roots(characteristic_equation, 2*n_roots, (0, om_end), step_size=.1, rtol=int(np.log10(l) -6),
+    # assume 1 root per pi/l (safety factor = 3)
+    om_end = 3 * n_roots * np.pi / l
+    start_values = np.arange(0, om_end, .1)
+    om = ut.find_roots(characteristic_equation, 2*n_roots, start_values, rtol=int(np.log10(l) - 6),
                        show_plot=show_plot).tolist()
 
     # delete all around om = 0
@@ -322,6 +324,7 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     eig_values = a0 - a2 * eig_frequencies**2 - a1 ** 2 / 4. / a2
     return eig_frequencies, eig_values
 
+
 def return_real_part(to_return):
     """
     Check if the imaginary part of to_return vanishes
@@ -343,6 +346,7 @@ def return_real_part(to_return):
         if maybe_real.shape == (1,):
             maybe_real = maybe_real[0]
         return maybe_real
+
 
 def get_adjoint_rad_evp_param(param):
     """
@@ -366,6 +370,7 @@ def get_adjoint_rad_evp_param(param):
     a1_n = -a1
 
     return a2, a1_n, a0, alpha_n, beta_n
+
 
 def transform2intermediate(param, d_end=None):
     """
@@ -408,4 +413,3 @@ def transform2intermediate(param, d_end=None):
     a1_n = 0
 
     return a2_n, a1_n, a0_n, alpha_n, beta_n
-

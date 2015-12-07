@@ -421,31 +421,33 @@ def parse_weak_formulation(weak_form):
                 temp_order = field_var.order[0]
                 init_funcs = get_initial_functions(field_var.data["func_lbl"], field_var.order[1])
 
-                if placeholders["scalars"]:
-                    a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
-                                               for func in init_funcs]))
-                    b = placeholders["scalars"][0]
-                    result = _compute_product_of_scalars([a, b])
+                if placeholders["inputs"]:
+                    # TODO think about this case, is it relevant?
+                    raise NotImplementedError
 
-                elif placeholders["functions"]:
+                # is the integrand a product?
+                if placeholders["functions"]:
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
                     func = placeholders["functions"][0]
                     test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
                     result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, init_funcs)
-
-                elif placeholders["inputs"]:
-                    # TODO think about this case, is it relevant?
-                    raise NotImplementedError
-
                 else:
-                    factors = np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]).T
-                    result = np.hstack(tuple([factors for i in range(factors.shape[0])]))
+                    # pull constant term out and compute integral
+                    a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]))
+
+                    if placeholders["scalars"]:
+                        b = placeholders["scalars"][0]
+                    else:
+                        b = Scalars(np.ones_like(a.data.T))
+
+                    result = _compute_product_of_scalars([a, b])
 
                 cf.weights = field_var.data["weight_lbl"]
                 cf.add_to(("E", temp_order), result*term.scale)
                 continue
 
+            # TestFunction Terms, those will end up in f
             if placeholders["functions"]:
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
@@ -453,6 +455,9 @@ def parse_weak_formulation(weak_form):
                 test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
 
                 if len(placeholders["functions"]) == 2:
+                    # TODO this computation is nonesense. Result must be a vektor conataining int of (tf1*tf2)
+                    raise NotImplementedError
+
                     func2 = placeholders["functions"][1]
                     test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order[2])
                     result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
@@ -521,8 +526,6 @@ def _compute_product_of_scalars(scalars):
     else:
         raise NotImplementedError
 
-    if res.shape[0] < res.shape[1]:
-        return res.T
     return res
 
 

@@ -75,7 +75,8 @@ class ParseTest(unittest.TestCase):
         self.input = ph.Input(self.u)  # control input
 
         # TestFunctions
-        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=3)
+        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
+                                                                      (0, 1), node_count=3)
         register_functions("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
@@ -95,6 +96,8 @@ class ParseTest(unittest.TestCase):
 
         # create all possible kinds of input variables
         self.input_term1 = ph.ScalarTerm(ph.Product(self.phi_at1, self.input))
+        self.input_term1_swapped = ph.ScalarTerm(ph.Product(self.input, self.phi_at1))
+
         self.input_term2 = ph.ScalarTerm(ph.Product(self.dphi_at1, self.input))
         self.func_term = ph.ScalarTerm(self.phi_at1)
 
@@ -110,6 +113,7 @@ class ParseTest(unittest.TestCase):
             ph.Product(self.field_var_at1, self.scalars))
         self.prod_int_fs = ph.IntegralTerm(ph.Product(self.field_var, self.scalars), (0, 1))
         self.prod_int_f_f = ph.IntegralTerm(ph.Product(self.field_var, self.phi), (0, 1))
+        self.prod_int_f_f_swapped = ph.IntegralTerm(ph.Product(self.phi, self.field_var), (0, 1))
         self.prod_int_f_at1_f = ph.IntegralTerm(
             ph.Product(self.field_var_at1, self.phi), (0, 1))
         self.prod_int_f_f_at1 = ph.IntegralTerm(
@@ -144,28 +148,29 @@ class ParseTest(unittest.TestCase):
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_at1)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_int)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0.25, 0.25, 0.25], [0.5, 0.5, 0.5], [.25, .25, .25]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_dz_at1)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [-2, -2, -2], [2, 2, 2]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_dz_int)).get_terms()
-        self.assertTrue(np.allclose(terms[0][0], np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]])))
+        self.assertTrue(np.allclose(terms[0][0], np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_ddt_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
-        self.assertTrue(np.allclose(terms[0][2], np.array([[0, 0, 0], [0, 0, 0], [1, 1, 1]])))
+        self.assertTrue(np.allclose(terms[0][2], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_ddt_int)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
-        self.assertTrue(np.allclose(terms[0][2], np.array([[0.25, 0.25, 0.25], [0.5, 0.5, 0.5], [.25, .25, .25]])))
+        self.assertTrue(np.allclose(terms[0][2], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
     def test_Product_term(self):
+        # TODO create test functionality that will automatically check if Case is also valid for swapped arguments
         # terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fs_at1)).get_terms()
         # self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0]])))
 
@@ -173,6 +178,9 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
+        self.assertTrue(np.allclose(terms[0][0], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_swapped)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
@@ -215,6 +223,11 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(terms[2], None)  # g
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1)).get_terms()
+        self.assertEqual(terms[0], None)  # E
+        self.assertEqual(terms[1], None)  # f
+        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1_swapped)).get_terms()
         self.assertEqual(terms[0], None)  # E
         self.assertEqual(terms[1], None)  # f
         self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
@@ -375,7 +388,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = ut.find_roots(char_eq, order, 100, -2)
+        eig_frequencies = ut.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
         print("eigenfrequencies:")
         print eig_frequencies
 
@@ -407,6 +420,8 @@ class StringMassTest(unittest.TestCase):
         norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
         register_functions("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
+        norm_eig_funcs[0](1)
+
         # debug print eigenfunctions
         if 0:
             func_vals = []
@@ -428,27 +443,25 @@ class StringMassTest(unittest.TestCase):
             app.exec_()
 
         # create terms of weak formulation
-        terms = [ph.IntegralTerm(
-            ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
-                       ph.TestFunction("norm_eig_funcs")),
-            self.spat_interval, scale=-1),
-            ph.ScalarTerm(ph.Product(
-                ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
-                ph.TestFunction("norm_eig_funcs", location=0)),
-                scale=-1), ph.ScalarTerm(
-                ph.Product(ph.Input(self.u),
-                           ph.TestFunction("norm_eig_funcs", location=1))),
-            ph.ScalarTerm(
-                ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
-                           ph.TestFunction("norm_eig_funcs", order=1, location=1)),
-                scale=-1), ph.ScalarTerm(
-                ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
-                           ph.TestFunction("norm_eig_funcs", order=1,
-                                           location=0))),
-            ph.IntegralTerm(
-                ph.Product(ph.FieldVariable("norm_eig_funcs"),
-                           ph.TestFunction("norm_eig_funcs", order=2)),
-                self.spat_interval)]
+        terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
+                                            ph.TestFunction("norm_eig_funcs")),
+                                 self.spat_interval, scale=-1),
+                 ph.ScalarTerm(ph.Product(
+                     ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
+                     ph.TestFunction("norm_eig_funcs", location=0)),
+                     scale=-1),
+                 ph.ScalarTerm(ph.Product(ph.Input(self.u),
+                                          ph.TestFunction("norm_eig_funcs", location=1))),
+                 ph.ScalarTerm(
+                     ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
+                                ph.TestFunction("norm_eig_funcs", order=1, location=1)),
+                     scale=-1),
+                 ph.ScalarTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
+                                          ph.TestFunction("norm_eig_funcs", order=1,
+                                                          location=0))),
+                 ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs"),
+                                            ph.TestFunction("norm_eig_funcs", order=2)),
+                                 self.spat_interval)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
         eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,
                                         self.spat_interval, self.z_step)

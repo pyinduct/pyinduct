@@ -1,6 +1,7 @@
 from __future__ import division
 import unittest
 import sys
+from numbers import Number
 
 import numpy as np
 
@@ -60,6 +61,12 @@ class FunctionTestCase(unittest.TestCase):
                 # TODO check if nonzero check generates warning
                 pass
 
+        # test stupid handle
+        def wrong_handle(x):
+            return np.array([x, x])
+
+        self.assertRaises(TypeError, core.Function, wrong_handle)
+
     def test_derivation(self):
         f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
@@ -78,23 +85,41 @@ class FunctionTestCase(unittest.TestCase):
 
     def test_scale(self):
         f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
-        # scale with scalar
+
+        # no new object since trivial scaling occurred
         g1 = f.scale(1)
         self.assertEqual(f, g1)
 
+        # after scaling, return scalars and vectors like normal
+        g2 = f.scale(10)
+
+        self.assertIsInstance(g2(5), Number)
+        self.assertNotIsInstance(g2(5), np.ndarray)
+        self.assertTrue(np.array_equal(10*np.sin(range(100)), g2(range(100))))
+
         # scale with function
-        g2 = f.scale(lambda z: z)
+        g3 = f.scale(lambda z: z)
 
         def check_handle(z):
             return z*f(z)
-        self.assertTrue(np.array_equal(g2(range(10)), check_handle(range(10))))
-        self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
+        self.assertIsInstance(g3(5), Number)
+        self.assertNotIsInstance(g3(5), np.ndarray)
+        self.assertTrue(np.array_equal(g3(range(10)), check_handle(range(10))))
+        self.assertRaises(ValueError, g3.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
-        # vectorial arguments should be understood
-        f = core.Function(np.sin, derivative_handles=[np.cos])
-        vals = f(range(100))
-        self.assertTrue(np.array_equal(vals, np.sin(range(100))))
+        def func(x):
+            return 2*x
+
+        # call with scalar should return scalar with correct value
+        f = core.Function(func)
+        self.assertIsInstance(f(10), Number)
+        self.assertNotIsInstance(f(10), np.ndarray)
+        self.assertEqual(f(10), func(10))
+
+        # vectorial arguments should be understood and an np.ndarray shall be returned
+        self.assertIsInstance(f(range(10)), np.ndarray)
+        self.assertTrue(np.array_equal(f(range(10)), [func(val) for val in range(10)]))
 
 
 # class MatrixFunctionTestCase(unittest.TestCase):

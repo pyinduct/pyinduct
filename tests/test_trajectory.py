@@ -17,6 +17,7 @@ else:
     show_plots = True
     app = pg.QtGui.QApplication([])
 
+
 class SmoothTransitionTestCase(unittest.TestCase):
     def setUp(self):
         self.z_start = 0

@@ -131,18 +131,8 @@ class Function(BaseFraction):
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[],
                  vectorial=False):
         BaseFraction.__init__(self,  self)
-        if not callable(eval_handle):
-            raise TypeError("callable has to be provided as function_handle")
-        self._function_handle = eval_handle
 
-        if isinstance(eval_handle, Function):
-            raise TypeError("Function cannot be initialized with Function!")
-
-        for der_handle in derivative_handles:
-            if not callable(der_handle):
-                raise TypeError("callable has to be provided as member of derivative_handles")
-        self._derivative_handles = derivative_handles
-
+        # domain and nonzero area
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
             if not isinstance(val, list):
                 if isinstance(val, tuple):
@@ -151,7 +141,29 @@ class Function(BaseFraction):
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
+        # handle must be callable
+        if not callable(eval_handle):
+            raise TypeError("callable has to be provided as function_handle")
+        if isinstance(eval_handle, Function):
+            raise TypeError("Function cannot be initialized with Function!")
+
+        # handle must return scalar when called with scalar
+        testval = self.domain[0][1]
+        if testval is np.inf:
+            testval = 1
+        if not isinstance(eval_handle(testval), Number):
+            raise TypeError("callable must return number when called with scalar")
+        if vectorial:
+            if not isinstance(eval_handle(np.array([testval]*10)), np.ndarray):
+                raise TypeError("callable must return np.ndarray when called with vector")
+        self._function_handle = eval_handle
         self.vectorial = vectorial
+
+        # derivatives
+        for der_handle in derivative_handles:
+            if not callable(der_handle):
+                raise TypeError("callable has to be provided as member of derivative_handles")
+        self._derivative_handles = derivative_handles
 
     def transformation_hint(self, info, target):
         """
@@ -498,19 +510,19 @@ def calculate_scalar_matrix(values_a, values_b):
     # return np.multiply(vals_i, vals_j)
 
 
-def calculate_scalar_product_matrix(scalar_product_handle, first_member, second_member):
+def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b):
     """
-    calculates a matrix :math:`A` whose elements are the scalar products of each element from BaseFractions a and
-    BaseFractions b, so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
+    calculates a matrix :math:`A` whose elements are the scalar products of each element from Bases and b,
+    so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
 
-    :param first_member: (array of) something that generates a base
-    :param second_member: (array of) something that generates a base
+    :param base_a: (array of) BaseFraction
+    :param base_b: (array of) BaseFraction
     :return: matrix :math:`A` as np.ndarray
     """
     # TODO make use of symmetry to save some operations
-    i, j = np.mgrid[0:first_member.shape[0], 0:second_member.shape[0]]
-    funcs_i = first_member[i]
-    funcs_j = second_member[j]
+    i, j = np.mgrid[0:base_a.shape[0], 0:base_b.shape[0]]
+    funcs_i = base_a[i]
+    funcs_j = base_b[j]
 
     return scalar_product_handle(funcs_i, funcs_j)
 

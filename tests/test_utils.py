@@ -38,64 +38,65 @@ class FindRootsTestCase(unittest.TestCase):
         self.cmplx_eq = _cmplx_equation
 
         self.n_roots = 10
-        self.area = (0, 50)
-        self.step = 1
+        self.grid = np.arange(0, 50, 1)
         self.rtol = -1
 
     def test_in_fact_roots(self):
-        roots = ut.find_roots(self.char_eq, self.n_roots, self.area, self.step, self.rtol)
+        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
     def test_enough_roots(self):
-        roots = ut.find_roots(self.char_eq, self.n_roots, self.area, self.step, self.rtol)
+        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
 
     def test_rtol(self):
-        roots = ut.find_roots(self.char_eq, self.n_roots, self.area, self.step, self.rtol, show_plot=True)
+        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol, show_plot=True)
         self.assertGreaterEqual(np.log10(min(np.abs(np.diff(roots)))), self.rtol)
 
     def test_in_area(self):
-        roots = ut.find_roots(self.char_eq, self.n_roots, self.area, self.step, self.rtol)
+        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         for root in roots:
             self.assertTrue(root >= 0.)
 
-    @unittest.skip
     def test_error_raiser(self):
+        return
         float_num = -1.
         int_num = 0
         to_small_area_end = 1e-3
 
-        self.assertRaises(TypeError, ut.find_roots, int_num, self.n_roots, self.area, self.step, self.rtol)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, float_num, self.area, self.step, self.rtol)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area, self.step, self.rtol,
+        self.assertRaises(TypeError, ut.find_roots, int_num, self.n_roots, self.grid, self.rtol)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, float_num, self.grid, self.rtol)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           points_per_root=float_num)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area, self.step, self.rtol,
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           show_plots=int_num)
-        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.area, float_num)
+        self.assertRaises(TypeError, ut.find_roots, self.char_eq, self.n_roots, self.grid, float_num)
 
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area, self.step, self.rtol, atol=int_num)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, int_num, self.area, self.step, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area, self.step, self.rtol,
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol, atol=int_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, int_num, self.grid, self.rtol)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           points_per_root=int_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.area, self.step, self.rtol,
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           atol=float_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
 
     def test_debug_plot(self):
         if show_plots:
-            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.area, self.step, rtol=self.rtol,
+            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
                                        show_plot=True)
 
     def test_cmplx_func(self):
-        roots = ut.find_roots(self.cmplx_eq, 3, (0, 10), .1, -1, show_plot=True, complex=True)
-        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots]))
+        grid = np.array([range(10), range(10)])
+        roots = ut.find_roots(self.cmplx_eq, 1, grid, -1, show_plot=True, complex=True)
+        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0]*len(roots)))
         print(roots)
 
     def test_n_dim_func(self):
-        roots = ut.find_roots(self.univar_eq, self.n_roots, 2*[self.area], self.step, self.rtol,
+        grid = np.array([range(10), range(10)])
+        roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
                               show_plot=True)
         print(roots)
 

@@ -287,7 +287,7 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=("E", placeholder.order[0]), target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
-        # it does not matter where this ends up, since f vector is always added
+        # target form does not matter, since the f vector is added independently
         return Scalars(values.T, target_term=("f", 0))
     else:
         raise NotImplementedError
