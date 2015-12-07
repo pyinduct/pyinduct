@@ -53,7 +53,7 @@ class SimulationInput(object):
         return EvalData([time_steps], results, name=self.name)
 
 
-class Mixer(SimulationInput):
+class SimulationInputSum(SimulationInput):
     """
     helper that represents a signal mixer
     """

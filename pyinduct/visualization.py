@@ -125,7 +125,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._data[i].input_data[1] = spatial_data[0]
             self._data[i].output_data = state_data[i]
 
-        self._pw = pg.plot(title=title)
+        self._pw = pg.plot(title=time.strftime("%H:%M:%S")+' - '+title)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 

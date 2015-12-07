@@ -122,8 +122,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         param_t = [a2, a1_t, a0_t, None, None]
 
         # system/simulation parameters
-        actuation = 'dirichlet'
-        boundary_condition = 'dirichlet'
+        actuation_type = 'dirichlet'
+        bound_cond_type = 'dirichlet'
         l = 1.; spatial_domain = (0, l); spatial_disc = 10 # attention: only l=1. supported in this test case
         T = 1; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
@@ -146,7 +146,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, eig_funcs)
 
         # init trajectory / input of target system
-        traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)
+        traj = tr.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
 
         # init controller
         x_at_1 = ph.FieldVariable("eig_funcs", location=1)
@@ -154,7 +154,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         controller = ct.Controller(ct.ControlLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
 
         # input with feedback
-        control_law = sim.Mixer([traj, controller])
+        control_law = sim.SimulationInputSum([traj, controller])
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
@@ -202,8 +202,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         l = 1.; spatial_domain = (0, l); spatial_disc = 10
         T = 1; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
@@ -249,12 +249,12 @@ class RadRobinControlApproxTest(unittest.TestCase):
                            ]))
 
         # init trajectory
-        traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)
+        traj = tr.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
         traj.scale = combined_transform(l)
 
         # input with feedback
-        control_law = sim.Mixer([traj, controller])
-        # control_law = sim.Mixer([traj])
+        control_law = sim.SimulationInputSum([traj, controller])
+        # control_law = sim.SimulationInputSum([traj])
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(eig_val))
@@ -299,8 +299,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1.; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -331,7 +331,7 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -362,8 +362,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
@@ -385,8 +385,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
@@ -419,8 +419,8 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
     def test_it(self):
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1.; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -477,7 +477,7 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -507,8 +507,8 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz,
-                                                                    original_boundary_param=(alpha_i, beta_i),
-                                                                    target_boundary_param=(alpha_ti, beta_ti),
+                                                                    original_beta=beta_i,
+                                                                    target_beta=beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.inv_transform_i_at_l)
 
@@ -539,8 +539,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
     def test_fem(self):
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -556,7 +556,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
-        # actuation by b which is close to b_desired on a k times subdivided spatial domain
+        # actuation_type by b which is close to b_desired on a k times subdivided spatial domain
         b_desired = self.l/2
         k = 51 # = k1 + k2
         k1, k2, self.b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
@@ -615,7 +615,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -653,8 +653,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=np.exp(-a1/2/a2*self.b) )
 

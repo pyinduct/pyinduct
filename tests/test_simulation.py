@@ -498,9 +498,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         def test_dd():
             # trajectory
-            boundary_condition = 'dirichlet'
-            actuation = 'dirichlet'
-            u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+            bound_cond_type = 'dirichlet'
+            actuation_type = 'dirichlet'
+            u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # derive state-space system
             rad_pde = ut.get_parabolic_dirichlet_weak_form("init_funcs_2", "init_funcs_2", u, param, spatial_domain)
             cf = sim.parse_weak_formulation(rad_pde)
@@ -513,9 +513,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         def test_rd():
             # trajectory
-            boundary_condition = 'robin'
-            actuation = 'dirichlet'
-            u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+            bound_cond_type = 'robin'
+            actuation_type = 'dirichlet'
+            u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # integral terms
             int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
                                               ph.TestFunction("init_funcs_2", order=0)), spatial_domain)
@@ -546,9 +546,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         def test_dr():
             # trajectory
-            boundary_condition = 'dirichlet'
-            actuation = 'robin'
-            u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+            bound_cond_type = 'dirichlet'
+            actuation_type = 'robin'
+            u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # integral terms
             int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
                                               ph.TestFunction("init_funcs_1", order=0)), spatial_domain)
@@ -582,9 +582,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         def test_rr():
             # trajectory
-            boundary_condition = 'robin'
-            actuation = 'robin'
-            u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+            bound_cond_type = 'robin'
+            actuation_type = 'robin'
+            u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # derive state-space system
             rad_pde = ut.get_parabolic_robin_weak_form("init_funcs_1", "init_funcs_1", u, param, spatial_domain)
             cf = sim.parse_weak_formulation(rad_pde)
@@ -620,8 +620,8 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         pass
 
     def test_it(self):
-        actuation = 'dirichlet'
-        boundary_condition = 'dirichlet'
+        actuation_type = 'dirichlet'
+        bound_cond_type = 'dirichlet'
         param = [1., -2., -1., None, None]
         adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, _, _ = param
@@ -642,7 +642,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, adjoint_eig_funcs)
 
         # init trajectory
-        u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+        u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
 
         # determine (A,B) with weak-formulation (pyinduct)
 
@@ -678,8 +678,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         pass
 
     def test_it(self):
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         param = [2., 1.5, -3., -1., -.5]
         adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, alpha, beta = param
@@ -707,7 +707,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, adjoint_eig_funcs)
 
         # init trajectory
-        u = tr.RadTrajectory(l, T, param, boundary_condition, actuation)
+        u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
 
         # determine (A,B) with weak-formulation (pyinduct)
         rad_pde = ut.get_parabolic_robin_weak_form("eig_funcs", "adjoint_eig_funcs", u, param, spatial_domain)
