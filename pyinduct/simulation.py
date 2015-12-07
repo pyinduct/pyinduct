@@ -513,7 +513,11 @@ def _compute_product_of_scalars(scalars):
     elif scalars[0].data.shape == scalars[1].data.shape:
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
     elif scalars[0].data.shape == scalars[1].data.T.shape:
-        res = np.dot(scalars[1].data, scalars[0].data)
+        # guarantee dyadic product no matter in which order args are passed
+        if scalars[0].data.shape[0] > scalars[0].data.shape[1]:
+            res = np.dot(scalars[0].data, scalars[1].data)
+        else:
+            res = np.dot(scalars[1].data, scalars[0].data)
     else:
         raise NotImplementedError
 
@@ -552,8 +556,8 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
     r.set_initial_value(initial_state, time_interval[0])
 
     precision = -int(np.log10(time_step))
-    # while r.successful() and np.round(r.t, precision) < time_interval[1]:
-    while np.round(r.t, precision) < time_interval[1]:
+    while r.successful() and np.round(r.t, precision) < time_interval[1]:
+        #  while np.round(r.t, precision) < time_interval[1]:
         t.append(r.t + time_step)
         try:
             q.append(r.integrate(r.t + time_step))
