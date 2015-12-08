@@ -280,7 +280,7 @@ def split_domain(n, a_desired, l, mode='coprime'):
 
     return cand[min_index]
 
-
+# TODO: rename (inn)
 def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     """
     Returns the transformation matrix M. M is one part of a transformation
@@ -394,7 +394,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     else:
         return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law))])
 
-
+# TODO: change to factory, rename: function_wrapper
 def _convert_to_function(coef):
     if not callable(coef):
         return lambda z: coef

@@ -136,6 +136,7 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     :param time_interval: tuple of (t_start and t_end)
     :return: tuple of integration time-steps and np.array of
     """
+    # TODO: join parameters for step with and interval in domain-object
     print("simulating system: {0}".format(weak_form.name))
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
@@ -184,6 +185,7 @@ def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, sp
     :param q:
     :param temp_order:
     """
+    # TODO: forward name to evaluate_approximation
     data = []
     # temporal
     ini_funcs = get_initial_functions(weight_lbl, 0)

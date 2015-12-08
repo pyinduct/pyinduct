@@ -271,6 +271,7 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     start = min(interval)
     end = max(interval)
 
+    # TODO: change to hint from Lagrange*
     if node_count:
         #  TODO: think about naming: element_length (better: node_distance)
         nodes, element_length = np.linspace(start=start, stop=end, num=node_count, retstep=True)

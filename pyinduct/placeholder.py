@@ -115,6 +115,7 @@ class SpatialDerivedFieldVariable(FieldVariable):
         FieldVariable.__init__(self, function_label, (0, order), weight_label, location)
 
 
+# TODO: remove
 class MixedDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, weight_label=None, location=None):
         FieldVariable.__init__(self, function_label, (1, 1), weight_label, location)
@@ -262,7 +263,7 @@ class IntegralTerm(EquationTerm):
             raise TypeError("limits must be provided as tuple")
         self.limits = limits
 
-
+# TODO: delete!
 class SpatialIntegralTerm(IntegralTerm):
     def __init__(self, integrand, limits, scale=1.0):
         IntegralTerm.__init__(self, integrand, limits, scale)

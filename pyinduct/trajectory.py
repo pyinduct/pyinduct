@@ -228,6 +228,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
     :param y: flat output with derivation np.array([[y],...,[y^(n/2)]])
     :return: field variable x(z,t) and spatial derivation x'(z,t)
     """
+    # TODO: documantation
     a2, a1, a0, alpha, beta = param
     shape = (len(t), len(z))
     x = np.nan*np.ones(shape)
@@ -285,6 +286,7 @@ def coefficient_recursion(c0, c1, param):
     :param param:
     :return: C = {0: c0, 1: c1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}}
     """
+    # TODO: documentaion: only constant coefficients
     if c0.shape != c1.shape:
         raise ValueError
 

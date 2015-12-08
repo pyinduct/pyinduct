@@ -188,6 +188,7 @@ class LawEvaluator(object):
         if static_terms[1] is not None:
             output += static_terms[1][0]
 
+        # TODO: replace with the one from utils
         if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
             print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
 
