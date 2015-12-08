@@ -178,7 +178,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step, spat_order=0):
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step,
+                           spatial_derivativ=0, name=""):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
@@ -186,7 +187,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     :param function_label: functions to use for back-projection
     :return:
     """
-    funcs = get_initial_functions(function_label, spat_order)
+    funcs = get_initial_functions(function_label, spatial_derivativ)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
@@ -203,7 +204,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
         return handle(spatial_steps)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temporal_steps, spatial_steps], data)
+    return EvalData([temporal_steps, spatial_steps], data, name=name)
 
 
 def split_domain(n, a_desired, l, mode='coprime'):
@@ -350,8 +351,8 @@ def scale_equation_term_list(eqt_list, factor):
 
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz, original_boundary_param,
-                                                target_boundary_param, trajectory=None, scale=None):
+                                                d_approx_target_state, integral_kernel_zz, original_beta,
+                                                target_beta, trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     import control as ct
     import simulation as sim
@@ -360,7 +361,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
     if not all([isinstance(term, (ph.ScalarTerm, ph.IntegralTerm)) for term in  terms]):
         raise TypeError
-    if not all([isinstance(num, Number) for num in original_boundary_param+target_boundary_param+(integral_kernel_zz,)]):
+    if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_zz]]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
@@ -368,8 +369,8 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         raise TypeError
 
 
-    alpha, beta = original_boundary_param
-    alpha_t, beta_t = target_boundary_param
+    beta = original_beta
+    beta_t = target_beta
 
     unsteady_term = scale_equation_term_list(state, beta - beta_t - integral_kernel_zz)
     first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
@@ -389,9 +390,9 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         scaled_control_law = control_law
 
     if not trajectory is None:
-        return sim.Mixer([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
+        return sim.SimulationInputSum([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
     else:
-        return sim.Mixer([ct.Controller(ct.ControlLaw(scaled_control_law))])
+        return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law))])
 
 
 def _convert_to_function(coef):
@@ -438,10 +439,10 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
 
-def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain, actuation_point=None):
+def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain, actuation_type_point=None):
     import simulation as sim
-    if actuation_point == None:
-        actuation_point = spatial_domain[1]
+    if actuation_type_point == None:
+        actuation_type_point = spatial_domain[1]
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
     # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
@@ -465,7 +466,7 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), a2*beta)
     s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=actuation_point)), -a2)
+                                  ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 

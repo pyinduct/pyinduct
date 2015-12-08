@@ -62,7 +62,7 @@ class SimulationInput(object):
             return results
 
 
-class Mixer(SimulationInput):
+class SimulationInputSum(SimulationInput):
     """
     helper that represents a signal mixer
     """

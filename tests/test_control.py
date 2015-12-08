@@ -114,7 +114,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # original system parameters
         a2 = 1; a1 =0 # attention: only a2 = 1., a1 =0 supported in this test case
-        a0 = 14
+        a0 = 0
         param = [a2, a1, a0, None, None]
 
         # target system parameters (controller parameters)
@@ -122,8 +122,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         param_t = [a2, a1_t, a0_t, None, None]
 
         # system/simulation parameters
-        actuation = 'dirichlet'
-        boundary_condition = 'dirichlet'
+        actuation_type = 'dirichlet'
+        bound_cond_type = 'dirichlet'
         l = 1.; spatial_domain = (0, l); spatial_disc = 10 # attention: only l=1. supported in this test case
         T = 1; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
@@ -146,7 +146,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, eig_funcs)
 
         # init trajectory / input of target system
-        traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)
+        traj = tr.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
 
         # init controller
         x_at_1 = ph.FieldVariable("eig_funcs", location=1)
@@ -154,7 +154,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         controller = ct.Controller(ct.ControlLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
 
         # input with feedback
-        control_law = sim.Mixer([traj, controller])
+        control_law = sim.SimulationInputSum([traj, controller])
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
@@ -163,12 +163,18 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # simulate
         t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
-        # TODO: get/plot x'(z,t) data and test (assert) result
+
+        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 0.5)
 
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
+            eval_dd = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc, spatial_derivativ=1)
+            win1 = vis.PgSurfacePlot(eval_dd)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -196,8 +202,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         l = 1.; spatial_domain = (0, l); spatial_disc = 10
         T = 1; temporal_domain = (0, T); temporal_disc = 1e2
         n = 10
@@ -243,12 +249,12 @@ class RadRobinControlApproxTest(unittest.TestCase):
                            ]))
 
         # init trajectory
-        traj = tr.RadTrajectory(l, T, param_t, boundary_condition, actuation)
+        traj = tr.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
         traj.scale = combined_transform(l)
 
         # input with feedback
-        control_law = sim.Mixer([traj, controller])
-        # control_law = sim.Mixer([traj])
+        control_law = sim.SimulationInputSum([traj, controller])
+        # control_law = sim.SimulationInputSum([traj])
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(eig_val))
@@ -258,9 +264,14 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
+        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -288,8 +299,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1.; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -320,7 +331,7 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -344,34 +355,29 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
         self.int_kernel_zz = lambda z: self.alpha_ti - self.alpha_i + (a0_i-a0_ti)/2/a2*z
 
     def test_fem(self):
+        self.act_funcs = "fem_funcs"
         controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
                                                                     approx_state=self.x_i_at_l,
                                                                     d_approx_state=self.xd_i_at_l,
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
         # determine (A,B) with modal-transfomation
-        rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.spatial_domain)
+        rad_pde = ut.get_parabolic_robin_weak_form(self.act_funcs, self.act_funcs, controller, self.param, self.spatial_domain)
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
         # simulate
-        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
-        # display results
-        if show_plots:
-            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d)
-            app.exec_()
-
     def test_modal(self):
+        self.act_funcs = "eig_funcs"
         a2, a1, a0, alpha, beta = self.param
         controller = ut.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l,
                                                                     approx_state=self.x_i_at_l,
@@ -379,23 +385,29 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(self.eig_val))
         B = a2*np.array([self.adjoint_eig_funcs[i](self.l) for i in xrange(self.n)])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
+        ss_modal = sim.StateSpace(self.act_funcs, A, B)
 
         # simulate
-        t, q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
+
+    def tearDown(self):
+        eval_d = ut.evaluate_approximation(self.q, self.act_funcs, self.t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(self.t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -407,8 +419,8 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
     def test_it(self):
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1.; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -465,7 +477,7 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -495,8 +507,8 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz,
-                                                                    original_boundary_param=(alpha_i, beta_i),
-                                                                    target_boundary_param=(alpha_ti, beta_ti),
+                                                                    original_beta=beta_i,
+                                                                    target_beta=beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=self.inv_transform_i_at_l)
 
@@ -508,9 +520,14 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
+        eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_d.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -522,8 +539,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
     def test_fem(self):
 
         # system/simulation parameters
-        actuation = 'robin'
-        boundary_condition = 'robin'
+        actuation_type = 'robin'
+        bound_cond_type = 'robin'
         self.l = 1; self.spatial_domain = (0, self.l); self.spatial_disc = 30
         self.T = 1; self.temporal_domain = (0, self.T); self.temporal_disc = 1e2
         self.n = 10
@@ -539,7 +556,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
-        # actuation by b which is close to b_desired on a k times subdivided spatial domain
+        # actuation_type by b which is close to b_desired on a k times subdivided spatial domain
         b_desired = self.l/2
         k = 51 # = k1 + k2
         k1, k2, self.b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
@@ -598,7 +615,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         register_functions("fem_funcs", self.fem_funcs, overwrite=True)
 
         # init trajectory
-        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, boundary_condition, actuation)
+        self.traj = tr.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
 
         # original () and target (_t) field variable
         fem_field_variable = ph.FieldVariable("fem_funcs", location=self.l)
@@ -636,8 +653,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
                                                                     approx_target_state=self.x_ti_at_l,
                                                                     d_approx_target_state=self.xd_ti_at_l,
                                                                     integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_boundary_param=(self.alpha_i, self.beta_i),
-                                                                    target_boundary_param=(self.alpha_ti, self.beta_ti),
+                                                                    original_beta=self.beta_i,
+                                                                    target_beta=self.beta_ti,
                                                                     trajectory=self.traj,
                                                                     scale=np.exp(-a1/2/a2*self.b) )
 
@@ -649,18 +666,22 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
-
+        # weights of the intermediate system
         mat = cr.calculate_base_transformation_matrix(self.fem_funcs, eig_funcs)
         q_i = np.zeros((q.shape[0], len(eig_funcs_i)))
         for i in range(q.shape[0]):
             q_i[i,:] = np.dot(q[i,:], np.transpose(mat))
 
+        eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
+        x_0t = eval_i.output_data[:, 0]
+        yc, tc = tr.gevrey_tanh(self.T, 1)
+        x_0t_desired = np.interp(t, tc, yc[0,:])
+        self.assertLess(np.average((x_0t-x_0t_desired)**2), 1e-4)
+
+
         # display results
         if show_plots:
-            eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
-            win1 = vis.PgAnimatedPlot([eval_i], title="eigfuncs")
-            win2 = vis.PgSurfacePlot(eval_i)
             eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
-            win3 = vis.PgAnimatedPlot([eval_d], title="fem")
-            win4 = vis.PgSurfacePlot(eval_d)
+            win1 = vis.PgSurfacePlot(eval_i)
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()

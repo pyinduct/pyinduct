@@ -11,6 +11,25 @@ import scipy.misc as sm
 
 __author__ = 'stefan ecklebe'
 
+sigma_tanh = 1.1
+K_tanh = 2.
+
+class ConstantTrajectory(SimulationInput):
+    """
+    trivial trajectory generator for a constant value as simulation input signal
+    """
+    def __init__(self, const=0):
+        SimulationInput.__init__(self)
+        self._const = const
+
+    def _calc_output(self, **kwargs):
+        if isinstance(kwargs["time"], (list, np.ndarray)):
+            return np.ones(len(kwargs["time"]))*self._const
+        elif isinstance(kwargs["time"], Number):
+            return self._const
+        else:
+            raise NotImplementedError
+
 
 class SmoothTransition(object):
     """
@@ -142,7 +161,7 @@ class FlatString(SimulationInput):
         return self._control_input(kwargs["time"])
 
 #TODO: kwarg: t_step
-def gevrey_tanh(T, n, sigma, K):
+def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     """
     Provide the flat output y(t) = phi(t), with the gevrey-order
     1+1/sigma, and the derivatives up to order n.
@@ -200,7 +219,7 @@ def gevrey_tanh(T, n, sigma, K):
 
     return phi, t_init
 
-def _power_series_flat_out(z, t, n, param, y, boundary_condition):
+def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
     """ Provide the power series approximation for x(z,t) and x'(z,t).
     :param z: [0, ..., l] (numpy array)
     :param t: [0, ... , t_end] (numpy array)
@@ -216,14 +235,14 @@ def _power_series_flat_out(z, t, n, param, y, boundary_condition):
 
     # Actually power_series() is designed for robin boundary condition by z=0.
     # With the following modification it can also used for dirichlet boundary condition by z=0.
-    if boundary_condition is 'robin':
+    if bound_cond_type is 'robin':
         is_robin = 1.
-    elif boundary_condition is 'dirichlet':
+    elif bound_cond_type is 'dirichlet':
         alpha = 1.
         is_robin = 0.
     else:
         raise ValueError("Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(
-            boundary_condition))
+            bound_cond_type))
 
     #TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
     for i in xrange(len(t)):
@@ -307,7 +326,7 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
     for i in range(up_to_order+1):
         sum_Q = np.zeros(len_t)
         for j in range(series_termination_index+1-spatial_der_order):
-            sum_Q += C[j][i+spatial_der_order, :]*z**(j)/sm.factorial(j)
+            sum_Q += C[j+spatial_der_order][i, :]*z**(j)/sm.factorial(j)
         Q[i, :] = sum_Q
 
     return Q
@@ -374,37 +393,37 @@ class RadTrajectory(InterpTrajectory):
     --> with x(0,t) = y(t) where y(t) is the flat output
 
     and the
-    actuation
+    actuation_type
     case 1: x(l,t)=u(t)  (Dirichlet)
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
     #TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, boundary_condition, actuation, n=80, sigma=1.1, K=1., show_plot=False):
+    def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh, show_plot=False):
 
         cases = {'dirichlet', 'robin'}
-        if boundary_condition not in cases:
+        if bound_cond_type not in cases:
             raise TypeError('Type of boundary condition by z=0 is not understood.')
-        if actuation not in cases:
-            raise TypeError('Type of actuation is not understood.')
+        if actuation_type not in cases:
+            raise TypeError('Type of actuation_type is not understood.')
 
         self._l = l
         self._T = T
         self._a1_original = param_original[1]
         self._param = ef.transform2intermediate(param_original)
-        self._boundary_condition = boundary_condition
-        self._actuation = actuation
+        self._bound_cond_type = bound_cond_type
+        self._actuation_type = actuation_type
         self._n = n
         self._sigma = sigma
         self._K = K
 
         self._z = np.array([self._l])
         y, t = gevrey_tanh(self._T, self._n+2, self._sigma, self._K)
-        x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, boundary_condition)
+        x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, bound_cond_type)
 
         a2, a1, a0, alpha, beta = self._param
-        if self._actuation is 'dirichlet':
+        if self._actuation_type is 'dirichlet':
             u = x[:, -1]
-        elif self._actuation is 'robin':
+        elif self._actuation_type is 'robin':
             u = d_x[:, -1] + beta*x[:, -1]
         # actually the algorithm consider the pde
         # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)

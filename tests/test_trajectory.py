@@ -55,7 +55,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
         a2 = 1; a1 = 0; a0 = 6; self.alpha = 0.5; self.beta = 0.5
         self.param = [a2, a1, a0, self.alpha, self.beta]
         self.n_y = 80
-        self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 1)
+        self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 2)
 
     def test_temporal_derive(self):
 

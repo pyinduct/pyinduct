@@ -3,3 +3,4 @@ sympy
 PyQt4
 pyqtgraph
 wheel>=0.23.0
+matplotlib>=1.5.0

@@ -8,9 +8,48 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib import cm
+import matplotlib.lines as mlines
+from numbers import Number
+from types import NoneType
+import time
+import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
+
+# matplotlib parameters
+plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
+params = {'text.usetex' : True,
+          'font.size' : 15,
+          'font.family' : 'lmodern',
+          'text.latex.unicode': True,
+          }
+plt.rcParams.update(params)
+mpl.rcParams['axes.labelpad'] = 25
+mpl.rcParams['axes.labelsize'] = 30
+mpl.rcParams['axes.linewidth'] = 2
+mpl.rcParams['xtick.labelsize'] = 25
+mpl.rcParams['xtick.major.width'] = 2
+mpl.rcParams['xtick.major.size'] = 10
+mpl.rcParams['ytick.labelsize'] = 25
+mpl.rcParams['ytick.major.width'] = 2
+mpl.rcParams['ytick.major.size'] = 10
+mpl.rcParams['figure.facecolor'] = 'white'
+mpl.rcParams['legend.borderaxespad'] = 0.3
+
+## form here: http://stackoverflow.com/questions/16488182/
+###source code patch start###
+from mpl_toolkits.mplot3d.axis3d import Axis
+if not hasattr(Axis, "_get_coord_info_old"):
+    def _get_coord_info_new(self, renderer):
+        mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
+        mins += deltas / 4
+        maxs -= deltas / 4
+        return mins, maxs, centers, deltas, tc, highs
+    Axis._get_coord_info_old = Axis._get_coord_info
+    Axis._get_coord_info = _get_coord_info_new
+###source code patch end###
 
 
 def create_colormap(cnt):
@@ -85,18 +124,27 @@ class PgAnimatedPlot(PgDataPlot):
     def __init__(self, data, title="", dt=None):
         PgDataPlot.__init__(self, data)
 
-        self._pw = pg.plot(title=title)
+
+        len_data = len(self._data)
+        interp_funcs = [si.interp2d(data.input_data[1], data.input_data[0], data.output_data) for data in self._data]
+        time_data = [self._data[0].input_data[0] for data_set in self._data]
+        spatial_data = [self._data[0].input_data[1] for data_set in self._data]
+        state_data = [interp_func(spatial_data[0], time_data[0]) for interp_func in interp_funcs]
+
+        # TODO: remove the next 4 lines and replace (from here) self._data with state_data, time_data and spatial_data
+        for i in range(len(self._data)):
+            self._data[i].input_data[0] = time_data[0]
+            self._data[i].input_data[1] = spatial_data[0]
+            self._data[i].output_data = state_data[i]
+
+        self._pw = pg.plot(title=time.strftime("%H:%M:%S")+' - '+title)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
-        time_data = [data_set.input_data[0] for data_set in self._data]
         max_times = [max(data) for data in time_data]
         self._longest_idx = max_times.index(max(max_times))
         if dt is not None:
             self._dt = dt
-
-        spatial_data = [data_set.input_data[1] for data_set in self._data]
-        state_data = [data_set.output_data for data_set in self._data]
 
         spat_min = np.min([np.min(data) for data in spatial_data])
         spat_max = np.max([np.max(data) for data in spatial_data])
@@ -140,9 +188,10 @@ class PgSurfacePlot(PgDataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data):
+    def __init__(self, data, title=""):
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
+        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S")+' - '+title)
         self.gl_widget.show()
 
         self._grid = gl.GLGridItem()
@@ -242,50 +291,157 @@ class MplSurfacePlot(DataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data, keep_aspect=True, show=False):
+    def __init__(self, data, hack_xdata=None, hack_ydata=None, keep_aspect=True, show=False, own_cmap=plt.cm.Greys,
+                 dpi=80, azim = -60, elev = 30, nbins=3, wire_f=False, left_corner=False, zticks=None,
+                 fig_size=(12, 8), zlabel='$\quad x(z,t)$', zpadding=0):
         DataPlot.__init__(self, data)
+
+        disc = 3
+        ticklabelsize = 30
+        mpl.rcParams['axes.labelpad'] = 40
+        mpl.rcParams['axes.labelsize'] = 30
 
         for i in range(len(self._data)):
 
-            disc = 3
-            axespad = 0.02
-            mpl.rcParams['font.size'] = 15
-            mpl.rcParams['ytick.major.pad'] = 0
-            mpl.rcParams['ytick.minor.pad'] = 0
-            mpl.rcParams['axes.labelsize'] = 25
             x = self._data[i].input_data[1]
+            if hack_xdata != None:
+                x[-1] = hack_xdata
             y = self._data[i].input_data[0]
+            if hack_ydata != None:
+                y[-1] = hack_ydata
             z = (self._data[i].output_data)
-            x_min, x_max = (int(x.min()), int(x.max()))
-            y_min, y_max = (int(y.min()), int(y.max()))
+            x_min, x_max = (x.min(), x.max())
+            y_min, y_max = (y.min(), y.max())
             z_min, z_max = (z.min(), z.max())
             xx, yy = np.meshgrid(x, y)
 
-            fig = plt.figure(figsize=(12, 12), facecolor='white')
+            fig = plt.figure(figsize=fig_size, dpi=dpi)
             ax = fig.add_subplot(111, projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
             ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            # plt.title(r'$ $')
-            ax.set_ylabel('\n'+r'$t$')
-            ax.set_xlabel('\n'+r'$z$')
+
+            # labels
+            ax.set_ylabel('$t$')
+            ax.set_xlabel('$z$')
             ax.zaxis.set_rotate_label(False)
-            ax.set_zlabel('\t'+r'$x(z,t)$', rotation=0)
-            ax.set_xlim((x_min+0.025, x_max-axespad))
-            plt.xticks(np.linspace(x_min, x_max, disc))
-            ax.set_ylim((y_min+axespad, y_max-axespad))
-            plt.yticks(np.linspace(y_min, y_max, disc))
-            # # ax.w_xaxis.gridlines.set_lw(3.0)
-            # # ax.w_yaxis.gridlines.set_lw(3.0)
-            # # ax.w_zaxis.gridlines.set_lw(3.0)
+            ax.set_zlabel(zlabel, rotation=0, labelpad=50+zpadding)
+
+            # ticks
+            ax.set_xlim((x_min, x_max))
+            if not left_corner:
+                plt.xticks(np.linspace(x_min, x_max, disc), ha='right')
+            else:
+                plt.xticks(np.linspace(x_min, x_max, disc), ha='left')
+            ax.set_ylim((y_min, y_max))
+            if not left_corner:
+                plt.yticks(np.linspace(y_min, y_max, disc), ha='left')
+            else:
+                plt.yticks(np.linspace(y_min, y_max, disc), ha='right')
+            for tick in ax.get_zticklabels():
+                tick.set_verticalalignment('bottom')
+            plt.locator_params(axis='z', nbins=nbins)
+            ax.tick_params(axis='z', pad=12+zpadding)
+            ax.tick_params(width=10, length=10, size=10)
+            ax.tick_params(labelsize=ticklabelsize)
+            if zticks != None:
+                ax.set_zticks(zticks)
+
+            # grid
             ax.w_xaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
             ax.w_yaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
             ax.w_zaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
 
-            ax.plot_wireframe(xx, yy, z, rstride=2, cstride=4, color="#222222")
-            # ax.view_init(elev=10, azim=-45)
+            if wire_f:
+                ax.plot_wireframe(xx, yy, z, rstride=2, cstride=2, color="#222222")
+            else:
+                ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=own_cmap, antialiased=False)
+
+            # default: azim=-60, elev=30
+            ax.view_init(elev=elev, azim=azim)
+
+        if show:
+            plt.show()
+
+class MplComparePlot(PgDataPlot):
+    """
+    get one desired EvalData-object and up to five simulation/experiment EvalData-object's
+    """
+
+    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
+                 leg_lbl=None, show=False, leg_pos=1, fig_size=(10, 6)):
+
+        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
+                (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
+            raise TypeError("Only one kwarg *_point can be passed, which has to be an instance from type numbers.Number")
+
+        DataPlot.__init__(self, eval_data_list)
+        len_data = len(self._data)
+
+        if len(self._data[0].input_data) == 1:
+            point_input = [data_set.input_data[0] for data_set in self._data]
+            point_data = [data_set.output_data for data_set in self._data]
+        elif len(self._data[0].input_data) == 2:
+            interp_funcs = [si.interp2d(self._data[i].input_data[1], self._data[i].input_data[0],
+                                        self._data[i].output_data)
+                            for i in range(len_data)]
+            if time_point == None:
+                point_input = [data_set.input_data[0] for data_set in self._data]
+                point_data = [interp_funcs[i](spatial_point, point_input[i]) for i in range(len_data)]
+            elif spatial_point == None:
+                point_input = [data_set.input_data[1] for data_set in self._data]
+                point_data = [interp_funcs[i](point_input[i], time_point) for i in range(len_data)]
+            else:
+                raise TypeError
+        else:
+            NotImplementedError
+
+        fig = plt.figure(figsize=fig_size)
+
+        xlabelpad=10
+        if time_point == None:
+            plt.xlabel(u'$t$', size=30, labelpad=xlabelpad)
+        elif spatial_point == None:
+            plt.xlabel(u'$z$', size=30, labelpad=xlabelpad)
+        else:
+            raise StandardError
+        plt.ylabel(ylabel, size=25, rotation='horizontal', ha='right', labelpad=10)
+        plt.yticks(va='bottom')
+        plt.xticks(ha='left')
+        plt.grid(True, which='both', color='0.0',linestyle='--')
+
+        if leg_lbl == None:
+            show_leg = False
+            leg_lbl = ['1', '2', '3', '4', '5']
+        else:
+            show_leg = True
+        ls = ['-', '--', '-.', ':']
+        m_reserve = [ u'1', u'x', u'+', u'|', u'd',  u's']
+        m_filled = [ u'o', u'^']
+        marker_point_input = [np.linspace(data[0], data[-1], 8) for data in point_input]
+        marker_point_data = [np.interp(marker_point_input[i], point_input[i], point_data[i].flatten())
+                             for i in range(len(point_data))]
+        lines = []
+        for i in range(0, len_data):
+            if i < 2:
+                plt.plot(point_input[i], point_data[i], ls=ls[i], lw=2, c='black')
+                lines.append(mlines.Line2D([], [], ls=ls[i], lw=2, c='black', label=leg_lbl[i]))
+            elif False:
+                plt.plot(point_input[i], point_data[i], ls='None', lw=3, marker=m_filled[1-i], ms=10, c='black',
+                         label=leg_lbl[i])
+            else:
+                plt.plot(point_input[i], point_data[i], ls='-', lw=1, c='black', label=leg_lbl[i])
+                plt.plot(marker_point_input[i], marker_point_data[i], ls='None', lw=1, marker=m_filled[2-i], ms=10,
+                         mfc='None', mew=1, c='black', label=leg_lbl[i])
+                lines.append(mlines.Line2D([], [], ls='-', lw=1, c='black', label=leg_lbl[i],
+                                           marker=m_filled[2-i], ms=10, mfc='None', mew=1))
+
+        plt.margins(x=0.0, y=0.05)
+        if show_leg:
+            plt.legend(fontsize=23, handles=lines, loc=leg_pos)
+        fig.tight_layout()
 
         if show:
             plt.show()

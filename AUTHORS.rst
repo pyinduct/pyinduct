@@ -6,6 +6,7 @@ Development Lead
 ----------------
 
 * Stefan Ecklebe <stefan.ecklebe@tu-dresden.de>
+* Marcus Riesmeier <marcus.riesmeier@tu-dresden.de>
 
 Contributors
 ------------
