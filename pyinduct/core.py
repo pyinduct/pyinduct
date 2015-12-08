@@ -127,6 +127,7 @@ class Function(BaseFraction):
     To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
+    # TODO: overload add and mul operators
 
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[],
                  vectorial=False):
