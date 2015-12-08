@@ -178,8 +178,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step,
-                           spatial_derivativ=0, name=""):
+def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_step, spatial_order=0,
+                           name=""):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
@@ -187,7 +187,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     :param function_label: functions to use for back-projection
     :return:
     """
-    funcs = get_initial_functions(function_label, spatial_derivativ)
+    funcs = get_initial_functions(function_label, spatial_order)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 

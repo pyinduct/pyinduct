@@ -173,7 +173,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc, spatial_derivativ=1)
+            eval_dd = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l / spatial_disc, spatial_order=1)
             win1 = vis.PgSurfacePlot(eval_dd)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
