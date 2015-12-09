@@ -1,13 +1,13 @@
 from __future__ import division
-from numbers import Number
-from types import NoneType
-import time
-
 import numpy as np
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
+from numbers import Number
+from types import NoneType
+import time
 import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
@@ -47,10 +47,10 @@ class EvalData:
         self.output_data = output_data
         self.name = name
 
-        self.name = name
-
     def interpolation_handle(self, desired_coordinates):
-        return si.interpn(self.input_data, self.output_data, desired_coordinates)
+        return si.interpn(tuple(self.input_data),
+                          self.output_data,
+                          tuple(desired_coordinates))
 
 
 class DataPlot:
@@ -92,7 +92,7 @@ class PgAnimatedPlot(PgDataPlot):
         PgDataPlot.__init__(self, data)
 
 
-        len_data = len(self._data)
+        # TODO: choose not simply the discretisation from the first ut.EvalData object but from that with the
         interp_funcs = [si.interp2d(data.input_data[1], data.input_data[0], data.output_data) for data in self._data]
         time_data = [self._data[0].input_data[0] for data_set in self._data]
         spatial_data = [self._data[0].input_data[1] for data_set in self._data]
@@ -298,6 +298,7 @@ class MplSlicePlot(PgDataPlot):
     """
     Get list (eval_data_list) of ut.EvalData objects and plot the temporal/spatial slice, by spatial_point/time_point,
     from each ut.EvalData object, in one plot.
+    For now: only ut.EvalData objects with len(input_data) == 2 supported
     """
     def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
                  legend_label=None, legend_location=1, figure_size=(10, 6)):
@@ -308,27 +309,26 @@ class MplSlicePlot(PgDataPlot):
                             "which has to be an instance from type numbers.Number")
 
         DataPlot.__init__(self, eval_data_list)
-        len_data = len(self._data)
+
+        plt.figure(facecolor='white', figsize=figure_size)
+        plt.ylabel(ylabel)
+        plt.grid(True)
 
         # TODO: move to ut.EvalData
-        # interp_funcs = [si.interp2d(self._data[i].input_data[1], self._data[i].input_data[0],
-        #                             self._data[i].output_data)
-        #                 for i in range(len_data)]
+        len_data = len(self._data)
+        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data)
+                        for eval_data in eval_data_list]
 
         if time_point == None:
-            point_input = [data_set.input_data[0] for data_set in self._data]
-            point_data = [eval_data_list[i](spatial_point, point_input[i]) for i in range(len_data)]
+            slice_input = [data_set.input_data[0] for data_set in self._data]
+            slice_data = [interp_funcs[i](spatial_point, slice_input[i]) for i in range(len_data)]
             plt.xlabel(u'$t$')
         elif spatial_point == None:
-            point_input = [data_set.input_data[1] for data_set in self._data]
-            point_data = [eval_data_list[i](point_input[i], time_point) for i in range(len_data)]
+            slice_input = [data_set.input_data[1] for data_set in self._data]
+            slice_data = [interp_funcs[i](slice_input[i], time_point) for i in range(len_data)]
             plt.xlabel(u'$z$')
         else:
             raise TypeError
-
-        plt.figure(figsize=figure_size, facecolor='white')
-        plt.ylabel(ylabel)
-        plt.grid(True)
 
         if legend_label == None:
             show_leg = False
@@ -337,7 +337,7 @@ class MplSlicePlot(PgDataPlot):
             show_leg = True
 
         for i in range(0, len_data):
-            plt.plot(point_input[i], point_data[i], label=legend_label[i])
+            plt.plot(slice_input[i], slice_data[i], label=legend_label[i])
 
         if show_leg:
             plt.legend(loc=legend_location)

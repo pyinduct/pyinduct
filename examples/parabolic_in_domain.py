@@ -11,8 +11,6 @@ from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
-import pyinduct.utils
-import pyinduct.visualization
 
 __author__ = 'marcus'
 
@@ -82,12 +80,12 @@ x_id = np.concatenate((x1_id,x2_id), axis=1)
 x = np.nan*np.zeros(x_id.shape)
 for i in range(x_id.shape[0]):
     x[i,:] = x_id[i,:]*np.exp(-a1/2/a2*z_x)
-evald_xd = pyinduct.visualization.EvalData([t_x, z_x], x, name="x(z,t) power series")
+evald_xd = vis.EvalData([t_x, z_x], x, name="x(z,t) power series")
 
 # compute desired intermediate fieldvariable
 C_i = tr.coefficient_recursion(y, alpha_i*y, param_i)
 x1_id = tr.power_series(z_x, t_x, C_i)
-evald_xid = pyinduct.visualization.EvalData([t_x, z_x], x1_id, name="x(z,t) power series")
+evald_xid = vis.EvalData([t_x, z_x], x1_id, name="x(z,t) power series")
 
 # THE TOOLBOX OFFERS TWO WAYS TO GENERATE A TRAJECTORY FOR THE TARGET SYSTEM
 if False:
@@ -211,7 +209,7 @@ for i in range(q.shape[0]):
 evald_modal_xi = ut.evaluate_approximation(q_i, "eig_funcs_i", t, spatial_domain, l/spatial_disc, name="x_i(z,t) modal simulation")
 evald_modal_T0_xid = ut.evaluate_approximation(q_i, "sh_eig_funcs_id", t, spatial_domain, l/spatial_disc, name="T0*x_i(z,t) modal simulation")
 evald_shifted_x = ut.evaluate_approximation(q, "sh_fem_funcs_i", t, spatial_domain, l/spatial_disc, name="T0*e^(-a1/a2/2*z)*x_(z,t) fem simulation")
-evald_appr_xi = pyinduct.visualization.EvalData(evald_modal_xi.input_data,
+evald_appr_xi = vis.EvalData(evald_modal_xi.input_data,
                              evald_shifted_x.output_data+evald_modal_xi.output_data-evald_modal_T0_xid.output_data,
                              name="x_i(t) approximated")
 
@@ -219,7 +217,7 @@ evald_appr_xi = pyinduct.visualization.EvalData(evald_modal_xi.input_data,
 evald_fem_x = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t) simulation")
 
 # some pyqtgraph visualisations
-win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xid])
+win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xid], dt=T/temporal_disc*4)
 win2 = vis.PgSurfacePlot([evald_xd], title=evald_xd.name)
 win3 = vis.PgSurfacePlot([evald_fem_x], title=evald_fem_x.name)
 
