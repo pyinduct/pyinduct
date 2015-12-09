@@ -31,6 +31,7 @@ class EvalData:
     convenience wrapper for function evaluation
     contains the input data that was used for evaluation and the results
     """
+
     # TODO: add scipy n-D-interp function, min+max
 
     def __init__(self, input_data, output_data, name=""):
@@ -87,6 +88,7 @@ class PgAnimatedPlot(PgDataPlot):
     values are therefore expected to be a array of shape (n, t, z)
     playback set can be set via "dt" which is the real world step size. default is playback in realtime
     """
+
     # TODO default realtime, kwarg: T
 
     def __init__(self, data, title="", dt=None):
@@ -203,6 +205,7 @@ class PgSlicePlot(PgDataPlot):
     """
     plot selected slice of given DataSets
     """
+
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
     def __init__(self, data, title=None):
         PgDataPlot.__init__(self, data)
