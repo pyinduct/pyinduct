@@ -55,5 +55,6 @@ class PlotTestCase(unittest.TestCase):
 
     def test_mpl_compare_plot(self):
         if show_plots:
-            vis.MplComparePlot(self.test_data+self.test_data+self.test_data, spatial_point=0.5, ylabel=u'$x(0,t)$')
+            vis.MplSlicePlot(self.test_data+self.test_data+self.test_data, spatial_point=0.5, ylabel=u'$x(0,t)$',
+                               legend_label=['1', '2', '3', '4', '5', '6'])
             plt.show()

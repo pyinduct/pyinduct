@@ -11,7 +11,8 @@ from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
 from pyinduct import shapefunctions as sh
-
+import pyinduct.utils
+import pyinduct.visualization
 
 __author__ = 'marcus'
 
@@ -125,7 +126,7 @@ z_d = np.linspace(0, l, spatial_disc)
 y_d, t_d = tr.gevrey_tanh(T, 80)
 C = tr.coefficient_recursion(y_d, alpha*y_d, param)
 x_l = tr.power_series(z_d, t_d, C)
-evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
+evald_traj = pyinduct.visualization.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 
 # pyqtgraph visualization
 eval_d = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t) with x(z,0)="+str(init_profile))
@@ -135,5 +136,5 @@ win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name)
 pg.QtGui.QApplication.instance().exec_()
 
 # matplotlib visualization
-vis.MplComparePlot([evald_traj, eval_d], spatial_point=0, leg_lbl=["$x_d(0,t)$", "$x(0,t)$"])
+vis.MplSlicePlot([evald_traj, eval_d], spatial_point=0, legend_label=["$x_d(0,t)$", "$x(0,t)$"])
 plt.show()

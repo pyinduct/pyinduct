@@ -124,6 +124,6 @@ win2 = vis.PgSurfacePlot(evald_x, title=evald_x.name)
 pg.QtGui.QApplication.instance().exec_()
 
 # matplotlib visualization
-vis.MplComparePlot([evald_x], time_point=1, leg_lbl=["$x(z,1)$"], leg_pos=1)
+vis.MplSlicePlot([evald_x], time_point=1, legend_label=["$x(z,1)$"], legend_location=1)
+vis.MplSurfacePlot(evald_x)
 plt.show()
-

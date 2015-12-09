@@ -11,7 +11,8 @@ from pyinduct import utils as ut
 from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
-
+import pyinduct.utils
+import pyinduct.visualization
 
 __author__ = 'marcus'
 
@@ -78,7 +79,7 @@ z_d = np.linspace(0, l, spatial_disc)
 y_d, t_d = tr.gevrey_tanh(T, 80)
 C = tr.coefficient_recursion(np.zeros(y_d.shape), y_d, param)
 x_l = tr.power_series(z_d, t_d, C)
-evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
+evald_traj = pyinduct.visualization.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 
 # simulate
 t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
@@ -91,5 +92,5 @@ win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name)
 pg.QtGui.QApplication.instance().exec_()
 
 # matplotlib visualization
-vis.MplComparePlot([evald_x, evald_traj], time_point=1, leg_lbl=["$x(z,1)$", "$x_d(z,1)$"], leg_pos=2)
+vis.MplSlicePlot([evald_x, evald_traj], time_point=1, legend_label=["$x(z,1)$", "$x_d(z,1)$"], leg_pos=2)
 plt.show()
