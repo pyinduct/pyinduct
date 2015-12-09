@@ -194,6 +194,7 @@ def evaluate_approximation(weights, function_label, temporal_steps, spatial_inte
     step_cnt = int((spatial_interval[1] - spatial_interval[0])/ spatial_step)
     spatial_steps = np.linspace(spatial_interval[0], spatial_interval[1], step_cnt)
 
+    # TODO: evaluate shapefucntions only once
     def eval_spatially(weight_vector):
         if isinstance(function_label[0], LagrangeFirstOrder):
             # shortcut for fem approximations
@@ -470,6 +471,6 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 
-
+# TODO: think about interp
 def find_nearest_idx(array, value):
     return (np.abs(array-value)).argmin()

@@ -356,6 +356,7 @@ class StringMassTest(unittest.TestCase):
             app.exec_()
 
         # TODO add test expression
+        # TODO dump in pyinduct/tests/ressources
         file_path = os.sep.join(["resources", "test_data.res"])
         if not os.path.isdir("resources"):
             os.makedirs("resources")

@@ -18,6 +18,7 @@ import scipy.interpolate as si
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
 
+# TODO: function around rcParams
 # matplotlib parameters
 plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
 params = {'text.usetex' : True,
@@ -69,6 +70,7 @@ class EvalData:
     convenience wrapper for function evaluation
     contains the input data that was used for evaluation and the results
     """
+    # TODO: add scipy n-D-interp function, min+max
 
     def __init__(self, input_data, output_data, name=""):
         # check type and dimensions
@@ -119,7 +121,7 @@ class PgAnimatedPlot(PgDataPlot):
     values are therefore expected to be a array of shape (n, t, z)
     playback set can be set via "dt" which is the real world step size. default is playback in realtime
     """
-    # TODO generalize to n-d spatial domain
+    # TODO default realtime, kwarg: T
 
     def __init__(self, data, title="", dt=None):
         PgDataPlot.__init__(self, data)
@@ -207,6 +209,7 @@ class PgSurfacePlot(PgDataPlot):
             self.gl_widget.addItem(plot_item)
 
 
+# TODO: alpha
 class PgSlicePlot(PgDataPlot):
     """
     plot selected slice of given DataSets
@@ -244,7 +247,7 @@ class PgSlicePlot(PgDataPlot):
         #     self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
         #                           name=data.name)
 
-
+# TODO: alpha
 class PgLinePlot3d(PgDataPlot):
     """
     plots a series of n-lines of the systems state.

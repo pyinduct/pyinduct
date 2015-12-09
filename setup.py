@@ -24,7 +24,7 @@ test_requirements = [
 
 setup(
     name='pyinduct',
-    version='0.1.0',
+    version='0.2.0',
     description="The aim of this project is to provide a toolbox to automate the backstepping based design of "
                 "controllers for boundary actuated infinite dimensional systems.",
     long_description=readme + '\n\n' + history,

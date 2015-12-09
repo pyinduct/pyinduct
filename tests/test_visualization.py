@@ -11,6 +11,7 @@ import sys
 
 __author__ = 'stefan'
 
+# TODO: __init__ global variable show_plots
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
