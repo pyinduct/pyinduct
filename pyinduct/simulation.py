@@ -125,7 +125,7 @@ def simulate_systems(weak_forms, initial_states, time_interval, time_step, spati
             weak_forms]
 
 
-def simulate_system(weak_form, initial_states, time_interval, time_step, spatial_interval, spatial_step):
+def simulate_system(weak_form, initial_states, time_interval, time_step, spatial_interval, spatial_steps):
     """
     convenience wrapper that encapsulates the whole simulation process
 
@@ -165,14 +165,14 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
 
     print(">>> performing postprocessing")
-    data = process_sim_data(canonical_form.weights, initial_states.size-1, 0, q, spatial_interval, spatial_step, t,
+    data = process_sim_data(canonical_form.weights, initial_states.size-1, 0, q, spatial_interval, spatial_steps, t,
                             name=canonical_form.name)
 
     print("finished simulation.")
     return data
 
 
-def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, spatial_step, t, name=""):
+def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, spatial_steps, t, name=""):
     """
     create handles and evaluate at given points
     :param name:
@@ -189,14 +189,14 @@ def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, sp
     ini_funcs = get_initial_functions(weight_lbl, 0)
     for der_idx in range(temp_order+1):
         data.append(evaluate_approximation(q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                           weight_lbl, t, spatial_interval, spatial_step))
+                                           weight_lbl, t, spatial_interval, spatial_steps))
         data[-1].name = "{0}{1}".format(name,
                                         "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
 
     # spatial (0th derivative is skipped since this is already handled above)
     for der_idx in range(1, spat_order+1):
         data.append(evaluate_approximation(q[:, :ini_funcs.size],
-                                           weight_lbl, t, spatial_interval, spatial_step, der_idx))
+                                           weight_lbl, t, spatial_interval, spatial_steps, der_idx))
         data[-1].name = "{0}{1}".format(name,
                                         "_" + "".join(["d" for x in range(der_idx)] + ["z"]) if der_idx > 0 else "")
 
