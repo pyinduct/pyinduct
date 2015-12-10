@@ -333,7 +333,7 @@ class MplSlicePlot(PgDataPlot):
                  legend_label=None, legend_location=1, figure_size=(10, 6)):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
-                (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
+                    (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 
