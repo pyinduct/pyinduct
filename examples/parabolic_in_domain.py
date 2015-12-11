@@ -218,8 +218,8 @@ evald_fem_x = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spa
 
 # some pyqtgraph visualisations
 win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xid], dt=T/temporal_disc*4)
-win2 = vis.PgSurfacePlot([evald_xd], title=evald_xd.name)
-win3 = vis.PgSurfacePlot([evald_fem_x], title=evald_fem_x.name)
+win2 = vis.PgSurfacePlot([evald_xd], title=evald_xd.name, grid_height=1)
+win3 = vis.PgSurfacePlot([evald_fem_x], title=evald_fem_x.name, grid_height=1)
 
 # some matplotlib plots
 vis.MplSurfacePlot([evald_appr_xi])

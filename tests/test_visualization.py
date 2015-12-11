@@ -45,7 +45,7 @@ class PlotTestCase(unittest.TestCase):
 
     def test_surface_plot(self):
         if show_plots:
-            pt = vis.PgSurfacePlot(self.test_data[0], grid_heigth=10)
+            pt = vis.PgSurfacePlot(self.test_data[0], grid_height=10)
             app.exec_()
 
     def test_mpl_surface_plot(self):

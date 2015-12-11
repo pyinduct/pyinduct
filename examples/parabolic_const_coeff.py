@@ -129,8 +129,8 @@ evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 # pyqtgraph visualization
 eval_d = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t) with x(z,0)="+str(init_profile))
 win1 = vis.PgAnimatedPlot([eval_d, evald_traj], title="animation", dt=T/temporal_disc*4)
-win2 = vis.PgSurfacePlot([eval_d], title=eval_d.name)
-win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name)
+win2 = vis.PgSurfacePlot([eval_d], title=eval_d.name, grid_height=1)
+win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()
 
 # matplotlib visualization

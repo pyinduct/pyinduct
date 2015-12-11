@@ -2,18 +2,17 @@ from __future__ import division
 import numpy as np
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
-import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d
 from numbers import Number
 from types import NoneType
 import time
 import pyqtgraph.opengl as gl
 import scipy.interpolate as si
+# axes3d not explicit used but needed
+from mpl_toolkits.mplot3d import axes3d
 
 __author__ = 'Stefan Ecklebe'
 colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
-
 
 
 def create_colormap(cnt):
@@ -58,6 +57,7 @@ class DataPlot:
     """
     base class for all plotting related classes
     """
+
     def __init__(self, data):
 
         # just to be sure
@@ -75,6 +75,7 @@ class PgDataPlot(DataPlot, QtCore.QObject):
     """
     base class for all pyqtgraph plotting related classes
     """
+
     def __init__(self, data):
         QtCore.QObject.__init__(self)
         DataPlot.__init__(self, data)
@@ -92,11 +93,10 @@ class PgAnimatedPlot(PgDataPlot):
     def __init__(self, data, title="", dt=None):
         PgDataPlot.__init__(self, data)
 
-
         # TODO: choose not simply the discretisation from the first ut.EvalData object but from that with the
         interp_funcs = [si.interp2d(data.input_data[1], data.input_data[0], data.output_data) for data in self._data]
-        time_data = [self._data[0].input_data[0] for data_set in self._data]
-        spatial_data = [self._data[0].input_data[1] for data_set in self._data]
+        time_data = [self._data[0].input_data[0] for _ in self._data]
+        spatial_data = [self._data[0].input_data[1] for _ in self._data]
         state_data = [interp_func(spatial_data[0], time_data[0]) for interp_func in interp_funcs]
 
         # TODO: remove the next 4 lines and replace (from here) self._data with state_data, time_data and spatial_data
@@ -105,7 +105,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._data[i].input_data[1] = spatial_data[0]
             self._data[i].output_data = state_data[i]
 
-        self._pw = pg.plot(title=time.strftime("%H:%M:%S")+' - '+title)
+        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
@@ -124,7 +124,7 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._time_text = pg.TextItem('t= 0')
         self._pw.addItem(self._time_text)
-        self._time_text.setPos(.9*spat_max, .9*state_min)
+        self._time_text.setPos(.9 * spat_max, .9 * state_min)
 
         self._plot_data_items = []
         for idx, data_set in enumerate(self._data):
@@ -134,14 +134,14 @@ class PgAnimatedPlot(PgDataPlot):
         self._curr_frame = 0
         self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
-        self._timer.start(1e3*self._dt)
+        self._timer.start(1e3 * self._dt)
 
     def _update_plot(self):
         """
         update plot window
         """
         for idx, data_set in enumerate(self._data):
-            frame = min(self._curr_frame, data_set.output_data.shape[0]-1)
+            frame = min(self._curr_frame, data_set.output_data.shape[0] - 1)
             self._plot_data_items[idx].setData(x=data_set.input_data[1], y=data_set.output_data[frame])
 
         self._time_text.setText('t= {0:.2f}'.format(self._data[self._longest_idx].input_data[0][frame]))
@@ -156,45 +156,46 @@ class PgSurfacePlot(PgDataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data, grid_heigth=None, title=""):
+
+    def __init__(self, data, grid_height=None, title=""):
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
-        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S")+' - '+title)
+        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
         self.gl_widget.show()
 
-        if grid_heigth == None:
-            grid_heigth = max([data.output_data.max() for data in self._data])
+        if grid_height is None:
+            grid_height = max([data.output_data.max() for data in self._data])
         max_0 = max([max(data.input_data[0]) for data in self._data])
         max_1 = max([max(data.input_data[1]) for data in self._data])
 
         # because gl.GLGridItem.setSize() is broken gl.GLGridItem.scale() must be used
-        grid_heigth_s = grid_heigth/20
-        max_0_s = max_0/20
-        max_1_s = max_1/20
+        grid_height_s = grid_height / 20
+        max_0_s = max_0 / 20
+        max_1_s = max_1 / 20
 
         for n in range(len(self._data)):
             plot_item = gl.GLSurfacePlotItem(x=self._data[n].input_data[0],
                                              y=np.flipud(self._data[n].input_data[1]),
                                              z=self._data[n].output_data,
                                              shader='normalColor')
-            plot_item.translate(-max_0/2, -max_1/2, -grid_heigth/2)
+            plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
             self.gl_widget.addItem(plot_item)
 
         self._xgrid = gl.GLGridItem()
-        self._xgrid.scale(x=max_0_s, y=max_1_s, z=grid_heigth_s)
-        self._xgrid.translate(0, 0, -grid_heigth/2)
+        self._xgrid.scale(x=max_0_s, y=max_1_s, z=grid_height_s)
+        self._xgrid.translate(0, 0, -grid_height / 2)
         self.gl_widget.addItem(self._xgrid)
 
         self._ygrid = gl.GLGridItem()
-        self._ygrid.scale(x=grid_heigth_s, y=max_1_s, z=0)
+        self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
         self._ygrid.rotate(90, 0, 1, 0)
-        self._ygrid.translate(max_0/2, 0, 0)
+        self._ygrid.translate(max_0 / 2, 0, 0)
         self.gl_widget.addItem(self._ygrid)
-        #
+
         self._zgrid = gl.GLGridItem()
-        self._zgrid.scale(x=max_0_s, y=grid_heigth_s, z=max_1)
+        self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
         self._zgrid.rotate(90, 1, 0, 0)
-        self._zgrid.translate(0, max_1/2, 0)
+        self._zgrid.translate(0, max_1 / 2, 0)
         self.gl_widget.addItem(self._zgrid)
 
 
@@ -224,7 +225,7 @@ class PgSlicePlot(PgDataPlot):
         # self.imv2 = pg.ImageView()
         # self.l.addWidget(self.imv2, 1, 0)
 
-        self.roi = pg.LineSegmentROI([[0, self.dim[1]-1], [self.dim[0]-1, self.dim[1]-1]], pen='r')
+        self.roi = pg.LineSegmentROI([[0, self.dim[1] - 1], [self.dim[0] - 1, self.dim[1] - 1]], pen='r')
         self.image_view.addItem(self.roi)
         self.image_view.setImage(self._data[0].output_data)
         #
@@ -235,6 +236,7 @@ class PgSlicePlot(PgDataPlot):
         # for data_set in data:
         #     self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
         #                           name=data.name)
+
 
 # TODO: alpha
 class PgLinePlot3d(PgDataPlot):
@@ -265,14 +267,14 @@ class PgLinePlot3d(PgDataPlot):
         self.w.addItem(gz)
 
         res = self._data[0]
-        z_vals = res.input_data[1][::-1]*scale
+        z_vals = res.input_data[1][::-1] * scale
 
         t_subsets = np.linspace(0, res.input_data[0].size, n, endpoint=False, dtype=int)
 
         for t_idx, t_val in enumerate(t_subsets):
-            t_vals = np.array([res.input_data[0][t_val]]*len(z_vals))
+            t_vals = np.array([res.input_data[0][t_val]] * len(z_vals))
             pts = np.vstack([t_vals, z_vals, res.output_data[t_val, :]]).transpose()
-            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n*1.3)),
+            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n * 1.3)),
                                     # width=(t_idx + 1) / 10.,
                                     width=2,
                                     antialias=True)
@@ -283,16 +285,16 @@ class MplSurfacePlot(DataPlot):
     """
     plot as 3d surface
     """
+
     def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
         DataPlot.__init__(self, data)
-
 
         for i in range(len(self._data)):
 
             # data
             x = self._data[i].input_data[1]
             y = self._data[i].input_data[0]
-            z = (self._data[i].output_data)
+            z = self._data[i].output_data
             xx, yy = np.meshgrid(x, y)
 
             # figure
@@ -311,9 +313,9 @@ class MplSurfacePlot(DataPlot):
             ax.set_zlabel(zlabel, rotation=0)
 
             # grid
-            ax.w_xaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
-            ax.w_yaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
-            ax.w_zaxis._axinfo.update({'grid' : {'color': (0, 0, 0, 0.5)}})
+            ax.w_xaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
+            ax.w_yaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
+            ax.w_zaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
 
             ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
 
@@ -324,6 +326,7 @@ class MplSlicePlot(PgDataPlot):
     from each ut.EvalData object, in one plot.
     For now: only ut.EvalData objects with len(input_data) == 2 supported
     """
+
     def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
                  legend_label=None, legend_location=1, figure_size=(10, 6)):
 
@@ -343,18 +346,18 @@ class MplSlicePlot(PgDataPlot):
         interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data)
                         for eval_data in eval_data_list]
 
-        if time_point == None:
+        if time_point is None:
             slice_input = [data_set.input_data[0] for data_set in self._data]
             slice_data = [interp_funcs[i](spatial_point, slice_input[i]) for i in range(len_data)]
             plt.xlabel(u'$t$')
-        elif spatial_point == None:
+        elif spatial_point is None:
             slice_input = [data_set.input_data[1] for data_set in self._data]
             slice_data = [interp_funcs[i](slice_input[i], time_point) for i in range(len_data)]
             plt.xlabel(u'$z$')
         else:
             raise TypeError
 
-        if legend_label == None:
+        if legend_label is None:
             show_leg = False
             legend_label = [evald.name for evald in eval_data_list]
         else:
@@ -366,18 +369,20 @@ class MplSlicePlot(PgDataPlot):
         if show_leg:
             plt.legend(loc=legend_location)
 
+
 def mpl_activate_latex():
     """
     Activate full (label, ticks, ...) latex printing in matplotlib plots
     :return:
     """
-    plt.rcParams['text.latex.preamble']=[r"\usepackage{lmodern}"]
-    params = {'text.usetex' : True,
-              'font.size' : 15,
-              'font.family' : 'lmodern',
+    plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
+    params = {'text.usetex': True,
+              'font.size': 15,
+              'font.family': 'lmodern',
               'text.latex.unicode': True,
               }
     plt.rcParams.update(params)
+
 
 def mpl_3d_remove_margins():
     """
@@ -385,14 +390,16 @@ def mpl_3d_remove_margins():
     form here: http://stackoverflow.com/questions/16488182/
     :return:
     """
-    ###source code patch start###
+    # ##source code patch start## #
     from mpl_toolkits.mplot3d.axis3d import Axis
+
     if not hasattr(Axis, "_get_coord_info_old"):
         def _get_coord_info_new(self, renderer):
             mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
             mins += deltas / 4
             maxs -= deltas / 4
             return mins, maxs, centers, deltas, tc, highs
+
         Axis._get_coord_info_old = Axis._get_coord_info
         Axis._get_coord_info = _get_coord_info_new
-    ###source code patch end###
+    # ##source code patch end## #
