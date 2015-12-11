@@ -90,5 +90,5 @@ win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name)
 pg.QtGui.QApplication.instance().exec_()
 
 # matplotlib visualization
-vis.MplSlicePlot([evald_x, evald_traj], time_point=1, legend_label=["$x(z,1)$", "$x_d(z,1)$"], leg_pos=2)
+vis.MplSlicePlot([evald_x, evald_traj], time_point=1, legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2)
 plt.show()

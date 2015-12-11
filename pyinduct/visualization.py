@@ -8,6 +8,7 @@ from mpl_toolkits.mplot3d import axes3d
 from numbers import Number
 from types import NoneType
 import time
+import pyqtgraph.opengl as gl
 import scipy.interpolate as si
 
 __author__ = 'Stefan Ecklebe'
@@ -155,23 +156,46 @@ class PgSurfacePlot(PgDataPlot):
     """
     plot as 3d surface
     """
-    def __init__(self, data, title=""):
+    def __init__(self, data, grid_heigth=None, title=""):
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S")+' - '+title)
         self.gl_widget.show()
 
-        self._grid = gl.GLGridItem()
-        self._grid.scale(2, 2, 1)
-        self._grid.setDepthValue(10)
-        self.gl_widget.addItem(self._grid)
+        if grid_heigth == None:
+            grid_heigth = max([data.output_data.max() for data in self._data])
+        max_0 = max([max(data.input_data[0]) for data in self._data])
+        max_1 = max([max(data.input_data[1]) for data in self._data])
+
+        # because gl.GLGridItem.setSize() is broken gl.GLGridItem.scale() must be used
+        grid_heigth_s = grid_heigth/20
+        max_0_s = max_0/20
+        max_1_s = max_1/20
 
         for n in range(len(self._data)):
             plot_item = gl.GLSurfacePlotItem(x=self._data[n].input_data[0],
-                                             y=self._data[n].input_data[1],
+                                             y=np.flipud(self._data[n].input_data[1]),
                                              z=self._data[n].output_data,
                                              shader='normalColor')
+            plot_item.translate(-max_0/2, -max_1/2, -grid_heigth/2)
             self.gl_widget.addItem(plot_item)
+
+        self._xgrid = gl.GLGridItem()
+        self._xgrid.scale(x=max_0_s, y=max_1_s, z=grid_heigth_s)
+        self._xgrid.translate(0, 0, -grid_heigth/2)
+        self.gl_widget.addItem(self._xgrid)
+
+        self._ygrid = gl.GLGridItem()
+        self._ygrid.scale(x=grid_heigth_s, y=max_1_s, z=0)
+        self._ygrid.rotate(90, 0, 1, 0)
+        self._ygrid.translate(max_0/2, 0, 0)
+        self.gl_widget.addItem(self._ygrid)
+        #
+        self._zgrid = gl.GLGridItem()
+        self._zgrid.scale(x=max_0_s, y=grid_heigth_s, z=max_1)
+        self._zgrid.rotate(90, 1, 0, 0)
+        self._zgrid.translate(0, max_1/2, 0)
+        self.gl_widget.addItem(self._zgrid)
 
 
 # TODO: alpha
