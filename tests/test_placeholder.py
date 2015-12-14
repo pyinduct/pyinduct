@@ -7,7 +7,6 @@ import pyqtgraph as pg
 import sys
 import pyinduct.shapefunctions
 
-__author__ = 'Stefan Ecklebe'
 # TODO Test for all Placeholders
 
 if any([arg == 'discover' for arg in sys.argv]):

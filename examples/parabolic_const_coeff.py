@@ -12,8 +12,6 @@ from pyinduct import simulation as sim
 from pyinduct import visualization as vis
 from pyinduct import shapefunctions as sh
 
-__author__ = 'marcus'
-
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation

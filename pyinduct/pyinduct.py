@@ -2,9 +2,6 @@ from __future__ import division
 import numpy as np
 
 
-__author__ = 'stefan'
-
-
 _registry = {}
 
 def is_registered(label):

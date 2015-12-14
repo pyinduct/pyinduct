@@ -19,9 +19,6 @@ import copy as cp
 import pyqtgraph as pg
 
 
-__author__ = 'marcus'
-
-
 class AddMulFunction(object):
 
     def __init__(self, function):

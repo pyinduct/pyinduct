@@ -15,8 +15,6 @@ from shapefunctions import LagrangeFirstOrder
 from placeholder import FieldVariable, TestFunction
 from visualization import EvalData, create_colormap
 
-__author__ = 'Stefan Ecklebe'
-
 
 def complex_wrapper(func):
     """

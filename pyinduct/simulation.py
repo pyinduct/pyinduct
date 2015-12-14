@@ -11,8 +11,6 @@ from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTer
 from utils import evaluate_approximation, find_nearest_idx
 from visualization import EvalData
 
-__author__ = 'Stefan Ecklebe'
-
 
 class SimulationException(Exception):
     pass

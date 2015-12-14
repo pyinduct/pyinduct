@@ -12,7 +12,6 @@ from pyinduct import register_functions, \
     visualization as vt, \
     placeholder as ph
 
-__author__ = 'Stefan Ecklebe'
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False

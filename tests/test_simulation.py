@@ -12,7 +12,6 @@ import pyinduct.placeholder as ph
 import pyinduct as pi
 import pyinduct.shapefunctions
 
-__author__ = 'Stefan Ecklebe'
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False

@@ -11,9 +11,8 @@ import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
-__author__ = 'Stefan Ecklebe'
-colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
 
+colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 
 def create_colormap(cnt):
     """

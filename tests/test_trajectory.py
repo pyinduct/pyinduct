@@ -1,6 +1,5 @@
 from __future__ import division
 
-__author__ = 'stefan'
 
 import unittest
 import numpy as np

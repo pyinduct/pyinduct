@@ -16,8 +16,6 @@ import matplotlib.pyplot as plt
 import sys
 import pyinduct.shapefunctions
 
-__author__ = 'Stefan Ecklebe'
-
 
 if not any([arg == 'discover' for arg in sys.argv]):
     import pyqtgraph as pg

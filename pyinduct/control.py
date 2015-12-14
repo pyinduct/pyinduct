@@ -6,7 +6,6 @@ from core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
 import simulation as sim
-__author__ = 'Stefan Ecklebe'
 """
 This module contains all classes and functions related to the creation of controllers as well as the implementation
 for simulation purposes.

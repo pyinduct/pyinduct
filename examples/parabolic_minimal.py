@@ -12,8 +12,6 @@ from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
 
-__author__ = 'marcus'
-
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation

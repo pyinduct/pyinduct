@@ -9,7 +9,6 @@ import utils as ut
 import eigenfunctions as ef
 import scipy.misc as sm
 
-__author__ = 'stefan ecklebe'
 
 sigma_tanh = 1.1
 K_tanh = 2.

@@ -14,9 +14,6 @@ from pyinduct import simulation as sim
 from pyinduct import visualization as vis
 
 
-__author__ = 'marcus'
-
-
 # system/simulation parameters
 actuation_type = 'robin'
 bound_cond_type = 'robin'

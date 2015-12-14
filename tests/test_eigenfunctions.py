@@ -13,8 +13,6 @@ import sys
 import pyqtgraph as pg
 
 
-__author__ = 'marcus'
-
 app = None
 
 if not any([arg == 'discover' for arg in sys.argv]):

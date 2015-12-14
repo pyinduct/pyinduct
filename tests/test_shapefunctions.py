@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 
 import pyinduct.shapefunctions
 
-__author__ = 'Stefan Ecklebe'
 
 # show_plots = True
 show_plots = False

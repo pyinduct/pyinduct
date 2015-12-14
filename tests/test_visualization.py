@@ -9,7 +9,6 @@ import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import sys
 
-__author__ = 'stefan'
 
 # TODO: __init__ global variable show_plots
 if any([arg == 'discover' for arg in sys.argv]):

@@ -7,7 +7,6 @@ import numpy as np
 
 from pyinduct import register_functions, get_initial_functions, core, shapefunctions
 
-__author__ = 'Stefan Ecklebe'
 
 # show_plots = True
 show_plots = False

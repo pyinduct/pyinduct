@@ -6,8 +6,6 @@ import numpy as np
 from pyinduct import get_initial_functions, register_functions, is_registered
 from core import sanitize_input
 
-__author__ = 'Stefan Ecklebe'
-
 
 class Placeholder(object):
     """
