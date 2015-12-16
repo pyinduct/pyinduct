@@ -49,7 +49,7 @@ class EvalData:
         self.max = output_data.max()
         self.name = name
 
-        self._interpolator = si.interp2d(input_data[0], input_data[1], output_data, bounds_error=True)
+        # self._interpolator = si.interp2d(input_data[0], input_data[1], output_data, bounds_error=True)
 
     def __call__(self, *args):
         return self._interpolator(*args)

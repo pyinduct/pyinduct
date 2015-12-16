@@ -29,7 +29,7 @@ def complex_wrapper(func):
     return wrapper
 
 
-def find_roots(function, n_roots, grid, rtol, atol=1e-7, show_plot=False, complex=False):
+def find_roots(function, n_roots, grid, rtol=1, atol=1e-7, show_plot=False, complex=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
@@ -63,21 +63,20 @@ def find_roots(function, n_roots, grid, rtol, atol=1e-7, show_plot=False, comple
     # if not isinstance(show_plot, bool):
     #     raise TypeError("show_plot must be of type bool")
 
-    grid = np.atleast_2d(grid)
-    if not isinstance(grid, np.ndarray):
-        raise TypeError
+    if isinstance(grid[0], Number):
+        grid = [grid]
 
+    dim = len(grid)
     if complex:
-        assert grid.shape[0] == 2
+        assert dim == 2
         function = complex_wrapper(function)
 
-    dim = grid.shape[0]
     roots = np.full((n_roots, dim), np.nan)
     rounded_roots = np.full((n_roots, dim), np.nan)
     errors = np.full((n_roots, ), np.nan)
     found_roots = 0
 
-    grids = np.meshgrid(*([tuple(row) for row in grid]))
+    grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
 
     # iterate over test_values

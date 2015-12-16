@@ -88,7 +88,7 @@ class FindRootsTestCase(unittest.TestCase):
                                        show_plot=True)
 
     def test_cmplx_func(self):
-        grid = np.array([range(10), range(10)])
+        grid = [np.arange(0, 10), np.arange(0, 20)]
         roots = ut.find_roots(self.cmplx_eq, 1, grid, -1, show_plot=True, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0]*len(roots)))
         print(roots)
