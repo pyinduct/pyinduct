@@ -12,6 +12,48 @@ from utils import evaluate_approximation, find_nearest_idx
 from visualization import EvalData
 
 
+class Domain(object):
+    """
+    Helper class that manages ranges for data evaluation, containing:
+    - interval bounds
+    - number of points in interval
+    - distance between points (if homogeneous)
+    - points themselves
+
+    If num and step are given, num will take precedence.
+    """
+    def __init__(self, bounds=None, num=None, step=None, points=None):
+        if points:
+            # points are given, easy one
+            self._values = np.atleast_1d(points)
+            self._limits = [points.min(), points.max()]
+            self._num = points.size
+            # TODO check for evenly spaced entries
+            # for now just use provided information
+            self._step = step
+        elif bounds and num:
+            self._limits = bounds
+            self._num = num
+            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+        elif bounds and step:
+            self._limits = bounds
+            # calculate number of needed points but save correct step size
+            self._num = int((bounds[1]-bounds[0])/step + .5)
+            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+        else:
+            raise ValueError("not enough arguments provided!")
+
+    def __len__(self):
+        return len(self._values)
+
+    def __getitem__(self, item):
+        return self._values[item]
+
+    @property
+    def step(self):
+        return self._step
+
+
 class SimulationException(Exception):
     pass
 
@@ -115,6 +157,7 @@ class StateSpace(object):
         self.D = d_matrix
 
 
+# TODO update signature
 def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
     """
     convenience wrapper for simulate system, see :ref:py:func:simulate_system for parameters
@@ -125,14 +168,17 @@ def simulate_systems(weak_forms, initial_states, time_interval, time_step, spati
             weak_forms]
 
 
-def simulate_system(weak_form, initial_states, time_interval, time_step, spatial_interval, spatial_steps):
+def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, der_orders=(0, 0)):
     """
     convenience wrapper that encapsulates the whole simulation process
 
     :param weak_form:
     :param initial_states: np.array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`
-    :param time_interval: tuple of (t_start and t_end)
-    :return: tuple of integration time-steps and np.array of
+    :param temporal_domain: sim.Domain object holding information for time evaluation
+    :param spatial_domain: sim.Domain object holding information for spatial evaluation
+    :param der_orders: tuple of derivative orders (time, spat) that shall be evaluated additionally
+
+    :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
     """
     # TODO: join parameters for step with and interval in domain-object
     print("simulating system: {0}".format(weak_form.name))
@@ -143,8 +189,8 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
     if not isinstance(initial_states[0], Function):
         raise TypeError("only core.Function accepted as initial state")
 
-    if not isinstance(time_interval, tuple):
-        raise TypeError("time_interval must be tuple")
+    if not isinstance(temporal_domain, Domain) or not isinstance(spatial_domain, Domain):
+        raise TypeError("domains must be given as Domain object")
 
     # parse input and create state space system
     print(">>> parsing formulation")
@@ -162,43 +208,41 @@ def simulate_system(weak_form, initial_states, time_interval, time_step, spatial
 
     # simulate
     print(">>> performing time step integration")
-    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, time_interval, time_step=time_step)
+    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, temporal_domain)
 
     print(">>> performing postprocessing")
-    data = process_sim_data(canonical_form.weights, initial_states.size-1, 0, q, spatial_interval, spatial_steps, t,
+    temporal_order = min(initial_states.size-1, der_orders[0])
+    data = process_sim_data(canonical_form.weights, temporal_order, der_orders[1], q, spatial_domain, t,
                             name=canonical_form.name)
 
     print("finished simulation.")
     return data
 
 
-def process_sim_data(weight_lbl, temp_order, spat_order, q, spatial_interval, spatial_steps, t, name=""):
+def process_sim_data(weight_lbl, temp_order, spat_order, q, spat_domain, t, name=""):
     """
     create handles and evaluate at given points
-    :param name:
-    :param weight_lbl:
-    :param t:
-    :param spatial_step:
-    :param spatial_interval:
-    :param q:
-    :param temp_order:
+    :param weight_lbl: label of Basis for reconstruction
+    :param temp_order: order or temporal derivatives to evaluate additionally
+    :param spat_order: order or spatial derivatives to evaluate additionally
+    :param q: weights
+    :param spat_domain: sim.Domain object providing values for spatial evaluation
+    :param t: timesteps on which rows of q are given
+    :param name: name of the WeakForm, used to generate the dataset
     """
-    # TODO: forward name to evaluate_approximation
     data = []
+
     # temporal
     ini_funcs = get_initial_functions(weight_lbl, 0)
     for der_idx in range(temp_order+1):
+        name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
         data.append(evaluate_approximation(q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                           weight_lbl, t, spatial_interval, spatial_steps))
-        data[-1].name = "{0}{1}".format(name,
-                                        "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
+                                           weight_lbl, t, spat_domain, name=name))
 
     # spatial (0th derivative is skipped since this is already handled above)
     for der_idx in range(1, spat_order+1):
-        data.append(evaluate_approximation(q[:, :ini_funcs.size],
-                                           weight_lbl, t, spatial_interval, spatial_steps, der_idx))
-        data[-1].name = "{0}{1}".format(name,
-                                        "_" + "".join(["d" for x in range(der_idx)] + ["z"]) if der_idx > 0 else "")
+        name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["z"]) if der_idx > 0 else "")
+        data.append(evaluate_approximation(q[:, :ini_funcs.size], weight_lbl, t, spat_domain, der_idx, name=name))
 
     return data
 
@@ -529,13 +573,14 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(state_space, input_handle, initial_state, time_interval, time_step=1e-2):
+def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
     """
     wrapper to simulate a system given in state space form: :math:`\\dot{q} = Aq + Bu`
 
     :param state_space: state space formulation of the system
     :param input_handle: function handle to evaluate input
-    :param time_interval: tuple of t_start and t_end
+    :param initial_state: initial state vector of the system
+    :param temp_domain: tuple of t_start and t_end
     :return:
     """
     if not isinstance(state_space, StateSpace):
@@ -544,26 +589,26 @@ def simulate_state_space(state_space, input_handle, initial_state, time_interval
         raise TypeError
 
     q = [initial_state]
-    t = [time_interval[0]]
+    t = [temp_domain[0]]
 
     def _rhs(t, q, a_mat, b_mat, u):
         q_t = np.dot(a_mat, q) + np.dot(b_mat, u(time=t, weights=q, weight_lbl=state_space.weight_lbl)).flatten()
         return q_t
 
-    r = ode(_rhs).set_integrator("vode", max_step=time_step)
+    r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step)
     if input_handle is None:
         def input_handle(x):
             return 0
 
     r.set_f_params(state_space.A, state_space.B, input_handle)
-    r.set_initial_value(initial_state, time_interval[0])
+    r.set_initial_value(q[0], t[0])
 
-    precision = -int(np.log10(time_step))
-    while r.successful() and np.round(r.t, precision) < time_interval[1]:
+    precision = -int(np.log10(temp_domain.step))
+    while r.successful() and np.round(r.t, precision) < temp_domain[1]:
         #  while np.round(r.t, precision) < time_interval[1]:
-        t.append(r.t + time_step)
+        t.append(r.t + temp_domain.step)
         try:
-            q.append(r.integrate(r.t + time_step))
+            q.append(r.integrate(r.t + temp_domain.step))
         except SimulationException as e:
             print("Simulation failed at t={0}: {1}".format(r.t, e))
             t.pop()

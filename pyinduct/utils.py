@@ -175,34 +175,35 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, function_label, temporal_steps, spatial_interval, spatial_steps, spatial_order=0,
-                           name=""):
+def evaluate_approximation(weights, base_label, temporal_steps, spatial_domain, spatial_order=0, name=""):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
     :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
-    :param function_label: functions to use for back-projection
-    :return:
+    :param base_label: functions to use for back-projection
+    :param temporal_steps: steps to evaluate at
+    :param spatial_domain: sim.Domain to evaluate at (or in)
+    :param spatial_order: spatial derivative order to use
+    :param name: name to use
+    :return: EvalData
     """
-    funcs = get_initial_functions(function_label, spatial_order)
+    funcs = get_initial_functions(base_label, spatial_order)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights have to fit provided functions!")
 
-    # step_cnt = int((spatial_interval[1] - spatial_interval[0])/ spatial_step)
-    spatial_points = np.linspace(spatial_interval[0], spatial_interval[1], spatial_steps)
+    # evaluate shape functions at given points
+    if isinstance(base_label[0], LagrangeFirstOrder):
+        # shortcut for fem approximations
+        shape_vals = [func.top for func in funcs]
+    else:
+        shape_vals = [func(spatial_domain) for func in funcs]
+    shape_vals = np.atleast_2d(shape_vals)
 
-    # TODO: evaluate shapefucntions only once
     def eval_spatially(weight_vector):
-        if isinstance(function_label[0], LagrangeFirstOrder):
-            # shortcut for fem approximations
-            nodes = [func.top for func in funcs]
-            handle = interp1d(nodes, weight_vector)
-        else:
-            handle = back_project_from_base(weight_vector, funcs)
-        return handle(spatial_points)
+        return np.dot(weight_vector, shape_vals)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temporal_steps, spatial_points], data, name=name)
+    return EvalData([temporal_steps, spatial_domain], data, name=name)
 
 
 def split_domain(n, a_desired, l, mode='coprime'):

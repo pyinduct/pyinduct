@@ -44,6 +44,8 @@ class EvalData:
             assert len(input_data[dim]) == output_data.shape[dim]
 
         self.input_data = input_data
+        if output_data.size == 0:
+            raise ValueError("No initialisation possible with an empty array!")
         self.output_data = output_data
         self.min = output_data.min()
         self.max = output_data.max()
