@@ -81,7 +81,8 @@ evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
 # pyqtgraph visualization
-evald_x = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t) with x(z,0)="+str(init_profile))
+evald_x = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc,
+                                    name="x(z,t) with x(z,0)=" + str(init_profile))
 win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T/temporal_disc*4)
 win2 = vis.PgSurfacePlot([evald_x], title=evald_x.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)

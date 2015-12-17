@@ -343,8 +343,9 @@ class StringMassTest(unittest.TestCase):
         # calculate result data
         eval_data = []
         for der_idx in range(2):
-            eval_data.append(ut.evaluate_approximation(q[:, der_idx*ini_funcs.size:(der_idx+1)*ini_funcs.size],
-                                                       "init_funcs", t, self.spat_interval, self.z_step))
+            eval_data.append(
+                ut.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                                          t, self.spat_interval, self.z_step))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
@@ -619,7 +620,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "init_funcs_1", t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation("init_funcs_1", q, t, spatial_domain, l / spatial_disc)
             # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in init_funcs_1]), t, spatial_domain, l/spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
@@ -677,7 +678,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
             # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
             # win1 = vis.PgAnimatedPlot([eval_d, eval_dd], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
@@ -739,7 +740,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
             # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in eig_funcs]), t, spatial_domain, l/spatial_disc)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)

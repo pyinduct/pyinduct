@@ -39,7 +39,12 @@ class PlotTestCase(unittest.TestCase):
 
     def test_animated_plot(self):
         if show_plots:
-            pt = vis.PgAnimatedPlot(self.test_data)
+            lim = 50
+            short_data = vis.EvalData([
+                self.test_data[0].input_data[0][0:lim],
+                self.test_data[0].input_data[1][0:lim]],
+                self.test_data[0].output_data[0:lim, 0:lim], name="short set")
+            pt = vis.PgAnimatedPlot(self.test_data + [short_data], title="Test Plot")
             app.exec_()
 
     def test_surface_plot(self):

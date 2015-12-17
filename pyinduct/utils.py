@@ -13,7 +13,7 @@ import placeholder as ph
 from core import back_project_from_base
 from shapefunctions import LagrangeFirstOrder
 from placeholder import FieldVariable, TestFunction
-from visualization import EvalData, create_colormap
+import visualization as vis
 
 
 def complex_wrapper(func):
@@ -29,7 +29,7 @@ def complex_wrapper(func):
     return wrapper
 
 
-def find_roots(function, n_roots, grid, rtol=1, atol=1e-7, show_plot=False, complex=False):
+def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
@@ -141,7 +141,7 @@ def find_roots(function, n_roots, grid, rtol=1, atol=1e-7, show_plot=False, comp
         else:
             if dim == 1:
                 results = function(grids)
-                colors = create_colormap(len(grids))
+                colors = vis.create_colormap(len(grids))
                 for idx, (intake, output) in enumerate(zip(grids, results)):
                     pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
                     pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
@@ -175,35 +175,36 @@ def evaluate_placeholder_function(placeholder, input_values):
     return np.array([func(input_values) for func in funcs])
 
 
-def evaluate_approximation(weights, base_label, temporal_steps, spatial_domain, spatial_order=0, name=""):
+def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
     """
     evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
 
     :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
     :param base_label: functions to use for back-projection
-    :param temporal_steps: steps to evaluate at
-    :param spatial_domain: sim.Domain to evaluate at (or in)
-    :param spatial_order: spatial derivative order to use
+    :param temp_domain: steps to evaluate at
+    :param spat_domain: sim.Domain to evaluate at (or in)
+    :param spat_order: spatial derivative order to use
     :param name: name to use
     :return: EvalData
     """
-    funcs = get_initial_functions(base_label, spatial_order)
+    funcs = get_initial_functions(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:
-        raise ValueError("weights have to fit provided functions!")
+        raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
+                                                                                              funcs.size))
 
     # evaluate shape functions at given points
     if isinstance(base_label[0], LagrangeFirstOrder):
         # shortcut for fem approximations
         shape_vals = [func.top for func in funcs]
     else:
-        shape_vals = [func(spatial_domain) for func in funcs]
+        shape_vals = [func(spat_domain) for func in funcs]
     shape_vals = np.atleast_2d(shape_vals)
 
     def eval_spatially(weight_vector):
         return np.dot(weight_vector, shape_vals)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temporal_steps, spatial_domain], data, name=name)
+    return vis.EvalData([temp_domain, spat_domain], data, name=name)
 
 
 def split_domain(n, a_desired, l, mode='coprime'):
@@ -438,10 +439,13 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
 
+
 def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain, actuation_type_point=None):
     import simulation as sim
-    if actuation_type_point == None:
+
+    if actuation_type_point is None:
         actuation_type_point = spatial_domain[1]
+
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
     # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients

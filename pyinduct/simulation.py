@@ -23,7 +23,7 @@ class Domain(object):
     If num and step are given, num will take precedence.
     """
     def __init__(self, bounds=None, num=None, step=None, points=None):
-        if points:
+        if points is not None:
             # points are given, easy one
             self._values = np.atleast_1d(points)
             self._limits = [points.min(), points.max()]
@@ -39,7 +39,7 @@ class Domain(object):
             self._limits = bounds
             # calculate number of needed points but save correct step size
             self._num = int((bounds[1]-bounds[0])/step + .5)
-            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+            self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
         else:
             raise ValueError("not enough arguments provided!")
 
@@ -52,6 +52,10 @@ class Domain(object):
     @property
     def step(self):
         return self._step
+
+    @property
+    def bounds(self):
+        return self._limits
 
 
 class SimulationException(Exception):
@@ -180,7 +184,6 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
     """
-    # TODO: join parameters for step with and interval in domain-object
     print("simulating system: {0}".format(weak_form.name))
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
@@ -204,22 +207,21 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
         canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
 
-    # TODO include boundary conditions
-
     # simulate
     print(">>> performing time step integration")
-    t, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, temporal_domain)
+    sim_domain, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, temporal_domain)
 
+    # evaluate
     print(">>> performing postprocessing")
     temporal_order = min(initial_states.size-1, der_orders[0])
-    data = process_sim_data(canonical_form.weights, temporal_order, der_orders[1], q, spatial_domain, t,
+    data = process_sim_data(canonical_form.weights, q, sim_domain, spatial_domain, temporal_order, der_orders[1],
                             name=canonical_form.name)
 
     print("finished simulation.")
     return data
 
 
-def process_sim_data(weight_lbl, temp_order, spat_order, q, spat_domain, t, name=""):
+def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_order, name=""):
     """
     create handles and evaluate at given points
     :param weight_lbl: label of Basis for reconstruction
@@ -227,7 +229,7 @@ def process_sim_data(weight_lbl, temp_order, spat_order, q, spat_domain, t, name
     :param spat_order: order or spatial derivatives to evaluate additionally
     :param q: weights
     :param spat_domain: sim.Domain object providing values for spatial evaluation
-    :param t: timesteps on which rows of q are given
+    :param temp_domain: timesteps on which rows of q are given
     :param name: name of the WeakForm, used to generate the dataset
     """
     data = []
@@ -236,13 +238,14 @@ def process_sim_data(weight_lbl, temp_order, spat_order, q, spat_domain, t, name
     ini_funcs = get_initial_functions(weight_lbl, 0)
     for der_idx in range(temp_order+1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
-        data.append(evaluate_approximation(q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                           weight_lbl, t, spat_domain, name=name))
+        data.append(evaluate_approximation(weight_lbl, q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                                           temp_domain, spat_domain, name=name))
 
     # spatial (0th derivative is skipped since this is already handled above)
     for der_idx in range(1, spat_order+1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["z"]) if der_idx > 0 else "")
-        data.append(evaluate_approximation(q[:, :ini_funcs.size], weight_lbl, t, spat_domain, der_idx, name=name))
+        data.append(
+            evaluate_approximation(weight_lbl, q[:, :ini_funcs.size], temp_domain, spat_domain, der_idx, name=name))
 
     return data
 
@@ -604,7 +607,7 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
     r.set_initial_value(q[0], t[0])
 
     precision = -int(np.log10(temp_domain.step))
-    while r.successful() and np.round(r.t, precision) < temp_domain[1]:
+    while r.successful() and np.round(r.t, precision) < temp_domain[-1]:
         #  while np.round(r.t, precision) < time_interval[1]:
         t.append(r.t + temp_domain.step)
         try:
@@ -615,7 +618,7 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
             break
 
     # create results
-    t = np.array(t)
+    t_dom = Domain(points=np.array(t), step=temp_domain.step)
     q = np.array(q)
 
-    return t, q
+    return t_dom, q

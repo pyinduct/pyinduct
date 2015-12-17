@@ -162,7 +162,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
-        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0,:])
@@ -170,8 +170,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
-            eval_dd = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l / spatial_disc, spatial_order=1)
+            eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
+            eval_dd = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, spat_order=1)
             win1 = vis.PgSurfacePlot(eval_dd)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -262,7 +262,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
 
-        eval_d = ut.evaluate_approximation(q, "eig_funcs", t, spatial_domain, l/spatial_disc)
+        eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0,:])
@@ -398,7 +398,8 @@ class RadRobinGenericBacksteppingControlllerTest(unittest.TestCase):
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
     def tearDown(self):
-        eval_d = ut.evaluate_approximation(self.q, self.act_funcs, self.t, self.spatial_domain, self.l/self.spatial_disc)
+        eval_d = ut.evaluate_approximation(self.act_funcs, self.q, self.t, self.spatial_domain,
+                                           self.l / self.spatial_disc)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(self.t, tc, yc[0,:])
@@ -518,7 +519,7 @@ class RadRobinSpatiallyVaryingCoefficientControlllerTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                         self.temporal_domain, time_step=self.T/self.temporal_disc)
 
-        eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+        eval_d = ut.evaluate_approximation("fem_funcs", q, t, self.spatial_domain, self.l / self.spatial_disc)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0,:])
@@ -670,7 +671,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         for i in range(q.shape[0]):
             q_i[i,:] = np.dot(q[i,:], np.transpose(mat))
 
-        eval_i = ut.evaluate_approximation(q_i, "eig_funcs_i", t, self.spatial_domain, self.l/self.spatial_disc)
+        eval_i = ut.evaluate_approximation("eig_funcs_i", q_i, t, self.spatial_domain, self.l / self.spatial_disc)
         x_0t = eval_i.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0,:])
@@ -679,7 +680,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation(q, "fem_funcs", t, self.spatial_domain, self.l/self.spatial_disc)
+            eval_d = ut.evaluate_approximation("fem_funcs", q, t, self.spatial_domain, self.l / self.spatial_disc)
             win1 = vis.PgSurfacePlot(eval_i)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
