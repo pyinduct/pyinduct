@@ -201,7 +201,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     shape_vals = np.atleast_2d(shape_vals)
 
     def eval_spatially(weight_vector):
-        return np.dot(weight_vector, shape_vals)
+        return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return vis.EvalData([temp_domain, spat_domain], data, name=name)

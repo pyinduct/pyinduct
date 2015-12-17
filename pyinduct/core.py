@@ -573,6 +573,7 @@ def back_project_from_base(weights, base):
         raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
     def eval_handle(z):
+        # TODO call uniform complex converter instead
         res = np.real_if_close(sum([weights[i] * base[i](z) for i in range(weights.shape[0])]), tol=1e6)
         if not all(np.imag(res) == 0):
             print("warning: complex values encountered! {0}".format(np.max(np.imag(res))))
