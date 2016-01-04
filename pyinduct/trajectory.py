@@ -101,9 +101,6 @@ class FlatString(SimulationInput):
     def __init__(self, y0=0, y1=1, t0=0, dt=1, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
         SimulationInput.__init__(self)
 
-        # construct trajectory generator for yd
-        self.trajectory_gen = SmoothTransition((y0, y1), (t0, t0 + dt), 2)
-
         # store params
         self._tA = t0
         self._dt = dt
@@ -112,17 +109,13 @@ class FlatString(SimulationInput):
         self._v = v             # []=m/s speed of wave translation in string
         self._sigma = sigma     # []=kgm/s**2 pretension of string
 
+        # construct trajectory generator for yd
+        ts = max(t0, self._dz / self._v)  # never too early
+        self.trajectory_gen = SmoothTransition((y0, y1), (ts, ts + dt), 2)
+
         # create vectorized functions
         self.control_input = np.vectorize(self._control_input, otypes=[np.float])
         self.system_state = np.vectorize(self._system_sate, otypes=[np.float])
-
-    def _trans_arg(self, t):
-        """
-        translate desired trajectory on time axis by moving its argument since values below t=0 are required otherwise
-        :param t: time
-        :return:translated time
-        """
-        return t - self._dz / self._v - self._tA
 
     def _control_input(self, t):
         """
@@ -132,8 +125,8 @@ class FlatString(SimulationInput):
         :param t: time
         :return: input force f
         """
-        yd1 = self.trajectory_gen(self._trans_arg(t - self._dz / self._v))
-        yd2 = self.trajectory_gen(self._trans_arg(t + self._dz / self._v))
+        yd1 = self.trajectory_gen(t - self._dz / self._v)
+        yd2 = self.trajectory_gen(t + self._dz / self._v)
 
         return 0.5*self._m*(yd2[2] + yd1[2]) + self._sigma/(2*self._v)*(yd2[1] - yd1[1])
 
@@ -144,8 +137,8 @@ class FlatString(SimulationInput):
         :param t: time
         :return: state (deflection of string)
         """
-        yd1 = self.trajectory_gen(self._trans_arg(t - z / self._v))
-        yd2 = self.trajectory_gen(self._trans_arg(t + z / self._v))
+        yd1 = self.trajectory_gen(t - z / self._v)
+        yd2 = self.trajectory_gen(t + z / self._v)
 
         return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])
 
