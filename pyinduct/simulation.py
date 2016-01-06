@@ -26,7 +26,7 @@ class Domain(object):
         if points is not None:
             # points are given, easy one
             self._values = np.atleast_1d(points)
-            self._limits = [points.min(), points.max()]
+            self._limits = (points.min(), points.max())
             self._num = points.size
             # TODO check for evenly spaced entries
             # for now just use provided information
