@@ -184,8 +184,8 @@ class PgSurfacePlot(PgDataPlot):
         max_1_s = max_1 / 20
 
         for n in range(len(self._data)):
-            plot_item = gl.GLSurfacePlotItem(x=self._data[n].input_data[0],
-                                             y=np.flipud(self._data[n].input_data[1]),
+            plot_item = gl.GLSurfacePlotItem(x=np.atleast_1d(self._data[n].input_data[0]),
+                                             y=np.flipud(np.atleast_1d(self._data[n].input_data[1])),
                                              z=self._data[n].output_data,
                                              shader='normalColor')
             plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)

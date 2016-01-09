@@ -16,14 +16,17 @@ import pyinduct.shapefunctions
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
-    # show_plots = False
+    # show_plots = True
+    show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
 else:
     app = None
+
+# TODO Test for Domain
+# TODO Test for SimulationInput
 
 
 class CanonicalFormTest(unittest.TestCase):
@@ -277,19 +280,24 @@ class StringMassTest(unittest.TestCase):
 
         z_start = 0
         z_end = 1
+        z_step = 0.1
+        self.dz = sim.Domain(bounds=(z_start, z_end), step=z_step)
+
         t_start = 0
         t_end = 10
-        self.z_step = 0.1
-        self.t_step = 0.01
-        self.t_values = np.arange(t_start, t_end+self.t_step, self.t_step)
-        self.z_values = np.arange(z_start, z_end+self.z_step, self.z_step)
-        self.node_distance = 0.1
-        self.mass = 2.0
-        self.order = 8
-        self.temp_interval = (t_start, t_end)
-        self.spat_interval = (z_start, z_end)
+        t_step = 0.01
+        self.dt = sim.Domain(bounds=(t_start, t_end), step=t_step)
 
-        self.u = tr.FlatString(0, 10, 0, 5, m=self.mass)
+        self.params = ut.Parameters
+        self.params.node_distance = 0.1
+        self.params.m = 1.0
+        self.params.order = 8
+        self.params.sigma = 1
+        self.params.tau = 1
+
+        self.y_end = 10
+
+        self.u = tr.FlatString(0, self.y_end, z_start, z_end, 0, 5, self.params)
 
         def x(z, t):
             """
@@ -315,19 +323,20 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder, self.spat_interval, node_count=10)
+        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
+                                                                 self.dz.bounds, node_count=10)
         register_functions("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), self.spat_interval)
+                       ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma*self.params.tau**2)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
-                       ph.TestFunction("init_funcs", location=0)), scale=self.mass)
+                       ph.TestFunction("init_funcs", location=0)), scale=self.params.m)
         int2 = ph.IntegralTerm(
             ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), self.spat_interval)
+                       ph.TestFunction("init_funcs", order=1)), self.dz.bounds, scale=self.params.sigma)
         s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
+            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -self.params.sigma)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
@@ -338,14 +347,14 @@ class StringMassTest(unittest.TestCase):
         q0 = np.array([cr.project_on_base(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
 
         # simulate
-        t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, self.temp_interval)
+        t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, self.dt)
 
         # calculate result data
         eval_data = []
         for der_idx in range(2):
             eval_data.append(
                 ut.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                          t, self.spat_interval, self.z_step))
+                                          t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
@@ -355,7 +364,9 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_data[0])
             app.exec_()
 
-        # TODO add test expression
+        # test for correct transition
+        self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
+
         # TODO dump in pyinduct/tests/ressources
         file_path = os.sep.join(["resources", "test_data.res"])
         if not os.path.isdir("resources"):
@@ -367,17 +378,17 @@ class StringMassTest(unittest.TestCase):
         order = 8
 
         def char_eq(w):
-            return w * (np.sin(w) + self.mass * w * np.cos(w))
+            return w * (np.sin(w) + self.params.m * w * np.cos(w))
 
         def phi_k_factory(freq, derivative_order=0):
             def eig_func(z):
-                return np.cos(freq * z) - self.mass * freq * np.sin(freq * z)
+                return np.cos(freq * z) - self.params.m * freq * np.sin(freq * z)
 
             def eig_func_dz(z):
-                return -freq * (np.sin(freq * z) + self.mass * freq * np.cos(freq * z))
+                return -freq * (np.sin(freq * z) + self.params.m * freq * np.cos(freq * z))
 
             def eig_func_ddz(z):
-                return freq ** 2 * (-np.cos(freq * z) + self.mass * freq * np.sin(freq * z))
+                return freq ** 2 * (-np.cos(freq * z) + self.params.m * freq * np.sin(freq * z))
 
             if derivative_order == 0:
                 return eig_func
@@ -412,8 +423,8 @@ class StringMassTest(unittest.TestCase):
                                                              derivative_handles=[
                                                                  phi_k_factory(eig_frequencies[n], der_order)
                                                                  for der_order in range(1, 3)],
-                                                             domain=self.spat_interval,
-                                                             nonzero=self.spat_interval),
+                                                             domain=self.dz.bounds,
+                                                             nonzero=self.dz.bounds),
                                                  phi_k_factory(eig_frequencies[n])(0)))
 
         # normalize eigen vectors
@@ -427,11 +438,11 @@ class StringMassTest(unittest.TestCase):
         if 0:
             func_vals = []
             for vec in eig_vectors:
-                func_vals.append(np.vectorize(vec.func)(self.z_values))
+                func_vals.append(np.vectorize(vec.func)(self.dz))
 
             norm_func_vals = []
             for func in norm_eig_funcs:
-                norm_func_vals.append(np.vectorize(func)(self.z_values))
+                norm_func_vals.append(np.vectorize(func)(self.dz))
 
             clrs = ["r", "g", "b", "c", "m", "y", "k", "w"]
             for n in range(1, order + 1, len(clrs)):
@@ -439,14 +450,14 @@ class StringMassTest(unittest.TestCase):
                 for k in range(len(clrs)):
                     if k + n > order:
                         break
-                    pw_phin_k.plot(x=self.z_values, y=norm_func_vals[n + k - 1], pen=clrs[k])
+                    pw_phin_k.plot(x=np.array(self.dz), y=norm_func_vals[n + k - 1], pen=clrs[k])
 
             app.exec_()
 
         # create terms of weak formulation
         terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
                                             ph.TestFunction("norm_eig_funcs")),
-                                 self.spat_interval, scale=-1),
+                                 self.dz.bounds, scale=-1),
                  ph.ScalarTerm(ph.Product(
                      ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
                      ph.TestFunction("norm_eig_funcs", location=0)),
@@ -462,10 +473,9 @@ class StringMassTest(unittest.TestCase):
                                                           location=0))),
                  ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs"),
                                             ph.TestFunction("norm_eig_funcs", order=2)),
-                                 self.spat_interval)]
+                                 self.dz.bounds)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
-        eval_data = sim.simulate_system(modal_pde, self.ic, self.temp_interval, self.t_step,
-                                        self.spat_interval, self.z_step)
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, der_orders=(2, 0))
 
         # display results
         if show_plots:
@@ -473,12 +483,11 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_data[0])
             app.exec_()
 
-        # TODO add test expression
+        # test for correct transition
+        self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
 
     def tearDown(self):
         pass
-
-    # TODO test "forbidden" terms like derivatives on the borders
 
 
 class RadFemTrajectoryTest(unittest.TestCase):
@@ -493,21 +502,23 @@ class RadFemTrajectoryTest(unittest.TestCase):
     def test_it(self):
         param = [2., -1.5, -3., 2., .5]
         a2, a1, a0, alpha, beta = param
+
         l = 1.
-        spatial_domain = (0, l)
         spatial_disc = 10
+        dz = sim.Domain(bounds=(0, l), num=spatial_disc)
+
         T = 1.
-        temporal_domain = (0, T)
         temporal_disc = 2e2
+        dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
         # create test functions
         nodes_1, ini_funcs_1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
-                                                spatial_domain,
-                                                node_count=spatial_disc)
+                                                                     dz.bounds,
+                                                                     node_count=spatial_disc)
         register_functions("init_funcs_1", ini_funcs_1, overwrite=True)
         nodes_2, ini_funcs_2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
-                                                spatial_domain,
-                                                node_count=int(spatial_disc))
+                                                                     dz.bounds,
+                                                                     node_count=spatial_disc)
         register_functions("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
@@ -515,13 +526,14 @@ class RadFemTrajectoryTest(unittest.TestCase):
             bound_cond_type = 'dirichlet'
             actuation_type = 'dirichlet'
             u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
+
             # derive state-space system
-            rad_pde = ut.get_parabolic_dirichlet_weak_form("init_funcs_2", "init_funcs_2", u, param, spatial_domain)
+            rad_pde = ut.get_parabolic_dirichlet_weak_form("init_funcs_2", "init_funcs_2", u, param, dz.bounds)
             cf = sim.parse_weak_formulation(rad_pde)
             ss = cf.convert_to_state_space()
+
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape),
-                                            temporal_domain, time_step=T/temporal_disc)
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape), dt)
 
             return t, q
 
@@ -530,15 +542,16 @@ class RadFemTrajectoryTest(unittest.TestCase):
             bound_cond_type = 'robin'
             actuation_type = 'dirichlet'
             u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
+
             # integral terms
             int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
-                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain)
+                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds)
             int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
-                                              ph.TestFunction("init_funcs_2", order=2)), spatial_domain, -a2)
+                                              ph.TestFunction("init_funcs_2", order=2)), dz.bounds, -a2)
             int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1),
-                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a1)
+                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds, -a1)
             int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
-                                              ph.TestFunction("init_funcs_2", order=0)), spatial_domain, -a0)
+                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds, -a0)
             # scalar terms from int 2
             s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=l),
                                           ph.TestFunction("init_funcs_2", order=0, location=l)), -a2)
@@ -548,13 +561,14 @@ class RadFemTrajectoryTest(unittest.TestCase):
                                           ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
             s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
                                           ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
             cf = sim.parse_weak_formulation(rad_pde)
             ss = cf.convert_to_state_space()
+
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape),
-                                            temporal_domain, time_step=T/temporal_disc)
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape), dt)
 
             return t, q
 
@@ -565,13 +579,13 @@ class RadFemTrajectoryTest(unittest.TestCase):
             u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # integral terms
             int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
-                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain)
+                                              ph.TestFunction("init_funcs_1", order=0)), dz.bounds)
             int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
-                                              ph.TestFunction("init_funcs_1", order=1)), spatial_domain, a2)
+                                              ph.TestFunction("init_funcs_1", order=1)), dz.bounds, a2)
             int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
-                                              ph.TestFunction("init_funcs_1", order=1)), spatial_domain, a1)
+                                              ph.TestFunction("init_funcs_1", order=1)), dz.bounds, a1)
             int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
-                                              ph.TestFunction("init_funcs_1", order=0)), spatial_domain, -a0)
+                                              ph.TestFunction("init_funcs_1", order=0)), dz.bounds, -a0)
             # scalar terms from int 2
             s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
                                           ph.TestFunction("init_funcs_1", order=0, location=l)), -a1)
@@ -587,8 +601,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape),
-                                            temporal_domain, time_step=T/temporal_disc)
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape), dt)
 
             # check if (x'(0,t_end) - 1.) < 0.1
             self.assertLess(np.abs(ini_funcs_1[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
@@ -600,13 +613,12 @@ class RadFemTrajectoryTest(unittest.TestCase):
             actuation_type = 'robin'
             u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
             # derive state-space system
-            rad_pde = ut.get_parabolic_robin_weak_form("init_funcs_1", "init_funcs_1", u, param, spatial_domain)
+            rad_pde = ut.get_parabolic_robin_weak_form("init_funcs_1", "init_funcs_1", u, param, dz.bounds)
             cf = sim.parse_weak_formulation(rad_pde)
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape),
-                                            temporal_domain, time_step=T/temporal_disc)
+            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape), dt)
 
             # check if (x(0,t_end) - 1.) < 0.1
             self.assertLess(np.abs(ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
@@ -620,8 +632,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation("init_funcs_1", q, t, spatial_domain, l / spatial_disc)
-            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in init_funcs_1]), t, spatial_domain, l/spatial_disc)
+            eval_d = ut.evaluate_approximation("init_funcs_1", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -639,16 +650,25 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         param = [1., -2., -1., None, None]
         adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, _, _ = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 10
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
-        n = 10
 
-        omega = np.array([(i+1)*np.pi/l for i in xrange(n)])
+        l = 1.
+        spatial_disc = 10
+        dz = sim.Domain(bounds=(0, l), num=spatial_disc)
+
+        T = 1.
+        temporal_disc = 1e2
+        dt = sim.Domain(bounds=(0, T), num=temporal_disc)
+
+        omega = np.array([(i+1)*np.pi/l for i in xrange(spatial_disc)])
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
-        eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, spatial_domain, norm_fak[i]) for i in range(n)])
+        eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
+                              for i in range(spatial_disc)])
         register_functions("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, spatial_domain, norm_fak[i]) for i in range(n)])
+        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i],
+                                                                           adjoint_param,
+                                                                           dz.bounds,
+                                                                           norm_fak[i]) for i in range(spatial_disc)])
         register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -661,26 +681,25 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with weak-formulation (pyinduct)
 
         # derive sate-space system
-        rad_pde = ut.get_parabolic_dirichlet_weak_form("eig_funcs", "adjoint_eig_funcs", u, param, spatial_domain)
+        rad_pde = ut.get_parabolic_dirichlet_weak_form("eig_funcs", "adjoint_eig_funcs", u, param, dz.bounds)
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in xrange(n)])
+        B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in xrange(spatial_disc)])
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=3e-01, atol=0.))
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)),
+                                    rtol=3e-1, atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
 
         # display results
         if show_plots:
-            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
-            eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
-            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in rad_eig_funcs]), t, spatial_domain, l/spatial_disc)
-            # win1 = vis.PgAnimatedPlot([eval_d, eval_dd], title="Test")
+            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
+            eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -697,16 +716,22 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         param = [2., 1.5, -3., -1., -.5]
         adjoint_param = ef.get_adjoint_rad_evp_param(param)
         a2, a1, a0, alpha, beta = param
-        l = 1.; spatial_domain = (0, l); spatial_disc = 10
-        T = 1.; temporal_domain = (0, T); temporal_disc = 1e2
+
+        l = 1.
+        spatial_disc = 10
+        dz = sim.Domain(bounds=(0, l), num=spatial_disc)
+
+        T = 1.
+        temporal_disc = 1e2
+        dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
         eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
 
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain) for om in eig_freq])
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
+                                           for om in eig_freq])
 
-        # TODO: "vectorize" cr.normalize
         # normalize eigenfunctions and adjoint eigenfunctions
         adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
         eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
@@ -724,7 +749,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
 
         # determine (A,B) with weak-formulation (pyinduct)
-        rad_pde = ut.get_parabolic_robin_weak_form("eig_funcs", "adjoint_eig_funcs", u, param, spatial_domain)
+        rad_pde = ut.get_parabolic_robin_weak_form("eig_funcs", "adjoint_eig_funcs", u, param, dz.bounds)
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
@@ -734,16 +759,14 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)), rtol=1e-05, atol=0.))
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)),
+                                    rtol=1e-05, atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
 
         # display results
         if show_plots:
-            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, temporal_domain, time_step=T/temporal_disc)
-            eval_d = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc)
-            # eval_dd = ut.evaluate_approximation(q, np.array([i.derive(1) for i in eig_funcs]), t, spatial_domain, l/spatial_disc)
+            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
+            eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d)
+            win2 = vis.PgSurfacePlot(eval_d[0])
             app.exec_()
-
-    # TODO Tests for SimulationInput

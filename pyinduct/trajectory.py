@@ -5,13 +5,14 @@ import pyqtgraph as pg
 
 from simulation import SimulationInput
 from numbers import Number
-import utils as ut
 import eigenfunctions as ef
 import scipy.misc as sm
 
 
+# TODO move this to a more feasible location
 sigma_tanh = 1.1
 K_tanh = 2.
+
 
 class ConstantTrajectory(SimulationInput):
     """
@@ -98,19 +99,19 @@ class FlatString(SimulationInput):
     for the "string with mass" model
     """
 
-    def __init__(self, y0=0, y1=1, t0=0, dt=1, m=1.0, v=1.0, z0=0, z1=1, sigma=1.0):
+    def __init__(self, y0, y1, z0, z1, t0, dt, params):
         SimulationInput.__init__(self)
 
         # store params
         self._tA = t0
         self._dt = dt
         self._dz = z1 - z0
-        self._m = m             # []=kg mass at z=0
-        self._v = v             # []=m/s speed of wave translation in string
-        self._sigma = sigma     # []=kgm/s**2 pretension of string
+        self._m = params.m             # []=kg mass at z=0
+        self._tau = params.tau             # []=m/s speed of wave translation in string
+        self._sigma = params.sigma     # []=kgm/s**2 pretension of string
 
         # construct trajectory generator for yd
-        ts = max(t0, self._dz / self._v)  # never too early
+        ts = max(t0, self._dz * self._tau)  # never too early
         self.trajectory_gen = SmoothTransition((y0, y1), (ts, ts + dt), 2)
 
         # create vectorized functions
@@ -125,10 +126,10 @@ class FlatString(SimulationInput):
         :param t: time
         :return: input force f
         """
-        yd1 = self.trajectory_gen(t - self._dz / self._v)
-        yd2 = self.trajectory_gen(t + self._dz / self._v)
+        yd1 = self.trajectory_gen(t - self._dz * self._tau)
+        yd2 = self.trajectory_gen(t + self._dz * self._tau)
 
-        return 0.5*self._m*(yd2[2] + yd1[2]) + self._sigma/(2*self._v)*(yd2[1] - yd1[1])
+        return 0.5*self._m*(yd2[2] + yd1[2]) + self._sigma * self._tau/2 * (yd2[1] - yd1[1])
 
     def _system_sate(self, z, t):
         """
@@ -137,10 +138,10 @@ class FlatString(SimulationInput):
         :param t: time
         :return: state (deflection of string)
         """
-        yd1 = self.trajectory_gen(t - z / self._v)
-        yd2 = self.trajectory_gen(t + z / self._v)
+        yd1 = self.trajectory_gen(t - z * self._tau)
+        yd2 = self.trajectory_gen(t + z * self._tau)
 
-        return (self._v*self._m)/(2*self._sigma)*(yd2[1] - yd1[1]) + .5*(yd1[0] + yd2[0])
+        return self._m / (2 * self._sigma * self._tau) * (yd2[1] - yd1[1]) + .5 * (yd1[0] + yd2[0])
 
     def _calc_output(self, **kwargs):
         """
@@ -152,7 +153,8 @@ class FlatString(SimulationInput):
         """
         return self._control_input(kwargs["time"])
 
-#TODO: kwarg: t_step
+
+# TODO: kwarg: t_step
 def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     """
     Provide the flat output y(t) = phi(t), with the gevrey-order
@@ -211,6 +213,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
 
     return phi, t_init
 
+
 def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
     """ Provide the power series approximation for x(z,t) and x'(z,t).
     :param z: [0, ..., l] (numpy array)
@@ -237,7 +240,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
         raise ValueError("Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(
             bound_cond_type))
 
-    #TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
+    # TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
     for i in xrange(len(t)):
         sum_x = np.zeros(len(z))
         for j in xrange(n):
@@ -260,6 +263,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
 
     return x, d_x
 
+
 def coefficient_recursion(c0, c1, param):
     """
     return to the recursion
@@ -278,7 +282,7 @@ def coefficient_recursion(c0, c1, param):
     :param param:
     :return: C = {0: c0, 1: c1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}}
     """
-    # TODO: documentaion: only constant coefficients
+    # TODO: documentation: only constant coefficients
     if c0.shape != c1.shape:
         raise ValueError
 
@@ -297,6 +301,7 @@ def coefficient_recursion(c0, c1, param):
 
     return C
 
+
 def temporal_derived_power_series(z, C, up_to_order, series_termination_index, spatial_der_order=0):
     """
     compute the temporal derivatives
@@ -306,6 +311,7 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
     :param C:
     :param up_to_order:
     :param series_termination_index:
+    :param spatial_der_order:
     :return: Q = np.array( [q^{(0)}, ... , q^{(up_to_order)}] )
     """
 
@@ -324,6 +330,7 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
         Q[i, :] = sum_Q
 
     return Q
+
 
 def power_series(z, t, C, spatial_der_order=0):
 
@@ -345,6 +352,7 @@ def power_series(z, t, C, spatial_der_order=0):
         x = x.flatten()
 
     return x
+
 
 class InterpTrajectory(SimulationInput):
 
@@ -391,8 +399,9 @@ class RadTrajectory(InterpTrajectory):
     case 1: x(l,t)=u(t)  (Dirichlet)
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
-    #TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh, show_plot=False):
+    # TODO: kwarg: t_step
+    def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh,
+                 show_plot=False):
 
         cases = {'dirichlet', 'robin'}
         if bound_cond_type not in cases:
@@ -419,6 +428,9 @@ class RadTrajectory(InterpTrajectory):
             u = x[:, -1]
         elif self._actuation_type is 'robin':
             u = d_x[:, -1] + beta*x[:, -1]
+        else:
+            raise NotImplementedError
+
         # actually the algorithm consider the pde
         # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
         # with the following back transformation are also

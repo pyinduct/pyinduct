@@ -606,9 +606,7 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
     r.set_f_params(state_space.A, state_space.B, input_handle)
     r.set_initial_value(q[0], t[0])
 
-    precision = -int(np.log10(temp_domain.step))
-    while r.successful() and np.round(r.t, precision) < temp_domain[-1]:
-        #  while np.round(r.t, precision) < time_interval[1]:
+    while r.successful() and r.t < temp_domain[-1]:
         t.append(r.t + temp_domain.step)
         try:
             q.append(r.integrate(r.t + temp_domain.step))
