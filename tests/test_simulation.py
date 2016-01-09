@@ -6,7 +6,7 @@ from cPickle import dumps
 import numpy as np
 import sys
 
-from pyinduct import register_functions, eigenfunctions as ef,\
+from pyinduct import register_base, eigenfunctions as ef,\
     core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
 import pyinduct as pi
@@ -79,7 +79,7 @@ class ParseTest(unittest.TestCase):
         # TestFunctions
         nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                                                       (0, 1), node_count=3)
-        register_functions("ini_funcs", self.ini_funcs, overwrite=True)
+        register_base("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
         self.phi_at1 = ph.TestFunction("ini_funcs", location=1)  # eigenfunction or something else
@@ -246,7 +246,7 @@ class StateSpaceTests(unittest.TestCase):
         self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
         nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, node_count=3)
-        register_functions("init_funcs", ini_funcs, overwrite=True)
+        register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), interval)
@@ -325,7 +325,7 @@ class StringMassTest(unittest.TestCase):
         # enter string with mass equations
         nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
                                                                  self.dz.bounds, node_count=10)
-        register_functions("init_funcs", ini_funcs, overwrite=True)
+        register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma*self.params.tau**2)
@@ -430,7 +430,7 @@ class StringMassTest(unittest.TestCase):
         # normalize eigen vectors
         norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
         norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
-        register_functions("norm_eig_funcs", norm_eig_funcs, overwrite=True)
+        register_base("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
         norm_eig_funcs[0](1)
 
@@ -515,11 +515,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
         nodes_1, ini_funcs_1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
                                                                      dz.bounds,
                                                                      node_count=spatial_disc)
-        register_functions("init_funcs_1", ini_funcs_1, overwrite=True)
+        register_base("init_funcs_1", ini_funcs_1, overwrite=True)
         nodes_2, ini_funcs_2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
                                                                      dz.bounds,
                                                                      node_count=spatial_disc)
-        register_functions("init_funcs_2", ini_funcs_2, overwrite=True)
+        register_base("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
             # trajectory
@@ -664,12 +664,12 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
         eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
                               for i in range(spatial_disc)])
-        register_functions("eig_funcs", eig_funcs, overwrite=True)
+        register_base("eig_funcs", eig_funcs, overwrite=True)
         adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i],
                                                                            adjoint_param,
                                                                            dz.bounds,
                                                                            norm_fak[i]) for i in range(spatial_disc)])
-        register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+        register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -738,8 +738,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
 
         # register eigenfunctions
-        register_functions("eig_funcs", eig_funcs, overwrite=True)
-        register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+        register_base("eig_funcs", eig_funcs, overwrite=True)
+        register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))

@@ -6,7 +6,7 @@ from numbers import Number
 import numpy as np
 from scipy import integrate
 from scipy.linalg import block_diag
-from pyinduct import get_initial_functions
+from pyinduct import get_base
 
 
 def sanitize_input(input_object, allowed_type):
@@ -671,7 +671,7 @@ def get_weight_transformation(info):
         for dep_lbl, dep_order in hint.extras.iteritems():
             new_info = copy(info)
             new_info.dst_lbl = dep_lbl
-            new_info.dst_base = get_initial_functions(dep_lbl, 0)
+            new_info.dst_base = get_base(dep_lbl, 0)
             new_info.dst_order = dep_order
             dep_handle = get_weight_transformation(new_info)
             kwargs[dep_lbl] = dep_handle

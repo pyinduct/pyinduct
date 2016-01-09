@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pyqtgraph as pg
 
-from pyinduct import register_functions, \
+from pyinduct import register_base, \
     core as cr, \
     shapefunctions as sh, \
     utils as ut, \
@@ -109,7 +109,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 
     def setUp(self):
         self.psi = cr.Function(np.sin)
-        register_functions("funcs", self.psi, overwrite=True)
+        register_base("funcs", self.psi, overwrite=True)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
@@ -130,7 +130,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
         # create initial functions
         self.nodes, self.funcs = sh.cure_interval(sh.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        register_functions("approx_funcs", self.funcs, overwrite=True)
+        register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))

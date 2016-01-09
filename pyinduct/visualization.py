@@ -280,7 +280,7 @@ class PgLinePlot3d(PgDataPlot):
         res = self._data[0]
         z_vals = res.input_data[1][::-1] * scale
 
-        t_subsets = np.linspace(0, res.input_data[0].size, n, endpoint=False, dtype=int)
+        t_subsets = np.linspace(0, np.array(res.input_data[0]).size, n, endpoint=False, dtype=int)
 
         for t_idx, t_val in enumerate(t_subsets):
             t_vals = np.array([res.input_data[0][t_val]] * len(z_vals))

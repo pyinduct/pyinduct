@@ -42,13 +42,13 @@ eig_freq = np.array([(i+1)*np.pi/l for i in xrange(n)])
 eig_values = a0 - a2*eig_freq**2 - a1**2/4./a2
 norm_fac = np.ones(eig_freq.shape)*np.sqrt(2)
 eig_funcs = np.asarray([ef.SecondOrderDirichletEigenfunction(eig_freq[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
-pi.register_functions("eig_funcs", eig_funcs, overwrite=True)
+pi.register_base("eig_funcs", eig_funcs, overwrite=True)
 
 # eigenfunctions target system
 eig_freq_t = np.sqrt(-eig_values.astype(complex))
 norm_fac_t = norm_fac * eig_freq / eig_freq_t
 eig_funcs_t = np.asarray([ef.SecondOrderDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
-pi.register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
+pi.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
 
 # init controller
 x_at_1 = ph.FieldVariable("eig_funcs", location=1)

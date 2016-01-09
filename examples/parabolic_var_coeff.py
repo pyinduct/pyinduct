@@ -3,7 +3,7 @@ import numpy as np
 import pyqtgraph as pg
 import scipy.integrate as si
 import matplotlib.pyplot as plt
-from pyinduct import register_functions
+from pyinduct import register_base
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
 from pyinduct import utils as ut
@@ -64,10 +64,10 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register functions
-register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
-register_functions("adjoint_eig_funcs_t", adjoint_eig_funcs_t, overwrite=True)
-register_functions("eig_funcs", eig_funcs, overwrite=True)
-register_functions("fem_funcs", fem_funcs, overwrite=True)
+register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
+register_base("adjoint_eig_funcs_t", adjoint_eig_funcs_t, overwrite=True)
+register_base("eig_funcs", eig_funcs, overwrite=True)
+register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # init trajectory
 traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)

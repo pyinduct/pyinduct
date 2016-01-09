@@ -147,11 +147,11 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register functions
-pi.register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs", eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs_i", eig_funcs_i, overwrite=True)
-pi.register_functions("eig_funcs_ti", eig_funcs_ti, overwrite=True)
-pi.register_functions("fem_funcs", fem_funcs, overwrite=True)
+pi.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+pi.register_base("eig_funcs", eig_funcs, overwrite=True)
+pi.register_base("eig_funcs_i", eig_funcs_i, overwrite=True)
+pi.register_base("eig_funcs_ti", eig_funcs_ti, overwrite=True)
+pi.register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # original intermediate (_i), target intermediate (_ti) and fem field variable
 fem_field_variable = ph.FieldVariable("fem_funcs", location=l)
@@ -170,8 +170,8 @@ shifted_fem_funcs_i = np.array(
     [ef.FiniteTransformFunction(func, M, b, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
      for func in fem_funcs])
 shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, b, l) for func in eig_funcs_id])
-pi.register_functions("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
-pi.register_functions("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
+pi.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
+pi.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
 sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=l)
 sh_field_variable_id = ph.FieldVariable("sh_eig_funcs_id", weight_label="eig_funcs", location=l)
 sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i),

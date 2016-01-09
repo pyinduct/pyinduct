@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from pyinduct import get_initial_functions
+from pyinduct import get_base
 from core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
@@ -94,7 +94,7 @@ def _parse_control_law(law):
             temp_order = field_var.order[0]
             func_lbl = field_var.data["func_lbl"]
             weight_lbl = field_var.data["weight_lbl"]
-            init_funcs = get_initial_functions(func_lbl, field_var.order[1])
+            init_funcs = get_base(func_lbl, field_var.order[1])
 
             factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
                                      for func in init_funcs])
@@ -164,8 +164,8 @@ class LawEvaluator(object):
                 info = TransformationInfo()
                 info.src_lbl = weight_label
                 info.dst_lbl = lbl
-                info.src_base = get_initial_functions(weight_label, 0)
-                info.dst_base = get_initial_functions(lbl, 0)
+                info.src_base = get_base(weight_label, 0)
+                info.dst_base = get_base(lbl, 0)
                 info.src_order = int(weights.size / info.src_base.size) - 1
                 info.dst_order = int(self._eval_vectors[lbl].size / info.dst_base.size) - 1
 
@@ -177,7 +177,7 @@ class LawEvaluator(object):
                 dst_weights = self._transformations[info](weights)
                 output += np.dot(self._eval_vectors[lbl], dst_weights)
 
-            if hasattr(self , "_storage"):
+            if self._storage is not None:
                 entry = self._storage.get(info.dst_lbl, [])
                 entry.append(dst_weights)
                 self._storage[info.dst_lbl] = entry

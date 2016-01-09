@@ -66,10 +66,10 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register eigenfunctions
-pi.register_functions("eig_funcs", eig_funcs, overwrite=True)
-pi.register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
-pi.register_functions("fem_funcs", fem_funcs, overwrite=True)
+pi.register_base("eig_funcs", eig_funcs, overwrite=True)
+pi.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+pi.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
+pi.register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # original () and target (_t) field variable
 fem_field_variable = ph.FieldVariable("fem_funcs", location=l)

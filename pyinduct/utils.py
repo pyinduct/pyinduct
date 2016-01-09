@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import fsolve, root
 import pyqtgraph as pg
 
-from pyinduct import get_initial_functions, register_functions
+from pyinduct import get_base, register_base
 import placeholder as ph
 from core import back_project_from_base
 from shapefunctions import LagrangeFirstOrder
@@ -181,7 +181,7 @@ def evaluate_placeholder_function(placeholder, input_values):
     if not isinstance(placeholder, (FieldVariable, TestFunction)):
         raise TypeError("Input Object not supported!")
 
-    funcs = get_initial_functions(placeholder.data["func_lbl"], placeholder.order[1])
+    funcs = get_base(placeholder.data["func_lbl"], placeholder.order[1])
     return np.array([func(input_values) for func in funcs])
 
 
@@ -197,7 +197,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     :param name: name to use
     :return: EvalData
     """
-    funcs = get_initial_functions(base_label, spat_order)
+    funcs = get_base(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
                                                                                               funcs.size))
@@ -416,11 +416,11 @@ def _convert_to_function(coef):
 def _convert_to_scalar_function(coef, label):
     import core as cr
     if not callable(coef):
-        register_functions(label, cr.Function(lambda z: coef), overwrite=True)
+        register_base(label, cr.Function(lambda z: coef), overwrite=True)
     elif isinstance(coef, cr.Function):
-        register_functions(label, coef, overwrite=True)
+        register_base(label, coef, overwrite=True)
     else:
-        register_functions(label, cr.Function(coef), overwrite=True)
+        register_base(label, cr.Function(coef), overwrite=True)
     return ph.ScalarFunction(label)
 
 

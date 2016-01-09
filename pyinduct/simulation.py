@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
 
-from pyinduct import get_initial_functions, is_registered
+from pyinduct import get_base, is_registered
 from core import (Function, integrate_function, calculate_scalar_product_matrix,
                   project_on_base, dot_product_l2)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
@@ -203,7 +203,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     # calculate initial state
     print(">>> deriving initial conditions")
-    q0 = np.array([project_on_base(initial_state, get_initial_functions(
+    q0 = np.array([project_on_base(initial_state, get_base(
         canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
 
@@ -235,7 +235,7 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
     data = []
 
     # temporal
-    ini_funcs = get_initial_functions(weight_lbl, 0)
+    ini_funcs = get_base(weight_lbl, 0)
     for der_idx in range(temp_order+1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
         data.append(evaluate_approximation(weight_lbl, q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
@@ -466,7 +466,7 @@ def parse_weak_formulation(weak_form):
                     raise NotImplementedError
                 field_var = placeholders["field_variables"][0]
                 temp_order = field_var.order[0]
-                init_funcs = get_initial_functions(field_var.data["func_lbl"], field_var.order[1])
+                init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
 
                 if placeholders["inputs"]:
                     # TODO think about this case, is it relevant?
@@ -477,7 +477,7 @@ def parse_weak_formulation(weak_form):
                     if len(placeholders["functions"]) != 1:
                         raise NotImplementedError
                     func = placeholders["functions"][0]
-                    test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
+                    test_funcs = get_base(func.data["func_lbl"], func.order[1])
                     result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, init_funcs)
                 else:
                     # pull constant term out and compute integral
@@ -499,14 +499,14 @@ def parse_weak_formulation(weak_form):
                 if not 1 <= len(placeholders["functions"]) <= 2:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_initial_functions(func.data["func_lbl"], func.order[1])
+                test_funcs = get_base(func.data["func_lbl"], func.order[1])
 
                 if len(placeholders["functions"]) == 2:
                     # TODO this computation is nonesense. Result must be a vektor conataining int of (tf1*tf2)
                     raise NotImplementedError
 
                     func2 = placeholders["functions"][1]
-                    test_funcs2 = get_initial_functions(func2.data["func_lbl"], func2.order[2])
+                    test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
                     result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
                     cf.add_to(("f", 0), result*term.scale)
                     continue
