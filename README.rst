@@ -1,6 +1,6 @@
-===============================
+========
 PyInduct
-===============================
+========
 
 .. image:: https://img.shields.io/travis/audreyr/pyinduct.svg
         :target: https://travis-ci.org/audreyr/pyinduct
@@ -11,7 +11,7 @@ PyInduct
 
 The aim of this project is to provide a toolbox to automate the backstepping based design of controllers for boundary actuated infinite dimensional systems.
 
-* Free software: BSD license
+* Free software: GPL v3.0
 * Documentation: https://pyinduct.readthedocs.org.
 
 Features
