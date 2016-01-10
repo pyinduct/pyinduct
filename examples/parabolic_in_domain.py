@@ -147,11 +147,11 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register functions
-pi.register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs", eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs_i", eig_funcs_i, overwrite=True)
-pi.register_functions("eig_funcs_ti", eig_funcs_ti, overwrite=True)
-pi.register_functions("fem_funcs", fem_funcs, overwrite=True)
+pi.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+pi.register_base("eig_funcs", eig_funcs, overwrite=True)
+pi.register_base("eig_funcs_i", eig_funcs_i, overwrite=True)
+pi.register_base("eig_funcs_ti", eig_funcs_ti, overwrite=True)
+pi.register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # original intermediate (_i), target intermediate (_ti) and fem field variable
 fem_field_variable = ph.FieldVariable("fem_funcs", location=l)
@@ -170,8 +170,8 @@ shifted_fem_funcs_i = np.array(
     [ef.FiniteTransformFunction(func, M, b, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
      for func in fem_funcs])
 shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, b, l) for func in eig_funcs_id])
-pi.register_functions("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
-pi.register_functions("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
+pi.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
+pi.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
 sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=l)
 sh_field_variable_id = ph.FieldVariable("sh_eig_funcs_id", weight_label="eig_funcs", location=l)
 sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i),
@@ -207,18 +207,18 @@ for i in range(q.shape[0]):
     q_i[i, :] = np.dot(q[i, :], np.transpose(mat))
 
 # evaluate approximation of xi
-evald_modal_xi = ut.evaluate_approximation(q_i, "eig_funcs_i", t, spatial_domain, l / spatial_disc,
+evald_modal_xi = ut.evaluate_approximation("eig_funcs_i", q_i, t, spatial_domain, l / spatial_disc,
                                            name="x_i(z,t) modal simulation")
-evald_modal_T0_xid = ut.evaluate_approximation(q_i, "sh_eig_funcs_id", t, spatial_domain, l / spatial_disc,
+evald_modal_T0_xid = ut.evaluate_approximation("sh_eig_funcs_id", q_i, t, spatial_domain, l / spatial_disc,
                                                name="T0*x_i(z,t) modal simulation")
-evald_shifted_x = ut.evaluate_approximation(q, "sh_fem_funcs_i", t, spatial_domain, l / spatial_disc,
+evald_shifted_x = ut.evaluate_approximation("sh_fem_funcs_i", q, t, spatial_domain, l / spatial_disc,
                                             name="T0*e^(-a1/a2/2*z)*x_(z,t) fem simulation")
 evald_appr_xi = vis.EvalData(evald_modal_xi.input_data,
                              evald_shifted_x.output_data + evald_modal_xi.output_data - evald_modal_T0_xid.output_data,
                              name="x_i(t) approximated")
 
 # evaluate approximation of x
-evald_fem_x = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l / spatial_disc, name="x(z,t) simulation")
+evald_fem_x = ut.evaluate_approximation("fem_funcs", q, t, spatial_domain, l / spatial_disc, name="x(z,t) simulation")
 
 # some pyqtgraph visualisations
 win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired], dt=T / temporal_disc * 4)

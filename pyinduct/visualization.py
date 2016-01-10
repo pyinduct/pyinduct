@@ -1,18 +1,19 @@
 from __future__ import division
 import numpy as np
-from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
+import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
 from numbers import Number
 from types import NoneType
 import time
-import pyqtgraph.opengl as gl
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
+import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
+
 
 def create_colormap(cnt):
     """
@@ -31,6 +32,7 @@ class EvalData:
     convenience wrapper for function evaluation
     contains the input data that was used for evaluation and the results
     """
+
     # TODO: add scipy n-D-interp function, min+max
 
     def __init__(self, input_data, output_data, name=""):
@@ -43,13 +45,20 @@ class EvalData:
             assert len(input_data[dim]) == output_data.shape[dim]
 
         self.input_data = input_data
+        if output_data.size == 0:
+            raise ValueError("No initialisation possible with an empty array!")
         self.output_data = output_data
+        self.min = output_data.min()
+        self.max = output_data.max()
         self.name = name
 
+        # self._interpolator = si.interp2d(input_data[0], input_data[1], output_data, bounds_error=True)
+
+    def __call__(self, *args):
+        return self._interpolator(*args)
+
     def interpolation_handle(self, desired_coordinates):
-        return si.interpn(tuple(self.input_data),
-                          self.output_data,
-                          tuple(desired_coordinates))
+        return si.interpn(tuple(self.input_data), self.output_data, desired_coordinates)
 
 
 class DataPlot:
@@ -67,16 +76,17 @@ class DataPlot:
             assert isinstance(data[0], EvalData)
 
         self._data = data
+        # Test input vectors to be Domain objects and use their .step attribute here
         self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
-class PgDataPlot(DataPlot, QtCore.QObject):
+class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
     base class for all pyqtgraph plotting related classes
     """
 
     def __init__(self, data):
-        QtCore.QObject.__init__(self)
+        pg.QtCore.QObject.__init__(self)
         DataPlot.__init__(self, data)
 
 
@@ -87,38 +97,33 @@ class PgAnimatedPlot(PgDataPlot):
     values are therefore expected to be a array of shape (n, t, z)
     playback set can be set via "dt" which is the real world step size. default is playback in realtime
     """
+
     # TODO default realtime, kwarg: T
 
     def __init__(self, data, title="", dt=None):
         PgDataPlot.__init__(self, data)
 
-        # TODO: choose not simply the discretisation from the first ut.EvalData object but from that with the
-        interp_funcs = [si.interp2d(data.input_data[1], data.input_data[0], data.output_data) for data in self._data]
-        time_data = [self._data[0].input_data[0] for _ in self._data]
-        spatial_data = [self._data[0].input_data[1] for _ in self._data]
-        state_data = [interp_func(spatial_data[0], time_data[0]) for interp_func in interp_funcs]
-
-        # TODO: remove the next 4 lines and replace (from here) self._data with state_data, time_data and spatial_data
-        for i in range(len(self._data)):
-            self._data[i].input_data[0] = time_data[0]
-            self._data[i].input_data[1] = spatial_data[0]
-            self._data[i].output_data = state_data[i]
+        self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
+        self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
+        self.state_data = [data_set.output_data for data_set in self._data]
 
         self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
-        max_times = [max(data) for data in time_data]
-        self._longest_idx = max_times.index(max(max_times))
+        max_times = [max(data) for data in self.time_data]
+        self._endtime = max(max_times)
+        self._longest_idx = max_times.index(self._endtime)
+
         if dt is not None:
             self._dt = dt
 
-        spat_min = np.min([np.min(data) for data in spatial_data])
-        spat_max = np.max([np.max(data) for data in spatial_data])
+        spat_min = np.min([np.min(data) for data in self.spatial_data])
+        spat_max = np.max([np.max(data) for data in self.spatial_data])
         self._pw.setXRange(spat_min, spat_max)
 
-        state_min = np.min([np.min(data) for data in state_data])
-        state_max = np.max([np.max(data) for data in state_data])
+        state_min = np.min([np.min(data) for data in self.state_data])
+        state_max = np.max([np.max(data) for data in self.state_data])
         self._pw.setYRange(state_min, state_max)
 
         self._time_text = pg.TextItem('t= 0')
@@ -131,6 +136,8 @@ class PgAnimatedPlot(PgDataPlot):
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
+        self._t = 0
+
         self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
         self._timer.start(1e3 * self._dt)
@@ -140,15 +147,19 @@ class PgAnimatedPlot(PgDataPlot):
         update plot window
         """
         for idx, data_set in enumerate(self._data):
-            frame = min(self._curr_frame, data_set.output_data.shape[0] - 1)
-            self._plot_data_items[idx].setData(x=data_set.input_data[1], y=data_set.output_data[frame])
+            # find nearest time index
+            t_idx = ut.find_nearest_idx(self.time_data[idx], self._t)
 
-        self._time_text.setText('t= {0:.2f}'.format(self._data[self._longest_idx].input_data[0][frame]))
-        if self._curr_frame == self._data[0].output_data.shape[0] - 1:
-            # end of time reached -> start again
-            self._curr_frame = 0
-        else:
-            self._curr_frame += 1
+            # TODO draw grey line if value is outdated
+
+            # update data
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx],
+                                               y=self.state_data[idx][t_idx])
+
+        self._time_text.setText('t= {0:.2f}'.format(self._t))
+        self._t += self._dt
+        if self._t > self._endtime:
+            self._t = 0
 
 
 class PgSurfacePlot(PgDataPlot):
@@ -173,8 +184,8 @@ class PgSurfacePlot(PgDataPlot):
         max_1_s = max_1 / 20
 
         for n in range(len(self._data)):
-            plot_item = gl.GLSurfacePlotItem(x=self._data[n].input_data[0],
-                                             y=np.flipud(self._data[n].input_data[1]),
+            plot_item = gl.GLSurfacePlotItem(x=np.atleast_1d(self._data[n].input_data[0]),
+                                             y=np.flipud(np.atleast_1d(self._data[n].input_data[1])),
                                              z=self._data[n].output_data,
                                              shader='normalColor')
             plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
@@ -203,17 +214,18 @@ class PgSlicePlot(PgDataPlot):
     """
     plot selected slice of given DataSets
     """
+
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
     def __init__(self, data, title=None):
         PgDataPlot.__init__(self, data)
         self.dim = self._data[0].output_data.shape
 
-        self.win = QtGui.QMainWindow()
+        self.win = pg.QtGui.QMainWindow()
         self.win.resize(800, 800)
         self.win.setWindowTitle("PgSlicePlot: {}".format(title))
-        self.cw = QtGui.QWidget()
+        self.cw = pg.QtGui.QWidget()
         self.win.setCentralWidget(self.cw)
-        self.l = QtGui.QGridLayout()
+        self.l = pg.QtGui.QGridLayout()
         self.cw.setLayout(self.l)
         self.image_view = pg.ImageView(name="img_view")
         self.l.addWidget(self.image_view, 0, 0)
@@ -268,7 +280,7 @@ class PgLinePlot3d(PgDataPlot):
         res = self._data[0]
         z_vals = res.input_data[1][::-1] * scale
 
-        t_subsets = np.linspace(0, res.input_data[0].size, n, endpoint=False, dtype=int)
+        t_subsets = np.linspace(0, np.array(res.input_data[0]).size, n, endpoint=False, dtype=int)
 
         for t_idx, t_val in enumerate(t_subsets):
             t_vals = np.array([res.input_data[0][t_val]] * len(z_vals))
@@ -330,7 +342,7 @@ class MplSlicePlot(PgDataPlot):
                  legend_label=None, legend_location=1, figure_size=(10, 6)):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
-                (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
+                    (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 

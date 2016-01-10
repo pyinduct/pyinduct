@@ -3,7 +3,7 @@ import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
-from pyinduct import get_initial_functions, register_functions
+from pyinduct import get_base, register_base
 import pyinduct
 import utils as ut
 import placeholder as ph

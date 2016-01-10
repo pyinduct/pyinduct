@@ -66,10 +66,10 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register eigenfunctions
-pi.register_functions("eig_funcs", eig_funcs, overwrite=True)
-pi.register_functions("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-pi.register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
-pi.register_functions("fem_funcs", fem_funcs, overwrite=True)
+pi.register_base("eig_funcs", eig_funcs, overwrite=True)
+pi.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+pi.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
+pi.register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # original () and target (_t) field variable
 fem_field_variable = ph.FieldVariable("fem_funcs", location=l)
@@ -125,7 +125,8 @@ x_l = tr.power_series(z_d, t_d, C)
 evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 
 # pyqtgraph visualization
-eval_d = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t) with x(z,0)="+str(init_profile))
+eval_d = ut.evaluate_approximation("fem_funcs", q, t, spatial_domain, l / spatial_disc,
+                                   name="x(z,t) with x(z,0)=" + str(init_profile))
 win1 = vis.PgAnimatedPlot([eval_d, evald_traj], title="animation", dt=T/temporal_disc*4)
 win2 = vis.PgSurfacePlot([eval_d], title=eval_d.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)

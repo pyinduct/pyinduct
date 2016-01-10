@@ -6,7 +6,7 @@ from numbers import Number
 import numpy as np
 from scipy import integrate
 from scipy.linalg import block_diag
-from pyinduct import get_initial_functions
+from pyinduct import get_base
 
 
 def sanitize_input(input_object, allowed_type):
@@ -573,6 +573,7 @@ def back_project_from_base(weights, base):
         raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
     def eval_handle(z):
+        # TODO call uniform complex converter instead
         res = np.real_if_close(sum([weights[i] * base[i](z) for i in range(weights.shape[0])]), tol=1e6)
         if not all(np.imag(res) == 0):
             print("warning: complex values encountered! {0}".format(np.max(np.imag(res))))
@@ -670,7 +671,7 @@ def get_weight_transformation(info):
         for dep_lbl, dep_order in hint.extras.iteritems():
             new_info = copy(info)
             new_info.dst_lbl = dep_lbl
-            new_info.dst_base = get_initial_functions(dep_lbl, 0)
+            new_info.dst_base = get_base(dep_lbl, 0)
             new_info.dst_order = dep_order
             dep_handle = get_weight_transformation(new_info)
             kwargs[dep_lbl] = dep_handle

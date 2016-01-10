@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pyqtgraph as pg
 
-from pyinduct import register_functions, \
+from pyinduct import register_base, \
     core as cr, \
     shapefunctions as sh, \
     utils as ut, \
@@ -30,7 +30,9 @@ class FindRootsTestCase(unittest.TestCase):
             return [np.cos(x[0]), np.cos(4*x[1])]
 
         def _cmplx_equation(lamda):
-            return np.real(lamda)**2 - 1 + 1j*(np.imag(lamda)-1)
+            if lamda == 0:
+                return 0
+            return lamda**2 + 9
 
         self.char_eq = _char_equation
         self.univar_eq = _univar_equation
@@ -88,8 +90,8 @@ class FindRootsTestCase(unittest.TestCase):
                                        show_plot=True)
 
     def test_cmplx_func(self):
-        grid = np.array([range(10), range(10)])
-        roots = ut.find_roots(self.cmplx_eq, 1, grid, -1, show_plot=True, complex=True)
+        grid = [np.arange(-10, 10), np.arange(-5, 5)]
+        roots = ut.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=True, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0]*len(roots)))
         print(roots)
 
@@ -107,7 +109,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 
     def setUp(self):
         self.psi = cr.Function(np.sin)
-        register_functions("funcs", self.psi, overwrite=True)
+        register_base("funcs", self.psi, overwrite=True)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
@@ -128,13 +130,13 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
         # create initial functions
         self.nodes, self.funcs = sh.cure_interval(sh.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        register_functions("approx_funcs", self.funcs, overwrite=True)
+        register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
 
     def test_eval_helper(self):
-        eval_data = ut.evaluate_approximation(self.weights, "approx_funcs", self.dates, self.spat_int, .1)
+        eval_data = ut.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
         if show_plots:
             p = vt.PgAnimatedPlot(eval_data)
             app.exec_()

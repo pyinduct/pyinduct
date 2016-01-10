@@ -5,7 +5,7 @@ from numbers import Number
 
 import numpy as np
 
-from pyinduct import register_functions, get_initial_functions, core, shapefunctions
+from pyinduct import register_base, get_base, core, shapefunctions
 
 
 # show_plots = True
@@ -220,7 +220,7 @@ class ProjectionTest(unittest.TestCase):
         node_cnt = 11
         self.nodes, self.initial_functions = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
                                                                           node_count=node_cnt)
-        register_functions("ini_funcs", self.initial_functions, overwrite=True)
+        register_base("ini_funcs", self.initial_functions, overwrite=True)
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 100*node_cnt)  # because we are smarter
@@ -269,7 +269,7 @@ class ProjectionTest(unittest.TestCase):
         vec_real_func = np.vectorize(self.funcs[1])
         real_weights = vec_real_func(self.nodes)
         approx_func = core.back_project_from_base(real_weights, self.initial_functions)
-        approx_func_dz = core.back_project_from_base(real_weights, get_initial_functions("ini_funcs", 1))
+        approx_func_dz = core.back_project_from_base(real_weights, get_base("ini_funcs", 1))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
@@ -295,7 +295,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # approximation by lag1st
         self.nodes, self.src_test_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
                                                                        node_count=2)
-        register_functions("test_funcs", self.src_test_funcs, overwrite=True)
+        register_base("test_funcs", self.src_test_funcs, overwrite=True)
         self.src_weights = core.project_on_base(self.real_func, self.src_test_funcs)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
         self.src_approx_handle = core.back_project_from_base(self.src_weights, self.src_test_funcs)

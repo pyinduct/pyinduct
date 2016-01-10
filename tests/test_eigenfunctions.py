@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from pyinduct import get_initial_functions, register_functions, \
+from pyinduct import get_base, register_base, \
     core as cr, \
     utils as ut, \
     eigenfunctions as ef, \

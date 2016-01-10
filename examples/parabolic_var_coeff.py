@@ -3,7 +3,7 @@ import numpy as np
 import pyqtgraph as pg
 import scipy.integrate as si
 import matplotlib.pyplot as plt
-from pyinduct import register_functions
+from pyinduct import register_base
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
 from pyinduct import utils as ut
@@ -64,10 +64,10 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=spatial_disc)
 
 # register functions
-register_functions("eig_funcs_t", eig_funcs_t, overwrite=True)
-register_functions("adjoint_eig_funcs_t", adjoint_eig_funcs_t, overwrite=True)
-register_functions("eig_funcs", eig_funcs, overwrite=True)
-register_functions("fem_funcs", fem_funcs, overwrite=True)
+register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
+register_base("adjoint_eig_funcs_t", adjoint_eig_funcs_t, overwrite=True)
+register_base("eig_funcs", eig_funcs, overwrite=True)
+register_base("fem_funcs", fem_funcs, overwrite=True)
 
 # init trajectory
 traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)
@@ -115,7 +115,7 @@ t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(fem_fu
                                 temporal_domain, time_step=T/temporal_disc)
 
 # pyqtgraph visualization
-evald_x = ut.evaluate_approximation(q, "fem_funcs", t, spatial_domain, l/spatial_disc, name="x(z,t)")
+evald_x = ut.evaluate_approximation("fem_funcs", q, t, spatial_domain, l / spatial_disc, name="x(z,t)")
 win1 = vis.PgAnimatedPlot([evald_x], title="animation", dt=T/temporal_disc*4)
 win2 = vis.PgSurfacePlot(evald_x, title=evald_x.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()

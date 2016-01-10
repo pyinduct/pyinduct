@@ -30,10 +30,15 @@ class SmoothTransitionTestCase(unittest.TestCase):
         self.y0 = -5
         self.y1 = 10
 
+        self.params = ut.Parameters
+        self.params.m = 1
+        self.params.sigma = 1
+        self.params.tau = 2
+
     def test_trajectory(self):
         # build flatness based trajectory generator
-        fs = tr.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2, sigma=1,
-                           v=.5)
+        fs = tr.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2,
+                           params=self.params)
         zz, tt = np.meshgrid(self.z_values, self.t_values)
         x_values = fs.system_state(zz, tt)
         u_values = fs.control_input(self.t_values)
@@ -45,6 +50,7 @@ class SmoothTransitionTestCase(unittest.TestCase):
             pw.plot(self.t_values, u_values)
             ap = vis.PgAnimatedPlot(eval_data_x)
             app.exec_()
+
 
 class FormalPowerSeriesTest(unittest.TestCase):
 

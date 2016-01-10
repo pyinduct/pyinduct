@@ -3,7 +3,7 @@ from numbers import Number
 
 import numpy as np
 
-from pyinduct import get_initial_functions, register_functions, is_registered
+from pyinduct import get_base, register_base, is_registered
 from core import sanitize_input
 
 
@@ -182,8 +182,8 @@ class Product(object):
                     break
 
         if scalar_func and other_func:
-            s_func = get_initial_functions(scalar_func.data["func_lbl"], scalar_func.order[1])
-            o_func = get_initial_functions(other_func.data["func_lbl"], other_func.order[1])
+            s_func = get_base(scalar_func.data["func_lbl"], scalar_func.order[1])
+            o_func = get_base(other_func.data["func_lbl"], other_func.order[1])
 
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
@@ -194,7 +194,7 @@ class Product(object):
 
             new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
             new_name = new_func.tostring()
-            register_functions(new_name, new_func)
+            register_base(new_name, new_func)
 
             if isinstance(other_func, (ScalarFunction, TestFunction)):
                 a = other_func.__class__(function_label=new_name, order=other_func.order[1],
@@ -279,7 +279,7 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = get_initial_functions(placeholder.data['func_lbl'], placeholder.order[1])
+    functions = get_base(placeholder.data['func_lbl'], placeholder.order[1])
     location = placeholder.location
     values = np.atleast_2d([func(location) for func in functions])
 

@@ -1,8 +1,8 @@
 from __future__ import division
 import numpy as np
 
-
 _registry = {}
+
 
 def is_registered(label):
     """
@@ -15,12 +15,14 @@ def is_registered(label):
 
     return label in _registry.keys()
 
-def register_functions(label, functions, overwrite=False):
+
+def register_base(label, functions, overwrite=False):
     """
     register a set of initial functions to make them accessible all over the pyinduct framework
 
     :param functions: array , list or single instance of ref:py:class:Function
     :param label: string that will be used as label
+    :param overwrite: force overwrite if label is already present
     """
     if not isinstance(label, str):
         raise TypeError("only strings allowed as labels!")
@@ -28,7 +30,7 @@ def register_functions(label, functions, overwrite=False):
     funcs = np.atleast_1d(functions)
     if is_registered(label):
         if overwrite:
-            deregister_initial_functions(label)
+            deregister_base(label)
         else:
             raise ValueError("Function set '{0}' already in registry!".format(label))
 
@@ -45,7 +47,7 @@ def register_functions(label, functions, overwrite=False):
     _registry[label] = entry
 
 
-def deregister_initial_functions(label):
+def deregister_base(label):
     """
     removes a set of initial functions from the packages registry
     :param label: string, label of functions that are to be removed
@@ -59,10 +61,11 @@ def deregister_initial_functions(label):
     del _registry[label]
 
 
-def get_initial_functions(label, order):
+def get_base(label, order):
     """
     retrieve registered set of initial functions by their label
     :param label: string, label of functions to retrieve
+    :param order: deired derivative order of base
     :return: initial_functions
     """
     if is_registered(label):
