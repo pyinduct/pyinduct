@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
-from pyinduct import pyinduct as pi
+from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import control as ct
 from pyinduct import visualization as vis
@@ -11,7 +11,6 @@ from pyinduct import utils as ut
 from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
-
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation
@@ -22,33 +21,40 @@ param_a0 = 0
 init_profile = 1
 
 # original system parameters
-a2 = 1; a1 =0 # attention: only a2 = 1., a1 =0 supported in this test case
+a2 = 1
+a1 = 0  # attention: only a2 = 1., a1 =0 supported in this test case
 a0 = param_a0
 param = [a2, a1, a0, None, None]
 
 # target system parameters (controller parameters)
-a1_t =0; a0_t =0 # attention: only a1_t =0 and a0_0 =0 supported in this test case
+a1_t = 0
+a0_t = 0  # attention: only a1_t =0 and a0_0 =0 supported in this test case
 param_t = [a2, a1_t, a0_t, None, None]
 
 # system/simulation parameters
 actuation_type = 'dirichlet'
 bound_cond_type = 'dirichlet'
-l = 1.; spatial_domain = (0, l); spatial_disc = 30 # attention: only l=1. supported in this test case
-T = 1; temporal_domain = (0, T); temporal_disc = 1e2
+l = 1  # attention: only l=1. supported in this test case
+T = 1
+spatial_domain = sim.Domain(bounds=(0, l), num=30)
+temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
 n = n_modal
 
 # eigenvalues /-functions original system
-eig_freq = np.array([(i+1)*np.pi/l for i in xrange(n)])
-eig_values = a0 - a2*eig_freq**2 - a1**2/4./a2
-norm_fac = np.ones(eig_freq.shape)*np.sqrt(2)
-eig_funcs = np.asarray([ef.SecondOrderDirichletEigenfunction(eig_freq[i], param, spatial_domain, norm_fac[i]) for i in range(n)])
-pi.register_base("eig_funcs", eig_funcs, overwrite=True)
+eig_freq = np.array([(i + 1) * np.pi / l for i in xrange(n)])
+eig_values = a0 - a2 * eig_freq ** 2 - a1 ** 2 / 4. / a2
+norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
+eig_funcs = np.asarray(
+    [ef.SecondOrderDirichletEigenfunction(eig_freq[i], param, spatial_domain.bounds, norm_fac[i]) for i in range(n)])
+re.register_base("eig_funcs", eig_funcs, overwrite=True)
 
 # eigenfunctions target system
 eig_freq_t = np.sqrt(-eig_values.astype(complex))
 norm_fac_t = norm_fac * eig_freq / eig_freq_t
-eig_funcs_t = np.asarray([ef.SecondOrderDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain, norm_fac_t[i]) for i in range(n)])
-pi.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
+eig_funcs_t = np.asarray(
+    [ef.SecondOrderDirichletEigenfunction(eig_freq_t[i], param_t, spatial_domain.bounds, norm_fac_t[i]) for i in
+     range(n)])
+re.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
 
 # init controller
 x_at_1 = ph.FieldVariable("eig_funcs", location=1)
@@ -67,27 +73,27 @@ control_law = sim.SimulationInputSum([traj, controller])
 
 # determine (A,B) with modal-transfomation
 A = np.diag(eig_values)
-B = -a2*np.array([eig_funcs[i].derive()(l) for i in xrange(n)])
+B = -a2 * np.array([eig_funcs[i].derive()(l) for i in xrange(n)])
 ss = sim.StateSpace("eig_funcs", A, B)
 
 # evaluate desired output data
-z_d = np.linspace(0, l, spatial_disc)
+z_d = np.linspace(0, l, len(spatial_domain))
 y_d, t_d = tr.gevrey_tanh(T, 80)
 C = tr.coefficient_recursion(np.zeros(y_d.shape), y_d, param)
 x_l = tr.power_series(z_d, t_d, C)
 evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 
 # simulate
-t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain, time_step=T/temporal_disc)
+t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain)
 
 # pyqtgraph visualization
-evald_x = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain, l / spatial_disc,
+evald_x = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain,
                                     name="x(z,t) with x(z,0)=" + str(init_profile))
-win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T/temporal_disc*4)
+win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T / len(temporal_domain) * 4)
 win2 = vis.PgSurfacePlot([evald_x], title=evald_x.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()
 
-# matplotlib visualization
+# visualization
 vis.MplSlicePlot([evald_x, evald_traj], time_point=1, legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2)
 plt.show()
