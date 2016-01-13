@@ -14,9 +14,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read().replace('.. :changelog:', '')
 
-requirements = [
-    # TODO: put package requirements here
-]
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
 
 test_requirements = [
     # TODO: put package test requirements here
@@ -30,7 +29,7 @@ setup(
     long_description=readme + '\n\n' + history,
     author="Stefan Ecklebe, Marcus Riesmeier",
     author_email='stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de',
-    url='https://fusionforge.zih.tu-dresden.de/projects/pyinduct/',
+    url='https://github.com/cklb/pyinduct/',
     packages=[
         'pyinduct',
     ],
@@ -38,7 +37,7 @@ setup(
                  'pyinduct'},
     include_package_data=True,
     install_requires=requirements,
-    license="BSD",
+    license="GPL v3",
     zip_safe=False,
     keywords='pyinduct',
     classifiers=[
