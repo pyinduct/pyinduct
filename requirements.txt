@@ -1,6 +1,5 @@
-scipy
-sympy
-PyQt4
-pyqtgraph
+scipy>=0.16.1
+sympy>=0.7.6.1
+pyqtgraph=0.9.10
 wheel>=0.23.0
 matplotlib>=1.5.0
