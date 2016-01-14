@@ -3,7 +3,7 @@ from numbers import Number
 
 import numpy as np
 
-from pyinduct import get_base, register_base, is_registered
+from registry import get_base, register_base, is_registered
 from core import sanitize_input
 
 

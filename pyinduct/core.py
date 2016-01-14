@@ -6,7 +6,7 @@ from numbers import Number
 import numpy as np
 from scipy import integrate
 from scipy.linalg import block_diag
-from pyinduct import get_base
+from registry import get_base
 
 
 def sanitize_input(input_object, allowed_type):

@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy.integrate import ode
 
-from pyinduct import get_base, is_registered
+from registry import get_base, is_registered
 from core import (Function, integrate_function, calculate_scalar_product_matrix,
                   project_on_base, dot_product_l2)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target

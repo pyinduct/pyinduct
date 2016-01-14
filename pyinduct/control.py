@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from pyinduct import get_base
+from registry import get_base
 from core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target

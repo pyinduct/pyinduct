@@ -8,9 +8,8 @@ from scipy.interpolate import interp1d
 from scipy.optimize import fsolve, root
 import pyqtgraph as pg
 
-from pyinduct import get_base, register_base
+from registry import get_base, register_base
 import placeholder as ph
-from core import back_project_from_base
 from shapefunctions import LagrangeFirstOrder
 from placeholder import FieldVariable, TestFunction
 import visualization as vis

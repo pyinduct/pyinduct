@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+# try:
+from setuptools import setup, find_packages
+# except ImportError:
+#     from distutils.core import setup
 
 
 with open('README.rst') as readme_file:
@@ -30,6 +29,7 @@ setup(
     author="Stefan Ecklebe, Marcus Riesmeier",
     author_email='stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de',
     url='https://github.com/cklb/pyinduct/',
+    # packages=find_packages(),
     packages=[
         'pyinduct',
     ],
