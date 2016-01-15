@@ -1,20 +1,21 @@
 from __future__ import division
-
-
 import unittest
 import numpy as np
-
-from pyinduct import core, utils, trajectory as tr, visualization as vis
-import pyinduct.eigenfunctions as ef
+from pyinduct import trajectory as tr, visualization as vis
 import pyinduct.utils as ut
-import pyqtgraph as pg
 import sys
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
+    # show_plots = True
+    show_plots = False
+
+if show_plots:
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+else:
+    app = None
 
 
 class SmoothTransitionTestCase(unittest.TestCase):

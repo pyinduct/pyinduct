@@ -1,21 +1,26 @@
 from __future__ import division
 import os
 import unittest
-import numpy as np
 from cPickle import loads
-
-import pyinduct.visualization as vis
 import pyqtgraph as pg
+import matplotlib as mpl
+mpl.use("Qt4Agg")
 import matplotlib.pyplot as plt
 import sys
+
+import pyinduct.visualization as vis
 
 
 # TODO: __init__ global variable show_plots
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
+    # show_plots = True
+    show_plots = False
+
+if show_plots:
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
-    show_plots = True
 
 
 class PlotTestCase(unittest.TestCase):
@@ -60,5 +65,5 @@ class PlotTestCase(unittest.TestCase):
     def test_mpl_slice_plot(self):
         if show_plots:
             vis.MplSlicePlot(self.test_data+self.test_data+self.test_data, spatial_point=0.5, ylabel=u'$x(0,t)$',
-                               legend_label=['1', '2', '3', '4', '5', '6'])
+                             legend_label=['1', '2', '3', '4', '5', '6'])
             plt.show()

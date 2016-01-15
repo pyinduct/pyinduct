@@ -1,10 +1,7 @@
 from __future__ import division
 import unittest
 import sys
-
 import numpy as np
-import pyqtgraph as pg
-
 from pyinduct import register_base, \
     core as cr, \
     shapefunctions as sh, \
@@ -12,11 +9,14 @@ from pyinduct import register_base, \
     visualization as vt, \
     placeholder as ph
 
-
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
+    # show_plots = True
+    show_plots = False
+
+if show_plots:
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
 
 
@@ -52,7 +52,7 @@ class FindRootsTestCase(unittest.TestCase):
         self.assertEqual(len(roots), self.n_roots)
 
     def test_rtol(self):
-        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol, show_plot=True)
+        roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol, show_plot=show_plots)
         self.assertGreaterEqual(np.log10(min(np.abs(np.diff(roots)))), self.rtol)
 
     def test_in_area(self):
@@ -87,18 +87,18 @@ class FindRootsTestCase(unittest.TestCase):
     def test_debug_plot(self):
         if show_plots:
             self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
-                                       show_plot=True)
+                                       show_plot=show_plots)
 
     def test_cmplx_func(self):
         grid = [np.arange(-10, 10), np.arange(-5, 5)]
-        roots = ut.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=True, complex=True)
+        roots = ut.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0]*len(roots)))
         print(roots)
 
     def test_n_dim_func(self):
         grid = np.array([range(10), range(10)])
         roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
-                              show_plot=True)
+                              show_plot=show_plots)
         print(roots)
 
     def tearDown(self):
