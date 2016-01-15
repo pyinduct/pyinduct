@@ -12,7 +12,7 @@ from pyinduct import simulation as sim
 from pyinduct import visualization as vis
 from pyinduct import shapefunctions as sh
 
-# PARAMETERS TO VARY
+# PARAMETERS TO VARY not clear!
 # number of eigenfunctions, used for control law approximation
 n_modal = 10
 # number FEM test functions, used for system approximation/simulation
