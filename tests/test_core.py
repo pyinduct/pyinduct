@@ -7,15 +7,15 @@ import numpy as np
 
 from pyinduct import register_base, get_base, core, shapefunctions
 
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    # show_plots = True
+    show_plots = False
 
-# show_plots = True
-show_plots = False
-app = None
-
-if not any([arg == 'discover' for arg in sys.argv]):
+if show_plots:
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
-    show_plots = False
 
 
 class SanitizeInputTestCase(unittest.TestCase):

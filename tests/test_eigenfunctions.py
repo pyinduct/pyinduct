@@ -12,16 +12,16 @@ from pyinduct import get_base, register_base, \
 import sys
 import pyqtgraph as pg
 
+if any([arg == 'discover' for arg in sys.argv]):
+    show_plots = False
+else:
+    # show_plots = True
+    show_plots = False
 
-app = None
-
-if not any([arg == 'discover' for arg in sys.argv]):
+if show_plots:
     import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
-    show_plots = True
 
-# show_plots = True
-show_plots = False
 
 class TestAddMulFunction(unittest.TestCase):
 

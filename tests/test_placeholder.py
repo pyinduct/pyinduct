@@ -8,12 +8,16 @@ import sys
 import pyinduct.shapefunctions
 
 # TODO Test for all Placeholders
-
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
+    # show_plots = True
+    show_plots = False
+
+if show_plots:
+    import pyqtgraph as pg
     app = pg.QtGui.QApplication([])
+
 
 class FieldVariableTest(unittest.TestCase):
 

@@ -8,11 +8,12 @@ from pyinduct import register_base, deregister_base, get_base
 
 
 """
-test_pyinduct
+test_registry
 ----------------------------------
 
-Tests for `pyinduct` module.
+Tests for `registry` module.
 """
+
 
 # TODO add TestCases
 class RegistryTests(unittest.TestCase):

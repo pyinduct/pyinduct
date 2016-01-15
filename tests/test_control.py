@@ -14,15 +14,15 @@ from scipy import integrate
 import sys
 import pyinduct.shapefunctions
 
-if not any([arg == 'discover' for arg in sys.argv]):
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
-    show_plots = True
+if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
+    # show_plots = True
     show_plots = False
 
+if show_plots:
+    import pyqtgraph as pg
+    app = pg.QtGui.QApplication([])
 
 # TODO Test for ControlLaw and LawEvaluator
 
