@@ -3,7 +3,7 @@ PyInduct
 ========
 
 .. image:: https://img.shields.io/travis/audreyr/pyinduct.svg
-        :target: https://travis-ci.org/audreyr/pyinduct
+        :target: https://travis-ci.org/cklb/pyinduct
 
 .. image:: https://img.shields.io/pypi/v/pyinduct.svg
         :target: https://pypi.python.org/pypi/pyinduct
