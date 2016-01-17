@@ -606,17 +606,19 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
     r.set_f_params(state_space.A, state_space.B, input_handle)
     r.set_initial_value(q[0], t[0])
 
-    while r.successful() and r.t < temp_domain[-1]:
-        t.append(r.t + temp_domain.step)
+    for t_step in temp_domain[1:]:
+        if not r.successful():
+            break
+
+        t.append(t_step)
         try:
-            q.append(r.integrate(r.t + temp_domain.step))
+            q.append(r.integrate(t_step))
         except SimulationException as e:
             print("Simulation failed at t={0}: {1}".format(r.t, e))
             t.pop()
             break
 
     # create results
-    t_dom = Domain(points=np.array(t), step=temp_domain.step)
     q = np.array(q)
 
-    return t_dom, q
+    return temp_domain, q
