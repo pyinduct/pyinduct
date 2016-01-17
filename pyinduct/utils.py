@@ -92,7 +92,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     val = iter(values)
     while found_roots < n_roots:
         try:
-            res = root(function, val.next())
+            res = root(function, val.next(), tol=atol)
             # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
