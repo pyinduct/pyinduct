@@ -1,20 +1,21 @@
-from __future__ import division
+
 import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
-import utils as ut
-import placeholder as ph
-from core import Function, back_project_from_base
-from shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
-from placeholder import FieldVariable, TestFunction
-from visualization import EvalData
+from . import utils as ut
+from . import placeholder as ph
+from .core import Function, back_project_from_base
+from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
+from .placeholder import FieldVariable, TestFunction
+from .visualization import EvalData
 import pyqtgraph as pg
 from numbers import Number
 from functools import partial
 import warnings
 import copy as cp
 import pyqtgraph as pg
+import collections
 
 
 class AddMulFunction(object):
@@ -38,11 +39,11 @@ class FiniteTransformFunction(Function):
     """
     def __init__(self, function, M, b, l, scale_func=None, nested_lambda=False):
 
-        if not callable(function):
+        if not isinstance(function, collections.Callable):
             raise TypeError
         if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0]%1 != 0:
             raise TypeError
-        if not all([isinstance(num, (int, long, float)) for num in [b, l]]):
+        if not all([isinstance(num, (int, float)) for num in [b, l]]):
             raise TypeError
 
         self.function = function
@@ -124,20 +125,20 @@ class TransformedSecondOrderEigenfunction(Function):
 
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
-        if not all([isinstance(state, (int, float, long)) for state in init_state_vect]) \
+        if not all([isinstance(state, (int, float)) for state in init_state_vect]) \
                 and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) \
-                and all([callable(coef) or isinstance(coef, (int, float, long)) for coef in dgl_coefficients]):
+                and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
             raise TypeError
         if not isinstance(domain, (np.ndarray, list)) \
-                or not all([isinstance(num, (int, long, float)) for num in domain]):
+                or not all([isinstance(num, (int, float)) for num in domain]):
             raise TypeError
 
         if isinstance(target_eigenvalue, complex):
             self._eig_val_real = target_eigenvalue.real
             self._eig_val_imag = target_eigenvalue.imag
-        elif isinstance(target_eigenvalue, (int, long, float)):
+        elif isinstance(target_eigenvalue, (int, float)):
             self._eig_val_real = target_eigenvalue
             self._eig_val_imag = 0.
         else:
@@ -292,7 +293,7 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
     # delete all around om = 0
     om.reverse()
-    for i in xrange(np.sum(np.array(om) < np.pi / l / 2e1)):
+    for i in range(np.sum(np.array(om) < np.pi / l / 2e1)):
         om.pop()
     om.reverse()
 
@@ -382,7 +383,7 @@ def transform2intermediate(param, d_end=None):
         raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or list")
 
     a2, a1, a0, alpha, beta = param
-    if callable(a1) or callable(a0):
+    if isinstance(a1, collections.Callable) or isinstance(a0, collections.Callable):
         if not len(a1._derivative_handles) >= 1:
             raise TypeError
         a0_z = ut._convert_to_function(a0)
@@ -392,14 +393,14 @@ def transform2intermediate(param, d_end=None):
 
     if alpha is None:
         alpha_n = None
-    elif callable(a1):
+    elif isinstance(a1, collections.Callable):
         alpha_n = a1(0) / 2. / a2 + alpha
     else:
         alpha_n = a1 / 2. / a2 + alpha
 
     if beta is None:
         beta_n = None
-    elif callable(a1):
+    elif isinstance(a1, collections.Callable):
         beta_n = -a1(d_end) / 2. / a2 + beta
     else:
         beta_n = -a1 / 2. / a2 + beta

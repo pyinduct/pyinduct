@@ -1,11 +1,11 @@
-from __future__ import division
+
 import numpy as np
 
-from registry import get_base
-from core import domain_intersection, integrate_function, \
+from .registry import get_base
+from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
-from placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
-import simulation as sim
+from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
+from . import simulation as sim
 """
 This module contains all classes and functions related to the creation of controllers as well as the implementation
 for simulation purposes.
@@ -153,11 +153,11 @@ class LawEvaluator(object):
         output = 0+0j
 
         # add dynamic part
-        for lbl, law in self._cfs.get_dynamic_terms().iteritems():
+        for lbl, law in self._cfs.get_dynamic_terms().items():
             dst_weights = [0]
             if law[0] is not None:
                 # build eval vector
-                if lbl not in self._eval_vectors.keys():
+                if lbl not in list(self._eval_vectors.keys()):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
@@ -169,7 +169,7 @@ class LawEvaluator(object):
                 info.src_order = int(weights.size / info.src_base.size) - 1
                 info.dst_order = int(self._eval_vectors[lbl].size / info.dst_base.size) - 1
 
-                if info not in self._transformations.keys():
+                if info not in list(self._transformations.keys()):
                     # fetch handle
                     handle = get_weight_transformation(info)
                     self._transformations[info] = handle
@@ -189,7 +189,7 @@ class LawEvaluator(object):
 
         # TODO: replace with the one from utils
         if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
-            print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
+            print(("Warning: Imaginary part of output is nonzero! out = {0}".format(output)))
 
         out = np.real_if_close(output, tol=10000000)
         if np.imag(out) != 0:

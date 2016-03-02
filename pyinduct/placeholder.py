@@ -3,8 +3,9 @@ from numbers import Number
 
 import numpy as np
 
-from registry import get_base, register_base, is_registered
-from core import sanitize_input
+from .registry import get_base, register_base, is_registered
+from .core import sanitize_input
+import collections
 
 
 class Placeholder(object):
@@ -55,7 +56,7 @@ class Input(Placeholder):
     class that works as a placeholder for the input of a system
     """
     def __init__(self, function_handle, order=0):
-        if not callable(function_handle):
+        if not isinstance(function_handle, collections.Callable):
             raise TypeError("callable object has to be provided.")
         Placeholder.__init__(self, function_handle, order=(order, 0))
 
@@ -215,11 +216,10 @@ class Product(object):
         return [elem for elem in self.args if isinstance(elem, cls)]
 
 
-class EquationTerm(object):
+class EquationTerm(object, metaclass=ABCMeta):
     """
     base class for all accepted terms in a weak formulation
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, scale, arg):
         if not isinstance(scale, Number):
@@ -304,7 +304,7 @@ def get_scalar_target(scalars):
     if targets:
         if targets[1:] != targets[:-1]:
             # since scalars are evaluated separately prefer E for f
-            residual = filter(lambda x: x[0] != "f", targets)
+            residual = [x for x in targets if x[0] != "f"]
             if len(residual) > 1:
                 # different temporal derivatives of state -> not supported
                 raise ValueError("target_term of scalars in product must be identical")

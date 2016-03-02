@@ -1,4 +1,4 @@
-from __future__ import division
+
 import unittest
 import sys
 import numpy as np
@@ -98,7 +98,7 @@ class FindRootsTestCase(unittest.TestCase):
         print(roots)
 
     def test_n_dim_func(self):
-        grid = np.array([range(10), range(10)])
+        grid = np.array([list(range(10)), list(range(10))])
         roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
                               show_plot=show_plots)
         print(roots)
@@ -115,7 +115,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
-        eval_values = np.array(range(10))
+        eval_values = np.array(list(range(10)))
         res = ut.evaluate_placeholder_function(self.funcs, eval_values)
         self.assertTrue(np.allclose(self.psi(eval_values), res))
 
@@ -135,7 +135,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
-        self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
+        self.weights = np.array(list(range(self.node_cnt*self.dates.size))).reshape((self.dates.size, self.nodes.size))
 
     def test_eval_helper(self):
         eval_data = simulation.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)

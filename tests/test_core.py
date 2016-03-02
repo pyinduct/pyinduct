@@ -1,4 +1,4 @@
-from __future__ import division
+
 import unittest
 import sys
 from numbers import Number
@@ -75,10 +75,10 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(f, d0)
 
         d1 = f.derive()  # default arg should be one
-        self.assertTrue(np.array_equal(d1._function_handle(range(10)), np.cos(range(10))))
+        self.assertTrue(np.array_equal(d1._function_handle(list(range(10))), np.cos(list(range(10)))))
 
         d2 = f.derive(2)
-        self.assertTrue(np.array_equal(d2._function_handle(range(10)), np.sin(range(10))))
+        self.assertTrue(np.array_equal(d2._function_handle(list(range(10))), np.sin(list(range(10)))))
 
         self.assertRaises(ValueError, d2.derive, 1)  # unknown derivative
 
@@ -94,7 +94,7 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(10*np.sin(range(100)), g2(range(100))))
+        self.assertTrue(np.array_equal(10*np.sin(list(range(100))), g2(list(range(100)))))
 
         # scale with function
         g3 = f.scale(lambda z: z)
@@ -103,7 +103,7 @@ class FunctionTestCase(unittest.TestCase):
             return z*f(z)
         self.assertIsInstance(g3(5), Number)
         self.assertNotIsInstance(g3(5), np.ndarray)
-        self.assertTrue(np.array_equal(g3(range(10)), check_handle(range(10))))
+        self.assertTrue(np.array_equal(g3(list(range(10))), check_handle(list(range(10)))))
         self.assertRaises(ValueError, g3.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
@@ -117,8 +117,8 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(f(10), func(10))
 
         # vectorial arguments should be understood and an np.ndarray shall be returned
-        self.assertIsInstance(f(range(10)), np.ndarray)
-        self.assertTrue(np.array_equal(f(range(10)), [func(val) for val in range(10)]))
+        self.assertIsInstance(f(list(range(10))), np.ndarray)
+        self.assertTrue(np.array_equal(f(list(range(10))), [func(val) for val in range(10)]))
 
 
 # class MatrixFunctionTestCase(unittest.TestCase):

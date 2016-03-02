@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 
 _registry = {}
@@ -13,7 +13,7 @@ def is_registered(label):
     if not isinstance(label, str):
         raise TypeError("only strings allowed as labels!")
 
-    return label in _registry.keys()
+    return label in list(_registry.keys())
 
 
 def register_base(label, functions, overwrite=False):

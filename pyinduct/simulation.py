@@ -1,16 +1,16 @@
 # coding=utf-8
-from __future__ import division
+
 from abc import ABCMeta, abstractmethod
 import warnings
 import numpy as np
 from scipy.integrate import ode
 
-from registry import get_base, is_registered
-from core import (Function, integrate_function, calculate_scalar_product_matrix,
-                  project_on_base, dot_product_l2)
-from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
-from visualization import EvalData
-from utils import find_nearest_idx
+from .registry import get_base, is_registered
+from .core import (Function, integrate_function, calculate_scalar_product_matrix,
+                   project_on_base, dot_product_l2)
+from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
+from .utils import find_nearest_idx
+from .visualization import EvalData
 
 
 class Domain(object):
@@ -64,11 +64,10 @@ class Domain(object):
         return self._limits
 
 
-class SimulationInput(object):
+class SimulationInput(object, metaclass=ABCMeta):
     """
     base class for all objects that want to act as an input for the timestep simulation
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, name=""):
         self._time_storage = []
@@ -186,7 +185,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
     """
-    print("simulating system: {0}".format(weak_form.name))
+    print(("simulating system: {0}".format(weak_form.name)))
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only WeakFormulation accepted.")
 
@@ -336,7 +335,7 @@ class CanonicalForm(object):
             shape = None
             while i <= self._max_idx[entry]:
                 name = self._build_name((entry, i))
-                if name in self.__dict__.keys():
+                if name in list(self.__dict__.keys()):
                     val = self.__dict__[name]
                     if shape is None:
                         shape = val.shape
@@ -423,7 +422,7 @@ class CanonicalForms(object):
             self._static_form.add_to(term, val)
             return
 
-        if weight_label not in self._dynamic_forms.keys():
+        if weight_label not in list(self._dynamic_forms.keys()):
             self._dynamic_forms[weight_label] = CanonicalForm("_".join([self.name+weight_label]))
 
         self._dynamic_forms[weight_label].add_to(term, val)
@@ -440,7 +439,7 @@ class CanonicalForms(object):
         return dict of terms for each weight set
         :return:
         """
-        return {label: val.get_terms() for label, val in self._dynamic_forms.iteritems()}
+        return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
 
 
 def parse_weak_formulation(weak_form):

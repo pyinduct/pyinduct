@@ -1,5 +1,3 @@
-from __future__ import division
-
 import copy as cp
 import warnings
 from numbers import Number
@@ -8,10 +6,11 @@ import numpy as np
 import pyqtgraph as pg
 from scipy.optimize import root
 
-import placeholder as ph
-import visualization as vis
-from placeholder import FieldVariable, TestFunction
-from registry import get_base, register_base
+from .registry import get_base, register_base
+from . import placeholder as ph
+from .placeholder import FieldVariable, TestFunction
+from . import visualization as vis
+import collections
 
 
 class Parameters:
@@ -91,7 +90,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     val = iter(values)
     while found_roots < n_roots:
         try:
-            res = root(function, val.next(), tol=atol)
+            res = root(function, next(val), tol=atol)
             # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
@@ -199,7 +198,7 @@ def split_domain(n, a_desired, l, mode='coprime'):
     :return:
     """
 
-    if not isinstance(n, (long, int, float)):
+    if not isinstance(n, (int, float)):
         raise TypeError("Integer excepted.")
     if not int(n) - n == 0:
         raise TypeError("n must be a natural number")
@@ -232,7 +231,7 @@ def split_domain(n, a_desired, l, mode='coprime'):
         return k1, k2, a, b, ratio, diff
 
     cand = list()
-    for num in xrange(1, 3):
+    for num in range(1, 3):
         cand.append(get_candidate_tuple(n, num))
 
     if mode == 'force_k2_as_prime_number':
@@ -280,7 +279,7 @@ def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     :param mode:
     :return:
     """
-    if not all(isinstance(i, (int, long, float)) for i in [k1, k2]):
+    if not all(isinstance(i, (int, float)) for i in [k1, k2]):
         raise TypeError("TypeErrorMessage")
     if not all(i % 1 == 0 for i in [k1, k2]):
         raise TypeError("TypeErrorMessage")
@@ -331,8 +330,8 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
                                                 d_approx_target_state, integral_kernel_zz, original_beta,
                                                 target_beta, trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
-    import control as ct
-    import simulation as sim
+    from . import control as ct
+    from . import simulation as sim
     if not all([isinstance(arg, list) for arg in args]):
         raise TypeError
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
@@ -358,14 +357,14 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + \
                   second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
 
-    if not scale is None:
+    if scale is not None:
         scaled_control_law = scale_equation_term_list(control_law, scale)
-        if not trajectory is None:
+        if trajectory is not None:
             trajectory.scale *= scale
     else:
         scaled_control_law = control_law
 
-    if not trajectory is None:
+    if trajectory is not None:
         return sim.SimulationInputSum([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
     else:
         return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law))])
@@ -373,15 +372,15 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
 
 # TODO: change to factory, rename: function_wrapper
 def _convert_to_function(coef):
-    if not callable(coef):
+    if not isinstance(coef, collections.Callable):
         return lambda z: coef
     else:
         return coef
 
 
 def _convert_to_scalar_function(coef, label):
-    import core as cr
-    if not callable(coef):
+    from . import core as cr
+    if not isinstance(coef, collections.Callable):
         register_base(label, cr.Function(lambda z: coef), overwrite=True)
     elif isinstance(coef, cr.Function):
         register_base(label, coef, overwrite=True)
@@ -391,7 +390,7 @@ def _convert_to_scalar_function(coef, label):
 
 
 def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
-    import simulation as sim
+    from . import simulation as sim
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
     # integral terms
@@ -419,7 +418,7 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
 
 def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain,
                                   actuation_type_point=None):
-    import simulation as sim
+    from . import simulation as sim
 
     if actuation_type_point is None:
         actuation_type_point = spatial_domain[1]

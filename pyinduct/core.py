@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
+
 from abc import ABCMeta, abstractmethod
 from copy import copy
 from numbers import Number
 import numpy as np
 from scipy import integrate
 from scipy.linalg import block_diag
-from registry import get_base
+from .registry import get_base
+import collections
 
 
 def sanitize_input(input_object, allowed_type):
@@ -25,12 +26,10 @@ def sanitize_input(input_object, allowed_type):
     return input_object
 
 
-class BaseFraction(object):
+class BaseFraction(object, metaclass=ABCMeta):
     """
     abstract base class representing a basis that can be used to describe functions of several variables
     """
-    # TODO implement more verbose content in all abstarct functions and then kick out the abstract stuff
-    __metaclass__ = ABCMeta
 
     def __init__(self, members):
         self.members = members
@@ -145,7 +144,7 @@ class Function(BaseFraction):
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
         # handle must be callable
-        if not callable(eval_handle):
+        if not isinstance(eval_handle, collections.Callable):
             raise TypeError("callable has to be provided as function_handle")
         if isinstance(eval_handle, Function):
             raise TypeError("Function cannot be initialized with Function!")
@@ -164,7 +163,7 @@ class Function(BaseFraction):
 
         # derivatives
         for der_handle in derivative_handles:
-            if not callable(der_handle):
+            if not isinstance(der_handle, collections.Callable):
                 raise TypeError("callable has to be provided as member of derivative_handles")
         self._derivative_handles = derivative_handles
 
@@ -217,14 +216,14 @@ class Function(BaseFraction):
 
         def scale_factory(func):
             def _scaled_func(z):
-                if callable(factor):
+                if isinstance(factor, collections.Callable):
                     return factor(z) * func(z)
                 else:
                     return factor * func(z)
 
             return _scaled_func
 
-        if callable(factor):
+        if isinstance(factor, collections.Callable):
             scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero)
         else:
             scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
@@ -265,7 +264,7 @@ class Function(BaseFraction):
                     ret_val.append(self._function_handle(arg))
 
                 return np.array(ret_val)
-            except TypeError, e:
+            except TypeError as e:
                 return self._function_handle(argument)
 
     def derive(self, order=1):
@@ -593,7 +592,7 @@ def back_project_from_base(weights, base):
         # TODO call uniform complex converter instead
         res = np.real_if_close(sum([weights[i] * base[i](z) for i in range(weights.shape[0])]), tol=1e6)
         if not all(np.imag(res) == 0):
-            print("warning: complex values encountered! {0}".format(np.max(np.imag(res))))
+            print(("warning: complex values encountered! {0}".format(np.max(np.imag(res)))))
             # return np.real(res)
             return np.zeros_like(z)
 
@@ -686,7 +685,7 @@ def get_weight_transformation(info):
     new_handle = None
     if hasattr(hint, "extras"):
         # try to gain transformations that will satisfy the extra terms
-        for dep_lbl, dep_order in hint.extras.iteritems():
+        for dep_lbl, dep_order in hint.extras.items():
             new_info = copy(info)
             new_info.dst_lbl = dep_lbl
             new_info.dst_base = get_base(dep_lbl, 0)

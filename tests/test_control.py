@@ -1,4 +1,4 @@
-from __future__ import division
+
 import unittest
 import numpy as np
 
@@ -133,7 +133,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         n = 10
 
         # eigenvalues /-functions original system
-        eig_freq = np.array([(i + 1) * np.pi / l for i in xrange(n)])
+        eig_freq = np.array([(i + 1) * np.pi / l for i in range(n)])
         eig_values = a0 - a2 * eig_freq ** 2 - a1 ** 2 / 4. / a2
         norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
         eig_funcs = np.asarray([ef.SecondOrderDirichletEigenfunction(eig_freq[i], param, dz.bounds, norm_fac[i])
@@ -164,7 +164,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2 * np.array([eig_funcs[i].derive()(l) for i in xrange(n)])
+        B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
         ss = sim.StateSpace("eig_funcs", A, B)
 
         # simulate
@@ -277,7 +277,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # determine (A,B) with modal-transformation
         A = np.diag(np.real(eig_val))
-        B = a2 * np.array([adjoint_eig_funcs[i](self.l) for i in xrange(len(eig_freq))])
+        B = a2 * np.array([adjoint_eig_funcs[i](self.l) for i in range(len(eig_freq))])
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # simulate
@@ -442,7 +442,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(self.eig_val))
-        B = a2 * np.array([self.adjoint_eig_funcs[i](self.l) for i in xrange(self.n)])
+        B = a2 * np.array([self.adjoint_eig_funcs[i](self.l) for i in range(self.n)])
         ss_modal = sim.StateSpace(self.act_funcs, A, B)
 
         # simulate

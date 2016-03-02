@@ -1,11 +1,11 @@
-from __future__ import division
+
 import sympy as sp
 import numpy as np
 import pyqtgraph as pg
 
-from simulation import SimulationInput
+from .simulation import SimulationInput
 from numbers import Number
-import eigenfunctions as ef
+from . import eigenfunctions as ef
 import scipy.misc as sm
 
 
@@ -178,7 +178,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     a = dict()
     a[0] = K*(4*tau*(1-tau))**(1-sigma)/(2*(sigma-1))
     a[1] = (2*tau - 1)*(sigma-1)/(tau*(1-tau))*a[0]
-    for k in xrange(2, n+2):
+    for k in range(2, n+2):
         a[k] = (tau*(1-tau))**-1 * ((sigma-2+k)*(2*tau-1)*a[k-1]+(k-1)*(2*sigma-4+k)*a[k-2])
 
     yy = dict()
@@ -187,12 +187,12 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
         yy[1] = a[2]*(1-yy[0]**2)
     z = dict()
     z[0] = (1-yy[0]**2)
-    for i in xrange(2, n+1):
+    for i in range(2, n+1):
         sum_yy = np.zeros(len(t))
-        for k in xrange(i):
+        for k in range(i):
             if k == 0:
                 sum_z = np.zeros(len(t))
-                for j in xrange(i):
+                for j in range(i):
                     sum_z += -sm.comb(i-1, j)*yy[j]*yy[i-1-j]
                 z[i-1] = sum_z
             sum_yy += sm.comb(i-1, k)*a[k+2]*z[i-1-k]
@@ -200,7 +200,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
 
     # push
     phi = np.nan*np.zeros((n+1, len(t)+2))
-    for i in xrange(n+1):
+    for i in range(n+1):
         phi_temp = 0.5*yy[i]
         if i == 0:
             phi_temp += 0.5
@@ -241,20 +241,20 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
             bound_cond_type))
 
     # TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
-    for i in xrange(len(t)):
+    for i in range(len(t)):
         sum_x = np.zeros(len(z))
-        for j in xrange(n):
+        for j in range(n):
             sum_b = np.zeros(len(z))
-            for k in xrange(j+1):
+            for k in range(j+1):
                 sum_b += sm.comb(j, k)*(-a0)**(j-k)*y[k, i]
             sum_x += (is_robin+alpha*z/(2.*j+1.))*z**(2*j)/sm.factorial(2*j)/a2**j*sum_b
         x[i, :] = sum_x
 
-    for i in xrange(len(t)):
+    for i in range(len(t)):
         sum_x = np.zeros(len(z))
-        for j in xrange(n):
+        for j in range(n):
             sum_b = np.zeros(len(z))
-            for k in xrange(j+2):
+            for k in range(j+2):
                 sum_b += sm.comb(j+1, k)*(-a0)**(j-k+1)*y[k, i]
             if j == 0:
                 sum_x += alpha*y[0, i]
