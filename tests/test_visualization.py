@@ -1,7 +1,7 @@
-from __future__ import division
+
 import os
 import unittest
-from cPickle import loads
+from pickle import loads
 import pyqtgraph as pg
 import matplotlib as mpl
 mpl.use("Qt4Agg")
@@ -64,6 +64,6 @@ class PlotTestCase(unittest.TestCase):
 
     def test_mpl_slice_plot(self):
         if show_plots:
-            vis.MplSlicePlot(self.test_data+self.test_data+self.test_data, spatial_point=0.5, ylabel=u'$x(0,t)$',
+            vis.MplSlicePlot(self.test_data+self.test_data+self.test_data, spatial_point=0.5, ylabel='$x(0,t)$',
                              legend_label=['1', '2', '3', '4', '5', '6'])
             plt.show()

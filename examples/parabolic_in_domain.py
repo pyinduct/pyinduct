@@ -1,4 +1,4 @@
-from __future__ import division
+
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import numpy as np

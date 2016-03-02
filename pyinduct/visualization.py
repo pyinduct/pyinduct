@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
@@ -11,7 +11,7 @@ import time
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
-import utils as ut
+from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 
@@ -361,11 +361,11 @@ class MplSlicePlot(PgDataPlot):
         if time_point is None:
             slice_input = [data_set.input_data[0] for data_set in self._data]
             slice_data = [interp_funcs[i](spatial_point, slice_input[i]) for i in range(len_data)]
-            plt.xlabel(u'$t$')
+            plt.xlabel('$t$')
         elif spatial_point is None:
             slice_input = [data_set.input_data[1] for data_set in self._data]
             slice_data = [interp_funcs[i](slice_input[i], time_point) for i in range(len_data)]
-            plt.xlabel(u'$z$')
+            plt.xlabel('$z$')
         else:
             raise TypeError
 

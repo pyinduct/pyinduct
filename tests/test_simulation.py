@@ -1,7 +1,7 @@
-from __future__ import division
+
 import unittest
 import os
-from cPickle import dumps
+from pickle import dumps
 
 import numpy as np
 import sys
@@ -48,7 +48,7 @@ class CanonicalFormTest(unittest.TestCase):
         self.cf.add_to(("E", 2), 2*b)
         self.assertTrue(np.array_equal(self.cf._E2, 3*b))
 
-        f = np.array(range(5))
+        f = np.array(list(range(5)))
         self.assertRaises(ValueError, self.cf.add_to, ("E", 0), f)
         self.cf.add_to(("f", 0), f)
         self.assertTrue(np.array_equal(self.cf._f0, f))
@@ -70,7 +70,7 @@ class ParseTest(unittest.TestCase):
 
     def setUp(self):
         # scalars
-        self.scalars = ph.Scalars(np.vstack(range(3)))
+        self.scalars = ph.Scalars(np.vstack(list(range(3))))
 
         # inputs
         self.u = np.sin
@@ -402,7 +402,7 @@ class StringMassTest(unittest.TestCase):
         # create eigenfunctions
         eig_frequencies = ut.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
         print("eigenfrequencies:")
-        print eig_frequencies
+        print(eig_frequencies)
 
         # create eigen function vectors
         class SWMFunctionVector(cr.ComposedFunctionVector):
@@ -659,7 +659,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 1e2
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
-        omega = np.array([(i+1)*np.pi/l for i in xrange(spatial_disc)])
+        omega = np.array([(i+1)*np.pi/l for i in range(spatial_disc)])
         eig_values = a0 - a2*omega**2 - a1**2/4./a2
         norm_fak = np.ones(omega.shape)*np.sqrt(2)
         eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
@@ -687,7 +687,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in xrange(spatial_disc)])
+        B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
@@ -755,7 +755,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
-        B = a2*np.array([adjoint_eig_funcs[i](l) for i in xrange(len(eig_freq))])
+        B = a2*np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
         ss_modal = sim.StateSpace("eig_funcs", A, B)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)

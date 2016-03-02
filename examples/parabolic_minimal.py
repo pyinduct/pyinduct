@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
@@ -41,7 +41,7 @@ temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
 n = n_modal
 
 # eigenvalues /-functions original system
-eig_freq = np.array([(i + 1) * np.pi / l for i in xrange(n)])
+eig_freq = np.array([(i + 1) * np.pi / l for i in range(n)])
 eig_values = a0 - a2 * eig_freq ** 2 - a1 ** 2 / 4. / a2
 norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
 eig_funcs = np.asarray(
@@ -73,7 +73,7 @@ control_law = sim.SimulationInputSum([traj, controller])
 
 # determine (A,B) with modal-transfomation
 A = np.diag(eig_values)
-B = -a2 * np.array([eig_funcs[i].derive()(l) for i in xrange(n)])
+B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
 ss = sim.StateSpace("eig_funcs", A, B)
 
 # evaluate desired output data
