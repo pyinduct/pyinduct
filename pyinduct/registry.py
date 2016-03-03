@@ -65,7 +65,7 @@ def get_base(label, order):
     """
     retrieve registered set of initial functions by their label
     :param label: string, label of functions to retrieve
-    :param order: deired derivative order of base
+    :param order: desired derivative order of base
     :return: initial_functions
     """
     if is_registered(label):
