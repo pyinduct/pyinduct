@@ -1,4 +1,3 @@
-
 import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
@@ -19,7 +18,6 @@ import collections
 
 
 class AddMulFunction(object):
-
     def __init__(self, function):
         self.function = function
 
@@ -27,7 +25,7 @@ class AddMulFunction(object):
         return self.function(z)
 
     def __mul__(self, other):
-        return AddMulFunction(lambda z: self.function(z)*other)
+        return AddMulFunction(lambda z: self.function(z) * other)
 
     def __add__(self, other):
         return AddMulFunction(lambda z: self.function(z) + other(z))
@@ -37,11 +35,12 @@ class FiniteTransformFunction(Function):
     """
     Provide a transformed function y(z) = T x(z) for a given matrix T and function y(z)
     """
+
     def __init__(self, function, M, b, l, scale_func=None, nested_lambda=False):
 
         if not isinstance(function, collections.Callable):
             raise TypeError
-        if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0]%1 != 0:
+        if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0:
             raise TypeError
         if not all([isinstance(num, (int, float)) for num in [b, l]]):
             raise TypeError
@@ -55,9 +54,9 @@ class FiniteTransformFunction(Function):
         else:
             self.scale_func = scale_func
 
-        self.n = int(M.shape[0]/2)
-        self.l0 = l/self.n
-        self.z_disc = np.array([(i+1)*self.l0 for i in range(self.n)])
+        self.n = int(M.shape[0] / 2)
+        self.l0 = l / self.n
+        self.z_disc = np.array([(i + 1) * self.l0 for i in range(self.n)])
 
         if not nested_lambda:
             # iteration mode
@@ -71,10 +70,11 @@ class FiniteTransformFunction(Function):
 
             for i in range(self.n):
                 self.x_func_vec.append(AddMulFunction(
-                    partial(lambda z, k: self.scale_func(k*self.l0 + z)*self.function(k*self.l0 + z), k=i)))
+                    partial(lambda z, k: self.scale_func(k * self.l0 + z) * self.function(k * self.l0 + z), k=i)))
             for i in range(self.n):
                 self.x_func_vec.append(AddMulFunction(
-                    partial(lambda z, k: self.scale_func(self.l - k*self.l0 - z)*self.function(self.l - k*self.l0 - z), k=i)))
+                    partial(lambda z, k: self.scale_func(self.l - k * self.l0 - z) * self.function(
+                        self.l - k * self.l0 - z), k=i)))
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
@@ -84,29 +84,30 @@ class FiniteTransformFunction(Function):
                               derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
-        i = int(z/self.l0)
-        zz = z%self.l0
-        if np.isclose(z, self.l0*i) and not np.isclose(0, zz):
+        i = int(z / self.l0)
+        zz = z % self.l0
+        if np.isclose(z, self.l0 * i) and not np.isclose(0, zz):
             zz = 0
         return self.y_func_vec[i](zz)
 
     def _call_transformed_func(self, z):
-        i = int(z/self.l0)
-        if i < 0 or i > self.n*2-1:
+        i = int(z / self.l0)
+        if i < 0 or i > self.n * 2 - 1:
             raise ValueError
-        zz = z%self.l0
-        if np.isclose(z, self.l0*i) and not np.isclose(0, zz):
+        zz = z % self.l0
+        if np.isclose(z, self.l0 * i) and not np.isclose(0, zz):
             zz = 0
         to_return = 0
-        for j in range(self.n*2):
+        for j in range(self.n * 2):
             mat_el = self.M[i, j]
             if mat_el != 0:
-                if j <= self.n-1:
-                    to_return += mat_el*self.function(j*self.l0 + zz) * self.scale_func(j*self.l0 + zz)
+                if j <= self.n - 1:
+                    to_return += mat_el * self.function(j * self.l0 + zz) * self.scale_func(j * self.l0 + zz)
                 elif j >= self.n:
-                    jj = j-self.n
-                    to_return += mat_el*self.function(self.l - jj*self.l0 - zz) * self.scale_func(self.l - jj*self.l0 - zz)
-                elif j < 0 or j > 2*self.n-1:
+                    jj = j - self.n
+                    to_return += mat_el * self.function(self.l - jj * self.l0 - zz) * self.scale_func(
+                        self.l - jj * self.l0 - zz)
+                elif j < 0 or j > 2 * self.n - 1:
                     raise ValueError
         return to_return
 
@@ -126,13 +127,14 @@ class TransformedSecondOrderEigenfunction(Function):
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
         if not all([isinstance(state, (int, float)) for state in init_state_vect]) \
-                and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
+            and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) \
-                and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
+            and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in
+                     dgl_coefficients]):
             raise TypeError
         if not isinstance(domain, (np.ndarray, list)) \
-                or not all([isinstance(num, (int, float)) for num in domain]):
+            or not all([isinstance(num, (int, float)) for num in domain]):
             raise TypeError
 
         if isinstance(target_eigenvalue, complex):
@@ -198,7 +200,7 @@ class SecondOrderRobinEigenfunction(Function):
 
         phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(phi_i*self.phi_0)
+        return return_real_part(phi_i * self.phi_0)
 
     def _d_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -213,22 +215,22 @@ class SecondOrderRobinEigenfunction(Function):
 
         d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(d_phi_i*self.phi_0)
+        return return_real_part(d_phi_i * self.phi_0)
 
     def _dd_phi(self, z):
         a2, a1, a0, alpha, beta = self._param
         om = self._om
         eta = -a1 / 2. / a2
 
-        cosX_term = (eta*(2*alpha-eta)-om**2) * np.cos(om * z)
+        cosX_term = (eta * (2 * alpha - eta) - om ** 2) * np.cos(om * z)
         if not np.isclose(0, np.abs(om), atol=1e-100):
-            sinX_term = ((eta**2 * (alpha - eta) / om - (eta+alpha)*om)) * np.sin(om * z)
+            sinX_term = ((eta ** 2 * (alpha - eta) / om - (eta + alpha) * om)) * np.sin(om * z)
         else:
-            sinX_term = eta**2 * (alpha - eta) * z - (eta+alpha)*om * np.sin(om * z)
+            sinX_term = eta ** 2 * (alpha - eta) * z - (eta + alpha) * om * np.sin(om * z)
 
         d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
 
-        return return_real_part(d_phi_i*self.phi_0)
+        return return_real_part(d_phi_i * self.phi_0)
 
 
 class SecondOrderDirichletEigenfunction(Function):
@@ -267,19 +269,18 @@ class SecondOrderDirichletEigenfunction(Function):
 
 
 def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
-
     a2, a1, a0, alpha, beta = param
     eta = -a1 / 2. / a2
 
     def characteristic_equation(om):
-        if round(om, 200) != 0.:
+        if np.round(om, 200) != 0.:
             zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
         else:
             zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
         return zero
 
     def complex_characteristic_equation(om):
-        if round(om, 200) != 0.:
+        if np.round(om, 200) != 0.:
             zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
         else:
             zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
@@ -288,7 +289,7 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     # assume 1 root per pi/l (safety factor = 3)
     om_end = 3 * n_roots * np.pi / l
     start_values = np.arange(0, om_end, .1)
-    om = ut.find_roots(characteristic_equation, 2*n_roots, start_values, rtol=int(np.log10(l) - 6),
+    om = ut.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
                        show_plot=show_plot).tolist()
 
     # delete all around om = 0
@@ -299,13 +300,13 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
     # if om = 0 is a root then add 0 to the list
     zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
-    if round(zero_limit, 6 + int(np.log10(l))) == 0.:
+    if np.round(zero_limit, 6 + int(np.log10(l))) == 0.:
         om.insert(0, 0.)
 
     # regard complex roots
     om_squared = np.power(om, 2).tolist()
     complex_root = fsolve(complex_characteristic_equation, om_end)
-    if round(complex_root, 6 + int(np.log10(l))) != 0.:
+    if np.round(complex_root, 6 + int(np.log10(l))) != 0.:
         om_squared.insert(0, -complex_root[0] ** 2)
 
     # basically complex eigenfrequencies
@@ -315,9 +316,8 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
         raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
                          "can not find enough roots")
 
-
     eig_frequencies = om[:n_roots]
-    eig_values = a0 - a2 * eig_frequencies**2 - a1 ** 2 / 4. / a2
+    eig_values = a0 - a2 * eig_frequencies ** 2 - a1 ** 2 / 4. / a2
     return eig_frequencies, eig_values
 
 
@@ -387,9 +387,9 @@ def transform2intermediate(param, d_end=None):
         if not len(a1._derivative_handles) >= 1:
             raise TypeError
         a0_z = ut._convert_to_function(a0)
-        a0_n = lambda z: a0_z(z) - a1(z)**2/4/a2 - a1.derive(1)(z)/2
+        a0_n = lambda z: a0_z(z) - a1(z) ** 2 / 4 / a2 - a1.derive(1)(z) / 2
     else:
-        a0_n = a0 - a1**2/4/a2
+        a0_n = a0 - a1 ** 2 / 4 / a2
 
     if alpha is None:
         alpha_n = None

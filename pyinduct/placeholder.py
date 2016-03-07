@@ -195,6 +195,7 @@ class Product(object):
 
             new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
             new_name = new_func.tostring()
+            new_name = new_func.tobytes()
             register_base(new_name, new_func)
 
             if isinstance(other_func, (ScalarFunction, TestFunction)):
