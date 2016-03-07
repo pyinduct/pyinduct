@@ -10,7 +10,7 @@ def is_registered(label):
     :param label: string, label to check for
     :return: True if registered, False if not
     """
-    if not isinstance(label, str):
+    if not isinstance(label, (str, bytes)):
         raise TypeError("only strings allowed as labels!")
 
     return label in list(_registry.keys())
@@ -24,7 +24,7 @@ def register_base(label, functions, overwrite=False):
     :param label: string that will be used as label
     :param overwrite: force overwrite if label is already present
     """
-    if not isinstance(label, str):
+    if not isinstance(label, (str, bytes)):
         raise TypeError("only strings allowed as labels!")
 
     funcs = np.atleast_1d(functions)
@@ -53,7 +53,7 @@ def deregister_base(label):
     :param label: string, label of functions that are to be removed
     :raises ValueError if label is not found in registry
     """
-    if not isinstance(label, str):
+    if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as label!")
     if not is_registered(label):
         raise ValueError("label {0} not found in registry!".format(label))

@@ -6,7 +6,7 @@ import matplotlib as mpl
 mpl.use("Qt4Agg")  # if PyQt5 is available matplotlib would otherwise switch to that
 import matplotlib.pyplot as plt
 from numbers import Number
-from types import NoneType
+# from types import NoneType
 import time
 import scipy.interpolate as si
 # axes3d not explicit used but needed
@@ -343,7 +343,7 @@ class MplSlicePlot(PgDataPlot):
                  legend_label=None, legend_location=1, figure_size=(10, 6)):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
-                    (isinstance(time_point, NoneType) ^ isinstance(spatial_point, NoneType))):
+                    (isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 
