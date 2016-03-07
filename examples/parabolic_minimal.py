@@ -89,7 +89,7 @@ t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domai
 # pyqtgraph visualization
 evald_x = ut.evaluate_approximation("eig_funcs", q, t, spatial_domain,
                                     name="x(z,t) with x(z,0)=" + str(init_profile))
-win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T / len(temporal_domain) * 4)
+win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T / temporal_domain.step*4)
 win2 = vis.PgSurfacePlot([evald_x], title=evald_x.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()

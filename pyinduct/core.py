@@ -93,6 +93,7 @@ class BaseFraction(object):
 
         def handle(weights):
             return np.dot(mat, weights)
+
         return handle
 
     @abstractmethod
@@ -127,11 +128,12 @@ class Function(BaseFraction):
     To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
     The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
     """
+
     # TODO: overload add and mul operators
 
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[],
                  vectorial=False):
-        BaseFraction.__init__(self,  self)
+        BaseFraction.__init__(self, self)
 
         # domain and nonzero area
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
@@ -155,7 +157,7 @@ class Function(BaseFraction):
         if not isinstance(eval_handle(testval), Number):
             raise TypeError("callable must return number when called with scalar")
         if vectorial:
-            if not isinstance(eval_handle(np.array([testval]*10)), np.ndarray):
+            if not isinstance(eval_handle(np.array([testval] * 10)), np.ndarray):
                 raise TypeError("callable must return np.ndarray when called with vector")
         self._function_handle = eval_handle
         self.vectorial = vectorial
@@ -285,6 +287,7 @@ class ComposedFunctionVector(BaseFraction):
         \\end{pmatrix}
 
     """
+
     def __init__(self, functions, scalars):
         funcs = sanitize_input(functions, Function)
         scals = sanitize_input(scalars, Number)
@@ -292,7 +295,7 @@ class ComposedFunctionVector(BaseFraction):
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
     def scalar_product_hint(self):
-        return [dot_product_l2 for funcs in self.members["funcs"]]\
+        return [dot_product_l2 for funcs in self.members["funcs"]] \
                + [np.multiply for scals in self.members["scalars"]]
 
     def get_member(self, idx):
@@ -437,6 +440,7 @@ def complex_quadrature(func, a, b, **kwargs):
     :param kwargs: kwargs for func
     :return:
     """
+
     def real_func(x):
         return np.real(func(x))
 
@@ -446,7 +450,7 @@ def complex_quadrature(func, a, b, **kwargs):
     real_integral = integrate.quad(real_func, a, b, **kwargs)
     imag_integral = integrate.quad(imag_func, a, b, **kwargs)
 
-    return real_integral[0] +1j*imag_integral[0], real_integral[1] + imag_integral[1]
+    return real_integral[0] + 1j * imag_integral[0], real_integral[1] + imag_integral[1]
 
 
 def dot_product(first, second):
@@ -617,6 +621,7 @@ class TransformationInfo(object):
     """
     wrapper that holds information about transformations
     """
+
     def __init__(self):
         self.src_lbl = None
         self.dst_lbl = None
