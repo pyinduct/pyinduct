@@ -240,7 +240,7 @@ class ProjectionTest(unittest.TestCase):
 
         # convenience wrapper for non array input -> constant function
         weight = core.project_on_base(self.funcs[0], self.initial_functions[1])
-        self.assertAlmostEqual(weight, 1.5*self.funcs[0](self.nodes[1]))
+        self.assertTrue(np.allclose(weight, 1.5*self.funcs[0](self.nodes[1])))
 
         # linear function -> should be fitted exactly
         weights.append(core.project_on_base(self.funcs[1], self.initial_functions))
