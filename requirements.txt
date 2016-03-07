@@ -2,7 +2,7 @@ numpy>=1.10.2
 scipy>=0.16.1
 sympy>=0.7.6.1
 wheel>=0.23.0
-pyqtgraph>=pyqtgraph-0.9.10-179-g9d64b26
+pyqtgraph>=pyqtgraph-0.9.10
+# pyqtgraph>=pyqtgraph-0.9.10-179-g9d64b26
 PyOpenGL>=3.1.0
-# pyqtgraph==0.9.10
 matplotlib>=1.5.0

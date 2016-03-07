@@ -1,7 +1,7 @@
 
 import unittest
 import os
-from pickle import dumps
+from pickle import dumps, dump
 
 import numpy as np
 import sys
@@ -371,8 +371,8 @@ class StringMassTest(unittest.TestCase):
         file_path = os.sep.join(["resources", "test_data.res"])
         if not os.path.isdir("resources"):
             os.makedirs("resources")
-        with open(file_path, "w") as f:
-            f.write(dumps(eval_data))
+        with open(file_path, "w+b") as f:
+            dump(eval_data, f)
 
     def test_modal(self):
         order = 8
