@@ -2,14 +2,14 @@
 PyInduct
 ========
 
-.. image:: https://img.shields.io/travis/audreyr/pyinduct.svg
+.. image:: https://img.shields.io/travis/cklb/pyinduct.svg
         :target: https://travis-ci.org/cklb/pyinduct
 
 .. image:: https://img.shields.io/pypi/v/pyinduct.svg
         :target: https://pypi.python.org/pypi/pyinduct
 
 
-The aim of this project is to provide a toolbox to automate the backstepping based design of controllers for boundary actuated infinite dimensional systems.
+This project provides a python toolbox for simulation and control design of infinite dimensional systems.
 
 * Free software: GPL v3.0
 * Documentation: https://pyinduct.readthedocs.org.
@@ -17,4 +17,7 @@ The aim of this project is to provide a toolbox to automate the backstepping bas
 Features
 --------
 
-* TODO
+* easy simulation of underlying systems using ready-to-go FEM implementations or custom modal approximations
+* predefined eigenfunctions for parabolic problems up to 2nd order
+* automated controller approximation based on individual shape-functions
+* powerful visualization methods for verification
