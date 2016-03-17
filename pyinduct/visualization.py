@@ -2,8 +2,8 @@ from __future__ import division
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
-# import matplotlib as mpl
-# mpl.use("Qt4Agg")  # if PyQt5 is available matplotlib would otherwise switch to that
+import matplotlib as mpl
+mpl.use("Qt4Agg")  # if PyQt5 is available matplotlib would otherwise switch to that
 import matplotlib.pyplot as plt
 from numbers import Number
 from types import NoneType
