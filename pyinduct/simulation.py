@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import division
 from abc import ABCMeta, abstractmethod
+import warnings
 import numpy as np
 from scipy.integrate import ode
 
@@ -56,10 +57,6 @@ class Domain(object):
     @property
     def bounds(self):
         return self._limits
-
-
-class SimulationException(Exception):
-    pass
 
 
 class SimulationInput(object):
@@ -608,17 +605,13 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
 
     for t_step in temp_domain[1:]:
         if not r.successful():
+            warnings.warn("*** Error: Simulation aborted at t={} ***".format(t_step))
             break
 
         t.append(t_step)
-        try:
-            q.append(r.integrate(t_step))
-        except SimulationException as e:
-            print("Simulation failed at t={0}: {1}".format(r.t, e))
-            t.pop()
-            break
+        q.append(r.integrate(t_step))
 
     # create results
     q = np.array(q)
 
-    return temp_domain, q
+    return Domain(points=np.array(t), step=temp_domain.step), q

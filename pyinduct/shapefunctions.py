@@ -47,7 +47,6 @@ class LagrangeFirstOrder(Function):
             Function.__init__(self, self._lagrange1st_interior,
                               nonzero=(start, end), derivative_handles=[self._der_lagrange1st_interior])
 
-
     def _lagrange1st_border_left(self, z):
         """
         left border equation for lagrange 1st order
@@ -247,7 +246,7 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
     elements of element_length
     :param interval:
     :param test_function_class:
-    :return:
+    :return: tuple of nodes and functions
     """
     if not issubclass(test_function_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")
@@ -277,8 +276,10 @@ def cure_interval(test_function_class, interval, node_count=None, element_length
         node_count = nodes.shape[0]
 
     if test_function_class is LagrangeFirstOrder:
+        # special case at interval boundaries
         test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
                           LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
+        # standard case
         for i in range(1, node_count - 1):
             test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
                                                          nodes[i],

@@ -2,7 +2,16 @@
 # noinspection PyUnresolvedReferences
 from registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
-from simulation import Domain, EvalData, SimulationInput
+from core import Function
+# noinspection PyUnresolvedReferences
+from placeholder import (ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
+                         TemporalDerivedFieldVariable, Product, TestFunction, Input)
+# noinspection PyUnresolvedReferences
+from simulation import Domain, EvalData, SimulationInput, WeakFormulation, simulate_system
+# noinspection PyUnresolvedReferences
+from shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
+# noinspection PyUnresolvedReferences
+from visualization import PgAnimatedPlot
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de"
