@@ -2,7 +2,7 @@ import numpy as np
 from numpy.polynomial import polynomial as npoly
 
 from .core import Function
-from simulation import Domain
+from .simulation import Domain
 """
 This module contains all shape functions that come with PyInduct. Furthermore helper methods
 for curing can be found here.
