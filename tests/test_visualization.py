@@ -1,10 +1,6 @@
-
 import os
 import unittest
 from pickle import loads
-import pyqtgraph as pg
-import matplotlib as mpl
-mpl.use("Qt4Agg")
 import matplotlib.pyplot as plt
 import sys
 
@@ -15,8 +11,8 @@ import pyinduct.visualization as vis
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -27,7 +23,14 @@ class PlotTestCase(unittest.TestCase):
     def setUp(self):
         if show_plots:
             try:
-                with open(os.sep.join(["resources", "test_data.res"])) as f:
+                root_dir = os.getcwd()
+                if root_dir.split(os.sep)[-1] == "tests":
+                    res_dir = os.sep.join([os.getcwd(), "resources"])
+                else:
+                    res_dir = os.sep.join([os.getcwd(), "tests", "resources"])
+
+                file_path = os.sep.join([res_dir, "test_data.res"])
+                with open(file_path, "r+b") as f:
                     self.test_data = loads(f.read())
             except:
                 raise ValueError("run 'test_simulation' first!")

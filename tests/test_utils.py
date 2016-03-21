@@ -1,11 +1,10 @@
-
 import unittest
 import sys
 import numpy as np
 
-import simulation
 from pyinduct import register_base, \
     core as cr, \
+    simulation as sim, \
     shapefunctions as sh, \
     utils as ut, \
     visualization as vt, \
@@ -123,7 +122,6 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 class EvaluateApproximationTestCase(unittest.TestCase):
 
     def setUp(self):
-
         self.node_cnt = 5
         self.time_step = 1e-1
         self.dates = np.arange(0, 10, self.time_step)
@@ -135,10 +133,10 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
-        self.weights = np.array(list(range(self.node_cnt*self.dates.size))).reshape((self.dates.size, self.nodes.size))
+        self.weights = np.array(list(range(self.node_cnt*self.dates.size))).reshape((self.dates.size, len(self.nodes)))
 
     def test_eval_helper(self):
-        eval_data = simulation.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
+        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
         if show_plots:
             p = vt.PgAnimatedPlot(eval_data)
             app.exec_()

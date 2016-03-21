@@ -1,17 +1,18 @@
-
 import unittest
 import os
-from pickle import dumps, dump
-
+from pickle import dump
 import numpy as np
 import sys
 
-import simulation
-from pyinduct import register_base, eigenfunctions as ef,\
-    core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
-import pyinduct.placeholder as ph
-import pyinduct as pi
-import pyinduct.shapefunctions
+from pyinduct import register_base, \
+    eigenfunctions as ef,\
+    core as cr, \
+    simulation as sim, \
+    utils as ut, \
+    visualization as vis, \
+    trajectory as tr, \
+    placeholder as ph, \
+    shapefunctions as sf
 
 
 if any([arg == 'discover' for arg in sys.argv]):
@@ -78,8 +79,8 @@ class ParseTest(unittest.TestCase):
         self.input = ph.Input(self.u)  # control input
 
         # TestFunctions
-        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
-                                                                      (0, 1), node_count=3)
+        nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
+                                                 (0, 1), node_count=3)
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
@@ -246,7 +247,7 @@ class StateSpaceTests(unittest.TestCase):
         # enter string with mass equations
         self.u = cr.Function(lambda x: 0)
         interval = (0, 1)
-        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, node_count=3)
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, node_count=3)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
@@ -324,8 +325,8 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
-                                                                 self.dz.bounds, node_count=10)
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
+                                            self.dz.bounds, node_count=10)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
@@ -354,7 +355,7 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(
-                simulation.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
                                                   t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
@@ -368,10 +369,17 @@ class StringMassTest(unittest.TestCase):
         # test for correct transition
         self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
 
-        # TODO dump in pyinduct/tests/ressources
-        file_path = os.sep.join(["resources", "test_data.res"])
-        if not os.path.isdir("resources"):
-            os.makedirs("resources")
+        # save some test data for later use
+        root_dir = os.getcwd()
+        if root_dir.split(os.sep)[-1] == "tests":
+            res_dir = os.sep.join([os.getcwd(), "resources"])
+        else:
+            res_dir = os.sep.join([os.getcwd(), "tests", "resources"])
+
+        if not os.path.isdir(res_dir):
+            os.makedirs(res_dir)
+
+        file_path = os.sep.join([res_dir, "test_data.res"])
         with open(file_path, "w+b") as f:
             dump(eval_data, f)
 
@@ -513,13 +521,13 @@ class RadFemTrajectoryTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
         # create test functions
-        nodes_1, ini_funcs_1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
-                                                                     dz.bounds,
-                                                                     node_count=spatial_disc)
+        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder,
+                                                dz.bounds,
+                                                node_count=spatial_disc)
         register_base("init_funcs_1", ini_funcs_1, overwrite=True)
-        nodes_2, ini_funcs_2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder,
-                                                                     dz.bounds,
-                                                                     node_count=spatial_disc)
+        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder,
+                                                dz.bounds,
+                                                node_count=spatial_disc)
         register_base("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
@@ -633,7 +641,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = simulation.evaluate_approximation("init_funcs_1", q, t, dz, spat_order=1)
+            eval_d = sim.evaluate_approximation("init_funcs_1", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -700,7 +708,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
-            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
+            eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -767,7 +775,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
-            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
+            eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d[0])
             app.exec_()

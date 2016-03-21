@@ -1,16 +1,13 @@
-
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
-import matplotlib as mpl
-mpl.use("Qt4Agg")  # if PyQt5 is available matplotlib would otherwise switch to that
 import matplotlib.pyplot as plt
 from numbers import Number
-# from types import NoneType
 import time
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
+
 from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]

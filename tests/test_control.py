@@ -1,8 +1,8 @@
-
-import unittest
+import sys
 import numpy as np
+from scipy import integrate
+import unittest
 
-import simulation
 from pyinduct import register_base
 from pyinduct import core as cr
 from pyinduct import control as ct
@@ -10,11 +10,9 @@ from pyinduct import placeholder as ph
 from pyinduct import utils as ut
 from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
+from pyinduct import shapefunctions as sf
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
-from scipy import integrate
-import sys
-import pyinduct.shapefunctions
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
@@ -32,7 +30,7 @@ if show_plots:
 class CollocatedTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 1)
-        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, 3)
+        nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
         register_base("funcs", funcs, overwrite=True)
         x_at1 = ph.FieldVariable("funcs", location=1)
         x_dt_at1 = ph.TemporalDerivedFieldVariable("funcs", 1, location=1)
@@ -69,7 +67,7 @@ class CollocatedTestCase(unittest.TestCase):
 class ContinuousTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 1)
-        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, interval, 3)
+        nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
         register_base("funcs", funcs, overwrite=True)
         x = ph.FieldVariable("funcs")
         x_dt = ph.TemporalDerivedFieldVariable("funcs", 1)
@@ -170,7 +168,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss, control_law, initial_weights, dt)
 
-        eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
+        eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -178,7 +176,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
+            eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -273,7 +271,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # input with feedback
         control_law = sim.SimulationInputSum([traj, controller])
-        # control_law = sim.SimulationInputSum([traj])
+        # control_law = sim.simInputSum([traj])
 
         # determine (A,B) with modal-transformation
         A = np.diag(np.real(eig_val))
@@ -283,7 +281,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, dt)
 
-        eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
+        eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -355,7 +353,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
                                 for i in range(self.n)])
 
         # create testfunctions
-        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
+        nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                                       self.dz.bounds,
                                                                       node_count=self.n)
 
@@ -414,7 +412,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.t, self.q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                                   self.dt)
 
-        eval_d = simulation.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
+        eval_d = sim.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(self.t, tc, yc[0, :])
@@ -449,7 +447,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.t, self.q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
                                                   self.dt)
 
-        eval_d = simulation.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
+        eval_d = sim.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(self.t, tc, yc[0, :])
@@ -525,7 +523,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
                                    for i in range(self.n)])
 
         # create testfunctions
-        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
+        nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                                       self.dz.bounds,
                                                                       node_count=self.n)
 
@@ -584,7 +582,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
 
         # simulate
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))), self.dt)
-        eval_d = simulation.evaluate_approximation("fem_funcs", q, t, self.dz)
+        eval_d = sim.evaluate_approximation("fem_funcs", q, t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -680,7 +678,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
                                  for i in range(self.n)])
 
         # create testfunctions
-        nodes, self.fem_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder,
+        nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                                       self.dz.bounds,
                                                                       node_count=self.n)
 
@@ -753,7 +751,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         for i in range(q.shape[0]):
             q_i[i, :] = np.dot(q[i, :], np.transpose(mat))
 
-        eval_i = simulation.evaluate_approximation("eig_funcs_i", q_i, t, self.dz)
+        eval_i = sim.evaluate_approximation("eig_funcs_i", q_i, t, self.dz)
         x_0t = eval_i.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -761,7 +759,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = simulation.evaluate_approximation("fem_funcs", q, t, self.dz)
+            eval_d = sim.evaluate_approximation("fem_funcs", q, t, self.dz)
             win1 = vis.PgSurfacePlot(eval_i)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
