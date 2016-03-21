@@ -599,6 +599,7 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
         q_t = np.dot(a_mat, q) + np.dot(b_mat, u(time=t, weights=q, weight_lbl=state_space.weight_lbl)).flatten()
         return q_t
 
+    # TODO check for complex-valued matrices and use 'zvode'
     r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step,
                                  method="adams",
                                  nsteps=1e3)

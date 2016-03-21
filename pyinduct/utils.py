@@ -39,24 +39,22 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
-
     It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
 
+    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
+    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
+    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
+    supersedes the present entry.
+
     :param function: function handle for f(x) whose roots shall be found
     :param n_roots: number of roots to find
-    :param range: np.ndarray (first dimension should fit the input dimension of the provided func) of values where to
-    start searching
-    :param step_size: stepwidths for each dimension, if only one is given it will be used for all dimensions
+    :param grid: np.ndarray (first dimension should fit the input dimension of the provided func) of values where to
+        start searching
     :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
     :param atol: absolute tolerance to zero  f(root) < atol
     :param show_plot: shows a debug plot containing the given functions behavior completed by the extracted roots
     :return: numpy.ndarray of roots
-
-    In Detail fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria given
-    by atol and rtol it is added. If it is already in the list, a comprehension between the already present entries
-    error and the current error is performed. If the newly calculated root comes with a smaller error it supersedes
-    the present entry.
     """
     # positive_numbers = [n_roots, points_per_root, area, atol]
     # integers = [n_roots, points_per_root, rtol]
@@ -187,9 +185,10 @@ def split_domain(n, a_desired, l, mode='coprime'):
     With the dicretisation l_0 = l/n an partion a+b=l respectivly k1+k2=n
     is provided such that n is odd and a=k1*l_0 is close to a_desired.
     modes:
-        - 'force_k2_as_prime_number': k2 is an prime number (k1,k2 are coprime)
-        - 'coprime': k1,k2 are coprime
-        - 'one_even_one_odd': just meet the specification from the doc (default)
+    - 'force_k2_as_prime_number': k2 is an prime number (k1,k2 are coprime)
+    - 'coprime': k1,k2 are coprime
+    - 'one_even_one_odd': just meet the specification from the doc (default)
+
     :param n:
     :param a_desired:
     :param l:
@@ -270,9 +269,9 @@ def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     - not given if k1 and k2 are odd
     - not given if k1=k2.
     modes:
-        - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
-        - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
-    :param n:
+    - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
+    - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
+
     :param k1:
     :param k2:
     :param mode:

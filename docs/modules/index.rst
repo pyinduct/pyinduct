@@ -18,6 +18,8 @@ access any PyInduct module, or use this contens:
 
     core
     simulation
+    shapefunctions
+    eigenfunctions
     visualization
     trajectory
     utils

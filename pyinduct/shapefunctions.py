@@ -12,15 +12,16 @@ for curing can be found here.
 class LagrangeFirstOrder(Function):
     """
     Implementation of a lagrangian initial function of order 1::
+
       ^
     1-|         ^
       |        /|\
       |       / | \
       |      /  |  \
-    0-|-----/   |   \-------------------------> z
+    0-|-----/   |   \-------------> z
             |   |   |
-          start,top,end
 
+    start,top,end
 
     :param start: start node
     :param top: top node, where :math:`f(x) = 1`

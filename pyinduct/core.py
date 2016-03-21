@@ -37,7 +37,8 @@ class BaseFraction(object, metaclass=ABCMeta):
     def derive(self, order):
         """
         basic implementation of derive function.
-        overwrite when subclassing to add more functionality
+        Empty implementation, overwrite to add more functionality.
+
         :param order: derivative order
         :return: derived object
         """
@@ -49,7 +50,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
     def transformation_hint(self, info, target):
         """
-        method that provides a information about how to transform weights from one BaseFraction into another.
+        method that provides a information about how to transform weights from one class:`.BaseFraction` into another.
 
         In Detail this function has to return a callable, which will take the weights of the source and will return the
         weights of the target system. It can have keyword arguments for other data which is required to perform the
@@ -65,8 +66,13 @@ class BaseFraction(object, metaclass=ABCMeta):
 
         Overwrite this Method in your implementation to support conversion between bases that differ from yours.
 
-        This implementation will cover the most basic case, where to two baseFractions are of same type. For any other
-        case it will raise an exception.
+        This implementation will cover the most basic case, where to two :class:`.BaseFraction` s are of same type.
+        For any other case it will raise an exception.
+
+        :param info: Transformation-Info object
+        :param target: Transformation-Target object
+        :raises: NotImplementedError
+        :returns: Transformation handle
         """
         # TODO handle target option!
         if target is False:
@@ -98,10 +104,10 @@ class BaseFraction(object, metaclass=ABCMeta):
     @abstractmethod
     def scalar_product_hint(self):
         """
-        hint that returns steps for scalar product calculation.
+        Empty Hint that can return steps for scalar product calculation.
         In detail this means a list object containing function calls to fill with (first, second) parameters
-        that will calculate the scalar product when summed up
-        :return:
+        that will calculate the scalar product when summed up.
+        Overwrite to implement custom functionality.
         """
         pass
 
@@ -109,6 +115,7 @@ class BaseFraction(object, metaclass=ABCMeta):
     def scale(self, factor):
         """
         factory method to obtain instances of this base fraction, scaled by the given factor.
+        Empty function, overwrite to implement custom functionality.
 
         :param factor: factor to scale the vector
         """
@@ -117,24 +124,40 @@ class BaseFraction(object, metaclass=ABCMeta):
     @abstractmethod
     def get_member(self, idx):
         """
-        getter function to access members of BaseFraction
+        Getter function to access members.
+        Empty function, overwrite to implement custom functionality.
+
+        :param idx: member-index
         """
         pass
 
 
 class Function(BaseFraction):
     """
-    To ensure the accurateness of numerical handling, areas where it is nonzero have to be provided
-    The user can choose between providing a (piecewise) analytical or pure numerical representation of the function
+    Most common instance of a :class:`BaseFraction`.
+    This class handles all tasks concerning derivation and evaluation of functions.
+
+    To ensure the accurateness of numerical handling, areas where nonzero is given have to be provided.
     """
 
     # TODO: overload add and mul operators
 
-    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=[],
+    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None,
                  vectorial=False):
+        """
+        Constructor.
+
+        :param eval_handle: callable object that can be evaluated
+        :param domain: domain on which the eval_handle is defined
+        :param nonzero: region in which the eval_handle will give nonzero output
+        :param derivative_handles: (list of) callable(s) that contain derivatives of eval_handle
+        :param vectorial: indicates whether eval_handle take vectorial or scalar input
+        """
         BaseFraction.__init__(self, self)
 
         # domain and nonzero area
+        if derivative_handles is None:
+            derivative_handles = []
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
             if not isinstance(val, list):
                 if isinstance(val, tuple):
@@ -176,7 +199,7 @@ class Function(BaseFraction):
         This implementation just calls the normal evaluation hook.
 
         :param values: places to be evaluated at
-        :returns np.ndarray
+        :return: np.ndarray
         """
         return self(values)
 
@@ -184,9 +207,10 @@ class Function(BaseFraction):
         """
         default method for Functions. If src is a subclass of Function, use default strategy.
         If a different behaviour is desired, overwrite this method.
+
         :param info:
         :param target:
-        :return:
+        :return: transformation handle
         """
         # TODO handle target option!
         if target is False:
@@ -511,7 +535,7 @@ def dot_product_l2(first, second):
 
 def calculate_scalar_matrix(values_a, values_b):
     """
-    convenience function wrapper of :py:function:`calculate_scalar_product_matrix` for the case of scalar elements.
+    convenience function wrapper of py:function:`calculate_scalar_product_matrix` for the case of scalar elements.
 
     :param values_a:
     :param values_b:
@@ -787,8 +811,8 @@ def normalize_function(x1, x2=None):
 
     :param x1: core.BaseFraction :math:`\\boldsymbol{x}_1`
     :param x2: core.BaseFraction :math:`\\boldsymbol{x}_2`
-    :raises : ValueError if given BaseFraction are orthogonal
-    :return:
+    :raise: ValueError if given BaseFraction are orthogonal
+    :return: normalized function(s)
     """
     if x2 is None:
         x2 = x1
