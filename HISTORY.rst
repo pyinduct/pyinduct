@@ -17,3 +17,9 @@ History
 ---------------------
 
 * Version 0.3
+
+0.4.0 (2016-03-21)
+---------------------
+
+* Version 0.4
+* Change from Python2 to Python3

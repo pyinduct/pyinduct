@@ -170,7 +170,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     evaluate a given placeholder object, that contains functions
 
     :param placeholder: instance of ref:py:class: FieldVariable or ref:py:class TestFunction ref:py:class ScalarFunction
-    :return: results as np.ndarray
+    :param input_values: values to evaluate at
+    :return: np.ndarray of results
     """
     if not isinstance(placeholder, (FieldVariable, TestFunction)):
         raise TypeError("Input Object not supported!")
@@ -181,9 +182,12 @@ def evaluate_placeholder_function(placeholder, input_values):
 
 def split_domain(n, a_desired, l, mode='coprime'):
     """
-    Consider a domain [0,l] which is divided into two subdomains [0,a] and [a,l].
-    With the dicretisation l_0 = l/n an partion a+b=l respectivly k1+k2=n
-    is provided such that n is odd and a=k1*l_0 is close to a_desired.
+    Consider a domain [0,l] which is divided into the two sub domains [0,a] and [a,l]
+    with:
+     -the discretization l_0 = l/n
+     -and a partition a+b=l.
+
+    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close to a_desired.
     modes:
     - 'force_k2_as_prime_number': k2 is an prime number (k1,k2 are coprime)
     - 'coprime': k1,k2 are coprime
