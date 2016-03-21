@@ -17,6 +17,7 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
@@ -63,11 +64,10 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
 
 
 class CureTestCase(unittest.TestCase):
-
     def setUp(self):
         self.node_cnt = 3
-        self.nodes = np.linspace(0, 2, self.node_cnt)
-        self.dz = (2 - 0) / (self.node_cnt-1)
+        self.nodes = np.linspace(0, 2, self.node_cnt, endpoint=True)
+        self.dz = (2 - 0) / (self.node_cnt - 1)  # =1 for the fast ones ...
         self.test_functions = np.array([pyinduct.shapefunctions.LagrangeFirstOrder(0, 0, 1),
                                         pyinduct.shapefunctions.LagrangeFirstOrder(0, 1, 2),
                                         pyinduct.shapefunctions.LagrangeFirstOrder(1, 2, 2)])
@@ -75,13 +75,17 @@ class CureTestCase(unittest.TestCase):
     def test_init(self):
         self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, [2, 3])
         self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, (2, 3))
-        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2))
-        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2), 2, 1)
+        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder,
+                          (0, 2))
+        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder,
+                          (0, 2), 2, 1)
 
     def test_rest(self):
-        nodes1, funcs1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2), node_count=self.node_cnt)
+        nodes1, funcs1 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2),
+                                                               node_count=self.node_cnt)
         self.assertTrue(np.allclose(nodes1, self.nodes))
-        nodes2, funcs2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2), element_length=self.dz)
+        nodes2, funcs2 = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 2),
+                                                               node_distance=self.dz)
         self.assertTrue(np.allclose(nodes2, self.nodes))
 
         for i in range(self.test_functions.shape[0]):
@@ -89,7 +93,8 @@ class CureTestCase(unittest.TestCase):
             self.assertEqual(self.test_functions[i].nonzero, funcs2[i].nonzero)
 
     def test_lagrange_2nd_order(self):
-        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder, (0, 1), node_count=2)
+        nodes, funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeSecondOrder, (0, 1),
+                                                             node_count=2)
         self.assertTrue(np.allclose(np.diag(np.ones(len(funcs))),
                                     np.array([funcs[i](nodes) for i in range(len(funcs))])))
         if show_plots:
@@ -97,5 +102,7 @@ class CureTestCase(unittest.TestCase):
             mpl.rcParams.update({'font.size': 50})
             plt.xticks(nodes)
             plt.yticks([0, 1])
-            z = np.linspace(0,1,1000)
-            [plt.plot(z, fun.derive(0)(z)) for fun in funcs]; plt.grid(True); plt.show()
+            z = np.linspace(0, 1, 1000)
+            [plt.plot(z, fun.derive(0)(z)) for fun in funcs];
+            plt.grid(True);
+            plt.show()

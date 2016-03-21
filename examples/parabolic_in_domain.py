@@ -2,6 +2,8 @@ from __future__ import division
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import numpy as np
+
+import simulation
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
@@ -223,17 +225,17 @@ for i in range(q.shape[0]):
     q_i[i, :] = np.dot(q[i, :], np.transpose(mat))
 
 # evaluate approximation of xi
-evald_modal_xi = ut.evaluate_approximation("eig_funcs_i", q_i, t, spatial_domain, name="x_i(z,t) modal simulation")
-evald_modal_T0_xid = ut.evaluate_approximation("sh_eig_funcs_id", q_i, t, spatial_domain,
-                                               name="T0*x_i(z,t) modal simulation")
-evald_shifted_x = ut.evaluate_approximation("sh_fem_funcs_i", q, t, spatial_domain,
-                                            name="T0*e^(-a1/a2/2*z)*x_(z,t) fem simulation")
+evald_modal_xi = simulation.evaluate_approximation("eig_funcs_i", q_i, t, spatial_domain, name="x_i(z,t) modal simulation")
+evald_modal_T0_xid = simulation.evaluate_approximation("sh_eig_funcs_id", q_i, t, spatial_domain,
+                                                       name="T0*x_i(z,t) modal simulation")
+evald_shifted_x = simulation.evaluate_approximation("sh_fem_funcs_i", q, t, spatial_domain,
+                                                    name="T0*e^(-a1/a2/2*z)*x_(z,t) fem simulation")
 evald_appr_xi = vis.EvalData(evald_modal_xi.input_data,
                              evald_shifted_x.output_data + evald_modal_xi.output_data - evald_modal_T0_xid.output_data,
                              name="x_i(t) approximated")
 
 # evaluate approximation of x
-evald_fem_x = ut.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t) simulation")
+evald_fem_x = simulation.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t) simulation")
 
 # pyqtgraph visualisations
 win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired],

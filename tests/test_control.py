@@ -1,6 +1,8 @@
 from __future__ import division
 import unittest
 import numpy as np
+
+import simulation
 from pyinduct import register_base
 from pyinduct import core as cr
 from pyinduct import control as ct
@@ -168,7 +170,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss, control_law, initial_weights, dt)
 
-        eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz)
+        eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -176,7 +178,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz)
+            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -281,7 +283,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # simulate
         t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, dt)
 
-        eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz)
+        eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -412,7 +414,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.t, self.q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
                                                   self.dt)
 
-        eval_d = ut.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
+        eval_d = simulation.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(self.t, tc, yc[0, :])
@@ -447,7 +449,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.t, self.q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
                                                   self.dt)
 
-        eval_d = ut.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
+        eval_d = simulation.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(self.t, tc, yc[0, :])
@@ -582,7 +584,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
 
         # simulate
         t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))), self.dt)
-        eval_d = ut.evaluate_approximation("fem_funcs", q, t, self.dz)
+        eval_d = simulation.evaluate_approximation("fem_funcs", q, t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -751,7 +753,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         for i in range(q.shape[0]):
             q_i[i, :] = np.dot(q[i, :], np.transpose(mat))
 
-        eval_i = ut.evaluate_approximation("eig_funcs_i", q_i, t, self.dz)
+        eval_i = simulation.evaluate_approximation("eig_funcs_i", q_i, t, self.dz)
         x_0t = eval_i.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
@@ -759,7 +761,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation("fem_funcs", q, t, self.dz)
+            eval_d = simulation.evaluate_approximation("fem_funcs", q, t, self.dz)
             win1 = vis.PgSurfacePlot(eval_i)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()

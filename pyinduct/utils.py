@@ -1,18 +1,17 @@
 from __future__ import division
-from numbers import Number
-import warnings
+
 import copy as cp
+import warnings
+from numbers import Number
 
 import numpy as np
-from scipy.interpolate import interp1d
-from scipy.optimize import fsolve, root
 import pyqtgraph as pg
+from scipy.optimize import root
 
-from registry import get_base, register_base
 import placeholder as ph
-from shapefunctions import LagrangeFirstOrder
-from placeholder import FieldVariable, TestFunction
 import visualization as vis
+from placeholder import FieldVariable, TestFunction
+from registry import get_base, register_base
 
 
 class Parameters:
@@ -182,38 +181,6 @@ def evaluate_placeholder_function(placeholder, input_values):
 
     funcs = get_base(placeholder.data["func_lbl"], placeholder.order[1])
     return np.array([func(input_values) for func in funcs])
-
-
-def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
-    """
-    evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
-
-    :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
-    :param base_label: functions to use for back-projection
-    :param temp_domain: steps to evaluate at
-    :param spat_domain: sim.Domain to evaluate at (or in)
-    :param spat_order: spatial derivative order to use
-    :param name: name to use
-    :return: EvalData
-    """
-    funcs = get_base(base_label, spat_order)
-    if weights.shape[1] != funcs.shape[0]:
-        raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
-                                                                                              funcs.size))
-
-    # evaluate shape functions at given points
-    if isinstance(base_label[0], LagrangeFirstOrder):
-        # shortcut for fem approximations
-        shape_vals = [func.top for func in funcs]
-    else:
-        shape_vals = [func(spat_domain) for func in funcs]
-    shape_vals = np.atleast_2d(shape_vals)
-
-    def eval_spatially(weight_vector):
-        return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
-
-    data = np.apply_along_axis(eval_spatially, 1, weights)
-    return vis.EvalData([temp_domain, spat_domain], data, name=name)
 
 
 def split_domain(n, a_desired, l, mode='coprime'):

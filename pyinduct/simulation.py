@@ -9,8 +9,8 @@ from registry import get_base, is_registered
 from core import (Function, integrate_function, calculate_scalar_product_matrix,
                   project_on_base, dot_product_l2)
 from placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
-from utils import evaluate_approximation, find_nearest_idx
 from visualization import EvalData
+from utils import find_nearest_idx
 
 
 class Domain(object):
@@ -36,11 +36,16 @@ class Domain(object):
             self._limits = bounds
             self._num = num
             self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+            if step is not None and not np.isclose(self._step, step):
+                raise ValueError("could not satisfy both redundant requirements for num and step!")
         elif bounds and step:
             self._limits = bounds
             # calculate number of needed points but save correct step size
-            self._num = int((bounds[1]-bounds[0])/step + .5)
+            self._num = int((bounds[1]-bounds[0])/step + 1.5)
             self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
+            if np.abs(step - self._step) > 1e-1:
+                warnings.warn("desired step-size {} doesn't fit to given interval,"
+                              " changing to {}".format(step, self._step))
         else:
             raise ValueError("not enough arguments provided!")
 
@@ -595,7 +600,9 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
         q_t = np.dot(a_mat, q) + np.dot(b_mat, u(time=t, weights=q, weight_lbl=state_space.weight_lbl)).flatten()
         return q_t
 
-    r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step)
+    r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step,
+                                 method="adams",
+                                 nsteps=1e3)
     if input_handle is None:
         def input_handle(x):
             return 0
@@ -615,3 +622,30 @@ def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
     q = np.array(q)
 
     return Domain(points=np.array(t), step=temp_domain.step), q
+
+
+def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
+    """
+    evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
+
+    :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
+    :param base_label: functions to use for back-projection
+    :param temp_domain: steps to evaluate at
+    :param spat_domain: sim.Domain to evaluate at (or in)
+    :param spat_order: spatial derivative order to use
+    :param name: name to use
+    :return: EvalData
+    """
+    funcs = get_base(base_label, spat_order)
+    if weights.shape[1] != funcs.shape[0]:
+        raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
+                                                                                              funcs.size))
+
+    # evaluate shape functions at given points
+    shape_vals = np.array([func.evaluation_hint(spat_domain) for func in funcs])
+
+    def eval_spatially(weight_vector):
+        return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
+
+    data = np.apply_along_axis(eval_spatially, 1, weights)
+    return EvalData([temp_domain, spat_domain], data, name=name)

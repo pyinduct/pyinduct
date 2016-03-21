@@ -2,6 +2,8 @@ from __future__ import division
 import unittest
 import sys
 import numpy as np
+
+import simulation
 from pyinduct import register_base, \
     core as cr, \
     shapefunctions as sh, \
@@ -136,7 +138,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.weights = np.array(range(self.node_cnt*self.dates.size)).reshape((self.dates.size, self.nodes.size))
 
     def test_eval_helper(self):
-        eval_data = ut.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
+        eval_data = simulation.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
         if show_plots:
             p = vt.PgAnimatedPlot(eval_data)
             app.exec_()

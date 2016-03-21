@@ -168,6 +168,19 @@ class Function(BaseFraction):
                 raise TypeError("callable has to be provided as member of derivative_handles")
         self._derivative_handles = derivative_handles
 
+    def evaluation_hint(self, values):
+        """
+        If evaluation can be accelerated by using special properties of a function, this function can be
+        overwritten to performs that computation. It gets passed an array of places where the caller
+        wants to evaluate the function and should return an array of the same length, containing the results.
+
+        This implementation just calls the normal evaluation hook.
+
+        :param values: places to be evaluated at
+        :returns np.ndarray
+        """
+        return self(values)
+
     def transformation_hint(self, info, target):
         """
         default method for Functions. If src is a subclass of Function, use default strategy.

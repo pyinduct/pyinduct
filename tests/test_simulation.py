@@ -6,6 +6,7 @@ from cPickle import dumps
 import numpy as np
 import sys
 
+import simulation
 from pyinduct import register_base, eigenfunctions as ef,\
     core as cr, simulation as sim, utils as ut, visualization as vis, trajectory as tr
 import pyinduct.placeholder as ph
@@ -353,8 +354,8 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(
-                ut.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                          t, self.dz))
+                simulation.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                                                  t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
@@ -632,7 +633,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = ut.evaluate_approximation("init_funcs_1", q, t, dz, spat_order=1)
+            eval_d = simulation.evaluate_approximation("init_funcs_1", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -699,7 +700,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
-            eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
+            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
@@ -766,7 +767,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
-            eval_d = ut.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
+            eval_d = simulation.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d[0])
             app.exec_()

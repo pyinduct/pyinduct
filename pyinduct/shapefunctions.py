@@ -2,6 +2,8 @@ import numpy as np
 from numpy.polynomial import polynomial as npoly
 
 from core import Function
+from simulation import Domain
+
 """
 This module contains all shape functions that come with PyInduct. Furthermore helper methods
 for curing can be found here.
@@ -10,7 +12,7 @@ for curing can be found here.
 
 class LagrangeFirstOrder(Function):
     """
-    Implementation of an lagrangian initial function of order 1
+    Implementation of a lagrangian initial function of order 1::
       ^
     1-|         ^
       |        /|\
@@ -19,6 +21,7 @@ class LagrangeFirstOrder(Function):
     0-|-----/   |   \-------------------------> z
             |   |   |
           start,top,end
+
 
     :param start: start node
     :param top: top node, where :math:`f(x) = 1`
@@ -113,7 +116,8 @@ class LagrangeFirstOrder(Function):
 
 class LagrangeSecondOrder(Function):
     """
-    Implementation of an lagrangian initial function of order 2
+    Implementation of an lagrangian initial function of order 2::
+
       ^                                    _
     1-|           ^                      / | \
       |          /|\                   /   |   \
@@ -123,6 +127,8 @@ class LagrangeSecondOrder(Function):
           \_/     |    \_/
        start    top       end     start   top    end
          |<----- d ------>|        |<---- d/2 --->|
+
+
     :param start: start node
     :param top: top node, where :math:`f(x) = 1`
     :param end: end node
@@ -130,14 +136,16 @@ class LagrangeSecondOrder(Function):
     """
 
     def __init__(self, start, top, end, max_element_length):
-        self._element_length = end-start
-        if not start <= top <= end or start == end or (not np.isclose(self._element_length, max_element_length) and not np.isclose(self._element_length, max_element_length/2)):
+        self._element_length = end - start
+        if not start <= top <= end or start == end or (
+            not np.isclose(self._element_length, max_element_length) and not np.isclose(self._element_length,
+                                                                                        max_element_length / 2)):
             raise ValueError("Input data is nonsense, see Definition.")
 
         self._start = start
         self.top = top
         self._end = end
-        self._e_2 = max_element_length/4
+        self._e_2 = max_element_length / 4
 
         if start == top:
             self._gen_left_top_poly()
@@ -149,13 +157,13 @@ class LagrangeSecondOrder(Function):
             Function.__init__(self, self._lagrange2nd_border_right, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_border_right,
                                                   self._dder_lagrange2nd_border_right])
-        elif np.isclose(end-start, max_element_length):
+        elif np.isclose(end - start, max_element_length):
             self._gen_left_top_poly()
             self._gen_right_top_poly()
             Function.__init__(self, self._lagrange2nd_interior, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_interior,
                                                   self._dder_lagrange2nd_interior])
-        elif np.isclose(end-start, max_element_length/2):
+        elif np.isclose(end - start, max_element_length / 2):
             self._gen_mid_top_poly()
             Function.__init__(self, self._lagrange2nd_interior_half, nonzero=(start, end),
                               derivative_handles=[self._der_lagrange2nd_interior_half,
@@ -164,16 +172,16 @@ class LagrangeSecondOrder(Function):
             raise ValueError("Following arguments do not meet the specs from LagrangeSecondOrder: start, end")
 
     def _gen_left_top_poly(self):
-        left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2*self._e_2)))
-        self._left_top_poly = npoly.Polynomial(left_top_poly.coef/left_top_poly(0))
+        left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2 * self._e_2)))
+        self._left_top_poly = npoly.Polynomial(left_top_poly.coef / left_top_poly(0))
 
     def _gen_right_top_poly(self):
         right_top_poly = npoly.Polynomial(npoly.polyfromroots((0, self._e_2)))
-        self._right_top_poly = npoly.Polynomial(right_top_poly.coef/right_top_poly(2*self._e_2))
+        self._right_top_poly = npoly.Polynomial(right_top_poly.coef / right_top_poly(2 * self._e_2))
 
     def _gen_mid_top_poly(self):
-        mid_top_poly = npoly.Polynomial(npoly.polyfromroots((0, 2*self._e_2)))
-        self._mid_top_poly = npoly.Polynomial(mid_top_poly.coef/mid_top_poly(self._e_2))
+        mid_top_poly = npoly.Polynomial(npoly.polyfromroots((0, 2 * self._e_2)))
+        self._mid_top_poly = npoly.Polynomial(mid_top_poly.coef / mid_top_poly(self._e_2))
 
     def _lagrange2nd_border_left(self, z, der_order=0):
         """
@@ -191,7 +199,7 @@ class LagrangeSecondOrder(Function):
         if z < self._start or z > self._end:
             return 0
         else:
-            return self._right_top_poly.deriv(der_order)(z-self._start)
+            return self._right_top_poly.deriv(der_order)(z - self._start)
 
     def _lagrange2nd_interior(self, z, der_order=0):
         """
@@ -202,9 +210,9 @@ class LagrangeSecondOrder(Function):
         elif z == self.top and der_order > 0:
             return 0
         elif self._start <= z <= self.top:
-            return self._right_top_poly.deriv(der_order)(z-self._start)
+            return self._right_top_poly.deriv(der_order)(z - self._start)
         else:
-            return self._left_top_poly.deriv(der_order)(z-self.top)
+            return self._left_top_poly.deriv(der_order)(z - self.top)
 
     def _lagrange2nd_interior_half(self, z, der_order=0):
         """
@@ -213,7 +221,7 @@ class LagrangeSecondOrder(Function):
         if z < self._start or z > self._end:
             return 0
         else:
-            return self._mid_top_poly.deriv(der_order)(z-self._start)
+            return self._mid_top_poly.deriv(der_order)(z - self._start)
 
     def _der_lagrange2nd_border_left(self, z):
         return self._lagrange2nd_border_left(z, der_order=1)
@@ -240,67 +248,57 @@ class LagrangeSecondOrder(Function):
         return self._lagrange2nd_interior_half(z, der_order=2)
 
 
-def cure_interval(test_function_class, interval, node_count=None, element_length=None):
+def cure_interval(test_function_class, interval, node_count=None, node_distance=None):
     """
-    Uses given test functions to cure a given interval with either node_count nodes or with
-    elements of element_length
-    :param interval:
-    :param test_function_class:
+    Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
+
+    :param test_function_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
+    :param interval: tuple of limits that constrain the interval
+    :param node_count: amount of nodes to use
+    :param node_distance: distance of nodes
+
     :return: tuple of nodes and functions
     """
     if not issubclass(test_function_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")
 
+    # TODO move these into "cure_hint" method of core.Function
     if test_function_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
         raise TypeError("LagrangeFirstOrder and LagrangeSecondOrder supported as test_function_class for now.")
 
-    if not isinstance(interval, tuple):
-        raise TypeError("interval must be given as tuple.")
-    if len(interval) is not 2:
-        raise TypeError("interval type not supported, should be (start, end)")
-
-    if node_count and element_length:
-        raise ValueError("node_count and element_length provided. Only one can be choosen.")
-    if not node_count and not element_length:
-        raise ValueError("neither (sensible) node_count nor element_length provided.")
-
-    start = min(interval)
-    end = max(interval)
-
-    # TODO: change to hint from Lagrange*
-    if node_count:
-        #  TODO: think about naming: element_length (better: node_distance)
-        nodes, element_length = np.linspace(start=start, stop=end, num=node_count, retstep=True)
-    else:
-        nodes = np.arange(start, end + element_length, element_length)
-        node_count = nodes.shape[0]
-
     if test_function_class is LagrangeFirstOrder:
-        # special case at interval boundaries
-        test_functions = [LagrangeFirstOrder(nodes[0], nodes[0], nodes[0] + element_length),
-                          LagrangeFirstOrder(nodes[-1] - element_length, nodes[-1], nodes[-1])]
-        # standard case
-        for i in range(1, node_count - 1):
-            test_functions.insert(-1, LagrangeFirstOrder(nodes[i] - element_length,
-                                                         nodes[i],
-                                                         nodes[i] + element_length))
+        domain = Domain(bounds=interval, step=node_distance, num=node_count)
+
+        # interval boundaries
+        test_functions = [LagrangeFirstOrder(domain[0], domain[0], domain[0] + domain.step),
+                          LagrangeFirstOrder(domain[-1] - domain.step, domain[-1], domain[-1])]
+        # interior case
+        for node in domain[1:-1]:
+            test_functions.insert(-1, LagrangeFirstOrder(node - domain.step,
+                                                         node,
+                                                         node + domain.step))
     elif test_function_class is LagrangeSecondOrder:
-        node_count = 2*node_count - 1
-        element_length /= 2
-        nodes = np.sort(np.concatenate((nodes, nodes[:-1] + np.diff(nodes)/2)))
-        max_element_length = 4*element_length
-        test_functions = [LagrangeSecondOrder(nodes[0], nodes[0], nodes[0] + 2*element_length, max_element_length),
-                          LagrangeSecondOrder(nodes[-1] - 2*element_length, nodes[-1], nodes[-1], max_element_length)]
-        for i in range(1, node_count - 1):
-            if i%2 != 0:
-                test_functions.insert(-1, LagrangeSecondOrder(nodes[i] - element_length,
-                                                              nodes[i],
-                                                              nodes[i] + element_length,
+        # create extra nodes for easier handling
+        inner_cnt = 2 * node_count - 1
+        # inner_dist = node_distance / 2
+
+        # domain = np.sort(np.concatenate((domain, domain[:-1] + np.diff(domain) / 2)))
+        domain = Domain(interval, num=inner_cnt)
+        max_element_length = 4 * domain.step
+
+        test_functions = [LagrangeSecondOrder(domain[0], domain[0], domain[0] + 2 * domain.step, max_element_length),
+                          LagrangeSecondOrder(domain[-1] - 2 * domain.step, domain[-1], domain[-1], max_element_length)]
+
+        for i in range(1, inner_cnt - 1):
+            if i % 2 != 0:
+                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - domain.step,
+                                                              domain[i],
+                                                              domain[i] + domain.step,
                                                               max_element_length))
             else:
-                test_functions.insert(-1, LagrangeSecondOrder(nodes[i] - 2*element_length,
-                                                              nodes[i],
-                                                              nodes[i] + 2*element_length,
+                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - 2 * domain.step,
+                                                              domain[i],
+                                                              domain[i] + 2 * domain.step,
                                                               max_element_length))
 
-    return nodes, np.asarray(test_functions)
+    return domain, np.asarray(test_functions)
