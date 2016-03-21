@@ -1,7 +1,6 @@
-
+import sys
 import unittest
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from pyinduct import get_base, register_base, \
     core as cr, \
@@ -9,8 +8,6 @@ from pyinduct import get_base, register_base, \
     eigenfunctions as ef, \
     visualization as vt, \
     placeholder as ph
-import sys
-import pyqtgraph as pg
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False

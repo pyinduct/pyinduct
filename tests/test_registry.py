@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import unittest
 
 from pyinduct import register_base, deregister_base, get_base

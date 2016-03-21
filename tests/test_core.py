@@ -1,8 +1,6 @@
-
-import unittest
 import sys
+import unittest
 from numbers import Number
-
 import numpy as np
 
 from pyinduct import register_base, get_base, core, shapefunctions

@@ -1,4 +1,3 @@
-
 import unittest
 import numpy as np
 from pyinduct import register_base
