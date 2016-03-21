@@ -1,7 +1,7 @@
 import copy as cp
 import warnings
 from numbers import Number
-
+import collections
 import numpy as np
 import pyqtgraph as pg
 from scipy.optimize import root
@@ -10,7 +10,6 @@ from .registry import get_base, register_base
 from . import placeholder as ph
 from .placeholder import FieldVariable, TestFunction
 from . import visualization as vis
-import collections
 
 
 class Parameters:
