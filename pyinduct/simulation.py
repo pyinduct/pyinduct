@@ -115,13 +115,19 @@ class SimulationInput(object, metaclass=ABCMeta):
         - see more in py:func`interp1d`
         :param as_eval_data: return results as EvalData object for straightforward display
         """
-        func = interp1d(self._time_storage, self._value_storage[result_key], kind=interpolation, assume_sorted=True)
-
-        # indexes = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
-        # results = np.array(self._value_storage[result_key])[indexes]
+        func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
+                        kind=interpolation, assume_sorted=True, axis=0)
+        values = func(time_steps)
 
         if as_eval_data:
-            return EvalData([time_steps], func(time_steps), name=".".join([self.name, result_key]))
+            # check if output was vectorial
+            if len(values.shape) == 2:
+                return EvalData([time_steps], func(time_steps), name=".".join([self.name, result_key]))
+            else:
+                res = []
+                for idx, val in enumerate(np.swapaxes(values, 0, 1)):
+                    res.append(EvalData([time_steps], val[:, 0], name=".".join([self.name, result_key, str(idx)])))
+                return res
 
         return func(time_steps)
 
@@ -402,11 +408,11 @@ class CanonicalForm(object):
 
         :return: py:class:StateSpace
         """
-        e_mats, f, g = self.get_terms()
+        e_mats, f, g_mats = self.get_terms()
         if f is not None:
             raise NotImplementedError
-        if g is not None:
-            if g.shape[0] > 1:
+        if g_mats is not None:
+            if g_mats.shape[0] > 1:
                 # this would be temporal derivatives of the input
                 raise NotImplementedError
 
@@ -431,12 +437,13 @@ class CanonicalForm(object):
                 # add last row
                 a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
 
-        # compose new input vector
-        b_vec = np.zeros((new_dim, 1))
-        if g is not None:
-            b_vec[-dim_x:] = np.dot(en_inv, -g[0])
+        # compose new input matrix
+        if g_mats is not None:
+            b_mat = -np.dot(en_inv, np.vstack([g_mat for g_mat in g_mats]))
+        else:
+            b_mat = np.zeros((new_dim, 1))
 
-        return StateSpace(self.weights, a_mat, b_vec, input_handle=self.input_function)
+        return StateSpace(self.weights, a_mat, b_mat, input_handle=self.input_function)
 
 
 class CanonicalForms(object):
