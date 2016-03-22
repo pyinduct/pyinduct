@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from collections import Iterable
 import warnings
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.integrate import ode
 
 from .registry import get_base, is_registered
@@ -101,23 +102,28 @@ class SimulationInput(object, metaclass=ABCMeta):
         """
         pass
 
-    def get_results(self, time_steps, result_key="output"):
+    def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
         return results from internal storage for given time steps.
         Warning! calling this method before a simulation was run will result in an error.
 
         :param time_steps: time points where values are demanded
         :param result_key: type of values to be returned
+        :param interpolation: interpolation method to use if demanded time-steps are not covered by the storage:
+        -"nearest" use nearest point available in storage
+        -"linear" interpolate between the 2 nearest points
+        - see more in py:func`interp1d`
+        :param as_eval_data: return results as EvalData object for straightforward display
         """
-        # TODO interpolate
-        indexes = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
-        results = np.array(self._value_storage[result_key])[indexes]
+        func = interp1d(self._time_storage, self._value_storage[result_key], kind=interpolation, assume_sorted=True)
 
-        # TODO change to more uniform behaviour
-        if result_key == "output":
-            return EvalData([time_steps], results.flatten(), name=self.name)
-        else:
-            return results
+        # indexes = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
+        # results = np.array(self._value_storage[result_key])[indexes]
+
+        if as_eval_data:
+            return EvalData([time_steps], func(time_steps), name=".".join([self.name, result_key]))
+
+        return func(time_steps)
 
 
 class SimulationInputSum(SimulationInput):

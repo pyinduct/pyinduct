@@ -38,6 +38,14 @@ class SimpleInput(sim.SimulationInput):
         return 0
 
 
+class MonotonousInput(sim.SimulationInput):
+    """
+    an input that ramps up
+    """
+    def _calc_output(self, **kwargs):
+        return kwargs["time"]
+
+
 class CorrectInput(sim.SimulationInput):
     """
     a diligent input
@@ -69,10 +77,37 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput()
         ic = np.zeros((2, 1))
-
         ss = sim.StateSpace("test", a, b, input_handle=u)
+
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
+
+    def test_storage(self):
+        a = np.eye(2, 2)
+        b = np.array([[0], [1]])
+        u = MonotonousInput()
+        ic = np.zeros((2, 1))
+        ss = sim.StateSpace("test", a, b, input_handle=u)
+
+        # run simulation to fill the internal storage
+        domain = sim.Domain((0, 10), step=.1)
+        res = sim.simulate_state_space(ss, ic, domain)
+
+        # don't return entries that are not there
+        self.assertRaises(KeyError, u.get_results, domain, "Unknown Entry")
+
+        # default key is "output"
+        ed = u.get_results(domain)
+        ed_explicit = u.get_results(domain, result_key="output")
+        self.assertTrue(np.array_equal(ed, ed_explicit))
+
+        # return np.ndarray as default
+        self.assertIsInstance(ed, np.ndarray)
+
+        # return EvalData if corresponding flag is set
+        self.assertIsInstance(u.get_results(domain, as_eval_data=True), sim.EvalData)
+
+        # TODO interpolation methods and extrapolation errors
 
 
 class CanonicalFormTest(unittest.TestCase):
