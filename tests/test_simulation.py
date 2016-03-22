@@ -114,8 +114,7 @@ class CanonicalFormTest(unittest.TestCase):
 
     def setUp(self):
         self.cf = sim.CanonicalForm()
-        self.u1 = SimpleInput()
-        self.u2 = SimpleInput()
+        self.u = SimpleInput()
 
     def test_add_to(self):
         a = np.eye(5)
@@ -131,12 +130,25 @@ class CanonicalFormTest(unittest.TestCase):
         self.cf.add_to(("E", 2), 2*b)
         self.assertTrue(np.array_equal(self.cf._E2, 3*b))
 
-        f = np.array(list(range(5)))
+        f = np.atleast_2d(np.array(range(5)))
         self.assertRaises(ValueError, self.cf.add_to, ("E", 0), f)
         self.cf.add_to(("f", 0), f)
         self.assertTrue(np.array_equal(self.cf._f0, f))
         self.cf.add_to(("f", 0), 2*f)
         self.assertTrue(np.array_equal(self.cf._f0, 3*f))
+
+        c = np.atleast_2d(np.array(range(5))).T
+        # that one should be easy
+        self.cf.add_to(("G", 0), c, column=0)
+        self.assertTrue(np.array_equal(self.cf._G0, c))
+
+        # here G0 as to be expanded
+        self.cf.add_to(("G", 0), c, column=1)
+        self.assertTrue(np.array_equal(self.cf._G0, np.hstack((c, c))))
+
+        # here G0 as to be expanded again
+        self.cf.add_to(("G", 0), c, column=3)
+        self.assertTrue(np.array_equal(self.cf._G0, np.hstack((c, c, np.zeros_like(c), c))))
 
     def test_get_terms(self):
         self.cf.add_to(("E", 0), np.eye(5))

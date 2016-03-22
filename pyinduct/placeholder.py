@@ -54,11 +54,17 @@ class ScalarFunction(Placeholder):
 class Input(Placeholder):
     """
     class that works as a placeholder for the input of a system
+
+    :param function_handle: callable object
+    :param index: if input is a vector, which element shall be used
+    :param order: see py:class:`Placeholder`
     """
-    def __init__(self, function_handle, order=0):
+    def __init__(self, function_handle, index=0, order=0):
         if not isinstance(function_handle, collections.Callable):
             raise TypeError("callable object has to be provided.")
-        Placeholder.__init__(self, function_handle, order=(order, 0))
+        if not isinstance(index, int) or index < 0:
+            raise TypeError("index must be a positive integer.")
+        Placeholder.__init__(self, dict(input=function_handle, index=index), order=(order, 0))
 
 
 class TestFunction(Placeholder):

@@ -280,7 +280,7 @@ class CanonicalForm(object):
     """
     def __init__(self, name=None):
         self.name = name
-        self._max_idx = dict(E=0, f=0, g=0)
+        self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
         self._input_function = None
 
@@ -312,32 +312,44 @@ class CanonicalForm(object):
         if self._weights != weight_lbl:
             raise ValueError("already defined target weights are overridden!")
 
-    def add_to(self, term, val):
+    def add_to(self, term, val, column=None):
         """
         adds the value val to term term
+
         :param term: tuple of name and index matrix(or vector) to add onto
         :param val: value to add
-        :return:
+        :param column: add the value only to one column of term (useful if only one dimension of term is known)
         """
         if not isinstance(term, tuple):
             raise TypeError("term must be tuple.")
-        if not isinstance(term[0], str) or term[0] not in "Efg":
-            raise TypeError("term[0] must be string")
-        if isinstance(term[1], int):
-            name = self._build_name(term)
-        else:
+        if not isinstance(term[0], str) or term[0] not in "EfG":
+            raise TypeError("term[0] must be a letter out of [E, f, G]")
+        if not isinstance(term[1], int):
             raise TypeError("term index must be int")
-
         if not isinstance(val, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
+        if column and not isinstance(column, int):
+            raise TypeError("column index must be int")
+
+        name = self._build_name(term)
 
         # try to increment term
         try:
             entity = getattr(self, name)
-            if entity.shape != val.shape:
+            if entity.shape != val.shape and column is None:
                 raise ValueError("{0} was already initialized with dimensions {1} but value to add has dimension {"
                                  "2}".format(name, entity.shape, val.shape))
-            # add
+
+            if column:
+                # check whether the dimensions fit or if the matrix has to be extended
+                if column >= entity.shape[1]:
+                    new_entity = np.zeros((entity.shape[0], column+1))
+                    new_entity[:entity.shape[0], :entity.shape[1]] = entity
+                    setattr(self, name, np.copy(new_entity))
+
+                entity = getattr(self, name)[:, column:column+1]
+
+            # add new value
             entity += val
 
         except AttributeError as e:
@@ -352,7 +364,7 @@ class CanonicalForm(object):
         :return: tuple of lists
         """
         terms = {}
-        for entry in "Efg":
+        for entry in "EfG":
             term = []
             i = 0
             shape = None
@@ -382,7 +394,7 @@ class CanonicalForm(object):
 
             terms.update({entry: np.real_if_close(result_term) if result_term is not None else None})
 
-        return terms["E"], terms["f"], terms["g"]
+        return terms["E"], terms["f"], terms["G"]
 
     def convert_to_state_space(self):
         """
@@ -548,11 +560,16 @@ def parse_weak_formulation(weak_form):
                     if len(placeholders["inputs"]) != 1:
                         raise NotImplementedError
                     input_var = placeholders["inputs"][0]
-                    input_func = input_var.data
-                    input_order = input_var.order
+                    input_func = input_var.data["input"]
+                    input_index = input_var.data["index"]
+
+                    # here we would need to provide derivative handles in the callable
+                    input_order = input_var.order[0]
+                    if input_order > 0:
+                        raise NotImplementedError
 
                     result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
-                    cf.add_to(("g", 0), result*term.scale)
+                    cf.add_to(("G", input_order), result*term.scale, column=input_index)
                     cf.input_function = input_func
                     continue
 
@@ -563,15 +580,19 @@ def parse_weak_formulation(weak_form):
 
                 if placeholders["inputs"]:
                     input_var = placeholders["inputs"][0]
-                    input_func = input_var.data
+                    input_func = input_var.data["input"]
+                    input_index = input_var.data["index"]
+
+                    # here we would need to provide derivative handles in the callable
                     input_order = input_var.order[0]
+                    if input_order > 0:
+                        raise NotImplementedError
 
                     # this would mean that the input term should appear in a matrix like E1 or E2
                     if target[0] == "E":
                         raise NotImplementedError
 
-                    cf.add_to(("g", 0), result*term.scale)
-                    # TODO think of a more modular concept for input handling
+                    cf.add_to(("G", input_order), result*term.scale, column=input_index)
                     cf.input_function = input_func
                     continue
 
