@@ -28,13 +28,59 @@ else:
     app = None
 
 # TODO Test for Domain
-# TODO Test for SimulationInput
+
+
+class SimpleInput(sim.SimulationInput):
+    """
+    the simplest input we can imagine
+    """
+    def _calc_output(self, **kwargs):
+        return 0
+
+
+class CorrectInput(sim.SimulationInput):
+    """
+    a diligent input
+    """
+    def _calc_output(self, **kwargs):
+        if "time" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        if "weights" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        if "weight_lbl" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        return 0
+
+
+class SimulationInputTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_abstract_funcs(self):
+        # raise type error since abstract method is not implemented
+        self.assertRaises(TypeError, sim.SimulationInput)
+
+        # method implemented, should work
+        u = SimpleInput()
+
+    def test_call_arguments(self):
+        a = np.eye(2, 2)
+        b = np.array([[0], [1]])
+        u = CorrectInput()
+        ic = np.zeros((2, 1))
+
+        ss = sim.StateSpace("test", a, b, input_handle=u)
+        # if caller provides correct kwargs no exception should be raised
+        res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
 
 
 class CanonicalFormTest(unittest.TestCase):
 
     def setUp(self):
         self.cf = sim.CanonicalForm()
+        self.u1 = SimpleInput()
+        self.u2 = SimpleInput()
 
     def test_add_to(self):
         a = np.eye(5)
@@ -244,25 +290,30 @@ class ParseTest(unittest.TestCase):
 class StateSpaceTests(unittest.TestCase):
 
     def setUp(self):
-        # enter string with mass equations
-        self.u = cr.Function(lambda x: 0)
-        interval = (0, 1)
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, node_count=3)
+
+        self.u = CorrectInput()
+
+        # setup temp and spat domain
+        spat_domain = sim.Domain((0, 1), num=3)
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=3)
         register_base("init_funcs", ini_funcs, overwrite=True)
+
+        # enter string with mass equations for testing
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), interval)
+                       ph.TestFunction("init_funcs")), spat_domain.bounds)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
                        ph.TestFunction("init_funcs", location=0)))
         int2 = ph.IntegralTerm(
             ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), interval)
+                       ph.TestFunction("init_funcs", order=1)), spat_domain.bounds)
         s2 = ph.ScalarTerm(
             ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
 
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
         self.cf = sim.parse_weak_formulation(string_pde)
+        self.ic = np.zeros((3, 2))
 
     def test_convert_to_state_space(self):
         ss = self.cf.convert_to_state_space()
@@ -349,14 +400,14 @@ class StringMassTest(unittest.TestCase):
         q0 = np.array([cr.project_on_base(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
 
         # simulate
-        t, q = sim.simulate_state_space(ss, self.cf.input_function, q0, self.dt)
+        t, q = sim.simulate_state_space(ss, q0, self.dt)
 
         # calculate result data
         eval_data = []
         for der_idx in range(2):
             eval_data.append(
                 sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
-                                                  t, self.dz))
+                                           t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
@@ -542,7 +593,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape), dt)
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_2.shape), dt)
 
             return t, q
 
@@ -577,7 +628,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_2.shape), dt)
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_2.shape), dt)
 
             return t, q
 
@@ -610,7 +661,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape), dt)
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_1.shape), dt)
 
             # check if (x'(0,t_end) - 1.) < 0.1
             self.assertLess(np.abs(ini_funcs_1[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
@@ -627,7 +678,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             ss = cf.convert_to_state_space()
 
             # simulate system
-            t, q = sim.simulate_state_space(ss, cf.input_function, np.zeros(ini_funcs_1.shape), dt)
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_1.shape), dt)
 
             # check if (x(0,t_end) - 1.) < 0.1
             self.assertLess(np.abs(ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
@@ -697,7 +748,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
         B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
+        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -707,7 +758,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
+            t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
@@ -765,7 +816,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
         B = a2*np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
+        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)),
@@ -774,7 +825,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            t, q = sim.simulate_state_space(ss_modal, u, initial_weights, dt)
+            t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d[0])

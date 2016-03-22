@@ -216,7 +216,7 @@ cf = sim.parse_weak_formulation(rad_pde)
 ss_weak = cf.convert_to_state_space()
 
 # simulate (t: time vector, q: weights matrix)
-t, q = sim.simulate_state_space(ss_weak, cf.input_function, init_profile * np.ones((len(fem_funcs))), temporal_domain)
+t, q = sim.simulate_state_space(ss_weak, init_profile * np.ones((len(fem_funcs))), temporal_domain)
 
 # compute modal weights (for the intermediate system: evald_modal_xi)
 mat = cr.calculate_base_transformation_matrix(fem_funcs, eig_funcs)

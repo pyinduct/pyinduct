@@ -76,7 +76,7 @@ control_law = sim.SimulationInputSum([traj, controller])
 # determine (A,B) with modal-transfomation
 A = np.diag(eig_values)
 B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
-ss = sim.StateSpace("eig_funcs", A, B)
+ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
 
 # evaluate desired output data
 z_d = np.linspace(0, l, len(spatial_domain))
@@ -86,7 +86,7 @@ x_l = tr.power_series(z_d, t_d, C)
 evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 
 # simulate
-t, q = sim.simulate_state_space(ss, control_law, initial_weights, temporal_domain)
+t, q = sim.simulate_state_space(ss, initial_weights, temporal_domain)
 
 # pyqtgraph visualization
 evald_x = simulation.evaluate_approximation("eig_funcs", q, t, spatial_domain,

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from abc import ABCMeta, abstractmethod
+from collections import Iterable
 import warnings
 import numpy as np
 from scipy.integrate import ode
@@ -66,7 +67,10 @@ class Domain(object):
 
 class SimulationInput(object, metaclass=ABCMeta):
     """
-    base class for all objects that want to act as an input for the timestep simulation
+    base class for all objects that want to act as an input for the time-step simulation.
+
+    The calculated values for each time-step are stored in internal memory and can be accessed by
+    py:func:`get_results` . After the simulation is finished.
     """
 
     def __init__(self, name=""):
@@ -76,7 +80,7 @@ class SimulationInput(object, metaclass=ABCMeta):
 
     def __call__(self, **kwargs):
         """
-        handle that will be used to retrieve input
+        handle that is used by the simulator to retrieve input.
         """
         out = self._calc_output(**kwargs)
         self._time_storage.append(kwargs["time"])
@@ -88,19 +92,28 @@ class SimulationInput(object, metaclass=ABCMeta):
     @abstractmethod
     def _calc_output(self, **kwargs):
         """
-        handle that has to be implemented for output calculation
+        handle that has to be implemented for output calculation.
+
+        :param kwargs:
+        -"time": the current simulation time
+        -"weights": the current weight vector
+        -"weight_lbl": the label of the weights used
         """
         pass
 
     def get_results(self, time_steps, result_key="output"):
         """
-        return results from storage for given time steps
+        return results from internal storage for given time steps.
+        Warning! calling this method before a simulation was run will result in an error.
+
         :param time_steps: time points where values are demanded
         :param result_key: type of values to be returned
         """
+        # TODO interpolate
+        indexes = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
+        results = np.array(self._value_storage[result_key])[indexes]
+
         # TODO change to more uniform behaviour
-        idxs = np.array([find_nearest_idx(self._time_storage, t) for t in time_steps])
-        results = np.array(self._value_storage[result_key])[idxs]
         if result_key == "output":
             return EvalData([time_steps], results.flatten(), name=self.name)
         else:
@@ -147,14 +160,18 @@ class StateSpace(object):
     wrapper class that represents the state space form of a dynamic system where
     :math:`\\boldsymbol{\\dot{x}}(t) = \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t)` and
     :math:`\\boldsymbol{y}(t) = \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)`
+    which has been approximated by projection on a base given by weight_label.
 
+    :param weight_label: label that has been used for approximation
     :param a_matrix: :math:`\\boldsymbol{A}`
-    :param a_matrix: :math:`\\boldsymbol{B}`
+    :param b_matrix: :math:`\\boldsymbol{B}`
     :param c_matrix: :math:`\\boldsymbol{C}`
     :param d_matrix: :math:`\\boldsymbol{D}`
     """
-    def __init__(self, weight_label, a_matrix, b_matrix, c_matrix=None, d_matrix=None):
+    def __init__(self, weight_label, a_matrix, b_matrix, input_handle=None, c_matrix=None, d_matrix=None):
         self.weight_lbl = weight_label
+        self.input = input_handle
+
         # TODO dimension checks
         self.A = a_matrix
         self.B = b_matrix
@@ -210,7 +227,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     # simulate
     print(">>> performing time step integration")
-    sim_domain, q = simulate_state_space(state_space_form, canonical_form.input_function, q0, temporal_domain)
+    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain)
 
     # evaluate
     print(">>> performing postprocessing")
@@ -363,8 +380,9 @@ class CanonicalForm(object):
 
     def convert_to_state_space(self):
         """
-        takes a list of matrices that form a system of odes of order n and converts it into a ode system of order 1
-        :return: tuple of (A, B)
+        convert the canonical ode system of order n a into an ode system of order 1.
+
+        :return: py:class:StateSpace
         """
         e_mats, f, g = self.get_terms()
         if f is not None:
@@ -400,7 +418,7 @@ class CanonicalForm(object):
         if g is not None:
             b_vec[-dim_x:] = np.dot(en_inv, -g[0])
 
-        return StateSpace(self.weights, a_mat, b_vec)
+        return StateSpace(self.weights, a_mat, b_vec, input_handle=self.input_function)
 
 
 class CanonicalForms(object):
@@ -577,37 +595,41 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(state_space, input_handle, initial_state, temp_domain):
+def simulate_state_space(state_space, initial_state, temp_domain):
     """
     wrapper to simulate a system given in state space form: :math:`\\dot{q} = Aq + Bu`
 
     :param state_space: state space formulation of the system
-    :param input_handle: function handle to evaluate input
     :param initial_state: initial state vector of the system
     :param temp_domain: tuple of t_start and t_end
     :return:
     """
     if not isinstance(state_space, StateSpace):
         raise TypeError
+
+    input_handle = state_space.input
+    if input_handle is None:
+        class EmptyInput(SimulationInput):
+            def _calc_output(self, **kwargs):
+                return np.zeros((state_space.B.shape[0], 1))
+        input_handle = EmptyInput()
     if not isinstance(input_handle, SimulationInput):
-        raise TypeError
+        raise TypeError("only simulation.SimulationInput supported.")
 
     q = [initial_state]
     t = [temp_domain[0]]
 
-    def _rhs(t, q, a_mat, b_mat, u):
-        q_t = np.dot(a_mat, q) + np.dot(b_mat, u(time=t, weights=q, weight_lbl=state_space.weight_lbl)).flatten()
+    # TODO export cython code?
+    def _rhs(_t, _q, a_mat, b_mat, u, lbl):
+        q_t = np.dot(a_mat, _q) + np.dot(b_mat, u(time=_t, weights=_q, weight_lbl=lbl)).flatten()
         return q_t
 
     # TODO check for complex-valued matrices and use 'zvode'
     r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step,
                                  method="adams",
                                  nsteps=1e3)
-    if input_handle is None:
-        def input_handle(x):
-            return 0
 
-    r.set_f_params(state_space.A, state_space.B, input_handle)
+    r.set_f_params(state_space.A, state_space.B, input_handle, state_space.weight_lbl)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:

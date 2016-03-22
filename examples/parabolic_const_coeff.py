@@ -139,7 +139,7 @@ rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller,
 cf = sim.parse_weak_formulation(rad_pde)
 ss_weak = cf.convert_to_state_space()
 # simulate
-t, q = sim.simulate_state_space(ss_weak, cf.input_function, init_profile * np.ones(n_fem), temporal_domain)
+t, q = sim.simulate_state_space(ss_weak, init_profile * np.ones(n_fem), temporal_domain)
 
 # evaluate desired output data
 y_d, t_d = tr.gevrey_tanh(T, 80)

@@ -163,10 +163,10 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
         B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
-        ss = sim.StateSpace("eig_funcs", A, B)
+        ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
 
         # simulate
-        t, q = sim.simulate_state_space(ss, control_law, initial_weights, dt)
+        t, q = sim.simulate_state_space(ss, initial_weights, dt)
 
         eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
@@ -276,10 +276,10 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # determine (A,B) with modal-transformation
         A = np.diag(np.real(eig_val))
         B = a2 * np.array([adjoint_eig_funcs[i](self.l) for i in range(len(eig_freq))])
-        ss_modal = sim.StateSpace("eig_funcs", A, B)
+        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
 
         # simulate
-        t, q = sim.simulate_state_space(ss_modal, control_law, initial_weights, dt)
+        t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
 
         eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
         x_0t = eval_d.output_data[:, 0]
@@ -409,7 +409,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         ss_weak = cf.convert_to_state_space()
 
         # simulate
-        self.t, self.q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_weak, np.zeros((len(self.fem_funcs))),
                                                   self.dt)
 
         eval_d = sim.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
@@ -441,10 +441,10 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real(self.eig_val))
         B = a2 * np.array([self.adjoint_eig_funcs[i](self.l) for i in range(self.n)])
-        ss_modal = sim.StateSpace(self.act_funcs, A, B)
+        ss_modal = sim.StateSpace(self.act_funcs, A, B, input_handle=controller)
 
         # simulate
-        self.t, self.q = sim.simulate_state_space(ss_modal, controller, np.zeros((len(self.adjoint_eig_funcs))),
+        self.t, self.q = sim.simulate_state_space(ss_modal, np.zeros((len(self.adjoint_eig_funcs))),
                                                   self.dt)
 
         eval_d = sim.evaluate_approximation(self.act_funcs, self.q, self.t, self.dz)
@@ -581,7 +581,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         ss_weak = cf.convert_to_state_space()
 
         # simulate
-        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))), self.dt)
+        t, q = sim.simulate_state_space(ss_weak, np.zeros((len(self.fem_funcs))), self.dt)
         eval_d = sim.evaluate_approximation("fem_funcs", q, t, self.dz)
         x_0t = eval_d.output_data[:, 0]
         yc, tc = tr.gevrey_tanh(self.T, 1)
@@ -743,7 +743,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         ss_weak = cf.convert_to_state_space()
 
         # simulate
-        t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(self.fem_funcs))), self.dt)
+        t, q = sim.simulate_state_space(ss_weak, np.zeros((len(self.fem_funcs))), self.dt)
 
         # weights of the intermediate system
         mat = cr.calculate_base_transformation_matrix(self.fem_funcs, eig_funcs)

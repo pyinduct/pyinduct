@@ -120,7 +120,7 @@ cf = sim.parse_weak_formulation(rad_pde)
 ss_weak = cf.convert_to_state_space()
 
 # simulate
-t, q = sim.simulate_state_space(ss_weak, cf.input_function, np.zeros((len(fem_funcs))), temporal_domain)
+t, q = sim.simulate_state_space(ss_weak, np.zeros((len(fem_funcs))), temporal_domain)
 
 # pyqtgraph visualization
 evald_x = simulation.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t)")
