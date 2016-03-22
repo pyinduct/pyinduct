@@ -121,7 +121,7 @@ class SimulationInput(object, metaclass=ABCMeta):
 
         if as_eval_data:
             # check if output was vectorial
-            if len(values.shape) == 2:
+            if len(values.shape) <= 2:
                 return EvalData([time_steps], func(time_steps), name=".".join([self.name, result_key]))
             else:
                 res = []
@@ -439,8 +439,15 @@ class CanonicalForm(object):
 
         # compose new input matrix
         if g_mats is not None:
-            b_mat = -np.dot(en_inv, np.vstack([g_mat for g_mat in g_mats]))
+            b_mat = np.zeros((new_dim, g_mats.shape[2]))
+            for idx, mat in enumerate(g_mats):
+                # build backwards since order of input derivatives is not constant
+                b_mat[new_dim-(idx+1)*mat.shape[0]:new_dim-idx*mat.shape[0], :] = -np.dot(en_inv, mat)
         else:
+            if self._input_function:
+                raise ValueError("input function but no matrix, something wrong here!")
+
+            # just an emtpy hull that makes no problems
             b_mat = np.zeros((new_dim, 1))
 
         return StateSpace(self.weights, a_mat, b_mat, input_handle=self.input_function)

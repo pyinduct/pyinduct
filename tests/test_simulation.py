@@ -875,5 +875,5 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
             t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz, spat_order=1)
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d[0])
+            win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
