@@ -104,6 +104,22 @@ class FunctionTestCase(unittest.TestCase):
         self.assertTrue(np.array_equal(g3(list(range(10))), check_handle(list(range(10)))))
         self.assertRaises(ValueError, g3.derive, 1)  # derivatives should be removed when scaled by function
 
+    def test_raise(self):
+        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+
+        # no new object since trivial scaling occurred
+        g1 = f.raise_to(1)
+        self.assertEqual(f, g1)
+
+        # after scaling, return scalars and vectors like normal
+        g2 = f.raise_to(2)
+
+        self.assertIsInstance(g2(5), Number)
+        self.assertNotIsInstance(g2(5), np.ndarray)
+        self.assertTrue(np.array_equal(np.sin(np.array(range(100)))**2,
+                                       g2(np.array(range(100)))))
+        self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
+
     def test_call(self):
         def func(x):
             return 2*x

@@ -10,7 +10,7 @@ from scipy.integrate import ode
 from .registry import get_base, is_registered
 from .core import (Function, integrate_function, calculate_scalar_product_matrix,
                    project_on_base, dot_product_l2)
-from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_scalar_target
+from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .utils import find_nearest_idx
 from .visualization import EvalData
 
@@ -351,7 +351,7 @@ class CanonicalForm(object):
 
         # get entry
         if term["name"] == "f":
-            if term["order"] or term["exponent"]:
+            if "order" in term or "exponent" in term:
                 warnings.warn("order and exponent are ignored for f_vector!")
             f_vector = self._matrices.get("f", np.zeros_like(value))
             self._matrices["f"] = value + f_vector
@@ -389,39 +389,6 @@ class CanonicalForm(object):
         :return: cascade of dictionaries with structure: Type > Order > Exponent
         """
         return self._matrices
-
-        terms = {}
-        for entry in "EfG":
-            term = []
-            i = 0
-            shape = None
-            while i <= self._max_idx[entry]:
-                name = self._build_name((entry, i))
-                if name in list(self.__dict__.keys()):
-                    val = self.__dict__[name]
-                    if shape is None:
-                        shape = val.shape
-                    elif shape != val.shape:
-                        raise ValueError("dimension mismatch between coefficient matrices")
-                    term.append(val)
-                else:
-                    term.append(None)
-                i += 1
-
-            if not all(x is None for x in term):
-                # fill empty places with good dimensions and construct output array
-                # TODO F**K this shit. No better way for that?
-                result_term = np.zeros(tuple([len(term)] + [dim for dim in shape]), dtype=np.complex)
-                for idx, mat in enumerate(term):
-                    if mat is None:
-                        mat = np.zeros(shape)
-                    result_term[idx, ...] = mat
-            else:
-                result_term = None
-
-            terms.update({entry: np.real_if_close(result_term) if result_term is not None else None})
-
-        return terms["E"], terms["f"], terms["G"]
 
     def convert_to_state_space(self):
         """
@@ -514,127 +481,133 @@ class CanonicalForms(object):
 
 
 def parse_weak_formulation(weak_form):
-        """
-        creates an ode system for the weights x_i based on the weak formulation.
+    """
+    creates an ode system for the weights x_i based on the weak formulation.
 
-        :return: simulation.ODESystem
-        """
-        if not isinstance(weak_form, WeakFormulation):
-            raise TypeError("only able to parse WeakFormulation")
+    :param weak_form: weak formulation of the pde
+    :return: nth-order ode system as :py:class:`CanonicalForm`
+    """
 
-        cf = CanonicalForm(weak_form.name)
+    if not isinstance(weak_form, WeakFormulation):
+        raise TypeError("only able to parse WeakFormulation")
 
-        # handle each term
-        for term in weak_form.terms:
-            # extract Placeholders
-            placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
-                                functions=term.arg.get_arg_by_class(TestFunction),
-                                field_variables=term.arg.get_arg_by_class(FieldVariable),
-                                inputs=term.arg.get_arg_by_class(Input))
+    cf = CanonicalForm(weak_form.name)
 
-            # field variable terms, sort into E_n, E_n-1, ..., E_0
-            if placeholders["field_variables"]:
-                if len(placeholders["field_variables"]) != 1:
-                    raise NotImplementedError
-                field_var = placeholders["field_variables"][0]
-                temp_order = field_var.order[0]
-                init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
+    # handle each term
+    for term in weak_form.terms:
+        # extract Placeholders
+        placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
+                            functions=term.arg.get_arg_by_class(TestFunction),
+                            field_variables=term.arg.get_arg_by_class(FieldVariable),
+                            inputs=term.arg.get_arg_by_class(Input))
 
-                if placeholders["inputs"]:
-                    # TODO think about this case, is it relevant?
-                    raise NotImplementedError
+        # field variable terms, sort into E_np, E_n-1p, ..., E_0p
+        if placeholders["field_variables"]:
+            if len(placeholders["field_variables"]) != 1:
+                raise NotImplementedError
+            field_var = placeholders["field_variables"][0]
+            temp_order = field_var.order[0]
+            exponent = field_var.data["exponent"]
+            init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
+            shape_funcs = np.array([func.raise_to(exponent) for func in init_funcs])
 
-                # is the integrand a product?
-                if placeholders["functions"]:
-                    if len(placeholders["functions"]) != 1:
-                        raise NotImplementedError
-                    func = placeholders["functions"][0]
-                    test_funcs = get_base(func.data["func_lbl"], func.order[1])
-                    result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, init_funcs)
-                else:
-                    # pull constant term out and compute integral
-                    a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in init_funcs]))
+            if placeholders["inputs"]:
+                # TODO think about this case, is it relevant?
+                raise NotImplementedError
 
-                    if placeholders["scalars"]:
-                        b = placeholders["scalars"][0]
-                    else:
-                        b = Scalars(np.ones_like(a.data.T))
-
-                    result = _compute_product_of_scalars([a, b])
-
-                cf.weights = field_var.data["weight_lbl"]
-                cf.add_to(("E", temp_order), result*term.scale)
-                continue
-
-            # TestFunction Terms, those will end up in f
+            # is the integrand a product?
             if placeholders["functions"]:
-                if not 1 <= len(placeholders["functions"]) <= 2:
+                if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 test_funcs = get_base(func.data["func_lbl"], func.order[1])
-
-                if len(placeholders["functions"]) == 2:
-                    # TODO this computation is nonesense. Result must be a vektor conataining int of (tf1*tf2)
-                    raise NotImplementedError
-
-                    func2 = placeholders["functions"][1]
-                    test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
-                    result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
-                    cf.add_to(("f", 0), result*term.scale)
-                    continue
+                result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
+            else:
+                # extract constant term and compute integral
+                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in shape_funcs]))
 
                 if placeholders["scalars"]:
-                    a = placeholders["scalars"][0]
-                    b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
-                                           for func in test_funcs]))
-                    result = _compute_product_of_scalars([a, b])
-                    cf.add_to(get_scalar_target(placeholders["scalars"]), result*term.scale)
-                    continue
+                    b = placeholders["scalars"][0]
+                else:
+                    b = Scalars(np.ones_like(a.data.T))
 
-                if placeholders["inputs"]:
-                    if len(placeholders["inputs"]) != 1:
-                        raise NotImplementedError
-                    input_var = placeholders["inputs"][0]
-                    input_func = input_var.data["input"]
-                    input_index = input_var.data["index"]
+                result = _compute_product_of_scalars([a, b])
 
-                    # here we would need to provide derivative handles in the callable
-                    input_order = input_var.order[0]
-                    if input_order > 0:
-                        raise NotImplementedError
+            cf.weights = field_var.data["weight_lbl"]
+            cf.add_to(dict(name="E", order=temp_order, exponent=exponent), result*term.scale)
+            continue
 
-                    result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
-                    cf.add_to(("G", input_order), result*term.scale, column=input_index)
-                    cf.input_function = input_func
-                    continue
+        # TestFunction or pre evaluated terms, those can end up in E, f or G
+        if placeholders["functions"]:
+            if not 1 <= len(placeholders["functions"]) <= 2:
+                raise NotImplementedError
+            func = placeholders["functions"][0]
+            test_funcs = get_base(func.data["func_lbl"], func.order[1])
 
-            # pure scalar terms, sort into corresponding matrices
-            if placeholders["scalars"]:
-                result = _compute_product_of_scalars(placeholders["scalars"])
-                target = get_scalar_target(placeholders["scalars"])
+            if len(placeholders["functions"]) == 2:
+                # TODO this computation is nonsense. Result must be a vector containing int(tf1*tf2)
+                raise NotImplementedError
 
-                if placeholders["inputs"]:
-                    input_var = placeholders["inputs"][0]
-                    input_func = input_var.data["input"]
-                    input_index = input_var.data["index"]
-
-                    # here we would need to provide derivative handles in the callable
-                    input_order = input_var.order[0]
-                    if input_order > 0:
-                        raise NotImplementedError
-
-                    # this would mean that the input term should appear in a matrix like E1 or E2
-                    if target[0] == "E":
-                        raise NotImplementedError
-
-                    cf.add_to(("G", input_order), result*term.scale, column=input_index)
-                    cf.input_function = input_func
-                    continue
-
-                cf.add_to(target, result*term.scale)
+                func2 = placeholders["functions"][1]
+                test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
+                result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
+                cf.add_to(("f", 0), result*term.scale)
                 continue
 
-        return cf
+            if placeholders["scalars"]:
+                a = placeholders["scalars"][0]
+                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
+                                       for func in test_funcs]))
+                result = _compute_product_of_scalars([a, b])
+                cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
+                continue
+
+            if placeholders["inputs"]:
+                if len(placeholders["inputs"]) != 1:
+                    raise NotImplementedError
+                input_var = placeholders["inputs"][0]
+                input_func = input_var.data["input"]
+                input_index = input_var.data["index"]
+                input_exp = input_var.data["exponent"]
+
+                # here we would need to provide derivative handles in the callable
+                input_order = input_var.order[0]
+                if input_order > 0:
+                    raise NotImplementedError
+
+                result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
+                cf.add_to(dict(name="G", order=input_order, exponent=input_exp), result*term.scale, column=input_index)
+                cf.input_function = input_func
+                continue
+
+        # pure scalar terms, sort into corresponding matrices
+        if placeholders["scalars"]:
+            result = _compute_product_of_scalars(placeholders["scalars"])
+            target = get_common_target(placeholders["scalars"])
+
+            if placeholders["inputs"]:
+                input_var = placeholders["inputs"][0]
+                input_func = input_var.data["input"]
+                input_index = input_var.data["index"]
+                input_exp = input_var.data["exponent"]
+
+                # here we would need to provide derivative handles in the callable
+                input_order = input_var.order[0]
+                if input_order > 0:
+                    raise NotImplementedError
+
+                # this would mean that the input term should appear in a matrix like E1 or E2
+                if target["name"] == "E":
+                    raise NotImplementedError
+
+                cf.add_to(dict(name="G", order=input_order, exponent=input_exp), result*term.scale, column=input_index)
+                cf.input_function = input_func
+                continue
+
+            cf.add_to(target, result*term.scale)
+            continue
+
+    return cf
 
 
 def _compute_product_of_scalars(scalars):

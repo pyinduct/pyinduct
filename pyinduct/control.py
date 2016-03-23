@@ -4,7 +4,7 @@ import numpy as np
 from .registry import get_base
 from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
-from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_scalar_target
+from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
 from . import simulation as sim
 """
 This module contains all classes and functions related to the creation of controllers as well as the implementation
@@ -116,7 +116,7 @@ def _parse_control_law(law):
             else:
                 res = scalars[0].data
 
-            cfs.add_to(scalars[0].target_form, get_scalar_target(scalars), res * term.scale)
+            cfs.add_to(scalars[0].target_form, get_common_target(scalars), res * term.scale)
 
         else:
             raise NotImplementedError

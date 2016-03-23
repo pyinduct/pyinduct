@@ -230,10 +230,31 @@ class Function(BaseFraction):
     def get_member(self, idx):
         return self
 
+    def raise_to(self, power):
+        """
+        raises the function to the power given by *power*
+        .. Note:: derivatives are lost after this action is performed
+
+        :param power: power to raise the function to
+        :return: raised function
+        """
+        if power == 1:
+            return self
+
+        def raise_factory(func):
+            def _raised_func(z):
+                return np.power(func(z), power)
+
+            return _raised_func
+
+        return Function(raise_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                        derivative_handles=[])
+
     def scale(self, factor):
         """
         factory method to scale this function.
-        factor can be a number or a function
+
+        :param factor: number or a callable
         """
         if factor == 1:
             return self

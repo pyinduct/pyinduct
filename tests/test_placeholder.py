@@ -17,6 +17,27 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
+class TestCommonTarget(unittest.TestCase):
+
+    def test_call(self):
+        t1 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=1, exponent=1))
+        t2 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=2, exponent=1))
+        t3 = ph.Scalars(np.zeros(2), target_term=dict(name="f"))
+        t4 = ph.Scalars(np.zeros(2), target_term=dict(name="f"))
+
+        # simple case
+        self.assertEqual(ph.get_common_target([t1]), t1.target_term)
+        self.assertEqual(ph.get_common_target([t2]), t2.target_term)
+        self.assertEqual(ph.get_common_target([t3]), t3.target_term)
+
+        # E precedes f
+        self.assertEqual(ph.get_common_target([t2, t3]), t2.target_term)
+        self.assertEqual(ph.get_common_target([t4, t1, t3]), t1.target_term)
+
+        # different derivatives produce problems
+        self.assertRaises(ValueError, ph.get_common_target, [t1, t2])
+
+
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
@@ -29,11 +50,19 @@ class FieldVariableTest(unittest.TestCase):
         self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (0, 3))  # order too high
         self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (2, 2))  # order too high
         self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (-1, 3))  # order negative
-        a = ph.FieldVariable("test_funcs", (0, 0), location=7)
+
+        # defaults
+        a = ph.FieldVariable("test_funcs")
         self.assertEqual((0, 0), a.order)
         self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
-        self.assertEqual(7, a.location)
-        self.assertEqual(1, a.exponent)  # default exponent is 1
+        self.assertEqual(None, a.location)
+        self.assertEqual(1, a.data["exponent"])  # default exponent is 1
+
+        b = ph.FieldVariable("test_funcs", order=(1, 1), location=7, weight_label="test_lbl", exponent=10)
+        self.assertEqual((1, 1), b.order)
+        self.assertEqual("test_lbl", b.data["weight_lbl"])  # default weight label is function label
+        self.assertEqual(7, b.location)
+        self.assertEqual(10, b.data["exponent"])
 
 
 class ProductTest(unittest.TestCase):

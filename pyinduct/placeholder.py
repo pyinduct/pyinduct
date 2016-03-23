@@ -13,11 +13,10 @@ class Placeholder(object):
     class that works as an placeholder for terms that are later substituted
     """
 
-    def __init__(self, data, order=(0, 0), location=None, exponent=1):
+    def __init__(self, data, order=(0, 0), location=None):
         """
         :param order: how many derivations are to be applied before evaluation (t, z)
         :param location: location to evaluate at before further computation
-        :param exponent: exponent to rise to before further computation
         """
         self.data = data
 
@@ -29,10 +28,6 @@ class Placeholder(object):
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
         self.location = location
-
-        if not isinstance(exponent, Number):
-            raise TypeError("exponent must be a number")
-        self.exponent = exponent
 
 
 class Scalars(Placeholder):
@@ -65,15 +60,16 @@ class Input(Placeholder):
 
     :param function_handle: callable object
     :param index: if input is a vector, which element shall be used
-    :param order: see py:class:`Placeholder`
+    :param order: see :py:class:`Placeholder`
+    :param exponent: see :py:class:`FieldVariable`
     """
 
-    def __init__(self, function_handle, index=0, order=0):
+    def __init__(self, function_handle, index=0, order=0, exponent=1):
         if not isinstance(function_handle, collections.Callable):
             raise TypeError("callable object has to be provided.")
         if not isinstance(index, int) or index < 0:
             raise TypeError("index must be a positive integer.")
-        Placeholder.__init__(self, dict(input=function_handle, index=index), order=(order, 0))
+        Placeholder.__init__(self, dict(input=function_handle, index=index, exponent=exponent), order=(order, 0))
 
 
 class TestFunction(Placeholder):
@@ -93,7 +89,8 @@ class FieldVariable(Placeholder):
     class that represents terms of the systems field variable :math:`x(z, t)` .
     """
 
-    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None, exponent=1):
+    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None, exponent=1,
+                 raised_spatially=False):
         """
         :param function_label: label of shapefunctions to use for approximation, see :py:func:`register_base`
             for more information about how to register an approximation basis.
@@ -130,9 +127,10 @@ class FieldVariable(Placeholder):
             weight_label = function_label
         elif not isinstance(weight_label, str):
             raise TypeError("only strings allowed as 'weight_label'")
-        self.exponent = exponent
+        if not isinstance(exponent, Number):
+            raise TypeError("exponent must be a number")
 
-        Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label},
+        Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
                              order=order, location=location)
 
 
@@ -226,18 +224,19 @@ class Product(object):
                 else:
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
-            new_func = np.asarray([func.scale(scale_func) for func, scale_func in zip(o_func, s_func)])
-            new_name = new_func.tostring()
+            exp = other_func.data.get("exponent", 1)
+            new_func = np.asarray([func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)])
             new_name = new_func.tobytes()
             register_base(new_name, new_func)
 
+            # overwrite spatial derivative order since derivation take place
             if isinstance(other_func, (ScalarFunction, TestFunction)):
-                a = other_func.__class__(function_label=new_name, order=other_func.order[1],
-                                         location=other_func.location)
+                a = other_func.__class__(function_label=new_name, order=0, location=other_func.location)
             elif isinstance(other_func, FieldVariable):
-                # overwrite spatial derivative order, since derivation has been performed
                 a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
-                                  order=(other_func.order[0], 0), location=other_func.location)
+                                  order=(other_func.order[0], 0), location=other_func.location,
+                                  exponent=other_func.exponent)
+                a.raised_spatially = True
             b = None
 
         return a, b
@@ -312,33 +311,41 @@ def _evaluate_placeholder(placeholder):
 
     functions = get_base(placeholder.data['func_lbl'], placeholder.order[1])
     location = placeholder.location
-    values = np.atleast_2d([func(location) for func in functions])
+    exponent = placeholder.data.get("exponent", 1)
+    if getattr(placeholder, "raised_spatially", False):
+        exponent = 1
+    values = np.atleast_2d([func.raise_to(exponent)(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
-        return Scalars(values, target_term=("E", placeholder.order[0]), target_form=placeholder.data["weight_lbl"])
+        return Scalars(values, target_term=dict(name="E", order=placeholder.order[0],
+                                                exponent=placeholder.data["exponent"]),
+                       target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
-        # target form does not matter, since the f vector is added independently
-        return Scalars(values.T, target_term=("f", 0))
+        # target form doesn't matter, since the f vector is added independently
+        return Scalars(values.T, target_term=dict(name="f"))
     else:
         raise NotImplementedError
 
 
-def get_scalar_target(scalars):
+def get_common_target(scalars):
     """
-    extract target from list of scalars.
-    makes sure that targets are equivalent.
+    extracts the common target from list of scalars while making sure that targets are equivalent.
 
     :param scalars:
-    :return:
+    :type scalars: Scalars
+    :return: common target as dict
     """
-    targets = [elem for elem in [getattr(ph, "target_term", None) for ph in scalars] if elem]
-    if targets:
-        if targets[1:] != targets[:-1]:
-            # since scalars are evaluated separately prefer E for f
-            residual = [x for x in targets if x[0] != "f"]
-            if len(residual) > 1:
-                # different temporal derivatives of state -> not supported
-                raise ValueError("target_term of scalars in product must be identical")
-        return targets[0]
+    e_targets = [scal.target_term for scal in scalars if scal.target_term["name"] == "E"]
+    if e_targets:
+        if len(e_targets) == 1:
+            return e_targets[0]
 
-    return None
+        # more than one E-target, check if all entries are identical
+        for key in ["order", "exponent"]:
+            entries = [tar[key] for tar in e_targets]
+            if entries[1:] != entries[:-1]:
+                raise ValueError("mismatch in target terms!")
+
+        return e_targets[0]
+    else:
+        return dict(name="f")
