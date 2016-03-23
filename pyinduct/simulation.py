@@ -453,9 +453,10 @@ class CanonicalForms(object):
     def add_to(self, weight_label, term, val):
         """
         add val to the canonical form for weight_label
-        see add_to from :ref:py:class:CanonicalForm for details
+
+        .. see:: :py:func:`CanonicalForm.add_to`
         """
-        if term[0] in "fg":
+        if term[0] in "fG":
             # hold f and g vector separately
             self._static_form.add_to(term, val)
             return
@@ -468,14 +469,12 @@ class CanonicalForms(object):
     def get_static_terms(self):
         """
         return terms that do not depend on a certain weight set
-        :return:
         """
         return self._static_form.get_terms()
 
     def get_dynamic_terms(self):
         """
         return dict of terms for each weight set
-        :return:
         """
         return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
 
