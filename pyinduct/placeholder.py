@@ -12,6 +12,7 @@ class Placeholder(object):
     """
     class that works as an placeholder for terms that are later substituted
     """
+
     def __init__(self, data, order=(0, 0), location=None):
         """
         :param order how many derivations are to be applied before evaluation (t, z)
@@ -33,6 +34,7 @@ class Scalars(Placeholder):
     """
     placeholder for scalars that will be replaced later
     """
+
     def __init__(self, values, target_term=None, target_form=None):
         values = np.atleast_2d(values)
         Placeholder.__init__(self, sanitize_input(values, Number))
@@ -44,6 +46,7 @@ class ScalarFunction(Placeholder):
     """
     class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients
     """
+
     def __init__(self, function_label, order=0, location=None):
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
@@ -59,6 +62,7 @@ class Input(Placeholder):
     :param index: if input is a vector, which element shall be used
     :param order: see py:class:`Placeholder`
     """
+
     def __init__(self, function_handle, index=0, order=0):
         if not isinstance(function_handle, collections.Callable):
             raise TypeError("callable object has to be provided.")
@@ -71,6 +75,7 @@ class TestFunction(Placeholder):
     """
     class that works as a placeholder for test-functions in an equation
     """
+
     def __init__(self, function_label, order=0, location=None):
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
@@ -80,15 +85,30 @@ class TestFunction(Placeholder):
 
 class FieldVariable(Placeholder):
     """
-    class that represents terms of the systems field variable x(z, t).
-    since differentiation may occur, order can provide information about which derivative of the field variable shall
-    be used.
+    class that represents terms of the systems field variable :math:`x(z, t)` .
     """
-    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None):
+
+    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None, exponent=1):
         """
-        :param : order tuple of temporal_order and spatial_order
-        :param : factor
-        :param : location
+        :param function_label: label of shapefunctions to use for approximation, see :py:func:`register_base`
+            for more information about how to register an approximation basis.
+        :param order: tuple of temporal_order and spatial_order derivation order.
+        :param weight_label: label of weights for which coefficients are to be calculated (defaults to function_label)
+        :param location: where the expression is to be evaluated
+        :param exponent: exponent of the term
+
+        Assuming some shapefunctions have been registered under the label ``"phi"`` the following expressions hold:
+
+        :math:`\\frac{\\partial^{2}}{\\partial t \\partial z}x(z, t)`
+            >>> x_dtdz = FieldVariable("phi", order=(1, 1))
+        :math:`\\frac{\\partial^2}{\\partial t^2}x(3, t)`
+            >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
+        :math:`\\frac{\\partial}{\\partial t}x^2(z, t)`
+            >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
+
+        .. tip::
+            Use :py:class:`TemporalDerivedFieldVariable` and :py:class:`SpatialDerivedFieldVariable` if no mixed
+            derivatives occur.
         """
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
@@ -105,6 +125,7 @@ class FieldVariable(Placeholder):
             weight_label = function_label
         elif not isinstance(weight_label, str):
             raise TypeError("only strings allowed as 'weight_label'")
+        self.exponent = exponent
 
         Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label},
                              order=order, location=location)
@@ -130,6 +151,7 @@ class Product(object):
     """
     represents a product
     """
+
     def __init__(self, a, b=None):
         # convenience: accept single arguments
         if b is None:  # multiply by one as Default
@@ -141,7 +163,7 @@ class Product(object):
                     b = Scalars(np.ones(a.data.T.shape))
                 else:
                     b = Scalars(np.ones(a.data.shape))
-            # TODO other Placeholders?
+                    # TODO other Placeholders?
         else:
             self.b_empty = False
 
@@ -248,6 +270,7 @@ class ScalarTerm(EquationTerm):
     """
     class that represents a scalar term in a weak equation
     """
+
     def __init__(self, argument, scale=1.0):
         EquationTerm.__init__(self, scale, argument)
 
@@ -259,6 +282,7 @@ class IntegralTerm(EquationTerm):
     """
     Class that represents an integral term in a weak equation
     """
+
     def __init__(self, integrand, limits, scale=1.0):
         EquationTerm.__init__(self, scale, integrand)
 
@@ -267,6 +291,7 @@ class IntegralTerm(EquationTerm):
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
         self.limits = limits
+
 
 # TODO: delete!
 class SpatialIntegralTerm(IntegralTerm):

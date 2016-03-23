@@ -105,7 +105,7 @@ class SimulationInput(object, metaclass=ABCMeta):
     def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
         return results from internal storage for given time steps.
-        Warning! calling this method before a simulation was run will result in an error.
+        .. warning:: calling this method before a simulation was run will result in an error.
 
         :param time_steps: time points where values are demanded
         :param result_key: type of values to be returned

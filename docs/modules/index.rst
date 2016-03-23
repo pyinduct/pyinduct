@@ -17,6 +17,7 @@ access any PyInduct module, or use this contens:
     :maxdepth: 2
 
     core
+    placeholder
     simulation
     shapefunctions
     eigenfunctions

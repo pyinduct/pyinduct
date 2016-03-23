@@ -1,10 +1,9 @@
+import sys
 import unittest
 import numpy as np
-from pyinduct import register_base
+
+from pyinduct import register_base, LagrangeFirstOrder, cure_interval
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
-import pyqtgraph as pg
-import sys
-import pyinduct.shapefunctions
 
 # TODO Test for all Placeholders
 if any([arg == 'discover' for arg in sys.argv]):
@@ -21,7 +20,7 @@ if show_plots:
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):
-        nodes, ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
         register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_FieldVariable(self):
@@ -86,7 +85,7 @@ class ProductTest(unittest.TestCase):
         register_base("scale_funcs", self.s_funcs, overwrite=True)
         self.scale_funcs = ph.ScalarFunction("scale_funcs")
 
-        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
         register_base("prod_ini_funcs", self.ini_funcs, overwrite=True)
         self.field_var = ph.FieldVariable("prod_ini_funcs")
         self.field_var_dz = ph.SpatialDerivedFieldVariable("prod_ini_funcs", 1)
@@ -144,7 +143,7 @@ class EquationTermsTest(unittest.TestCase):
         register_base("phi", self.phi, overwrite=True)
         self.test_func = ph.TestFunction("phi")
 
-        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
         self.xdt = ph.TemporalDerivedFieldVariable("ini_funcs", order=1)
         self.xdz_at1 = ph.SpatialDerivedFieldVariable("ini_funcs", order=1, location=1)
@@ -153,7 +152,7 @@ class EquationTermsTest(unittest.TestCase):
 
     def test_EquationTerm(self):
         self.assertRaises(TypeError, ph.EquationTerm, "eleven", self.input)  # scale is not a number
-        self.assertRaises(TypeError, ph.EquationTerm, 1, pyinduct.shapefunctions.LagrangeFirstOrder(0, 1, 2))  # arg is invalid
+        self.assertRaises(TypeError, ph.EquationTerm, 1, LagrangeFirstOrder(0, 1, 2))  # arg is invalid
         ph.EquationTerm(1, self.test_func)
         ph.EquationTerm(1, self.xdt)
         t1 = ph.EquationTerm(1, self.input)
@@ -192,7 +191,7 @@ class WeakFormulationTest(unittest.TestCase):
     def setUp(self):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
-        nodes, self.ini_funcs = pyinduct.shapefunctions.cure_interval(pyinduct.shapefunctions.LagrangeFirstOrder, (0, 1), node_count=3)
+        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=3)
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
 
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
