@@ -282,10 +282,11 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
 
 class CanonicalForm(object):
     """
-    represents the canonical form of n ordinary differential equation system of order n
+    The canonical form of an ordinary differential equation system of order n.
     """
     def __init__(self, name=None):
         self.name = name
+        self._matrices = {}
         self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
         self._input_function = None
@@ -318,58 +319,77 @@ class CanonicalForm(object):
         if self._weights != weight_lbl:
             raise ValueError("already defined target weights are overridden!")
 
-    def add_to(self, term, val, column=None):
+    def add_to(self, term, value, column=None):
         """
-        adds the value val to term term
+        adds the value *value* to term *term*. Term is a dict that describes which coefficient matrix of the canonical
+        form the value shall be added to. It has to contain:
+            name:
+                type of the coefficient matrix: 'E', 'f', or 'G'
+            order:
+                temporal derivative order of the assigned weights
+            exponent:
+                exponent of the assigned weights
 
-        :param term: tuple of name and index matrix(or vector) to add onto
-        :param val: value to add
+        :param term: targeted term in the canonical form h
+        :type term: dict
+        :param value: value to add
+        :type value: :py:class:`np.ndarray`
         :param column: add the value only to one column of term (useful if only one dimension of term is known)
+        :type column: int
         """
-        if not isinstance(term, tuple):
-            raise TypeError("term must be tuple.")
-        if not isinstance(term[0], str) or term[0] not in "EfG":
-            raise TypeError("term[0] must be a letter out of [E, f, G]")
-        if not isinstance(term[1], int):
-            raise TypeError("term index must be int")
-        if not isinstance(val, np.ndarray):
+        # if not isinstance(term, tuple):
+        #     raise TypeError("term must be tuple.")
+        # if not isinstance(term[0], str) or term[0] not in "EfG":
+        #     raise TypeError("term[0] must be a letter out of [E, f, G]")
+        # if not isinstance(term[1], int):
+        #     raise TypeError("term index must be int")
+
+        if not isinstance(value, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
         if column and not isinstance(column, int):
             raise TypeError("column index must be int")
 
-        name = self._build_name(term)
+        # get entry
+        if term["name"] == "f":
+            if term["order"] or term["exponent"]:
+                warnings.warn("order and exponent are ignored for f_vector!")
+            f_vector = self._matrices.get("f", np.zeros_like(value))
+            self._matrices["f"] = value + f_vector
+            return
 
-        # try to increment term
-        try:
-            entity = getattr(self, name)
-            if entity.shape != val.shape and column is None:
-                raise ValueError("{0} was already initialized with dimensions {1} but value to add has dimension {"
-                                 "2}".format(name, entity.shape, val.shape))
+        type_group = self._matrices.get(term["name"], {})
+        derivative_group = type_group.get(term["order"], {})
+        target_matrix = derivative_group.get(term["exponent"], np.zeros_like(value))
 
-            if column:
-                # check whether the dimensions fit or if the matrix has to be extended
-                if column >= entity.shape[1]:
-                    new_entity = np.zeros((entity.shape[0], column+1))
-                    new_entity[:entity.shape[0], :entity.shape[1]] = entity
-                    setattr(self, name, np.copy(new_entity))
+        if target_matrix.shape != value.shape and column is None:
+            raise ValueError("{0}{1}{2} was already initialized with dimensions {3} but value to add has "
+                             "dimension {4}".format(term["name"], term["order"], term["exponent"],
+                                                    target_matrix.shape, value.shape))
 
-                entity = getattr(self, name)[:, column:column+1]
+        if column is not None:
+            # check whether the dimensions fit or if the matrix has to be extended
+            if column >= target_matrix.shape[1]:
+                new_target_matrix = np.zeros((target_matrix.shape[0], column+1))
+                new_target_matrix[:target_matrix.shape[0], :target_matrix.shape[1]] = target_matrix
+                target_matrix = new_target_matrix
 
-            # add new value
-            entity += val
+            target_matrix[:, column:column+1] += value
+        else:
+            target_matrix += value
 
-        except AttributeError as e:
-            # no entry so far -> create entry
-            setattr(self, name, np.copy(val))
-        finally:
-            self._max_idx[term[0]] = max(self._max_idx[term[0]], term[1])
+        # store changes
+        derivative_group[term["exponent"]] = target_matrix
+        type_group[term["order"]] = derivative_group
+        self._matrices[term["name"]] = type_group
 
     def get_terms(self):
         """
-        construct a list of all terms that have indices and return tuple of lists
+        return all coefficient matrices of the canonical formulation
 
-        :return: tuple of lists
+        :return: cascade of dictionaries with structure: Type > Order > Exponent
         """
+        return self._matrices
+
         terms = {}
         for entry in "EfG":
             term = []
@@ -405,9 +425,9 @@ class CanonicalForm(object):
 
     def convert_to_state_space(self):
         """
-        convert the canonical ode system of order n a into an ode system of order 1.
+        convert the canonical ode system of order n a into an ode system of order 1
 
-        :return: py:class:StateSpace
+        :return: :py:class:`StateSpace` object
         """
         e_mats, f, g_mats = self.get_terms()
         if f is not None:
@@ -429,7 +449,7 @@ class CanonicalForm(object):
         new_dim = (n-1)*dim_x  # dimension of the new system
         a_mat = np.zeros((new_dim, new_dim))
 
-        # compose new system matrix
+        # compose the system matrix A
         for idx, mat in enumerate(e_mats):
             if idx < n-1:
                 if 0 < idx:
@@ -438,7 +458,7 @@ class CanonicalForm(object):
                 # add last row
                 a_mat[-dim_x:, idx*dim_x:(idx+1)*dim_x] = np.dot(en_inv, -mat)
 
-        # compose new input matrix
+        # compose the input matrix B
         if g_mats is not None:
             b_mat = np.zeros((new_dim, g_mats.shape[2]))
             for idx, mat in enumerate(g_mats):
