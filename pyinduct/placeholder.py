@@ -13,10 +13,11 @@ class Placeholder(object):
     class that works as an placeholder for terms that are later substituted
     """
 
-    def __init__(self, data, order=(0, 0), location=None):
+    def __init__(self, data, order=(0, 0), location=None, exponent=1):
         """
-        :param order how many derivations are to be applied before evaluation (t, z)
-        :param location to evaluate at before further computation
+        :param order: how many derivations are to be applied before evaluation (t, z)
+        :param location: location to evaluate at before further computation
+        :param exponent: exponent to rise to before further computation
         """
         self.data = data
 
@@ -28,6 +29,10 @@ class Placeholder(object):
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
         self.location = location
+
+        if not isinstance(exponent, Number):
+            raise TypeError("exponent must be a number")
+        self.exponent = exponent
 
 
 class Scalars(Placeholder):
@@ -291,12 +296,6 @@ class IntegralTerm(EquationTerm):
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
         self.limits = limits
-
-
-# TODO: delete!
-class SpatialIntegralTerm(IntegralTerm):
-    def __init__(self, integrand, limits, scale=1.0):
-        IntegralTerm.__init__(self, integrand, limits, scale)
 
 
 def _evaluate_placeholder(placeholder):

@@ -33,35 +33,7 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual((0, 0), a.order)
         self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(7, a.location)
-
-    def test_TemporalDerivativeFactor(self):
-        # TODO add test cases again
-        pass
-        # # TemporalDerivativeFactor
-        # self.assertRaises(TypeError, sim.TemporalDerivativeFactor, "high order", "about five")
-        # self.assertRaises(ValueError, sim.TemporalDerivativeFactor, 3, 7)
-        # a = sim.TemporalDerivativeFactor(2, 7)
-        # self.assertEqual("temporal", a.kind)
-        # self.assertEqual(2, a.order)
-        # self.assertEqual(7, a.factor)
-        # self.assertEqual(None, a.location)
-        #
-        # # SpatialDerivativeFactor
-        # self.assertRaises(TypeError, sim.SpatialDerivativeFactor, "high order", "about five")
-        # self.assertRaises(ValueError, sim.SpatialDerivativeFactor, 3, 7)
-        # a = sim.SpatialDerivativeFactor(2, 7)
-        # self.assertEqual("spatial", a.kind)
-        # self.assertEqual(2, a.order)
-        # self.assertEqual(7, a.factor)
-        # self.assertEqual(None, a.location)
-        #
-        # # MixedDerivativeFactor
-        # self.assertRaises(TypeError, sim.MixedDerivativeFactor, "about five")
-        # a = sim.MixedDerivativeFactor(7)
-        # self.assertEqual("spatial/temporal", a.kind)
-        # self.assertEqual(1, a.order)
-        # self.assertEqual(7, a.factor)
-        # self.assertEqual(None, a.location)
+        self.assertEqual(1, a.exponent)  # default exponent is 1
 
 
 class ProductTest(unittest.TestCase):

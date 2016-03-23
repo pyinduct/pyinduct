@@ -171,22 +171,28 @@ class ParseTest(unittest.TestCase):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
 
-        # TestFunctions
         nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                  (0, 1), node_count=3)
+
+        # TestFunctions
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
-        self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
-        self.phi_at0 = ph.TestFunction("ini_funcs", location=0)  # eigenfunction or something else
-        self.phi_at1 = ph.TestFunction("ini_funcs", location=1)  # eigenfunction or something else
-        self.dphi = ph.TestFunction("ini_funcs", order=1)  # eigenfunction or something else
-        self.dphi_at1 = ph.TestFunction("ini_funcs", order=1, location=1)  # eigenfunction or something else
+        self.phi = ph.TestFunction("ini_funcs")
+        self.phi_at0 = ph.TestFunction("ini_funcs", location=0)
+        self.phi_at1 = ph.TestFunction("ini_funcs", location=1)
+        self.dphi = ph.TestFunction("ini_funcs", order=1)
+        self.dphi_at1 = ph.TestFunction("ini_funcs", order=1, location=1)
 
         # FieldVars
         self.field_var = ph.FieldVariable("ini_funcs")
+        self.field_var_squared = ph.FieldVariable("ini_funcs", exponent=2)
+
         self.odd_weight_field_var = ph.FieldVariable("ini_funcs", weight_label="special_weights")
         self.field_var_at1 = ph.FieldVariable("ini_funcs", location=1)
+        self.field_var_at1_squared = ph.FieldVariable("ini_funcs", location=1, exponent=2)
+
         self.field_var_dz = ph.SpatialDerivedFieldVariable("ini_funcs", 1)
         self.field_var_dz_at1 = ph.SpatialDerivedFieldVariable("ini_funcs", 1, location=1)
+
         self.field_var_ddt = ph.TemporalDerivedFieldVariable("ini_funcs", 2)
         self.field_var_ddt_at0 = ph.TemporalDerivedFieldVariable("ini_funcs", 2, location=0)
         self.field_var_ddt_at1 = ph.TemporalDerivedFieldVariable("ini_funcs", 2, location=1)
@@ -199,10 +205,12 @@ class ParseTest(unittest.TestCase):
         self.func_term = ph.ScalarTerm(self.phi_at1)
 
         self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
+        self.field_term_at1_squared = ph.ScalarTerm(self.field_var_at1_squared)
         self.field_term_dz_at1 = ph.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = ph.ScalarTerm(self.field_var_ddt_at1)
 
         self.field_int = ph.IntegralTerm(self.field_var, (0, 1))
+        self.field_squared_int = ph.IntegralTerm(self.field_var_squared, (0, 1))
         self.field_dz_int = ph.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = ph.IntegralTerm(self.field_var_ddt, (0, 1))
 
@@ -235,9 +243,9 @@ class ParseTest(unittest.TestCase):
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term2)).get_terms()
-        self.assertEqual(terms[0], None)  # E0
+        self.assertEqual(terms[0], None)  # E
         self.assertEqual(terms[1], None)  # f
-        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [-2], [2]])))  # g
+        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [-2], [2]])))  # G0
 
     def test_TestFunction_term(self):
         wf = sim.WeakFormulation(self.func_term)
@@ -247,8 +255,14 @@ class ParseTest(unittest.TestCase):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
+        # terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_at1_squared)).get_terms()
+        # self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
+
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_int)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
+
+        # terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_squared_int)).get_terms()
+        # self.assertTrue(np.allclose(terms[0][0], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_dz_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]])))
@@ -295,29 +309,29 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms[0][2], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
         self.assertEqual(terms[1], None)  # f
-        self.assertEqual(terms[2], None)  # g
+        self.assertEqual(terms[2], None)  # G
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fddt_at0_f_at0)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms[0][1], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms[0][2], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
         self.assertEqual(terms[1], None)  # f
-        self.assertEqual(terms[2], None)  # g
+        self.assertEqual(terms[2], None)  # G
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])))
         self.assertEqual(terms[1], None)  # f
-        self.assertEqual(terms[2], None)  # g
+        self.assertEqual(terms[2], None)  # G
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int_asymmetric)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]])))
         self.assertEqual(terms[1], None)  # f
-        self.assertEqual(terms[2], None)  # g
+        self.assertEqual(terms[2], None)  # G
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_dphi_at1)).get_terms()
         self.assertTrue(np.allclose(terms[0][0], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]])))
         self.assertEqual(terms[1], None)  # f
-        self.assertEqual(terms[2], None)  # g
+        self.assertEqual(terms[2], None)  # G
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1)).get_terms()
         self.assertEqual(terms[0], None)  # E

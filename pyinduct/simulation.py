@@ -359,7 +359,7 @@ class CanonicalForm(object):
             entity += val
 
         except AttributeError as e:
-            # create entry
+            # no entry so far -> create entry
             setattr(self, name, np.copy(val))
         finally:
             self._max_idx[term[0]] = max(self._max_idx[term[0]], term[1])
@@ -367,6 +367,7 @@ class CanonicalForm(object):
     def get_terms(self):
         """
         construct a list of all terms that have indices and return tuple of lists
+
         :return: tuple of lists
         """
         terms = {}
