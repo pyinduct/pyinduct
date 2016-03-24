@@ -38,6 +38,23 @@ class TestCommonTarget(unittest.TestCase):
         self.assertRaises(ValueError, ph.get_common_target, [t1, t2])
 
 
+class ScalarsTest(unittest.TestCase):
+
+    def setUp(self):
+        self.vector = np.array(range(10))
+        self.matrix = np.array(range(100)).reshape((10, 10))
+
+    def test_init(self):
+        # iterable values have to be provided
+        self.assertRaises(TypeError, ph.Scalars, None)
+
+        # test defaults
+        t = ph.Scalars(self.vector)
+        t.data = np.atleast_2d(self.vector)
+        t.target_term = dict(name="f")
+        t.target_form = None
+
+
 class FieldVariableTest(unittest.TestCase):
 
     def setUp(self):

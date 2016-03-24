@@ -36,7 +36,16 @@ class Scalars(Placeholder):
     """
 
     def __init__(self, values, target_term=None, target_form=None):
+        """
+
+        :param values: iterable object containing the scalars for every n-th equation
+        :param target_term: coefficient matrix to :py:func:`add_to`
+        :param target_form: desired weight set
+        """
+        if target_term is None:
+            target_term = dict(name="f")
         values = np.atleast_2d(values)
+
         Placeholder.__init__(self, sanitize_input(values, Number))
         self.target_term = target_term
         self.target_form = target_form

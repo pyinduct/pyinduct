@@ -18,8 +18,8 @@ from pyinduct import register_base, \
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -149,18 +149,6 @@ class CanonicalFormTest(unittest.TestCase):
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=3)
         self.assertTrue(np.array_equal(self.cf._matrices["G"][0][1], np.hstack((c, c, np.zeros_like(c), c))))
 
-    # def test_get_terms(self):
-    #     self.cf.add_to(dict(name="E", order=0, exponent=1), c, column=1)
-    #
-    #     self.cf.add_to(("E", 0), np.eye(5))
-    #     self.cf.add_to(("E", 2), 5*np.eye(5))
-    #     terms = self.cf.get_terms()
-    #     self.assertTrue(np.array_equal(terms["E"][0][1], np.eye(5)))
-    #     self.assertTrue(np.array_equal(terms["E"][1][1], np.zeros((5, 5))))
-    #     self.assertTrue(np.array_equal(terms["E"][2][1], 5*np.eye(5)))
-    #     self.assertEqual(terms[1], None)
-    #     self.assertEqual(terms[2], None)
-
 
 class ParseTest(unittest.TestCase):
 
@@ -222,13 +210,23 @@ class ParseTest(unittest.TestCase):
             ph.Product(self.field_var_at1, self.scalars))
         self.prod_int_fs = ph.IntegralTerm(ph.Product(self.field_var, self.scalars), (0, 1))
         self.prod_int_f_f = ph.IntegralTerm(ph.Product(self.field_var, self.phi), (0, 1))
+        self.prod_int_f_squared_f = ph.IntegralTerm(ph.Product(self.field_var_squared, self.phi), (0, 1))
         self.prod_int_f_f_swapped = ph.IntegralTerm(ph.Product(self.phi, self.field_var), (0, 1))
+
         self.prod_int_f_at1_f = ph.IntegralTerm(
             ph.Product(self.field_var_at1, self.phi), (0, 1))
+        self.prod_int_f_at1_squared_f = ph.IntegralTerm(
+            ph.Product(self.field_var_at1_squared, self.phi), (0, 1))
+
         self.prod_int_f_f_at1 = ph.IntegralTerm(
             ph.Product(self.field_var, self.phi_at1), (0, 1))
+        self.prod_int_f_squared_f_at1 = ph.IntegralTerm(
+            ph.Product(self.field_var_squared, self.phi_at1), (0, 1))
+
         self.prod_term_f_at1_f_at1 = ph.ScalarTerm(
             ph.Product(self.field_var_at1, self.phi_at1))
+        self.prod_term_f_at1_squared_f_at1 = ph.ScalarTerm(
+            ph.Product(self.field_var_at1_squared, self.phi_at1))
 
         self.prod_int_fddt_f = ph.IntegralTerm(
             ph.Product(self.field_var_ddt, self.phi), (0, 1))
@@ -283,8 +281,9 @@ class ParseTest(unittest.TestCase):
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case is also valid for swapped arguments
-        # terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fs_at1)).get_terms()
-        # self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fs_at1)).get_terms()
+        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 1], [0, 0, 2]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fs)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]])))
@@ -292,27 +291,35 @@ class ParseTest(unittest.TestCase):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_squared_f)).get_terms()
+        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[1/8, 1/24, 0], [1/24, 1/4, 1/24], [0, 1/24, 1/8]])))
+
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_swapped)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
 
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_squared_f)).get_terms()
+        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
+
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_at1)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_squared_f_at1)).get_terms()
+        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1/6, 1/3, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
 
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1)).get_terms()
+        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
+
         # more complex terms
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fddt_f)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][1], np.zeros((3, 3))))
-        self.assertTrue(np.allclose(terms["E"][1][1], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fddt_at0_f_at0)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][1], np.zeros((3, 3))))
-        self.assertTrue(np.allclose(terms["E"][1][1], np.zeros((3, 3))))
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.spat_int)).get_terms()
@@ -325,10 +332,10 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1)).get_terms()
-        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
+        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[0], [0], [1]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1_swapped)).get_terms()
-        self.assertTrue(np.allclose(terms[2][0], np.array([[0], [0], [1]])))
+        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[0], [0], [1]])))
 
     def test_alternating_weights(self):
         self.assertRaises(ValueError, sim.parse_weak_formulation,
@@ -365,13 +372,13 @@ class StateSpaceTests(unittest.TestCase):
 
     def test_convert_to_state_space(self):
         ss = self.cf.convert_to_state_space()
-        self.assertTrue(np.allclose(ss.A, np.array([[0, 0, 0, 1, 0, 0],
-                                                    [0, 0, 0, 0, 1, 0],
-                                                    [0, 0, 0, 0, 0, 1],
-                                                    [-2.25, 3, -.75, 0, 0, 0],
-                                                    [7.5, -18, 10.5, 0, 0, 0],
-                                                    [-3.75, 21, -17.25, 0, 0, 0]])))
-        self.assertTrue(np.allclose(ss.B, np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
+        self.assertTrue(np.allclose(ss.A[0], np.array([[0, 0, 0, 1, 0, 0],
+                                                       [0, 0, 0, 0, 1, 0],
+                                                       [0, 0, 0, 0, 0, 1],
+                                                       [-2.25, 3, -.75, 0, 0, 0],
+                                                       [7.5, -18, 10.5, 0, 0, 0],
+                                                       [-3.75, 21, -17.25, 0, 0, 0]])))
+        self.assertTrue(np.allclose(ss.B[0], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
 
 
@@ -404,7 +411,7 @@ class StringMassTest(unittest.TestCase):
             """
             initial conditions for testing
             """
-            return 0
+            return z
 
         def x_dt(z, t):
             """
@@ -424,8 +431,9 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
-                                            self.dz.bounds, node_count=10)
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
+        # nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
+                                            self.dz.bounds, node_count=3)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
