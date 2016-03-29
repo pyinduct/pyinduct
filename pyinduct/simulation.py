@@ -112,10 +112,8 @@ class SimulationInput(object, metaclass=ABCMeta):
 
         :param time_steps: time points where values are demanded
         :param result_key: type of values to be returned
-        :param interpolation: interpolation method to use if demanded time-steps are not covered by the storage:
-        -"nearest" use nearest point available in storage
-        -"linear" interpolate between the 2 nearest points
-        - see more in py:func`interp1d`
+        :param interpolation: interpolation method to use if demanded time-steps are not covered by the storage,
+            see :func:`scipy.interpolate.interp1d` for all possibilities
         :param as_eval_data: return results as EvalData object for straightforward display
         """
         func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
@@ -126,6 +124,15 @@ class SimulationInput(object, metaclass=ABCMeta):
             return EvalData([time_steps], values, name=".".join([self.name, result_key]))
 
         return values
+
+
+class EmptyInput(SimulationInput):
+    def __init__(self, dim):
+        SimulationInput.__init__(self)
+        self.dim = dim
+
+    def _calc_output(self, **kwargs):
+        return np.zeros((self.dim, ))
 
 
 class SimulationInputSum(SimulationInput):
@@ -181,37 +188,32 @@ class StateSpace(object):
 
     def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None):
         self.weight_lbl = weight_label
-        if not callable(input_handle):
-            raise TypeError("input must be callable!")
-
-        self.input = input_handle
 
         # mandatory
         self.A = a_matrices
-        self.B = b_matrices
 
         # optional
+        self.B = b_matrices
         self.f = f_vector
         self.C = c_matrix
         self.D = d_matrix
 
         # TODO change order: 1 to order that is guaranteed to be in.
         if self.B is None:
-            self.B = [np.zeros((self.A[1].shape[0], ))]
+            self.B = {1: np.zeros((self.A[1].shape[0], ))}
         if self.f is None:
             self.f = np.zeros((self.A[1].shape[0], ))
         if self.C is None:
             self.C = np.zeros((1, self.A[1].shape[1]))
         if self.D is None:
-            self.D = np.zeros((1, self.B[1].shape[1]))
+            self.D = np.zeros((1, np.atleast_2d(self.B[1]).T.shape[1]))
 
         if input_handle is None:
-            class EmptyInput(SimulationInput):
-                def _calc_output(self, **kwargs):
-                    return np.zeros((self.B[0].shape[0], ))
-
-            self.input = EmptyInput()
-
+            self.input = EmptyInput(self.B[1].shape[0])
+        else:
+            self.input = input_handle
+        if not callable(self.input):
+            raise TypeError("input must be callable!")
 
 # TODO update signature
 def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
@@ -224,15 +226,17 @@ def simulate_systems(weak_forms, initial_states, time_interval, time_step, spati
             weak_forms]
 
 
-def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, der_orders=(0, 0)):
+def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, settings=None, der_orders=(0, 0)):
     """
     convenience wrapper that encapsulates the whole simulation process
 
-    :param weak_form:
+    :param weak_form: weak formulation of the system to simulate
+    :type weak_form: :class:`WeakForm`
     :param initial_states: np.array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`
     :param temporal_domain: sim.Domain object holding information for time evaluation
     :param spatial_domain: sim.Domain object holding information for spatial evaluation
     :param der_orders: tuple of derivative orders (time, spat) that shall be evaluated additionally
+    :param settings: integrator settings, see :func:`simulate_state_space`
 
     :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
     """
@@ -261,7 +265,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     # simulate
     print(">>> performing time step integration")
-    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain)
+    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain, settings=settings)
 
     # evaluate
     print(">>> performing postprocessing")
@@ -346,12 +350,13 @@ class CanonicalForm(object):
         """
         adds the value *value* to term *term*. Term is a dict that describes which coefficient matrix of the canonical
         form the value shall be added to. It has to contain:
-            name:
-                type of the coefficient matrix: 'E', 'f', or 'G'
-            order:
-                temporal derivative order of the assigned weights
-            exponent:
-                exponent of the assigned weights
+
+        name:
+            type of the coefficient matrix: 'E', 'f', or 'G'
+        order:
+            temporal derivative order of the assigned weights
+        exponent:
+            exponent of the assigned weights
 
         :param term: targeted term in the canonical form h
         :type term: dict
@@ -417,12 +422,6 @@ class CanonicalForm(object):
             # TODO add functionality to StateSpace and allow f
             raise NotImplementedError
 
-        if "G" in self._matrices:
-            if any(np.array(list(self._matrices["G"])) > 0):
-                # TODO add this functionality to StateSpace
-                # this would imply temporal derivatives of the input
-                raise NotImplementedError
-
         # system matrices A_*
         # check whether the system can be formulated in an explicit form
         max_order = max(self._matrices["E"])
@@ -462,18 +461,21 @@ class CanonicalForm(object):
             a_matrices.update({p: a_mat})
 
         # input matrices B_*
-        max_input_order = max(iter(self._matrices["G"]))
-        # max_input_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()])))
-        input_powers = set(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()]))
-        dim_u = next(iter(self._matrices["G"][max_input_order].values())).shape[1]
-        dim_ub = (max_input_order + 1) * dim_u  # dimension of the new systems input
+        if "G" in self._matrices:
+            max_input_order = max(iter(self._matrices["G"]))
+            # max_input_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()])))
+            input_powers = set(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()]))
+            dim_u = next(iter(self._matrices["G"][max_input_order].values())).shape[1]
+            dim_ub = (max_input_order + 1) * dim_u  # dimension of the new systems input
 
-        b_matrices = {}
-        for q in input_powers:
-            b_mat = np.zeros((dim_xb, dim_ub))
-            # overwrite the last "block-line" in the matrices with input entries
-            b_mat[-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
-            b_matrices.update({q: b_mat})
+            b_matrices = {}
+            for q in input_powers:
+                b_mat = np.zeros((dim_xb, dim_ub))
+                # overwrite the last "block-line" in the matrices with input entries
+                b_mat[-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
+                b_matrices.update({q: b_mat})
+        else:
+            b_matrices = None
 
         # the f vector
         f_mat = np.zeros((dim_xb, ))
@@ -485,7 +487,7 @@ class CanonicalForm(object):
 
     def _build_feedback(self, entry, power, product_mat):
         max_order = max(sorted(self._matrices[entry]))
-        entry_shape = self._matrices[entry][max_order][power].shape
+        entry_shape = next(iter(self._matrices[entry][max_order].values())).shape
         if entry == "G":
             # include highest order for system input
             max_order += 1
@@ -507,9 +509,7 @@ class CanonicalForms(object):
 
     def add_to(self, weight_label, term, val):
         """
-        add val to the canonical form for weight_label
-
-        .. see:: :py:func:`CanonicalForm.add_to`
+        add val to the canonical form for weight_label, see :func:`CanonicalForm.add_to` for further information.
         """
         if term[0] in "fG":
             # hold f and g vector separately
@@ -686,13 +686,17 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(state_space, initial_state, temp_domain):
+def simulate_state_space(state_space, initial_state, temp_domain, settings=None):
     """
-    wrapper to simulate a system given in state space form: :math:`\\dot{q} = Aq + Bu`
+    wrapper to simulate a system given in state space form:
+    :math:`\\dot{q} = A_pq^p + A_{p-1}q^{p-1} + \\dotsb + A_0q + Bu`
 
     :param state_space: state space formulation of the system
     :param initial_state: initial state vector of the system
     :param temp_domain: tuple of t_start and t_end
+    :param settings: parameters to pass to the `set_integrator` method of the `scipy.ode` class, with the integrator
+        name included under the key ``name``
+    :type settings: dict
     :return:
     """
     if not isinstance(state_space, StateSpace):
@@ -719,10 +723,19 @@ def simulate_state_space(state_space, initial_state, temp_domain):
 
         return q_t
 
+    r = ode(_rhs)
+
     # TODO check for complex-valued matrices and use 'zvode'
-    r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step,
-                                 method="adams",
-                                 nsteps=1e5)
+    if settings:
+        r.set_integrator(settings.pop("name"), **settings)
+    else:
+        # use some sane defaults
+        r.set_integrator(
+            "vode",
+            max_step=temp_domain.step,
+            method="adams",
+            nsteps=1e3
+            )
 
     r.set_f_params(state_space)
     r.set_initial_value(q[0], t[0])
