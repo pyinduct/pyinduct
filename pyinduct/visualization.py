@@ -37,9 +37,11 @@ class EvalData:
         # check type and dimensions
         assert isinstance(input_data, list)
         assert isinstance(output_data, np.ndarray)
-        assert len(input_data) == len(output_data.shape)
 
-        for dim in range(len(output_data.shape)):
+        # output_data has to contain at least len(input_data) dimensions
+        assert len(input_data) <= len(output_data.shape)
+
+        for dim in range(len(input_data)):
             assert len(input_data[dim]) == output_data.shape[dim]
 
         self.input_data = input_data

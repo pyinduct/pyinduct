@@ -123,16 +123,9 @@ class SimulationInput(object, metaclass=ABCMeta):
         values = func(time_steps)
 
         if as_eval_data:
-            # check if output was vectorial
-            if len(values.shape) <= 2:
-                return EvalData([time_steps], func(time_steps), name=".".join([self.name, result_key]))
-            else:
-                res = []
-                for idx, val in enumerate(np.swapaxes(values, 0, 1)):
-                    res.append(EvalData([time_steps], val[:, 0], name=".".join([self.name, result_key, str(idx)])))
-                return res
+            return EvalData([time_steps], values, name=".".join([self.name, result_key]))
 
-        return func(time_steps)
+        return values
 
 
 class SimulationInputSum(SimulationInput):
