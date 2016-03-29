@@ -202,19 +202,20 @@ class StateSpace(object):
         self.C = c_matrix
         self.D = d_matrix
 
+        # TODO change order: 1 to order that is guaranteed to be in.
         if self.B is None:
-            self.B = [np.zeros((self.A[0].shape[0], 1))]
+            self.B = [np.zeros((self.A[1].shape[0], ))]
         if self.f is None:
-            self.f = np.zeros((self.A[0].shape[0], 1))
+            self.f = np.zeros((self.A[1].shape[0], ))
         if self.C is None:
-            self.C = np.zeros((1, self.A[0].shape[1]))
+            self.C = np.zeros((1, self.A[1].shape[1]))
         if self.D is None:
-            self.D = np.zeros((1, self.B[0].shape[1]))
+            self.D = np.zeros((1, self.B[1].shape[1]))
 
         if input_handle is None:
             class EmptyInput(SimulationInput):
                 def _calc_output(self, **kwargs):
-                    return np.zeros((self.B[0].shape[0], 1))
+                    return np.zeros((self.B[0].shape[0], ))
 
             self.input = EmptyInput()
 
@@ -434,7 +435,7 @@ class CanonicalForm(object):
         max_order = max(self._matrices["E"])
 
         if len(self._matrices["E"][max_order]) > 1:
-            # more than one power of the highest derivative -> implicit
+            # more than one power of the highest derivative -> implicit formulation
             raise NotImplementedError
 
         pb = next(iter(self._matrices["E"][max_order]))
@@ -453,30 +454,38 @@ class CanonicalForm(object):
         dim_xb = max_order * dim_x  # dimension of the new system
 
         # get highest power
-        max_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["E"].values()])))
+        # max_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["E"].values()])))
+        powers = set(chain.from_iterable([list(mat) for mat in self._matrices["E"].values()]))
 
-        a_matrices = [np.zeros((dim_xb, dim_xb)) for p in range(1, max_power + 1)]
-
-        # add empty column on the left and "block-line" with feedback entries
-        for p in range(max_power, 0, -1):
-            a_matrices[p-1][:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order-1)])
-            a_matrices[p - 1][-dim_x:, :] = -self._build_feedback("E", p, e_n_pb_inv)
+        # system matrices A_*
+        a_matrices = {}
+        # for p in range(max_power, 0, -1):
+        for p in powers:
+            a_mat = np.zeros((dim_xb, dim_xb))
+            # add integrator chain
+            a_mat[:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order-1)])
+            # add "block-line" with feedback entries
+            a_mat[-dim_x:, :] = -self._build_feedback("E", p, e_n_pb_inv)
+            a_matrices.update({p: a_mat})
 
         # input matrices B_*
         max_input_order = max(iter(self._matrices["G"]))
-        max_input_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()])))
-        dim_u = self._matrices["G"][max_input_order][max_input_power].shape[1]
+        # max_input_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()])))
+        input_powers = set(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()]))
+        dim_u = next(iter(self._matrices["G"][max_input_order].values())).shape[1]
         dim_ub = (max_input_order + 1) * dim_u  # dimension of the new systems input
-        b_matrices = [np.zeros((dim_xb, dim_ub)) for a in range(1, max_input_power + 1)]
 
-        # overwrite the last "block-line" in the matrices with input entries
-        for q in range(max_power, 0, -1):
-            b_matrices[q - 1][-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
+        b_matrices = {}
+        for q in input_powers:
+            b_mat = np.zeros((dim_xb, dim_ub))
+            # overwrite the last "block-line" in the matrices with input entries
+            b_mat[-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
+            b_matrices.update({q: b_mat})
 
         # the f vector
-        f_mat = np.zeros((dim_xb, 1))
+        f_mat = np.zeros((dim_xb, ))
         if "f" in self._matrices:
-            f_mat[-dim_x:, :] = self._matrices["f"]
+            f_mat[-dim_x:] = self._matrices["f"]
 
         ss = StateSpace(self.weights, a_matrices, b_matrices, input_handle=self.input_function)
         return ss
@@ -707,21 +716,20 @@ def simulate_state_space(state_space, initial_state, temp_domain):
     # TODO export cython code?
     def _rhs(_t, _q, ss):
         q_t = ss.f
-        for idx, a_mat in enumerate(ss.A):
-            p = len(ss.A)-idx
-            q_t += np.atleast_2d(np.dot(a_mat, np.power(_q, p))).T
+        for p, a_mat in ss.A.items():
+            q_t += np.dot(a_mat, np.power(_q, p))
 
-        for idx, b_mat in enumerate(ss.B):
-            p = len(ss.B)-idx
-            u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
-            q_t += np.dot(b_mat, np.power(u, p))
+        # u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
+        # for p, b_mat in ss.B.items():
+        #     q_t += np.dot(b_mat, np.power(u, p))
 
-        return q_t.flatten()
+        # return q_t.flatten()
+        return q_t
 
     # TODO check for complex-valued matrices and use 'zvode'
     r = ode(_rhs).set_integrator("vode", max_step=temp_domain.step,
                                  method="adams",
-                                 nsteps=1e3)
+                                 nsteps=1e5)
 
     r.set_f_params(state_space)
     r.set_initial_value(q[0], t[0])

@@ -372,13 +372,15 @@ class StateSpaceTests(unittest.TestCase):
 
     def test_convert_to_state_space(self):
         ss = self.cf.convert_to_state_space()
-        self.assertTrue(np.allclose(ss.A[0], np.array([[0, 0, 0, 1, 0, 0],
+        self.assertEqual(ss.A[1].shape, (6, 6))
+        self.assertTrue(np.allclose(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
                                                        [0, 0, 0, 0, 1, 0],
                                                        [0, 0, 0, 0, 0, 1],
                                                        [-2.25, 3, -.75, 0, 0, 0],
                                                        [7.5, -18, 10.5, 0, 0, 0],
                                                        [-3.75, 21, -17.25, 0, 0, 0]])))
-        self.assertTrue(np.allclose(ss.B[0], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
+        self.assertEqual(ss.B[1].shape, (6, 1))
+        self.assertTrue(np.allclose(ss.B[1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
 
 
@@ -411,7 +413,7 @@ class StringMassTest(unittest.TestCase):
             """
             initial conditions for testing
             """
-            return z
+            return 1
 
         def x_dt(z, t):
             """
@@ -433,7 +435,7 @@ class StringMassTest(unittest.TestCase):
         # enter string with mass equations
         nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
         # nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
-                                            self.dz.bounds, node_count=3)
+                                            self.dz.bounds, node_count=10)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
