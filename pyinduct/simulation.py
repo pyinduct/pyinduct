@@ -717,13 +717,13 @@ def simulate_state_space(state_space, initial_state, temp_domain):
     def _rhs(_t, _q, ss):
         q_t = ss.f
         for p, a_mat in ss.A.items():
-            q_t += np.dot(a_mat, np.power(_q, p))
+            # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
+            q_t = q_t + np.dot(a_mat, np.power(_q, p))
 
-        # u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
-        # for p, b_mat in ss.B.items():
-        #     q_t += np.dot(b_mat, np.power(u, p))
+        u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
+        for p, b_mat in ss.B.items():
+            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
 
-        # return q_t.flatten()
         return q_t
 
     # TODO check for complex-valued matrices and use 'zvode'

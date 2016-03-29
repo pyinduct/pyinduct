@@ -413,7 +413,7 @@ class StringMassTest(unittest.TestCase):
             """
             initial conditions for testing
             """
-            return 1
+            return 0
 
         def x_dt(z, t):
             """
