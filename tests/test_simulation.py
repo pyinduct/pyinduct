@@ -77,7 +77,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace("test", a, b, input_handle=u)
+        ss = sim.StateSpace("test", {1: a}, {1: b}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
@@ -433,8 +433,8 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-        # nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
+        # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
                                             self.dz.bounds, node_count=10)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
@@ -810,9 +810,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)),
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
                                     rtol=3e-1, atol=0.))
-        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
+        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results
         if show_plots:
@@ -877,9 +877,9 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A)), np.sort(np.linalg.eigvals(ss_modal.A)),
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
                                     rtol=1e-05, atol=0.))
-        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B]), ss_modal.B))
+        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results
         if show_plots:

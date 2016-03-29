@@ -189,18 +189,25 @@ class StateSpace(object):
     def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None):
         self.weight_lbl = weight_label
 
-        # mandatory
-        self.A = a_matrices
-
-        # optional
-        self.B = b_matrices
         self.f = f_vector
         self.C = c_matrix
         self.D = d_matrix
 
+        # mandatory
+        if isinstance(a_matrices, np.ndarray):
+            self.A = {1: a_matrices}
+        else:
+            self.A = a_matrices
+
+        # optional
         # TODO change order: 1 to order that is guaranteed to be in.
+        if isinstance(b_matrices, np.ndarray):
+            self.B = {1: b_matrices}
+        else:
+            self.B = b_matrices
         if self.B is None:
             self.B = {1: np.zeros((self.A[1].shape[0], ))}
+
         if self.f is None:
             self.f = np.zeros((self.A[1].shape[0], ))
         if self.C is None:

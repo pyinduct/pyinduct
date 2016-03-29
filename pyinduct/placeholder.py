@@ -244,7 +244,7 @@ class Product(object):
             elif isinstance(other_func, FieldVariable):
                 a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
                                   order=(other_func.order[0], 0), location=other_func.location,
-                                  exponent=other_func.exponent)
+                                  exponent=other_func.data["exponent"])
                 a.raised_spatially = True
             b = None
 
