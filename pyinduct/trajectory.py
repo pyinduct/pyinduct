@@ -31,7 +31,7 @@ class ConstantTrajectory(SimulationInput):
             raise NotImplementedError
 
 
-class SmoothTransition(object):
+class SmoothTransition:
     """
     trajectory generator for a smooth transition between to states with derivatives of arbitrary height.
     """
@@ -70,9 +70,9 @@ class SmoothTransition(object):
 
     def _desired_values(self, t):
         """
-        Calculates desired trajectory and all derivatives for moment t
+        calculates the desired trajectory and its derivatives for time-step *t*
 
-        :param t: time value for which trajectory and derivatives are needed
+        :param t: time-step for which trajectory and derivatives are needed
         :returns np.ndarray
         :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
         """

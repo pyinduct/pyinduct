@@ -1,4 +1,5 @@
 
+from itertools import chain
 import numpy as np
 
 from .registry import get_base
@@ -105,7 +106,8 @@ def _parse_control_law(law):
             else:
                 res = factors
 
-            cfs.add_to(weight_lbl, ("E", temp_order), res * term.scale)
+            # HACK! hardcoded exponent
+            cfs.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
 
         elif placeholders["scalars"]:
             # TODO make sure that all have the same target form!
@@ -137,11 +139,22 @@ class LawEvaluator(object):
     @staticmethod
     def _build_eval_vector(terms):
         """
-        build a vector that will compute the output by multiplication with the corresponding weight vector
+        build a set of vectors that will compute the output by multiplication with the corresponding
+        power of the weight vector
+
         :param terms: coefficient vectors
         :return: evaluation vector
         """
-        return np.hstack([vec for vec in terms[0]])
+        orders = set(terms["E"].keys())
+        powers = set(chain.from_iterable([list(mat) for mat in terms["E"].values()]))
+        dim = next(iter(terms["E"][max(orders)].values())).shape
+
+        vectors = {}
+        for power in powers:
+            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders)+1)])
+            vectors.update({power: vector})
+
+        return vectors
 
     def __call__(self, weights, weight_label):
         """
@@ -155,9 +168,9 @@ class LawEvaluator(object):
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().items():
             dst_weights = [0]
-            if law[0] is not None:
+            if "E" in law is not None:
                 # build eval vector
-                if lbl not in list(self._eval_vectors.keys()):
+                if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
@@ -167,15 +180,21 @@ class LawEvaluator(object):
                 info.src_base = get_base(weight_label, 0)
                 info.dst_base = get_base(lbl, 0)
                 info.src_order = int(weights.size / info.src_base.size) - 1
-                info.dst_order = int(self._eval_vectors[lbl].size / info.dst_base.size) - 1
+                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
 
-                if info not in list(self._transformations.keys()):
+                # look up trafo
+                if info not in self._transformations.keys():
                     # fetch handle
                     handle = get_weight_transformation(info)
                     self._transformations[info] = handle
 
+                # transform weights
                 dst_weights = self._transformations[info](weights)
-                output += np.dot(self._eval_vectors[lbl], dst_weights)
+
+                # evaluate
+                vectors = self._eval_vectors[lbl]
+                for p, vec in vectors.items():
+                    output = output + np.dot(vec, np.power(dst_weights, p))
 
             if self._storage is not None:
                 entry = self._storage.get(info.dst_lbl, [])
@@ -184,8 +203,8 @@ class LawEvaluator(object):
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
-        if static_terms[1] is not None:
-            output += static_terms[1][0]
+        if "f" in static_terms:
+            output = output + static_terms["f"]
 
         # TODO: replace with the one from utils
         if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:

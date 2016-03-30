@@ -65,6 +65,7 @@ class CollocatedTestCase(unittest.TestCase):
 
 
 class ContinuousTestCase(unittest.TestCase):
+
     def setUp(self):
         interval = (0, 1)
         nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
@@ -86,7 +87,7 @@ class ContinuousTestCase(unittest.TestCase):
     def test_temp_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
         res = law(self.weights, self.weight_label)
-        self.assertAlmostEqual(res, 6)
+        self.assertTrue(np.equal(res, 6))
 
     def test_spat_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))

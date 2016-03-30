@@ -517,8 +517,11 @@ class CanonicalForms(object):
     def add_to(self, weight_label, term, val):
         """
         add val to the canonical form for weight_label, see :func:`CanonicalForm.add_to` for further information.
+        :param weight_label: basis to add onto
+        :param term: coefficient to add onto, see :func:`CanonicalForm.add_to`
+        :param val: values to add
         """
-        if term[0] in "fG":
+        if term["name"] in "fG":
             # hold f and g vector separately
             self._static_form.add_to(term, val)
             return
