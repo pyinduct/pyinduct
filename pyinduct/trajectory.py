@@ -33,27 +33,42 @@ class ConstantTrajectory(SimulationInput):
 
 class SmoothTransition:
     """
-    trajectory generator for a smooth transition between to states with derivatives of arbitrary height.
+    a smooth transition between two given steady-states *states* on an *interval*
+    using either:
+        poly:
+            polynomial method
+        tanh:
+            trigonometric method
+
+    to create smooth transitions.
     """
-    def __init__(self, states, interval, differential_order):
+    def __init__(self, states, interval, method, differential_order=0):
         """
         :param states: tuple of states in beginning and end of interval
         :param interval: time interval (tuple)
+        :param method: method to use (``poly`` or ``tanh``)
         :param differential_order: grade of differential flatness :math:`\\gamma`
         """
         self.yd = states
         self.t0 = interval[0]
         self.t1 = interval[1]
         self.dt = interval[1] - interval[0]
-        gamma = differential_order  # + 1 # TODO check this against notes
 
         # setup symbolic expressions
-        tau, k = sp.symbols('tau, k')
+        if method == "tanh":
+            tau, sigma = sp.symbols('tau, sigma')
+            # use a gevrey-order of alpha=2
+            sigma = 1.1
+            phi = .5*(1 + sp.tanh((2*tau + 1)/(4*tau*(1-tau))**sigma))
 
-        alpha = sp.factorial(2 * gamma + 1)
+        elif method == "poly":
+            gamma = differential_order  # + 1 # TODO check this against notes
+            tau, k = sp.symbols('tau, k')
 
-        f = sp.binomial(gamma, k) * (-1) ** k * tau ** (gamma + k + 1) / (gamma + k + 1)
-        phi = alpha / sp.factorial(gamma) ** 2 * sp.summation(f, (k, 0, gamma))
+            alpha = sp.factorial(2 * gamma + 1)
+
+            f = sp.binomial(gamma, k) * (-1) ** k * tau ** (gamma + k + 1) / (gamma + k + 1)
+            phi = alpha / sp.factorial(gamma) ** 2 * sp.summation(f, (k, 0, gamma))
 
         # differentiate phi(tau), index in list corresponds to order
         dphi_sym = [phi]  # init with phi(tau)
@@ -65,8 +80,8 @@ class SmoothTransition:
         for der in dphi_sym:
             self.dphi_num.append(sp.lambdify(tau, der, 'numpy'))
 
-    def __call__(self, time):
-        return self._desired_values(time)
+    def __call__(self, *args, **kwargs):
+        return self._desired_values(args[0])
 
     def _desired_values(self, t):
         """
@@ -112,7 +127,7 @@ class FlatString(SimulationInput):
 
         # construct trajectory generator for yd
         ts = max(t0, self._dz * self._tau)  # never too early
-        self.trajectory_gen = SmoothTransition((y0, y1), (ts, ts + dt), 2)
+        self.trajectory_gen = SmoothTransition((y0, y1), (ts, ts + dt), method="poly", differential_order=2)
 
         # create vectorized functions
         self.control_input = np.vectorize(self._control_input, otypes=[np.float])
