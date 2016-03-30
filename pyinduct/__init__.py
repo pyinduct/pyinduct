@@ -12,6 +12,8 @@ from .simulation import Domain, EvalData, SimulationInput, WeakFormulation, simu
 from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
 # noinspection PyUnresolvedReferences
 from .visualization import PgAnimatedPlot
+# noinspection PyUnresolvedReferences
+from .trajectory import SmoothTransition
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de"

@@ -59,7 +59,7 @@ class SmoothTransition:
             tau, sigma = sp.symbols('tau, sigma')
             # use a gevrey-order of alpha=2
             sigma = 1.1
-            phi = .5*(1 + sp.tanh((2*tau + 1)/(4*tau*(1-tau))**sigma))
+            phi = .5*(1 + sp.tanh((2*tau - 1)/((4*tau*(1-tau))**sigma)))
 
         elif method == "poly":
             gamma = differential_order  # + 1 # TODO check this against notes
@@ -69,6 +69,8 @@ class SmoothTransition:
 
             f = sp.binomial(gamma, k) * (-1) ** k * tau ** (gamma + k + 1) / (gamma + k + 1)
             phi = alpha / sp.factorial(gamma) ** 2 * sp.summation(f, (k, 0, gamma))
+        else:
+            raise NotImplementedError("method {} not implemented!".format(method))
 
         # differentiate phi(tau), index in list corresponds to order
         dphi_sym = [phi]  # init with phi(tau)
@@ -92,9 +94,9 @@ class SmoothTransition:
         :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
         """
         y = np.zeros((len(self.dphi_num)))
-        if t < self.t0:
+        if t <= self.t0:
             y[0] = self.yd[0]
-        elif t > self.t1:
+        elif t >= self.t1:
             y[0] = self.yd[1]
         else:
             for order, dphi in enumerate(self.dphi_num):
@@ -238,7 +240,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
     :param y: flat output with derivation np.array([[y],...,[y^(n/2)]])
     :return: field variable x(z,t) and spatial derivation x'(z,t)
     """
-    # TODO: documantation
+    # TODO: documentation
     a2, a1, a0, alpha, beta = param
     shape = (len(t), len(z))
     x = np.nan*np.ones(shape)
