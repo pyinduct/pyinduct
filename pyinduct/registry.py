@@ -28,23 +28,23 @@ def register_base(label, functions, overwrite=False):
         raise TypeError("only strings allowed as labels!")
 
     funcs = np.atleast_1d(functions)
-    if is_registered(label):
+    derivatives = _registry.get(label, {})
+
+    if derivatives:
         if overwrite:
             deregister_base(label)
         else:
             raise ValueError("Function set '{0}' already in registry!".format(label))
 
-    derivatives = []
     n = 0
     while True:
         try:
-            derivatives.append([func.derive(n) for func in funcs])
+            derivatives[n] = np.array([func.derive(n) for func in funcs])
             n += 1
         except ValueError:
             break
 
-    entry = np.array(derivatives)
-    _registry[label] = entry
+    _registry[label] = derivatives
 
 
 def deregister_base(label):
@@ -69,6 +69,9 @@ def get_base(label, order):
     :return: initial_functions
     """
     if is_registered(label):
-        return _registry[label][order]
+        base = _registry[label].get(order, None)
+        if base is None:
+            raise ValueError("base {} not available in order {}!".format(label, order))
+        return base
     else:
-        raise ValueError("No functions registered for label: '{0}'!".format(label))
+        raise ValueError("no base registered under label '{0}'!".format(label))

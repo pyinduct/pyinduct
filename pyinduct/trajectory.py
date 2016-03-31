@@ -57,7 +57,7 @@ class SmoothTransition:
         # setup symbolic expressions
         if method == "tanh":
             tau, sigma = sp.symbols('tau, sigma')
-            # use a gevrey-order of alpha=2
+            # use a gevrey-order of alpha = 1 + 1/sigma
             sigma = 1.1
             phi = .5*(1 + sp.tanh((2*tau - 1)/((4*tau*(1-tau))**sigma)))
 

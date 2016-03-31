@@ -7,7 +7,7 @@ from .core import Function
 from .placeholder import (ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
                           TemporalDerivedFieldVariable, Product, TestFunction, Input)
 # noinspection PyUnresolvedReferences
-from .simulation import Domain, EvalData, SimulationInput, WeakFormulation, simulate_system
+from .simulation import Domain, EvalData, SimulationInput, WeakFormulation, simulate_system, process_sim_data
 # noinspection PyUnresolvedReferences
 from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
 # noinspection PyUnresolvedReferences

@@ -88,22 +88,25 @@ class SimulationInput(object, metaclass=ABCMeta):
         """
         out = self._calc_output(**kwargs)
         self._time_storage.append(kwargs["time"])
-        entries = self._value_storage.get("output", [])
-        entries.append(out)
-        self._value_storage["output"] = entries
-        return out
+        for key, value in out.items():
+            entries = self._value_storage.get(key, [])
+            entries.append(value)
+            self._value_storage[key] = entries
+
+        return out["output"]
 
     @abstractmethod
     def _calc_output(self, **kwargs):
         """
-        handle that has to be implemented for output calculation.
+        handle that has to be implemented for output calculation
 
         :param kwargs:
-        -"time": the current simulation time
-        -"weights": the current weight vector
-        -"weight_lbl": the label of the weights used
+            -"time": the current simulation time
+            -"weights": the current weight vector
+            -"weight_lbl": the label of the weights used
+        :returns: dict with mandatory key ``output``
         """
-        pass
+        return dict(output=0)
 
     def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
