@@ -393,7 +393,7 @@ class InterpTrajectory(SimulationInput):
         :param kwargs:
         :return:
         """
-        return np.interp(kwargs["time"], self._t, self._u)*self.scale
+        return dict(output=np.interp(kwargs["time"], self._t, self._u)*self.scale)
 
 
 class RadTrajectory(InterpTrajectory):

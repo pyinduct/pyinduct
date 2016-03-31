@@ -6,7 +6,7 @@ from .registry import get_base
 from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
-from . import simulation as sim
+from .simulation import SimulationInput, CanonicalForms
 """
 This module contains all classes and functions related to the creation of controllers as well as the implementation
 for simulation purposes.
@@ -35,7 +35,7 @@ class ControlLaw(object):
         self.name = name
 
 
-class Controller(sim.SimulationInput):
+class Controller(SimulationInput):
     """
     wrapper class for all controllers that have to interact with the simulation environment
 
@@ -43,7 +43,7 @@ class Controller(sim.SimulationInput):
     """
 
     def __init__(self, control_law):
-        sim.SimulationInput.__init__(self, name=control_law.name)
+        SimulationInput.__init__(self, name=control_law.name)
         c_forms = approximate_control_law(control_law)
         self._evaluator = LawEvaluator(c_forms, self._value_storage)
 
@@ -83,7 +83,7 @@ def _parse_control_law(law):
         if not isinstance(term, EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-    cfs = sim.CanonicalForms(law.name)
+    cfs = CanonicalForms(law.name)
 
     for term in law.terms:
         placeholders = dict([
@@ -163,6 +163,7 @@ class LawEvaluator(object):
         :param weight_label: string, label of functions the weights correspond to.
         :return: control output u
         """
+        res = {}
         output = 0+0j
 
         # add dynamic part
@@ -182,7 +183,7 @@ class LawEvaluator(object):
                 info.src_order = int(weights.size / info.src_base.size) - 1
                 info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
 
-                # look up trafo
+                # look up transformation
                 if info not in self._transformations.keys():
                     # fetch handle
                     handle = get_weight_transformation(info)
@@ -196,10 +197,11 @@ class LawEvaluator(object):
                 for p, vec in vectors.items():
                     output = output + np.dot(vec, np.power(dst_weights, p))
 
-            if self._storage is not None:
-                entry = self._storage.get(info.dst_lbl, [])
-                entry.append(dst_weights)
-                self._storage[info.dst_lbl] = entry
+            res[lbl] = dst_weights
+            # if self._storage is not None:
+            #     entry = self._storage.get(info.dst_lbl, [])
+            #     entry.append(dst_weights)
+            #     self._storage[info.dst_lbl] = entry
 
         # add constant term
         static_terms = self._cfs.get_static_terms()
@@ -208,11 +210,12 @@ class LawEvaluator(object):
 
         # TODO: replace with the one from utils
         if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
-            print(("Warning: Imaginary part of output is nonzero! out = {0}".format(output)))
+            print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
 
         out = np.real_if_close(output, tol=10000000)
         if np.imag(out) != 0:
-            raise sim.SimulationException("calculated complex control output u={0},"
+            raise ValueError("calculated complex control output u={0},"
                                           " check for errors in control law!".format(out))
 
-        return out
+        res["output"] = out
+        return res

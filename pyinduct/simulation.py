@@ -149,7 +149,7 @@ class SimulationInputSum(SimulationInput):
 
     def _calc_output(self, **kwargs):
         outs = np.array([handle(**kwargs) for handle in self._inputs])
-        return np.sum(outs)
+        return dict(output=np.sum(outs))
 
 
 class WeakFormulation(object):
