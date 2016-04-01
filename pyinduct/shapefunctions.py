@@ -83,30 +83,30 @@ class LagrangeFirstOrder(Function):
         """
         left border equation for lagrange 1st order
         """
-        if z < self.top or z >= self._end:
-            return 0
-        else:
+        if self._start <= z <= self._end:
             return -1 / self._b
+        else:
+            return 0
 
     def _der_lagrange1st_border_right(self, z):
         """
         right border equation for lagrange 1st order
         """
-        if z <= self._start or z > self._end:
-            return 0
-        else:
+        if self._start <= z <= self._end:
             return 1 / self._a
+        else:
+            return 0
 
     def _der_lagrange1st_interior(self, z):
         """
         interior equations for lagrange 1st order
         """
-        if z < self._start or z > self._end or z == self.top:
-            return 0
-        elif self._start <= z < self.top:
+        if self._start <= z < self.top:
             return 1 / self._a
-        else:
+        elif self.top < z <= self._end:
             return -1 / self._b
+        else:
+            return 0
 
             # @staticmethod
             # TODO implement correct one
