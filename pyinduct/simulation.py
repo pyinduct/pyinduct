@@ -754,12 +754,13 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
+        qn = r.integrate(t_step)
         if not r.successful():
-            warnings.warn("*** Error: Simulation aborted at t={} ***".format(t_step))
+            warnings.warn("*** Error: Simulation aborted at t={} ***".format(r.t))
             break
 
-        t.append(t_step)
-        q.append(r.integrate(t_step))
+        t.append(r.t)
+        q.append(qn)
 
     # create results
     q = np.array(q)
