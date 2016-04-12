@@ -171,7 +171,7 @@ class Product(object):
             if isinstance(a, Input):
                 b = Scalars(np.ones(1))
             if isinstance(a, Scalars):
-                if a.target_term[0] == "E":
+                if a.target_term["name"] == "E":
                     b = Scalars(np.ones(a.data.T.shape))
                 else:
                     b = Scalars(np.ones(a.data.shape))

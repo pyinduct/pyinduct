@@ -59,7 +59,7 @@ class SmoothTransition:
             tau, sigma = sp.symbols('tau, sigma')
             # use a gevrey-order of alpha = 1 + 1/sigma
             sigma = 1.1
-            phi = .5*(1 + sp.tanh((2*tau - 1)/((4*tau*(1-tau))**sigma)))
+            phi = .5*(1 + sp.tanh(2*(2*tau - 1)/((4*tau*(1-tau))**sigma)))
 
         elif method == "poly":
             gamma = differential_order  # + 1 # TODO check this against notes
