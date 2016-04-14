@@ -65,7 +65,7 @@ def approximate_control_law(control_law):
     :param control_law: list of :py:cls:ControlLaw
     :return: evaluation handle
     """
-    print("approximating control law")
+    print("approximating control law {}".format(control_law.name))
     if not isinstance(control_law, ControlLaw):
         raise TypeError("only input of Type ControlLaw allowed!")
 
