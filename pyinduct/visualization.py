@@ -175,6 +175,7 @@ class PgSurfacePlot(PgDataPlot):
 
         if grid_height is None:
             grid_height = max([data.output_data.max() for data in self._data])
+
         max_0 = max([max(data.input_data[0]) for data in self._data])
         max_1 = max([max(data.input_data[1]) for data in self._data])
 

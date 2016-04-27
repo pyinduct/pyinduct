@@ -366,10 +366,11 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     else:
         scaled_control_law = control_law
 
+    c_name = "parabolic_robin_backstepping_controller"
     if trajectory is not None:
-        return sim.SimulationInputSum([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law))])
+        return sim.SimulationInputSum([trajectory, ct.Controller(ct.ControlLaw(scaled_control_law, name=c_name))])
     else:
-        return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law))])
+        return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law, name=c_name))])
 
 
 # TODO: change to factory, rename: function_wrapper

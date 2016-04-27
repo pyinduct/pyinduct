@@ -35,10 +35,8 @@ class SmoothTransition:
     """
     a smooth transition between two given steady-states *states* on an *interval*
     using either:
-        poly:
-            polynomial method
-        tanh:
-            trigonometric method
+    polynomial method
+    trigonometric method
 
     to create smooth transitions.
     """

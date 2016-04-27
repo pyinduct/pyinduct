@@ -3,6 +3,7 @@ from numpy.polynomial import polynomial as npoly
 
 from .core import Function
 from .simulation import Domain
+
 """
 This module contains all shape functions that come with PyInduct. Furthermore helper methods
 for curing can be found here.
@@ -11,23 +12,12 @@ for curing can be found here.
 
 class LagrangeFirstOrder(Function):
     """
-    Implementation of a lagrangian initial function of order 1::
-
-      ^
-    1-|         ^
-      |        /|\
-      |       / | \
-      |      /  |  \
-    0-|-----/   |   \-------------> z
-            |   |   |
-
-    start,top,end
+    Lagrangian shape functions of order 1
 
     :param start: start node
     :param top: top node, where :math:`f(x) = 1`
     :param start: end node
     """
-
     def __init__(self, start, top, end):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
@@ -108,13 +98,9 @@ class LagrangeFirstOrder(Function):
         else:
             return 0
 
-            # @staticmethod
-            # TODO implement correct one
-            # def quad_int():
-            #     return 2/3
-
 
 class LagrangeSecondOrder(Function):
+    # TODO generate svg of 2nd of Lag2nd and remove ascii art from docstring
     """
     Implementation of an lagrangian initial function of order 2::
 

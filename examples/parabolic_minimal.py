@@ -1,15 +1,12 @@
-
 import numpy as np
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 
-import simulation
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import control as ct
 from pyinduct import visualization as vis
 from pyinduct import placeholder as ph
-from pyinduct import utils as ut
 from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
@@ -89,9 +86,9 @@ evald_traj = vis.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 t, q = sim.simulate_state_space(ss, initial_weights, temporal_domain)
 
 # pyqtgraph visualization
-evald_x = simulation.evaluate_approximation("eig_funcs", q, t, spatial_domain,
-                                            name="x(z,t) with x(z,0)=" + str(init_profile))
-win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=T / temporal_domain.step*4)
+evald_x = sim.evaluate_approximation("eig_funcs", q, t, spatial_domain,
+                                     name="x(z,t) with x(z,0)=" + str(init_profile))
+win1 = vis.PgAnimatedPlot([evald_x, evald_traj], title="animation", dt=temporal_domain.step)
 win2 = vis.PgSurfacePlot([evald_x], title=evald_x.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_traj], title=evald_traj.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()
