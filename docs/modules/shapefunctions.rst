@@ -7,11 +7,11 @@ functions.
 
 Shapefunction Types
 -------------------
-.. image:: ../pictures/lag1st.svg
+.. image:: ../ressources/lag1st.svg
 .. autoclass:: pyinduct.shapefunctions.LagrangeFirstOrder
     :members:
 
-.. image:: ../pictures/lag2nd.svg
+.. image:: ../ressources/lag2nd.svg
 .. autoclass:: pyinduct.shapefunctions.LagrangeSecondOrder
     :members:
 
