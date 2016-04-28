@@ -3,18 +3,19 @@ import unittest
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
+plt.ion()
 
+import pyinduct as pi
 import pyinduct.shapefunctions
 
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
-
     app = pg.QtGui.QApplication([])
 
 
@@ -59,6 +60,44 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         # integral over whole nonzero area of self**2
         # self.assertEqual(p1.quad_int(), 2/3)
 
+    def test_visual(self):
+        """
+        verify by visual feedback
+        """
+        der_order = 0
+        # func_type = pi.LagrangeFirstOrder
+        func_type = pi.LagrangeSecondOrder
+
+        dz = pi.Domain((0, 1), step=.001)
+        dt = pi.Domain((0, 0), num=1)
+
+        nodes, funcs = pi.cure_interval(func_type, dz.bounds, node_count=5)
+        pi.register_base("test", funcs)
+        approx_func = pi.Function(np.cos, domain=dz.bounds, derivative_handles=[lambda z: -np.sin(z)])
+        # approx_func = pi.Function(lambda z: np.sin(3*z), domain=dz.bounds, derivative_handles=[lambda z: 3*np.cos(3*z)])
+        weights = approx_func(nodes)
+        cls = pi.visualization.create_colormap(len(funcs))
+
+        pw = pg.plot(title="{}-Test".format(func_type.__name__))
+        pw.addLegend()
+        pw.showGrid(x=True, y=True, alpha=0.5)
+
+        [pw.addItem(pg.PlotDataItem(np.array(dz),
+                                    weights[idx]*func.derive(der_order)(dz),
+                                    pen=pg.mkPen(color=cls[idx]),
+                                    name="{}.{}".format(func_type.__name__, idx)))
+         for idx, func in enumerate(funcs)]
+
+        # plot hull curve
+        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
+                                         temp_domain=dt, spat_domain=dz, spat_order=der_order)
+        pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :],
+                                   pen=pg.mkPen(width=2), name="hull-curve"))
+        pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
+                                   pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
+
+        pg.QtCore.QCoreApplication.instance().exec_()
+
 
 class CureTestCase(unittest.TestCase):
     def setUp(self):
@@ -100,6 +139,6 @@ class CureTestCase(unittest.TestCase):
             plt.xticks(nodes)
             plt.yticks([0, 1])
             z = np.linspace(0, 1, 1000)
-            [plt.plot(z, fun.derive(0)(z)) for fun in funcs];
-            plt.grid(True);
+            [plt.plot(z, fun.derive(0)(z)) for fun in funcs]
+            plt.grid(True)
             plt.show()

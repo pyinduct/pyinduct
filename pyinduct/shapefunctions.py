@@ -18,7 +18,7 @@ class LagrangeFirstOrder(Function):
     :param top: top node, where :math:`f(x) = 1`
     :param start: end node
     """
-    def __init__(self, start, top, end):
+    def __init__(self, start, top, end, transition=None):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
 
@@ -31,14 +31,21 @@ class LagrangeFirstOrder(Function):
         self._b = self._end - self.top
 
         if start == top:
-            Function.__init__(self, self._lagrange1st_border_left,
-                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_border_left])
+            func = self._lagrange1st_border_left
+            der = self._der_lagrange1st_border_left
         elif top == end:
-            Function.__init__(self, self._lagrange1st_border_right,
-                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_border_right])
+            func = self._lagrange1st_border_right
+            der = self._der_lagrange1st_border_right
         else:
-            Function.__init__(self, self._lagrange1st_interior,
-                              nonzero=(start, end), derivative_handles=[self._der_lagrange1st_interior])
+            func = self._lagrange1st_interior
+            if transition == "left":
+                der = self._der_lagrange1st_border_left_transition
+            elif transition == "right":
+                der = self._der_lagrange1st_border_right_transition
+            else:
+                der = self._der_lagrange1st_interior
+
+        Function.__init__(self, func, nonzero=(start, end), derivative_handles=[der])
 
     def _lagrange1st_border_left(self, z):
         """
@@ -71,9 +78,58 @@ class LagrangeFirstOrder(Function):
 
     def _der_lagrange1st_border_left(self, z):
         """
-        left border equation for lagrange 1st order
+        left border equation for lagrange 1st order dz
         """
-        if self._start <= z <= self._end:
+        if self._start <= z < self._end:
+            return -1 / self._b
+        elif z == self._end:
+            return -1 / self._b * .5
+        else:
+            return 0
+
+    def _der_lagrange1st_border_left_transition(self, z):
+        """
+        transition from left border to interior for lagrange 1st order dz
+        """
+        if self._start <= z < self.top:
+            return 1 / self._a
+        elif z == self.top:
+            return 0
+        elif self.top < z < self._end:
+            return -1 / self._b
+        elif z == self._end:
+            return -1 / self._b * .5
+        else:
+            return 0
+
+    def _der_lagrange1st_interior(self, z):
+        """
+        interior equations for lagrange 1st order dz
+        """
+        if z == self._start:
+            return 1 / self._a * .5
+        elif self._start < z < self.top:
+            return 1 / self._a
+        elif z == self.top:
+            return 0
+        elif self.top < z < self._end:
+            return -1 / self._b
+        elif z == self._end:
+            return -1 / self._b * .5
+        else:
+            return 0
+
+    def _der_lagrange1st_border_right_transition(self, z):
+        """
+        transition from interior to right border for lagrange 1st order dz
+        """
+        if z == self._start:
+            return 1 / self._a * .5
+        elif self._start < z < self.top:
+            return 1 / self._a
+        elif z == self.top:
+            return 0
+        elif self.top < z <= self._end:
             return -1 / self._b
         else:
             return 0
@@ -82,19 +138,10 @@ class LagrangeFirstOrder(Function):
         """
         right border equation for lagrange 1st order
         """
-        if self._start <= z <= self._end:
+        if z == self._start:
+            return 1 / self._a * .5
+        elif self._start < z <= self._end:
             return 1 / self._a
-        else:
-            return 0
-
-    def _der_lagrange1st_interior(self, z):
-        """
-        interior equations for lagrange 1st order
-        """
-        if self._start <= z < self.top:
-            return 1 / self._a
-        elif self.top < z <= self._end:
-            return -1 / self._b
         else:
             return 0
 
@@ -254,15 +301,22 @@ def cure_interval(test_function_class, interval, node_count=None, node_distance=
 
     if test_function_class is LagrangeFirstOrder:
         domain = Domain(bounds=interval, step=node_distance, num=node_count)
+        if len(domain) < 5:
+            raise ValueError("minimum number of Lag1st for correct connection is 5.")
 
         # interval boundaries
-        test_functions = [LagrangeFirstOrder(domain[0], domain[0], domain[0] + domain.step),
-                          LagrangeFirstOrder(domain[-1] - domain.step, domain[-1], domain[-1])]
+        test_functions = [
+            LagrangeFirstOrder(domain[0], domain[0], domain[1]),
+            LagrangeFirstOrder(domain[0], domain[1], domain[2], transition="left"),
+            LagrangeFirstOrder(domain[-3], domain[-2], domain[-1], transition="right"),
+            LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
+        ]
         # interior case
-        for node in domain[1:-1]:
-            test_functions.insert(-1, LagrangeFirstOrder(node - domain.step,
+        for node in domain[2:-2]:
+            test_functions.insert(-2, LagrangeFirstOrder(node - domain.step,
                                                          node,
-                                                         node + domain.step))
+                                                         node + domain.step,
+                                                         transition=False))
     elif test_function_class is LagrangeSecondOrder:
         # create extra nodes for easier handling
         inner_cnt = 2 * node_count - 1
