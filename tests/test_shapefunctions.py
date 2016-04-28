@@ -3,7 +3,6 @@ import unittest
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
-plt.ion()
 
 import pyinduct as pi
 import pyinduct.shapefunctions
@@ -65,8 +64,8 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         verify by visual feedback
         """
         der_order = 0
-        # func_type = pi.LagrangeFirstOrder
-        func_type = pi.LagrangeSecondOrder
+        func_type = pi.LagrangeFirstOrder
+        # func_type = pi.LagrangeSecondOrder
 
         dz = pi.Domain((0, 1), step=.001)
         dt = pi.Domain((0, 0), num=1)

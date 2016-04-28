@@ -47,6 +47,32 @@ class LagrangeFirstOrder(Function):
 
         Function.__init__(self, func, nonzero=(start, end), derivative_handles=[der])
 
+    @staticmethod
+    def cure_hint(domain):
+        """
+        hint function that will cure the given interval with this function type
+        :param domain: domain to be cured
+        :type domain: py:class:pyinduct.Domain
+        :return: set of shapefunctions
+        """
+        if len(domain) < 5:
+            raise ValueError("minimum number of Lag1st for correct connection is 5!")
+
+        # interval boundaries
+        test_functions = [
+            LagrangeFirstOrder(domain[0], domain[0], domain[1]),
+            LagrangeFirstOrder(domain[0], domain[1], domain[2], transition="left"),
+            LagrangeFirstOrder(domain[-3], domain[-2], domain[-1], transition="right"),
+            LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
+        ]
+        # interior case
+        for node in domain[2:-2]:
+            test_functions.insert(-2, LagrangeFirstOrder(node - domain.step,
+                                                         node,
+                                                         node + domain.step,
+                                                         transition=False))
+        return test_functions
+
     def _lagrange1st_border_left(self, z):
         """
         left border equation for lagrange 1st order
@@ -204,6 +230,33 @@ class LagrangeSecondOrder(Function):
         else:
             raise ValueError("Following arguments do not meet the specs from LagrangeSecondOrder: start, end")
 
+    def cure_hint(self, domain):
+        """
+        cure hint for Lag2nd
+        :param domain:
+        :return:
+        """
+        if len(domain) < 3 or len(domain) % 3 != 0:
+            raise ValueError("node count has to be multiple of 3 for Lag2nd!")
+
+        # boundary special cases
+        test_functions = [
+            LagrangeSecondOrder(domain[0], domain[0], domain[2]),
+            LagrangeSecondOrder(domain[-3], domain[-1], domain[-1])
+        ]
+
+        for i in range(1, inner_cnt - 1):
+            if i % 2 != 0:
+                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - domain.step,
+                                                              domain[i],
+                                                              domain[i] + domain.step,
+                                                              max_element_length))
+            else:
+                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - 2 * domain.step,
+                                                              domain[i],
+                                                              domain[i] + 2 * domain.step,
+                                                              max_element_length))
+
     def _gen_left_top_poly(self):
         left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2 * self._e_2)))
         self._left_top_poly = npoly.Polynomial(left_top_poly.coef / left_top_poly(0))
@@ -281,64 +334,33 @@ class LagrangeSecondOrder(Function):
         return self._lagrange2nd_interior_half(z, der_order=2)
 
 
-def cure_interval(test_function_class, interval, node_count=None, node_distance=None):
+def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None):
     """
     Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
 
-    :param test_function_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
+    :param shapefunction_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
     :param interval: tuple of limits that constrain the interval
     :param node_count: amount of nodes to use
     :param node_distance: distance of nodes
 
     :return: tuple of nodes and functions
     """
-    if not issubclass(test_function_class, Function):
+    if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")
 
     # TODO move these into "cure_hint" method of core.Function
-    if test_function_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
+    if shapefunction_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
         raise TypeError("LagrangeFirstOrder and LagrangeSecondOrder supported as test_function_class for now.")
 
-    if test_function_class is LagrangeFirstOrder:
-        domain = Domain(bounds=interval, step=node_distance, num=node_count)
-        if len(domain) < 5:
-            raise ValueError("minimum number of Lag1st for correct connection is 5.")
+    domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
-        # interval boundaries
-        test_functions = [
-            LagrangeFirstOrder(domain[0], domain[0], domain[1]),
-            LagrangeFirstOrder(domain[0], domain[1], domain[2], transition="left"),
-            LagrangeFirstOrder(domain[-3], domain[-2], domain[-1], transition="right"),
-            LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
-        ]
-        # interior case
-        for node in domain[2:-2]:
-            test_functions.insert(-2, LagrangeFirstOrder(node - domain.step,
-                                                         node,
-                                                         node + domain.step,
-                                                         transition=False))
-    elif test_function_class is LagrangeSecondOrder:
-        # create extra nodes for easier handling
-        inner_cnt = 2 * node_count - 1
-        # inner_dist = node_distance / 2
+    if hasattr(shapefunction_class, "cure_hint"):
+        funcs = shapefunction_class.cure_hint(domain)
+    else:
+        raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-        # domain = np.sort(np.concatenate((domain, domain[:-1] + np.diff(domain) / 2)))
-        domain = Domain(interval, num=inner_cnt)
-        max_element_length = 4 * domain.step
+    return domain, np.array(funcs)
 
-        test_functions = [LagrangeSecondOrder(domain[0], domain[0], domain[0] + 2 * domain.step, max_element_length),
-                          LagrangeSecondOrder(domain[-1] - 2 * domain.step, domain[-1], domain[-1], max_element_length)]
 
-        for i in range(1, inner_cnt - 1):
-            if i % 2 != 0:
-                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - domain.step,
-                                                              domain[i],
-                                                              domain[i] + domain.step,
-                                                              max_element_length))
-            else:
-                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - 2 * domain.step,
-                                                              domain[i],
-                                                              domain[i] + 2 * domain.step,
-                                                              max_element_length))
 
     return domain, np.asarray(test_functions)
