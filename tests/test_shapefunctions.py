@@ -64,8 +64,8 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         verify by visual feedback
         """
         der_order = 1
-        func_type = pi.LagrangeFirstOrder
-        # func_type = pi.LagrangeSecondOrder
+        # func_type = pi.LagrangeFirstOrder
+        func_type = pi.LagrangeSecondOrder
 
         dz = pi.Domain((0, 1), step=.001)
         dt = pi.Domain((0, 0), num=1)

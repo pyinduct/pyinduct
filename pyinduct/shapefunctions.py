@@ -66,8 +66,6 @@ class LagrangeFirstOrder(Function):
             LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
         ]
         # interior case
-        # for node in domain[2:-2]:
-        # for idx, node in enumerate(domain):
         for idx in range(2, len(domain)-2):
             test_functions.insert(-2, LagrangeFirstOrder(domain[idx-1],
                                                          domain[idx],
@@ -263,11 +261,10 @@ class LagrangeSecondOrder(Function):
                 return 0
 
         def lag2nd_dz(z):
-            if (extra == "left_border") and (z == end):
+            if z == start and not extra == "left_border" or \
+                        z == end and not extra == "right_border":
                 return .5*s*(2*z + p)
-            if (extra == "right_border") and (z == start):
-                return .5*s*(2*z + p)
-            elif start <= z <= end:
+            if start <= z <= end:
                 return s*(2*z + p)
             else:
                 return 0
