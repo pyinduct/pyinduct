@@ -66,10 +66,12 @@ class LagrangeFirstOrder(Function):
             LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
         ]
         # interior case
-        for node in domain[2:-2]:
-            test_functions.insert(-2, LagrangeFirstOrder(node - domain.step,
-                                                         node,
-                                                         node + domain.step,
+        # for node in domain[2:-2]:
+        # for idx, node in enumerate(domain):
+        for idx in range(2, len(domain)-2):
+            test_functions.insert(-2, LagrangeFirstOrder(domain[idx-1],
+                                                         domain[idx],
+                                                         domain[idx+1],
                                                          transition=False))
         return domain, np.array(test_functions)
 
@@ -194,15 +196,14 @@ class LagrangeSecondOrder(Function):
     :param curvature: concave or convex
     :param half: generate only left or right haf
     """
-    def __init__(self, start, mid, end, curvature, half=None):
+    def __init__(self, start, mid, end, curvature, half=None, extra=None):
         assert(start <= mid <= end)
-        self._composed = False
-
+        self._border = True
         if curvature == "concave" and half is None:
             # interior case
             self._composed = True
-            func1 = self._function_factory(start, start + (mid-start)/2, mid, curvature, "right")
-            func2 = self._function_factory(mid, mid + (end-mid)/2, end, curvature, "left")
+            func1 = self._function_factory(start, start + (mid-start)/2, mid, curvature, "right", extra)
+            func2 = self._function_factory(mid, mid + (end-mid)/2, end, curvature, "left", extra)
 
             def composed_func(z):
                 if start <= z <= mid:
@@ -232,14 +233,14 @@ class LagrangeSecondOrder(Function):
 
             funcs = (composed_func, composed_func_dz, composed_func_ddz)
         else:
-            funcs = self._function_factory(start, mid, end, curvature, half)
+            funcs = self._function_factory(start, mid, end, curvature, half, extra)
 
         Function.__init__(self, funcs[0],
                           nonzero=(start, end),
                           derivative_handles=funcs[1:])
 
     @staticmethod
-    def _function_factory(start, mid, end, curvature, half):
+    def _function_factory(start, mid, end, curvature, half, extra):
         if curvature == "convex":
             p = -(start+end)
             q = start*end
@@ -262,7 +263,11 @@ class LagrangeSecondOrder(Function):
                 return 0
 
         def lag2nd_dz(z):
-            if start <= z <= end:
+            if (extra == "left_border") and (z == end):
+                return .5*s*(2*z + p)
+            if (extra == "right_border") and (z == start):
+                return .5*s*(2*z + p)
+            elif start <= z <= end:
                 return s*(2*z + p)
             else:
                 return 0
@@ -288,8 +293,10 @@ class LagrangeSecondOrder(Function):
         funcs = np.empty((len(domain),), dtype=LagrangeSecondOrder)
 
         # boundary special cases
-        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2], curvature="concave", half="left")
-        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1], curvature="concave", half="right")
+        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
+                                       curvature="concave", half="left", extra="left_border")
+        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
+                                        curvature="concave", half="right", extra="right_border")
 
         # interior
         for idx in range(1, len(domain)-1):
