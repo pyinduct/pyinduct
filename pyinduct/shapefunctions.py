@@ -71,7 +71,7 @@ class LagrangeFirstOrder(Function):
                                                          node,
                                                          node + domain.step,
                                                          transition=False))
-        return test_functions
+        return domain, np.array(test_functions)
 
     def _lagrange1st_border_left(self, z):
         """
@@ -189,11 +189,118 @@ class LagrangeSecondOrder(Function):
 
 
     :param start: start node
-    :param top: top node, where :math:`f(x) = 1`
+    :param mid: middle node, where :math:`f(x) = 1`
     :param end: end node
-    :param max_element_length: value of the length d (see sketch)
+    :param curvature: concave or convex
+    :param half: generate only left or right haf
     """
+    def __init__(self, start, mid, end, curvature, half=None):
+        assert(start <= mid <= end)
+        self._composed = False
 
+        if curvature == "concave" and half is None:
+            # interior case
+            self._composed = True
+            func1 = self._function_factory(start, start + (mid-start)/2, mid, curvature, "right")
+            func2 = self._function_factory(mid, mid + (end-mid)/2, end, curvature, "left")
+
+            def composed_func(z):
+                if start <= z <= mid:
+                    return func1[0](z)
+                elif mid < z <= end:
+                    return func2[0](z)
+                else:
+                    return 0
+
+            def composed_func_dz(z):
+                if z == mid:
+                    return 0
+                if start <= z <= mid:
+                    return func1[1](z)
+                elif mid < z <= end:
+                    return func2[1](z)
+                else:
+                    return 0
+
+            def composed_func_ddz(z):
+                if start <= z <= mid:
+                    return func1[2](z)
+                elif mid < z <= end:
+                    return func2[2](z)
+                else:
+                    return 0
+
+            funcs = (composed_func, composed_func_dz, composed_func_ddz)
+        else:
+            funcs = self._function_factory(start, mid, end, curvature, half)
+
+        Function.__init__(self, funcs[0],
+                          nonzero=(start, end),
+                          derivative_handles=funcs[1:])
+
+    @staticmethod
+    def _function_factory(start, mid, end, curvature, half):
+        if curvature == "convex":
+            p = -(start+end)
+            q = start*end
+            s = 1/(mid**2 + p*mid + q)
+
+        elif curvature == "concave":
+            if half == "left":
+                p = -(mid+end)
+                q = mid*end
+                s = 1/(start**2 + p*start + q)
+            elif half == "right":
+                p = -(start+mid)
+                q = start*mid
+                s = 1/(end**2 + p*end + q)
+
+        def lag2nd(z):
+            if start <= z <= end:
+                return s*(z**2 + p*z + q)
+            else:
+                return 0
+
+        def lag2nd_dz(z):
+            if start <= z <= end:
+                return s*(2*z + p)
+            else:
+                return 0
+
+        def lag2nd_ddz(z):
+            if start <= z <= end:
+                return s*2
+            else:
+                return 0
+
+        return lag2nd, lag2nd_dz, lag2nd_ddz
+
+    @staticmethod
+    def cure_hint(domain):
+        """
+        cure hint for Lag2nd
+        :param domain:
+        :return:
+        """
+        if len(domain) < 3 or len(domain) % 2 != 1:
+            raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
+
+        funcs = np.empty((len(domain),), dtype=LagrangeSecondOrder)
+
+        # boundary special cases
+        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2], curvature="concave", half="left")
+        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1], curvature="concave", half="right")
+
+        # interior
+        for idx in range(1, len(domain)-1):
+            if idx % 2 != 0:
+                funcs[idx] = LagrangeSecondOrder(domain[idx-1], domain[idx], domain[idx+1], curvature="convex")
+            else:
+                funcs[idx] = LagrangeSecondOrder(domain[idx-2], domain[idx], domain[idx+2], curvature="concave")
+
+        return domain, funcs
+
+    '''
     def __init__(self, start, top, end, max_element_length):
         self._element_length = end - start
         if not start <= top <= end or start == end or (
@@ -230,32 +337,7 @@ class LagrangeSecondOrder(Function):
         else:
             raise ValueError("Following arguments do not meet the specs from LagrangeSecondOrder: start, end")
 
-    def cure_hint(self, domain):
-        """
-        cure hint for Lag2nd
-        :param domain:
-        :return:
-        """
-        if len(domain) < 3 or len(domain) % 3 != 0:
-            raise ValueError("node count has to be multiple of 3 for Lag2nd!")
 
-        # boundary special cases
-        test_functions = [
-            LagrangeSecondOrder(domain[0], domain[0], domain[2]),
-            LagrangeSecondOrder(domain[-3], domain[-1], domain[-1])
-        ]
-
-        for i in range(1, inner_cnt - 1):
-            if i % 2 != 0:
-                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - domain.step,
-                                                              domain[i],
-                                                              domain[i] + domain.step,
-                                                              max_element_length))
-            else:
-                test_functions.insert(-1, LagrangeSecondOrder(domain[i] - 2 * domain.step,
-                                                              domain[i],
-                                                              domain[i] + 2 * domain.step,
-                                                              max_element_length))
 
     def _gen_left_top_poly(self):
         left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2 * self._e_2)))
@@ -332,6 +414,7 @@ class LagrangeSecondOrder(Function):
 
     def _dder_lagrange2nd_interior_half(self, z):
         return self._lagrange2nd_interior_half(z, der_order=2)
+    '''
 
 
 def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None):
@@ -354,13 +437,7 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
 
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
-    if hasattr(shapefunction_class, "cure_hint"):
-        funcs = shapefunction_class.cure_hint(domain)
-    else:
+    if not hasattr(shapefunction_class, "cure_hint"):
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return domain, np.array(funcs)
-
-
-
-    return domain, np.asarray(test_functions)
+    return shapefunction_class.cure_hint(domain)

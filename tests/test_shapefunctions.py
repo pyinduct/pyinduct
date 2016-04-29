@@ -63,18 +63,20 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         """
         verify by visual feedback
         """
-        der_order = 0
-        func_type = pi.LagrangeFirstOrder
-        # func_type = pi.LagrangeSecondOrder
+        der_order = 2
+        # func_type = pi.LagrangeFirstOrder
+        func_type = pi.LagrangeSecondOrder
 
         dz = pi.Domain((0, 1), step=.001)
         dt = pi.Domain((0, 0), num=1)
 
         nodes, funcs = pi.cure_interval(func_type, dz.bounds, node_count=5)
         pi.register_base("test", funcs)
-        approx_func = pi.Function(np.cos, domain=dz.bounds, derivative_handles=[lambda z: -np.sin(z)])
+        approx_func = pi.Function(np.cos, domain=dz.bounds, derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
         # approx_func = pi.Function(lambda z: np.sin(3*z), domain=dz.bounds, derivative_handles=[lambda z: 3*np.cos(3*z)])
         weights = approx_func(nodes)
+
+        # weights = np.ones((len(nodes),))
         cls = pi.visualization.create_colormap(len(funcs))
 
         pw = pg.plot(title="{}-Test".format(func_type.__name__))
@@ -92,8 +94,8 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
                                          temp_domain=dt, spat_domain=dz, spat_order=der_order)
         pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :],
                                    pen=pg.mkPen(width=2), name="hull-curve"))
-        pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
-                                   pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
+        # pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
+        #                            pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
 
         pg.QtCore.QCoreApplication.instance().exec_()
 
