@@ -198,8 +198,12 @@ class LagrangeSecondOrder(Function):
         assert(start <= mid <= end)
         if kwargs["curvature"] == "concave" and "half" not in kwargs:
             # interior special case
-            func1 = self._function_factory(start, start + (mid-start)/2, mid, **kwargs, half="right")
-            func2 = self._function_factory(mid, mid + (end-mid)/2, end, **kwargs, half="left")
+            args1 = kwargs.copy()
+            args1.update({"right_border": False, "half": "right"})
+            func1 = self._function_factory(start, start + (mid-start)/2, mid, **args1)
+            args2 = kwargs.copy()
+            args2.update({"left_border": False, "half": "left"})
+            func2 = self._function_factory(mid, mid + (end-mid)/2, end, **args2)
 
             def composed_func(z):
                 if start <= z <= mid:
@@ -212,7 +216,7 @@ class LagrangeSecondOrder(Function):
             def composed_func_dz(z):
                 if z == mid:
                     return 0
-                if start <= z <= mid:
+                elif start <= z < mid:
                     return func1[1](z)
                 elif mid < z <= end:
                     return func2[1](z)
@@ -220,18 +224,15 @@ class LagrangeSecondOrder(Function):
                     return 0
 
             def composed_func_ddz(z):
-                if start <= z <= mid:
+                if start <= z < mid:
                     return func1[2](z)
-                elif mid < z <= end:
+                elif z == mid:
+                    return func1[2](z) + func2[2](z)
+                elif mid <= z <= end:
                     return func2[2](z)
                 else:
                     return 0
 
-            # TODO refactor Lag1st here
-            # lin_func = LagrangeFirstOrder(start, mid, end, transition=False)
-            # scaled_func = lin_func.scale()
-            # funcs = [composed_func] + [LagrangeFirstOrder(start, mid, end, transition=False).derive(n)
-            #                            for n in range(1)]
             funcs = (composed_func, composed_func_dz, composed_func_ddz)
         else:
             funcs = self._function_factory(start, mid, end, **kwargs)
@@ -275,6 +276,10 @@ class LagrangeSecondOrder(Function):
                 return 0
 
         def lag2nd_ddz(z):
+            # if z == start or z == end:
+            if z == start and not kwargs.get("left_border", False) or \
+                        z == end and not kwargs.get("right_border", False):
+                return s
             if start <= z <= end:
                 return s*2
             else:
