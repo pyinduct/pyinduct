@@ -169,8 +169,8 @@ class Function(BaseFraction):
         # handle must be callable
         if not isinstance(eval_handle, collections.Callable):
             raise TypeError("callable has to be provided as function_handle")
-        if isinstance(eval_handle, Function):
-            raise TypeError("Function cannot be initialized with Function!")
+        # if isinstance(eval_handle, Function):
+        #     raise TypeError("Function cannot be initialized with Function!")
 
         # handle must return scalar when called with scalar
         testval = self.domain[0][1]

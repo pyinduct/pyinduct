@@ -194,14 +194,12 @@ class LagrangeSecondOrder(Function):
     :param curvature: concave or convex
     :param half: generate only left or right haf
     """
-    def __init__(self, start, mid, end, curvature, half=None, extra=None):
+    def __init__(self, start, mid, end, **kwargs):
         assert(start <= mid <= end)
-        self._border = True
-        if curvature == "concave" and half is None:
-            # interior case
-            self._composed = True
-            func1 = self._function_factory(start, start + (mid-start)/2, mid, curvature, "right", extra)
-            func2 = self._function_factory(mid, mid + (end-mid)/2, end, curvature, "left", extra)
+        if kwargs["curvature"] == "concave" and "half" not in kwargs:
+            # interior special case
+            func1 = self._function_factory(start, start + (mid-start)/2, mid, **kwargs, half="right")
+            func2 = self._function_factory(mid, mid + (end-mid)/2, end, **kwargs, half="left")
 
             def composed_func(z):
                 if start <= z <= mid:
@@ -229,30 +227,37 @@ class LagrangeSecondOrder(Function):
                 else:
                     return 0
 
+            # TODO refactor Lag1st here
+            # lin_func = LagrangeFirstOrder(start, mid, end, transition=False)
+            # scaled_func = lin_func.scale()
+            # funcs = [composed_func] + [LagrangeFirstOrder(start, mid, end, transition=False).derive(n)
+            #                            for n in range(1)]
             funcs = (composed_func, composed_func_dz, composed_func_ddz)
         else:
-            funcs = self._function_factory(start, mid, end, curvature, half, extra)
+            funcs = self._function_factory(start, mid, end, **kwargs)
 
         Function.__init__(self, funcs[0],
                           nonzero=(start, end),
                           derivative_handles=funcs[1:])
 
     @staticmethod
-    def _function_factory(start, mid, end, curvature, half, extra):
-        if curvature == "convex":
+    def _function_factory(start, mid, end, **kwargs):
+        if kwargs["curvature"] == "convex":
             p = -(start+end)
             q = start*end
             s = 1/(mid**2 + p*mid + q)
 
-        elif curvature == "concave":
-            if half == "left":
+        elif kwargs["curvature"] == "concave":
+            if kwargs["half"] == "left":
                 p = -(mid+end)
                 q = mid*end
                 s = 1/(start**2 + p*start + q)
-            elif half == "right":
+            elif kwargs["half"] == "right":
                 p = -(start+mid)
                 q = start*mid
                 s = 1/(end**2 + p*end + q)
+        else:
+            raise ValueError
 
         def lag2nd(z):
             if start <= z <= end:
@@ -261,8 +266,8 @@ class LagrangeSecondOrder(Function):
                 return 0
 
         def lag2nd_dz(z):
-            if z == start and not extra == "left_border" or \
-                        z == end and not extra == "right_border":
+            if z == start and not kwargs.get("left_border", False) or \
+                        z == end and not kwargs.get("right_border", False):
                 return .5*s*(2*z + p)
             if start <= z <= end:
                 return s*(2*z + p)
@@ -291,16 +296,22 @@ class LagrangeSecondOrder(Function):
 
         # boundary special cases
         funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
-                                       curvature="concave", half="left", extra="left_border")
+                                       curvature="concave", half="left", left_border=True)
         funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
-                                        curvature="concave", half="right", extra="right_border")
+                                        curvature="concave", half="right", right_border=True)
 
         # interior
         for idx in range(1, len(domain)-1):
             if idx % 2 != 0:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-1], domain[idx], domain[idx+1], curvature="convex")
+                funcs[idx] = LagrangeSecondOrder(domain[idx-1], domain[idx], domain[idx+1], curvature="convex",
+                                                 left_border=True if idx == 1 else False,
+                                                 right_border=True if idx == len(domain)-2 else False,
+                                                 )
             else:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-2], domain[idx], domain[idx+2], curvature="concave")
+                funcs[idx] = LagrangeSecondOrder(domain[idx-2], domain[idx], domain[idx+2], curvature="concave",
+                                                 left_border=True if idx == 2 else False,
+                                                 right_border=True if idx == len(domain)-3 else False,
+                                                 )
 
         return domain, funcs
 

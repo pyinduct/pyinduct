@@ -73,7 +73,8 @@ class LagrangeFirstOrderTestCase(unittest.TestCase):
         nodes, funcs = pi.cure_interval(func_type, dz.bounds, node_count=11)
         pi.register_base("test", funcs)
         # approx_func = pi.Function(np.cos, domain=dz.bounds, derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
-        approx_func = pi.Function(lambda z: np.sin(3*z), domain=dz.bounds, derivative_handles=[lambda z: 3*np.cos(3*z)])
+        approx_func = pi.Function(lambda z: np.sin(3*z), domain=dz.bounds,
+                                  derivative_handles=[lambda z: 3*np.cos(3*z), lambda z: -9*np.sin(3*z)])
         weights = approx_func(nodes)
 
         # weights = np.ones((len(nodes),))
