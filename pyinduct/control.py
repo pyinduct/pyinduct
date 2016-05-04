@@ -198,10 +198,6 @@ class LawEvaluator(object):
                     output = output + np.dot(vec, np.power(dst_weights, p))
 
             res[lbl] = dst_weights
-            # if self._storage is not None:
-            #     entry = self._storage.get(info.dst_lbl, [])
-            #     entry.append(dst_weights)
-            #     self._storage[info.dst_lbl] = entry
 
         # add constant term
         static_terms = self._cfs.get_static_terms()

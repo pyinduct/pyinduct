@@ -43,7 +43,7 @@ class MonotonousInput(sim.SimulationInput):
     an input that ramps up
     """
     def _calc_output(self, **kwargs):
-        return kwargs["time"]
+        return dict(output=kwargs["time"])
 
 
 class CorrectInput(sim.SimulationInput):
@@ -57,7 +57,7 @@ class CorrectInput(sim.SimulationInput):
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
-        return 0
+        return dict(output=0)
 
 
 class SimulationInputTest(unittest.TestCase):
@@ -391,7 +391,7 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         z_step = 0.1
-        self.dz = sim.Domain(bounds=(z_start, z_end), step=z_step)
+        self.dz = sim.Domain(bounds=(z_start, z_end), num=9)
 
         t_start = 0
         t_end = 10
@@ -435,7 +435,7 @@ class StringMassTest(unittest.TestCase):
         # enter string with mass equations
         # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
         nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
-                                            self.dz.bounds, node_count=10)
+                                            self.dz.bounds, node_count=11)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
@@ -622,7 +622,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         a2, a1, a0, alpha, beta = param
 
         l = 1.
-        spatial_disc = 10
+        spatial_disc = 11
         dz = sim.Domain(bounds=(0, l), num=spatial_disc)
 
         T = 1.

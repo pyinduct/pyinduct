@@ -166,7 +166,7 @@ class FlatString(SimulationInput):
         :param kwargs:
         :return:
         """
-        return self._control_input(kwargs["time"])
+        return dict(output=self._control_input(kwargs["time"]))
 
 
 # TODO: kwarg: t_step

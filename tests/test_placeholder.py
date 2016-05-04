@@ -185,7 +185,7 @@ class EquationTermsTest(unittest.TestCase):
         t1 = ph.ScalarTerm(self.xdz_at1)
         self.assertEqual(t1.scale, 1.0)  # default scale
         # check if automated evaluation works
-        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([0,  1])))
+        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([-1,  1])))
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, ph.IntegralTerm, 7, (0, 1))  # integrand is number

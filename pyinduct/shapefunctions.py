@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.polynomial import polynomial as npoly
 
 from .core import Function
 from .simulation import Domain
@@ -18,34 +17,59 @@ class LagrangeFirstOrder(Function):
     :param top: top node, where :math:`f(x) = 1`
     :param start: end node
     """
-    def __init__(self, start, top, end, transition=None):
+    def __init__(self, start, top, end, **kwargs):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
 
-        self._start = start
-        self.top = top
-        self._end = end
+        if kwargs.get("half", None) is None:
+            args1 = kwargs.copy()
+            args1.update({"right_border": False})
+            rise_fncs = self._function_factory(start, start, top, **args1)
+            args2 = kwargs.copy()
+            args2.update({"left_border": False})
+            fall_fncs = self._function_factory(top, end, end, **args2)
 
-        # speed
-        self._a = self.top - self._start
-        self._b = self._end - self.top
-
-        if start == top:
-            func = self._lagrange1st_border_left
-            der = self._der_lagrange1st_border_left
-        elif top == end:
-            func = self._lagrange1st_border_right
-            der = self._der_lagrange1st_border_right
+            def _lag1st_factory(der):
+                def _lag1st_complete(z):
+                    if z == top:
+                        return .5*(rise_fncs[der](z) + fall_fncs[der](z))
+                    else:
+                        return rise_fncs[der](z) + fall_fncs[der](z)
+                return _lag1st_complete
+            funcs = [_lag1st_factory(derivative) for derivative in [0, 1]]
         else:
-            func = self._lagrange1st_interior
-            if transition == "left":
-                der = self._der_lagrange1st_border_left_transition
-            elif transition == "right":
-                der = self._der_lagrange1st_border_right_transition
-            else:
-                der = self._der_lagrange1st_interior
+            funcs = self._function_factory(start, top, end, **kwargs)
 
-        Function.__init__(self, func, nonzero=(start, end), derivative_handles=[der])
+        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
+
+    @staticmethod
+    def _function_factory(start, mid, end, **kwargs):
+
+        if start == mid:
+            m = -1 / (start - end)
+            n = -m*start
+        elif mid == end:
+            m = 1 / (start - end)
+            n = 1 - m*start
+        else:
+            raise ValueError
+
+        def _lag1st_half(z):
+            if start <= z <= end:
+                return m*z + n
+            else:
+                return 0
+
+        def _lag1st_half_dz(z):
+            if z == start and not kwargs.get("left_border", False) or \
+                        z == end and not kwargs.get("right_border", False):
+                return .5*m
+            if start <= z <= end:
+                return m
+            else:
+                return 0
+
+        return [_lag1st_half, _lag1st_half_dz]
 
     @staticmethod
     def cure_hint(domain):
@@ -55,121 +79,19 @@ class LagrangeFirstOrder(Function):
         :type domain: py:class:pyinduct.Domain
         :return: set of shapefunctions
         """
-        if len(domain) < 5:
-            raise ValueError("minimum number of Lag1st for correct connection is 5!")
+        funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
+        funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
+                                      right_border=True if len(domain) == 2 else False)
+        funcs[-1] = LagrangeFirstOrder(domain[-2], domain[-2], domain[-1], half="right", right_border=True,
+                                       left_border=True if len(domain) == 2 else False)
 
-        # interval boundaries
-        test_functions = [
-            LagrangeFirstOrder(domain[0], domain[0], domain[1]),
-            LagrangeFirstOrder(domain[0], domain[1], domain[2], transition="left"),
-            LagrangeFirstOrder(domain[-3], domain[-2], domain[-1], transition="right"),
-            LagrangeFirstOrder(domain[-2], domain[-1], domain[-1])
-        ]
-        # interior case
-        for idx in range(2, len(domain)-2):
-            test_functions.insert(-2, LagrangeFirstOrder(domain[idx-1],
-                                                         domain[idx],
-                                                         domain[idx+1],
-                                                         transition=False))
-        return domain, np.array(test_functions)
-
-    def _lagrange1st_border_left(self, z):
-        """
-        left border equation for lagrange 1st order
-        """
-        if z < self.top or z >= self._end:
-            return 0
-        else:
-            return (self.top - z) / self._b + 1
-
-    def _lagrange1st_border_right(self, z):
-        """
-        right border equation for lagrange 1st order
-        """
-        if z <= self._start or z > self._end:
-            return 0
-        else:
-            return (z - self._start) / self._a
-
-    def _lagrange1st_interior(self, z):
-        """
-        interior equations for lagrange 1st order
-        """
-        if z < self._start or z > self._end:
-            return 0
-        elif self._start <= z <= self.top:
-            return (z - self._start) / self._a
-        else:
-            return (self.top - z) / self._b + 1
-
-    def _der_lagrange1st_border_left(self, z):
-        """
-        left border equation for lagrange 1st order dz
-        """
-        if self._start <= z < self._end:
-            return -1 / self._b
-        elif z == self._end:
-            return -1 / self._b * .5
-        else:
-            return 0
-
-    def _der_lagrange1st_border_left_transition(self, z):
-        """
-        transition from left border to interior for lagrange 1st order dz
-        """
-        if self._start <= z < self.top:
-            return 1 / self._a
-        elif z == self.top:
-            return 0
-        elif self.top < z < self._end:
-            return -1 / self._b
-        elif z == self._end:
-            return -1 / self._b * .5
-        else:
-            return 0
-
-    def _der_lagrange1st_interior(self, z):
-        """
-        interior equations for lagrange 1st order dz
-        """
-        if z == self._start:
-            return 1 / self._a * .5
-        elif self._start < z < self.top:
-            return 1 / self._a
-        elif z == self.top:
-            return 0
-        elif self.top < z < self._end:
-            return -1 / self._b
-        elif z == self._end:
-            return -1 / self._b * .5
-        else:
-            return 0
-
-    def _der_lagrange1st_border_right_transition(self, z):
-        """
-        transition from interior to right border for lagrange 1st order dz
-        """
-        if z == self._start:
-            return 1 / self._a * .5
-        elif self._start < z < self.top:
-            return 1 / self._a
-        elif z == self.top:
-            return 0
-        elif self.top < z <= self._end:
-            return -1 / self._b
-        else:
-            return 0
-
-    def _der_lagrange1st_border_right(self, z):
-        """
-        right border equation for lagrange 1st order
-        """
-        if z == self._start:
-            return 1 / self._a * .5
-        elif self._start < z <= self._end:
-            return 1 / self._a
-        else:
-            return 0
+        for idx in range(1, len(domain)-1):
+            funcs[idx] = LagrangeFirstOrder(domain[idx-1],
+                                            domain[idx],
+                                            domain[idx+1],
+                                            left_border=True if idx == 1 else False,
+                                            right_border=True if idx == len(domain)-2 else False)
+        return domain, funcs
 
 
 class LagrangeSecondOrder(Function):

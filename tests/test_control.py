@@ -50,17 +50,17 @@ class CollocatedTestCase(unittest.TestCase):
 
     def test_temp_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 6)
 
     def test_spat_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 1 * np.exp(1))
 
 
@@ -86,17 +86,17 @@ class ContinuousTestCase(unittest.TestCase):
 
     def test_temp_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         self.assertTrue(np.equal(res, 6))
 
     def test_spat_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
         law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
-        res = law(self.weights, self.weight_label)
+        res = law(self.weights, self.weight_label)["output"]
         # TODO calculate expected result
         # self.assertAlmostEqual(res, 1*np.exp(1))
 
