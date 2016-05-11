@@ -5,7 +5,8 @@ import unittest
 
 from pyinduct import register_base, deregister_base, get_base
 
-
+import sys
+print(sys.argv)
 """
 test_registry
 ----------------------------------

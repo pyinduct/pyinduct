@@ -6,7 +6,7 @@ from pyinduct import register_base, LagrangeFirstOrder, cure_interval
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
 
 # TODO Test for all Placeholders
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True
