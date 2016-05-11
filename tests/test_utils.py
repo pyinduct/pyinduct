@@ -136,7 +136,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.weights = np.array(list(range(self.node_cnt*self.dates.size))).reshape((self.dates.size, len(self.nodes)))
 
     def test_eval_helper(self):
-        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, .1)
+        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, 1)
         if show_plots:
             p = vt.PgAnimatedPlot(eval_data)
             app.exec_()

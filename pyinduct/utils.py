@@ -3,13 +3,12 @@ import warnings
 from numbers import Number
 import collections
 import numpy as np
-import pyqtgraph as pg
 from scipy.optimize import root
-
 from .registry import get_base, register_base
 from . import placeholder as ph
 from .placeholder import FieldVariable, TestFunction
 from . import visualization as vis
+import pyqtgraph as pg
 
 
 class Parameters:

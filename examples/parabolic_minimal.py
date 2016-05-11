@@ -1,7 +1,3 @@
-import numpy as np
-import pyqtgraph as pg
-import matplotlib.pyplot as plt
-
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import control as ct
@@ -10,6 +6,9 @@ from pyinduct import placeholder as ph
 from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
+import numpy as np
+import pyqtgraph as pg
+import matplotlib.pyplot as plt
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation

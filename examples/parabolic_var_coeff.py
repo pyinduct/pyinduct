@@ -1,8 +1,3 @@
-import numpy as np
-import pyqtgraph as pg
-import scipy.integrate as si
-import matplotlib.pyplot as plt
-
 from pyinduct import register_base
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
@@ -12,6 +7,11 @@ from pyinduct import trajectory as tr
 from pyinduct import eigenfunctions as ef
 from pyinduct import simulation as sim
 from pyinduct import visualization as vis
+import numpy as np
+import pyqtgraph as pg
+import scipy.integrate as si
+import matplotlib.pyplot as plt
+
 
 # system/simulation parameters
 actuation_type = 'robin'
