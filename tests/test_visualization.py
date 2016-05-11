@@ -1,18 +1,18 @@
 import os
+import sys
 import unittest
 from pickle import loads
+
 import matplotlib.pyplot as plt
-import sys
 
 import pyinduct.visualization as vis
-
 
 # TODO: __init__ global variable show_plots
 if any([arg == 'discover' for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
-    # show_plots = False
+    # show_plots = True
+    show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
