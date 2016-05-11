@@ -19,7 +19,7 @@ import sys
 # Mock PyQt5 Dependencies
 from unittest.mock import MagicMock
 
-MOCK_MODULES = ['pyqtgraph', 'PyQt4', 'sip']  # , 'PyQt5', 'numpy', 'sympy', 'scipy']
+MOCK_MODULES = ['pyqtgraph', 'pyqtgraph.opengl']  # , 'PyQt4', 'sip']  # , 'PyQt5', 'numpy', 'sympy', 'scipy']
 sys.modules.update((mod_name, MagicMock()) for mod_name in MOCK_MODULES)
 
 
