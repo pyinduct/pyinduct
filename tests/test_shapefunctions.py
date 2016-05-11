@@ -1,13 +1,13 @@
 import sys
 import unittest
-import matplotlib as mpl
+
 import numpy as np
-from matplotlib import pyplot as plt
 
 import pyinduct as pi
 import pyinduct.shapefunctions
+from pyinduct.visualization import create_colormap
 
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True
@@ -62,7 +62,7 @@ class CureTestCase(unittest.TestCase):
 
         if show_plots:
             # plot shapefunctions
-            c_map = pi.visualization.create_colormap(len(funcs))
+            c_map = create_colormap(len(funcs))
             pw = pg.plot(title="{}-Test".format(cls.__name__))
             pw.addLegend()
             pw.showGrid(x=True, y=True, alpha=0.5)

@@ -1,11 +1,12 @@
-
-import unittest
-import numpy as np
-from pyinduct import trajectory as tr, visualization as vis
-import pyinduct.utils as ut
 import sys
+import unittest
 
-if any([arg == 'discover' for arg in sys.argv]):
+import numpy as np
+
+import pyinduct.utils as ut
+from pyinduct import trajectory as tr, visualization as vis
+
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True

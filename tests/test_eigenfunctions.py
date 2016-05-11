@@ -1,15 +1,14 @@
 import sys
 import unittest
-import numpy as np
-import matplotlib.pyplot as plt
-from pyinduct import get_base, register_base, \
-    core as cr, \
-    utils as ut, \
-    eigenfunctions as ef, \
-    visualization as vt, \
-    placeholder as ph
 
-if any([arg == 'discover' for arg in sys.argv]):
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pyinduct import core as cr, \
+    utils as ut, \
+    eigenfunctions as ef
+
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True

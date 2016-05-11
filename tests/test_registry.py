@@ -3,9 +3,6 @@
 
 import unittest
 
-from pyinduct import register_base, deregister_base, get_base
-
-
 """
 test_registry
 ----------------------------------

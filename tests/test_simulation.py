@@ -1,8 +1,9 @@
-import unittest
 import os
-from pickle import dump
-import numpy as np
 import sys
+import unittest
+from pickle import dump
+
+import numpy as np
 
 from pyinduct import register_base, \
     eigenfunctions as ef,\
@@ -14,8 +15,7 @@ from pyinduct import register_base, \
     placeholder as ph, \
     shapefunctions as sf
 
-
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True

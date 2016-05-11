@@ -1,20 +1,21 @@
 import sys
-import numpy as np
-from scipy import integrate
 import unittest
 
-from pyinduct import register_base
-from pyinduct import core as cr
+import numpy as np
+from scipy import integrate
+
 from pyinduct import control as ct
-from pyinduct import placeholder as ph
-from pyinduct import utils as ut
-from pyinduct import trajectory as tr
+from pyinduct import core as cr
 from pyinduct import eigenfunctions as ef
+from pyinduct import placeholder as ph
+from pyinduct import register_base
 from pyinduct import shapefunctions as sf
 from pyinduct import simulation as sim
+from pyinduct import trajectory as tr
+from pyinduct import utils as ut
 from pyinduct import visualization as vis
 
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True
@@ -22,7 +23,9 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
+
 
 # TODO Test for ControlLaw and LawEvaluator
 
@@ -65,7 +68,6 @@ class CollocatedTestCase(unittest.TestCase):
 
 
 class ContinuousTestCase(unittest.TestCase):
-
     def setUp(self):
         interval = (0, 1)
         nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
@@ -191,18 +193,18 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
     def test_it(self):
         # original system parameters
-        a2 = 1.5;
-        a1 = 2.5;
-        a0 = 28;
-        alpha = -2;
+        a2 = 1.5
+        a1 = 2.5
+        a0 = 28
+        alpha = -2
         beta = -3
         param = [a2, a1, a0, alpha, beta]
         adjoint_param = ef.get_adjoint_rad_evp_param(param)
 
         # target system parameters (controller parameters)
-        a1_t = -5;
-        a0_t = -25;
-        alpha_t = 3;
+        a1_t = -5
+        a0_t = -25
+        alpha_t = 3
         beta_t = 2
         # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
@@ -355,8 +357,8 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
 
         # create testfunctions
         nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                                      self.dz.bounds,
-                                                                      node_count=self.n)
+                                                 self.dz.bounds,
+                                                 node_count=self.n)
 
         # register eigenfunctions
         register_base("eig_funcs", eig_funcs, overwrite=True)
@@ -525,8 +527,8 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
 
         # create testfunctions
         nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                                      self.dz.bounds,
-                                                                      node_count=self.n)
+                                                 self.dz.bounds,
+                                                 node_count=self.n)
 
         # register functions
         register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
@@ -680,8 +682,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # create testfunctions
         nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                                      self.dz.bounds,
-                                                                      node_count=self.n)
+                                                 self.dz.bounds,
+                                                 node_count=self.n)
 
         # register eigenfunctions
         # register_functions("eig_funcs", eig_funcs, overwrite=True)
