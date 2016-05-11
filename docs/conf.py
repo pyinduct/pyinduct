@@ -19,15 +19,8 @@ import sys
 # Mock PyQt5 Dependencies
 from unittest.mock import MagicMock
 
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return Mock()
-
-
-MOCK_MODULES = ['PyQt4', 'PyQt5', 'numpy', 'sympy', 'scipy']
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+MOCK_MODULES = ['PyQt4'] #, 'PyQt5', 'numpy', 'sympy', 'scipy']
+sys.modules.update((mod_name, MagicMock()) for mod_name in MOCK_MODULES)
 
 
 # If extensions (or modules to document with autodoc) are in another
@@ -56,7 +49,7 @@ import pyinduct
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
-              'sphinx.ext.pngmath',
+              'sphinx.ext.imgmath',
               # 'sphinxcontrib.aafig'
               ]
 
