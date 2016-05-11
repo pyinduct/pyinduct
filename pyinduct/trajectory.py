@@ -1,12 +1,10 @@
-from mpmath.libmp import backend
 import sympy as sp
-import numpy as np
-import pyqtgraph as pg
-
 from .simulation import SimulationInput
 from numbers import Number
 from . import eigenfunctions as ef
 import scipy.misc as sm
+import numpy as np
+import pyqtgraph as pg
 
 
 # TODO move this to a more feasible location

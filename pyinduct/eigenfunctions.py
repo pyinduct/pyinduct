@@ -8,13 +8,12 @@ from .core import Function, back_project_from_base
 from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
 from .placeholder import FieldVariable, TestFunction
 from .visualization import EvalData
-import pyqtgraph as pg
 from numbers import Number
 from functools import partial
 import warnings
 import copy as cp
-import pyqtgraph as pg
 import collections
+import pyqtgraph as pg
 
 
 class AddMulFunction(object):

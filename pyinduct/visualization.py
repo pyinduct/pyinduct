@@ -1,12 +1,12 @@
 import numpy as np
-import pyqtgraph as pg
-import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
 from numbers import Number
 import time
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
+import pyqtgraph as pg
+import pyqtgraph.opengl as gl
 
 from . import utils as ut
 
