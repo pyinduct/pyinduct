@@ -9,7 +9,7 @@ from pyinduct import get_base, register_base, \
     visualization as vt, \
     placeholder as ph
 
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True

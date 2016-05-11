@@ -5,7 +5,7 @@ from pyinduct import trajectory as tr, visualization as vis
 import pyinduct.utils as ut
 import sys
 
-if any([arg == 'discover' for arg in sys.argv]):
+if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     # show_plots = True
