@@ -17,6 +17,7 @@ class LagrangeFirstOrder(Function):
     :param top: top node, where :math:`f(x) = 1`
     :param start: end node
     """
+
     def __init__(self, start, top, end, **kwargs):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
@@ -32,10 +33,12 @@ class LagrangeFirstOrder(Function):
             def _lag1st_factory(der):
                 def _lag1st_complete(z):
                     if z == top:
-                        return .5*(rise_fncs[der](z) + fall_fncs[der](z))
+                        return .5 * (rise_fncs[der](z) + fall_fncs[der](z))
                     else:
                         return rise_fncs[der](z) + fall_fncs[der](z)
+
                 return _lag1st_complete
+
             funcs = [_lag1st_factory(derivative) for derivative in [0, 1]]
         else:
             funcs = self._function_factory(start, top, end, **kwargs)
@@ -47,23 +50,23 @@ class LagrangeFirstOrder(Function):
 
         if start == mid:
             m = -1 / (start - end)
-            n = -m*start
+            n = -m * start
         elif mid == end:
             m = 1 / (start - end)
-            n = 1 - m*start
+            n = 1 - m * start
         else:
             raise ValueError
 
         def _lag1st_half(z):
             if start <= z <= end:
-                return m*z + n
+                return m * z + n
             else:
                 return 0
 
         def _lag1st_half_dz(z):
             if z == start and not kwargs.get("left_border", False) or \
                         z == end and not kwargs.get("right_border", False):
-                return .5*m
+                return .5 * m
             if start <= z <= end:
                 return m
             else:
@@ -85,47 +88,37 @@ class LagrangeFirstOrder(Function):
         funcs[-1] = LagrangeFirstOrder(domain[-2], domain[-2], domain[-1], half="right", right_border=True,
                                        left_border=True if len(domain) == 2 else False)
 
-        for idx in range(1, len(domain)-1):
-            funcs[idx] = LagrangeFirstOrder(domain[idx-1],
+        for idx in range(1, len(domain) - 1):
+            funcs[idx] = LagrangeFirstOrder(domain[idx - 1],
                                             domain[idx],
-                                            domain[idx+1],
+                                            domain[idx + 1],
                                             left_border=True if idx == 1 else False,
-                                            right_border=True if idx == len(domain)-2 else False)
+                                            right_border=True if idx == len(domain) - 2 else False)
         return domain, funcs
 
 
 class LagrangeSecondOrder(Function):
     # TODO generate svg of 2nd of Lag2nd and remove ascii art from docstring
     """
-    Implementation of an lagrangian initial function of order 2::
-
-      ^                                    _
-    1-|           ^                      / | \
-      |          /|\                   /   |   \
-      |         / | \                 /    |    \
-      |        /  |  \               /     |     \
-    0-|--\----/   |   \----/--------/------|----- \---> z
-          \_/     |    \_/
-       start    top       end     start   top    end
-         |<----- d ------>|        |<---- d/2 --->|
-
+    Lagrangian shape functions of order 2
 
     :param start: start node
     :param mid: middle node, where :math:`f(x) = 1`
     :param end: end node
     :param curvature: concave or convex
-    :param half: generate only left or right haf
+    :param half: generate only left or right half
     """
+
     def __init__(self, start, mid, end, **kwargs):
-        assert(start <= mid <= end)
+        assert (start <= mid <= end)
         if kwargs["curvature"] == "concave" and "half" not in kwargs:
             # interior special case
             args1 = kwargs.copy()
             args1.update({"right_border": False, "half": "right"})
-            func1 = self._function_factory(start, start + (mid-start)/2, mid, **args1)
+            func1 = self._function_factory(start, start + (mid - start) / 2, mid, **args1)
             args2 = kwargs.copy()
             args2.update({"left_border": False, "half": "left"})
-            func2 = self._function_factory(mid, mid + (end-mid)/2, end, **args2)
+            func2 = self._function_factory(mid, mid + (end - mid) / 2, end, **args2)
 
             def composed_func(z):
                 if start <= z <= mid:
@@ -166,34 +159,34 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
         if kwargs["curvature"] == "convex":
-            p = -(start+end)
-            q = start*end
-            s = 1/(mid**2 + p*mid + q)
+            p = -(start + end)
+            q = start * end
+            s = 1 / (mid ** 2 + p * mid + q)
 
         elif kwargs["curvature"] == "concave":
             if kwargs["half"] == "left":
-                p = -(mid+end)
-                q = mid*end
-                s = 1/(start**2 + p*start + q)
+                p = -(mid + end)
+                q = mid * end
+                s = 1 / (start ** 2 + p * start + q)
             elif kwargs["half"] == "right":
-                p = -(start+mid)
-                q = start*mid
-                s = 1/(end**2 + p*end + q)
+                p = -(start + mid)
+                q = start * mid
+                s = 1 / (end ** 2 + p * end + q)
         else:
             raise ValueError
 
         def lag2nd(z):
             if start <= z <= end:
-                return s*(z**2 + p*z + q)
+                return s * (z ** 2 + p * z + q)
             else:
                 return 0
 
         def lag2nd_dz(z):
             if z == start and not kwargs.get("left_border", False) or \
                         z == end and not kwargs.get("right_border", False):
-                return .5*s*(2*z + p)
+                return .5 * s * (2 * z + p)
             if start <= z <= end:
-                return s*(2*z + p)
+                return s * (2 * z + p)
             else:
                 return 0
 
@@ -203,7 +196,7 @@ class LagrangeSecondOrder(Function):
                         z == end and not kwargs.get("right_border", False):
                 return s
             if start <= z <= end:
-                return s*2
+                return s * 2
             else:
                 return 0
 
@@ -228,16 +221,16 @@ class LagrangeSecondOrder(Function):
                                         curvature="concave", half="right", right_border=True)
 
         # interior
-        for idx in range(1, len(domain)-1):
+        for idx in range(1, len(domain) - 1):
             if idx % 2 != 0:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-1], domain[idx], domain[idx+1], curvature="convex",
+                funcs[idx] = LagrangeSecondOrder(domain[idx - 1], domain[idx], domain[idx + 1], curvature="convex",
                                                  left_border=True if idx == 1 else False,
-                                                 right_border=True if idx == len(domain)-2 else False,
+                                                 right_border=True if idx == len(domain) - 2 else False,
                                                  )
             else:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-2], domain[idx], domain[idx+2], curvature="concave",
+                funcs[idx] = LagrangeSecondOrder(domain[idx - 2], domain[idx], domain[idx + 2], curvature="concave",
                                                  left_border=True if idx == 2 else False,
-                                                 right_border=True if idx == len(domain)-3 else False,
+                                                 right_border=True if idx == len(domain) - 3 else False,
                                                  )
 
         return domain, funcs
