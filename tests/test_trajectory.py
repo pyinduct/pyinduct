@@ -14,6 +14,7 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 else:
     app = None
@@ -55,11 +56,15 @@ class SmoothTransitionTestCase(unittest.TestCase):
 
 
 class FormalPowerSeriesTest(unittest.TestCase):
-
     def setUp(self):
 
-        self.l=1; self.T=1
-        a2 = 1; a1 = 0; a0 = 6; self.alpha = 0.5; self.beta = 0.5
+        self.l = 1;
+        self.T = 1
+        a2 = 1;
+        a1 = 0;
+        a0 = 6;
+        self.alpha = 0.5;
+        self.beta = 0.5
         self.param = [a2, a1, a0, self.alpha, self.beta]
         self.n_y = 80
         self.y, self.t = tr.gevrey_tanh(self.T, self.n_y, 1.1, 2)
@@ -67,18 +72,18 @@ class FormalPowerSeriesTest(unittest.TestCase):
     def test_temporal_derive(self):
 
         b_desired = 0.4
-        k = 5 # = k1 + k2
+        k = 5  # = k1 + k2
         k1, k2, b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
         # q
-        E = tr.coefficient_recursion(self.y, self.beta*self.y, self.param)
-        q = tr.temporal_derived_power_series(self.l-b, E, int(self.n_y/2)-1, self.n_y)
+        E = tr.coefficient_recursion(self.y, self.beta * self.y, self.param)
+        q = tr.temporal_derived_power_series(self.l - b, E, int(self.n_y / 2) - 1, self.n_y)
         # u
-        B = tr.coefficient_recursion(self.y, self.alpha*self.y, self.param)
-        xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y/2)-1, self.n_y, spatial_der_order=0)
-        d_xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y/2)-1, self.n_y, spatial_der_order=1)
-        u = d_xq + self.beta*xq
+        B = tr.coefficient_recursion(self.y, self.alpha * self.y, self.param)
+        xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y / 2) - 1, self.n_y, spatial_der_order=0)
+        d_xq = tr.temporal_derived_power_series(self.l, B, int(self.n_y / 2) - 1, self.n_y, spatial_der_order=1)
+        u = d_xq + self.beta * xq
         # x(0,t)
-        C = tr.coefficient_recursion(q, self.beta*q, self.param)
+        C = tr.coefficient_recursion(q, self.beta * q, self.param)
         D = tr.coefficient_recursion(np.zeros(u.shape), u, self.param)
         x_0t = tr.power_series(0, self.t, C)
         if show_plots:
@@ -89,10 +94,10 @@ class FormalPowerSeriesTest(unittest.TestCase):
     def test_recursion_vs_explicit(self):
 
         # recursion
-        B = tr.coefficient_recursion(self.y, self.alpha*self.y, self.param)
+        B = tr.coefficient_recursion(self.y, self.alpha * self.y, self.param)
         x_l = tr.power_series(self.l, self.t, B)
         d_x_l = tr.power_series(self.l, self.t, B, spatial_der_order=1)
-        u_c = d_x_l + self.beta*x_l
+        u_c = d_x_l + self.beta * x_l
         u_a = tr.InterpTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
@@ -104,4 +109,3 @@ class FormalPowerSeriesTest(unittest.TestCase):
             pw.plot(self.t, u_a_t)
             pw.plot(self.t, u_b_t)
             app.exec_()
-

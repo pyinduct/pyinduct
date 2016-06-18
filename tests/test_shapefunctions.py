@@ -15,11 +15,11 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
 class CureTestCase(unittest.TestCase):
-
     def test_init(self):
         self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, [2, 3])
         self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, (2, 3))
@@ -52,8 +52,8 @@ class CureTestCase(unittest.TestCase):
 
         # approx_func = pi.Function(np.cos, domain=dz.bounds,
         #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
-        approx_func = pi.Function(lambda z: np.sin(3*z), domain=dz.bounds,
-                                  derivative_handles=[lambda z: 3*np.cos(3*z), lambda z: -9*np.sin(3*z)])
+        approx_func = pi.Function(lambda z: np.sin(3 * z), domain=dz.bounds,
+                                  derivative_handles=[lambda z: 3 * np.cos(3 * z), lambda z: -9 * np.sin(3 * z)])
 
         weights = approx_func(nodes)
 
@@ -68,7 +68,7 @@ class CureTestCase(unittest.TestCase):
             pw.showGrid(x=True, y=True, alpha=0.5)
 
             [pw.addItem(pg.PlotDataItem(np.array(dz),
-                                        weights[idx]*func.derive(der_order)(dz),
+                                        weights[idx] * func.derive(der_order)(dz),
                                         pen=pg.mkPen(color=c_map[idx]),
                                         name="{}.{}".format(cls.__name__, idx)))
              for idx, func in enumerate(funcs)]
