@@ -16,13 +16,6 @@
 import os
 import sys
 
-# Mock PyQt5 Dependencies
-from unittest.mock import MagicMock
-
-# MOCK_MODULES = ['pyqtgraph', 'PyQt4', 'sip']  # , 'PyQt5', 'numpy', 'sympy', 'scipy']
-# sys.modules.update((mod_name, MagicMock()) for mod_name in MOCK_MODULES)
-
-
 # If extensions (or modules to document with autodoc) are in another
 # directory, add these directories to sys.path here. If the directory is
 # relative to the documentation root, use os.path.abspath to make it
