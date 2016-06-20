@@ -1,3 +1,10 @@
+"""
+This modules provides  for some (as general as possible) eigenvalue problems a ready to go eigenfunction
+implementation and functions which compute the corresponding eigenvalues.
+The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
+order to handle transformations and reduce effort by the controller implementation.
+"""
+
 import numpy as np
 import scipy.integrate as si
 from scipy.interpolate import interp1d
@@ -116,6 +123,7 @@ class TransformedSecondOrderEigenfunction(Function):
     Provide the eigenfunction y to an eigenvalue-problem of the form
     a2(z)y''(z) + a1(z)y'(z) + a0(z)y(z) = w y(z)
     where w is a predefined (potentially complex) eigenvalue and z0 <= z <= z1 is the domain.
+
     :param target_eigenvalue: w (float)
     :param init_state_vect: y(0) = [Re{y(0)}, Re{y'(0)}, Im{y(0)}, Im{y'(0)}] (list of floats)
     :param dgl_coefficients: [a2(z), a1(z), a0(z)] (list of function handles)
@@ -323,7 +331,8 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 def return_real_part(to_return):
     """
     Check if the imaginary part of to_return vanishes
-    and return the real part
+    and return the real part.
+
     :param to_return:
     :return:
     """

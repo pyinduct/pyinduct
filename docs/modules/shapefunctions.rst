@@ -1,14 +1,15 @@
 ==============
 Shapefunctions
 ==============
-The shapefunctions module contains generic shapefunctions that can be used to approximate distributed systems without
-giving  any information about the systems themselves. This is achieved by projecting them on generic, piecewise smooth
-functions.
+
+.. automodule:: pyinduct.shapefunctions
 
 Shapefunction Types
 -------------------
 .. autoclass:: pyinduct.shapefunctions.LagrangeFirstOrder
     :members:
+    :undoc-members:
+    :show-inheritance:
 
     Example plot of the functions :code:`funcs` generated with
 
@@ -20,6 +21,8 @@ Shapefunction Types
 
 .. autoclass:: pyinduct.shapefunctions.LagrangeSecondOrder
     :members:
+    :undoc-members:
+    :show-inheritance:
 
     Example plot of the functions :code:`funcs` generated with
 

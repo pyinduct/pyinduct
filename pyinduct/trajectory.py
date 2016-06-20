@@ -1,3 +1,10 @@
+"""
+In the module :mod:`pyinduct.trajectory` are some trajectory generators defined.
+Besides you can find here a trivial (constant) input signal generator as
+well as input signal generator for equilibrium to equilibrium transitions for
+hyperbolic and parabolic systems.
+"""
+
 import sympy as sp
 from .simulation import SimulationInput
 from numbers import Number
@@ -5,7 +12,6 @@ from . import eigenfunctions as ef
 import scipy.misc as sm
 import numpy as np
 import pyqtgraph as pg
-
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
@@ -16,13 +22,14 @@ class ConstantTrajectory(SimulationInput):
     """
     trivial trajectory generator for a constant value as simulation input signal
     """
+
     def __init__(self, const=0):
         SimulationInput.__init__(self)
         self._const = const
 
     def _calc_output(self, **kwargs):
         if isinstance(kwargs["time"], (list, np.ndarray)):
-            return np.ones(len(kwargs["time"]))*self._const
+            return np.ones(len(kwargs["time"])) * self._const
         elif isinstance(kwargs["time"], Number):
             return self._const
         else:
@@ -38,6 +45,7 @@ class SmoothTransition:
 
     to create smooth transitions.
     """
+
     def __init__(self, states, interval, method, differential_order=0):
         """
         :param states: tuple of states in beginning and end of interval
@@ -55,7 +63,7 @@ class SmoothTransition:
             tau, sigma = sp.symbols('tau, sigma')
             # use a gevrey-order of alpha = 1 + 1/sigma
             sigma = 1.1
-            phi = .5*(1 + sp.tanh(2*(2*tau - 1)/((4*tau*(1-tau))**sigma)))
+            phi = .5 * (1 + sp.tanh(2 * (2 * tau - 1) / ((4 * tau * (1 - tau)) ** sigma)))
 
         elif method == "poly":
             gamma = differential_order  # + 1 # TODO check this against notes
@@ -101,7 +109,7 @@ class SmoothTransition:
                 else:
                     ya = 0
 
-                y[order] = ya + (self.yd[1] - self.yd[0])*dphi((t - self.t0)/self.dt)*1/self.dt**order
+                y[order] = ya + (self.yd[1] - self.yd[0]) * dphi((t - self.t0) / self.dt) * 1 / self.dt ** order
 
         return y
 
@@ -119,9 +127,9 @@ class FlatString(SimulationInput):
         self._tA = t0
         self._dt = dt
         self._dz = z1 - z0
-        self._m = params.m             # []=kg mass at z=0
-        self._tau = params.tau             # []=m/s speed of wave translation in string
-        self._sigma = params.sigma     # []=kgm/s**2 pretension of string
+        self._m = params.m  # []=kg mass at z=0
+        self._tau = params.tau  # []=m/s speed of wave translation in string
+        self._sigma = params.sigma  # []=kgm/s**2 pretension of string
 
         # construct trajectory generator for yd
         ts = max(t0, self._dz * self._tau)  # never too early
@@ -142,7 +150,7 @@ class FlatString(SimulationInput):
         yd1 = self.trajectory_gen(t - self._dz * self._tau)
         yd2 = self.trajectory_gen(t + self._dz * self._tau)
 
-        return 0.5*self._m*(yd2[2] + yd1[2]) + self._sigma * self._tau/2 * (yd2[1] - yd1[1])
+        return 0.5 * self._m * (yd2[2] + yd1[2]) + self._sigma * self._tau / 2 * (yd2[1] - yd1[1])
 
     def _system_sate(self, z, t):
         """
@@ -179,42 +187,43 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     :return: np.array([[phi], ... ,[phi^(n)]])
     """
 
-    t_init = t = np.linspace(0., T, int(0.5*10**(2+np.log10(T))))
+    t_init = t = np.linspace(0., T, int(0.5 * 10 ** (2 + np.log10(T))))
 
     # pop
     t = np.delete(t, 0, 0)
     t = np.delete(t, -1, 0)
 
     # main
-    tau = t/T
+    tau = t / T
 
     a = dict()
-    a[0] = K*(4*tau*(1-tau))**(1-sigma)/(2*(sigma-1))
-    a[1] = (2*tau - 1)*(sigma-1)/(tau*(1-tau))*a[0]
-    for k in range(2, n+2):
-        a[k] = (tau*(1-tau))**-1 * ((sigma-2+k)*(2*tau-1)*a[k-1]+(k-1)*(2*sigma-4+k)*a[k-2])
+    a[0] = K * (4 * tau * (1 - tau)) ** (1 - sigma) / (2 * (sigma - 1))
+    a[1] = (2 * tau - 1) * (sigma - 1) / (tau * (1 - tau)) * a[0]
+    for k in range(2, n + 2):
+        a[k] = (tau * (1 - tau)) ** -1 * (
+        (sigma - 2 + k) * (2 * tau - 1) * a[k - 1] + (k - 1) * (2 * sigma - 4 + k) * a[k - 2])
 
     yy = dict()
     yy[0] = np.tanh(a[1])
     if n > 0:
-        yy[1] = a[2]*(1-yy[0]**2)
+        yy[1] = a[2] * (1 - yy[0] ** 2)
     z = dict()
-    z[0] = (1-yy[0]**2)
-    for i in range(2, n+1):
+    z[0] = (1 - yy[0] ** 2)
+    for i in range(2, n + 1):
         sum_yy = np.zeros(len(t))
         for k in range(i):
             if k == 0:
                 sum_z = np.zeros(len(t))
                 for j in range(i):
-                    sum_z += -sm.comb(i-1, j)*yy[j]*yy[i-1-j]
-                z[i-1] = sum_z
-            sum_yy += sm.comb(i-1, k)*a[k+2]*z[i-1-k]
+                    sum_z += -sm.comb(i - 1, j) * yy[j] * yy[i - 1 - j]
+                z[i - 1] = sum_z
+            sum_yy += sm.comb(i - 1, k) * a[k + 2] * z[i - 1 - k]
         yy[i] = sum_yy
 
     # push
-    phi = np.nan*np.zeros((n+1, len(t)+2))
-    for i in range(n+1):
-        phi_temp = 0.5*yy[i]
+    phi = np.nan * np.zeros((n + 1, len(t) + 2))
+    for i in range(n + 1):
+        phi_temp = 0.5 * yy[i]
         if i == 0:
             phi_temp += 0.5
             phi_temp = np.insert(phi_temp, 0, [0.], axis=0)
@@ -222,7 +231,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
         else:
             phi_temp = np.insert(phi_temp, 0, [0.], axis=0)
             # attention divide by T^i
-            phi[i, :] = np.append(phi_temp, [0.])/T**i
+            phi[i, :] = np.append(phi_temp, [0.]) / T ** i
 
     return phi, t_init
 
@@ -239,8 +248,8 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
     # TODO: documentation
     a2, a1, a0, alpha, beta = param
     shape = (len(t), len(z))
-    x = np.nan*np.ones(shape)
-    d_x = np.nan*np.ones(shape)
+    x = np.nan * np.ones(shape)
+    d_x = np.nan * np.ones(shape)
 
     # Actually power_series() is designed for robin boundary condition by z=0.
     # With the following modification it can also used for dirichlet boundary condition by z=0.
@@ -258,20 +267,21 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
         sum_x = np.zeros(len(z))
         for j in range(n):
             sum_b = np.zeros(len(z))
-            for k in range(j+1):
-                sum_b += sm.comb(j, k)*(-a0)**(j-k)*y[k, i]
-            sum_x += (is_robin+alpha*z/(2.*j+1.))*z**(2*j)/sm.factorial(2*j)/a2**j*sum_b
+            for k in range(j + 1):
+                sum_b += sm.comb(j, k) * (-a0) ** (j - k) * y[k, i]
+            sum_x += (is_robin + alpha * z / (2. * j + 1.)) * z ** (2 * j) / sm.factorial(2 * j) / a2 ** j * sum_b
         x[i, :] = sum_x
 
     for i in range(len(t)):
         sum_x = np.zeros(len(z))
         for j in range(n):
             sum_b = np.zeros(len(z))
-            for k in range(j+2):
-                sum_b += sm.comb(j+1, k)*(-a0)**(j-k+1)*y[k, i]
+            for k in range(j + 2):
+                sum_b += sm.comb(j + 1, k) * (-a0) ** (j - k + 1) * y[k, i]
             if j == 0:
-                sum_x += alpha*y[0, i]
-            sum_x += (is_robin+alpha*z/(2.*(j+1)))*z**(2*j+1)/sm.factorial(2*j+1)/a2**(j+1)*sum_b
+                sum_x += alpha * y[0, i]
+            sum_x += (is_robin + alpha * z / (2. * (j + 1))) * z ** (2 * j + 1) / sm.factorial(2 * j + 1) / a2 ** (
+            j + 1) * sum_b
         d_x[i, :] = sum_x
 
     return x, d_x
@@ -306,11 +316,11 @@ def coefficient_recursion(c0, c1, param):
     C[0] = c0
     C[1] = c1
 
-    for i in range(2, 2*N):
-        reduced_derivative_order = int(i/2.)
-        C[i] = np.nan*np.zeros((N-reduced_derivative_order, c0.shape[1]))
-        for j in range(N-reduced_derivative_order):
-            C[i][j, :] = (C[i-2][j+1, :] - a1*C[i-1][j, :] - a0*C[i-2][j, :])/a2
+    for i in range(2, 2 * N):
+        reduced_derivative_order = int(i / 2.)
+        C[i] = np.nan * np.zeros((N - reduced_derivative_order, c0.shape[1]))
+        for j in range(N - reduced_derivative_order):
+            C[i][j, :] = (C[i - 2][j + 1, :] - a1 * C[i - 1][j, :] - a0 * C[i - 2][j, :]) / a2
 
     return C
 
@@ -330,23 +340,22 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
 
     if not isinstance(z, Number):
         raise TypeError
-    if any([C[i].shape[0] - 1 < up_to_order for i in range(series_termination_index+1)]):
+    if any([C[i].shape[0] - 1 < up_to_order for i in range(series_termination_index + 1)]):
         raise ValueError
 
     len_t = C[0].shape[1]
-    Q = np.nan*np.zeros((up_to_order+1, len_t))
+    Q = np.nan * np.zeros((up_to_order + 1, len_t))
 
-    for i in range(up_to_order+1):
+    for i in range(up_to_order + 1):
         sum_Q = np.zeros(len_t)
-        for j in range(series_termination_index+1-spatial_der_order):
-            sum_Q += C[j+spatial_der_order][i, :]*z**(j)/sm.factorial(j)
+        for j in range(series_termination_index + 1 - spatial_der_order):
+            sum_Q += C[j + spatial_der_order][i, :] * z ** (j) / sm.factorial(j)
         Q[i, :] = sum_Q
 
     return Q
 
 
 def power_series(z, t, C, spatial_der_order=0):
-
     if not all([isinstance(item, (Number, np.ndarray)) for item in [z, t]]):
         raise TypeError
     z = np.atleast_1d(z)
@@ -354,11 +363,11 @@ def power_series(z, t, C, spatial_der_order=0):
     if not all([len(item.shape) == 1 for item in [z, t]]):
         raise ValueError
 
-    x = np.nan*np.zeros((len(t), len(z)))
+    x = np.nan * np.zeros((len(t), len(z)))
     for i in range(len(z)):
         sum_x = np.zeros(t.shape[0])
-        for j in range(len(C)-spatial_der_order):
-            sum_x += C[j+spatial_der_order][0, :]*z[i]**j/sm.factorial(j)
+        for j in range(len(C) - spatial_der_order):
+            sum_x += C[j + spatial_der_order][0, :] * z[i] ** j / sm.factorial(j)
         x[:, i] = sum_x
 
     if any([dim == 1 for dim in x.shape]):
@@ -368,7 +377,6 @@ def power_series(z, t, C, spatial_der_order=0):
 
 
 class InterpTrajectory(SimulationInput):
-
     def __init__(self, t, u, show_plot=False):
         SimulationInput.__init__(self)
 
@@ -389,7 +397,7 @@ class InterpTrajectory(SimulationInput):
         :param kwargs:
         :return:
         """
-        return dict(output=np.interp(kwargs["time"], self._t, self._u)*self.scale)
+        return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
 
 
 class RadTrajectory(InterpTrajectory):
@@ -412,6 +420,7 @@ class RadTrajectory(InterpTrajectory):
     case 1: x(l,t)=u(t)  (Dirichlet)
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
+
     # TODO: kwarg: t_step
     def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh,
                  show_plot=False):
@@ -433,14 +442,14 @@ class RadTrajectory(InterpTrajectory):
         self._K = K
 
         self._z = np.array([self._l])
-        y, t = gevrey_tanh(self._T, self._n+2, self._sigma, self._K)
+        y, t = gevrey_tanh(self._T, self._n + 2, self._sigma, self._K)
         x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, bound_cond_type)
 
         a2, a1, a0, alpha, beta = self._param
         if self._actuation_type is 'dirichlet':
             u = x[:, -1]
         elif self._actuation_type is 'robin':
-            u = d_x[:, -1] + beta*x[:, -1]
+            u = d_x[:, -1] + beta * x[:, -1]
         else:
             raise NotImplementedError
 
@@ -448,7 +457,6 @@ class RadTrajectory(InterpTrajectory):
         # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
         # with the following back transformation are also
         # pde's with advection term a_1 x'(z,t) considered
-        u *= np.exp(-self._a1_original/2./a2*l)
+        u *= np.exp(-self._a1_original / 2. / a2 * l)
 
         InterpTrajectory.__init__(self, t, u, show_plot=show_plot)
-

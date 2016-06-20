@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+"""
+In the Core module you can find all the basic components/functions which
+the members from the other modules have to/need to process.
+"""
 
 from abc import ABCMeta, abstractmethod
 from copy import copy

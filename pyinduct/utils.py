@@ -1,3 +1,7 @@
+"""
+A few helper functions for users and developer.
+"""
+
 import copy as cp
 import warnings
 from numbers import Number

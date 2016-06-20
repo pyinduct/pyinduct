@@ -1,8 +1,8 @@
-====
-Core
-====
+=======
+Control
+=======
 
-.. automodule:: pyinduct.core
+.. automodule:: pyinduct.control
     :members:
     :undoc-members:
     :show-inheritance:

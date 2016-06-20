@@ -1,3 +1,6 @@
+"""
+:mod:`pyinduct.registry` covers the interface for registration of bases (a base is a set of initial functions).
+"""
 
 import numpy as np
 

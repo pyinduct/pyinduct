@@ -1,3 +1,7 @@
+"""
+This module contains all classes and functions related to the creation of controllers as well as the implementation
+for simulation purposes.
+"""
 
 from itertools import chain
 import numpy as np
@@ -7,10 +11,6 @@ from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
 from .simulation import SimulationInput, CanonicalForms
-"""
-This module contains all classes and functions related to the creation of controllers as well as the implementation
-for simulation purposes.
-"""
 
 
 class ControlLaw(object):
@@ -21,6 +21,7 @@ class ControlLaw(object):
 
     :param terms: (list of) of object(s) of type EquationTerm
     """
+
     def __init__(self, terms, name=""):
         if isinstance(terms, EquationTerm):
             terms = [terms]
@@ -130,6 +131,7 @@ class LawEvaluator(object):
     """
     object that evaluates the control law approximation given by a CanonicalForms object
     """
+
     def __init__(self, cfs, storage=None):
         self._cfs = cfs
         self._transformations = {}
@@ -151,7 +153,7 @@ class LawEvaluator(object):
 
         vectors = {}
         for power in powers:
-            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders)+1)])
+            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders) + 1)])
             vectors.update({power: vector})
 
         return vectors
@@ -164,7 +166,7 @@ class LawEvaluator(object):
         :return: control output u
         """
         res = {}
-        output = 0+0j
+        output = 0 + 0j
 
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().items():
@@ -211,7 +213,7 @@ class LawEvaluator(object):
         out = np.real_if_close(output, tol=10000000)
         if np.imag(out) != 0:
             raise ValueError("calculated complex control output u={0},"
-                                          " check for errors in control law!".format(out))
+                             " check for errors in control law!".format(out))
 
         res["output"] = out
         return res

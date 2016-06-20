@@ -1,3 +1,12 @@
+"""
+Here are some frequently used plot types with the packages :py:mod:`pyqtgraph` and/or :py:mod:`matplotlib` implemented.
+The respective :py:mod:`pyinduct.visualization` plotting function get an :py:class:`EvalData` object whose definition
+also placed in this module.
+A :py:class:`EvalData`-object in turn can easily generated from simulation data.
+The function :py:func:`simulate_system` for example already provide the simulation result
+as EvalData object.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from numbers import Number
@@ -16,6 +25,7 @@ colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 def create_colormap(cnt):
     """
     create a colormap containing cnt values
+
     :param cnt:
     :return:
     """
@@ -385,7 +395,6 @@ class MplSlicePlot(PgDataPlot):
 def mpl_activate_latex():
     """
     Activate full (label, ticks, ...) latex printing in matplotlib plots
-    :return:
     """
     plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
     params = {'text.usetex': True,
@@ -398,11 +407,13 @@ def mpl_activate_latex():
 
 def mpl_3d_remove_margins():
     """
-    Remove thin margins in matplotlib 3d plots
-    form here: http://stackoverflow.com/questions/16488182/
+    Remove thin margins in matplotlib 3d plots.
+
+    Code is from here :html:`http://stackoverflow.com/questions/16488182/`
+
     :return:
     """
-    # ##source code patch start## #
+    ### source code patch start ###
     from mpl_toolkits.mplot3d.axis3d import Axis
 
     if not hasattr(Axis, "_get_coord_info_old"):
@@ -414,4 +425,4 @@ def mpl_3d_remove_margins():
 
         Axis._get_coord_info_old = Axis._get_coord_info
         Axis._get_coord_info = _get_coord_info_new
-    # ##source code patch end## #
+        ### source code patch end ###

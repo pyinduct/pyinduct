@@ -1,3 +1,7 @@
+"""
+In :mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
+"""
+
 from abc import ABCMeta
 from numbers import Number
 

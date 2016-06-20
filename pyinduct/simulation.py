@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+"""
+Simulation infrastructure with helpers and data structures for preprocessing of the given equations
+and functions for postprocessing of simulation data.
+"""
 
 from abc import ABCMeta, abstractmethod
 from collections import Iterable
@@ -134,7 +137,7 @@ class EmptyInput(SimulationInput):
         self.dim = dim
 
     def _calc_output(self, **kwargs):
-        return np.zeros((self.dim, ))
+        return np.zeros((self.dim,))
 
 
 class SimulationInputSum(SimulationInput):
@@ -188,7 +191,8 @@ class StateSpace(object):
     :param d_matrix: :math:`\\boldsymbol{D}`
     """
 
-    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None):
+    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
+                 d_matrix=None):
         self.weight_lbl = weight_label
 
         self.f = f_vector
@@ -208,10 +212,10 @@ class StateSpace(object):
         else:
             self.B = b_matrices
         if self.B is None:
-            self.B = {1: np.zeros((self.A[1].shape[0], ))}
+            self.B = {1: np.zeros((self.A[1].shape[0],))}
 
         if self.f is None:
-            self.f = np.zeros((self.A[1].shape[0], ))
+            self.f = np.zeros((self.A[1].shape[0],))
         if self.C is None:
             self.C = np.zeros((1, self.A[1].shape[1]))
         if self.D is None:
@@ -223,6 +227,7 @@ class StateSpace(object):
             self.input = input_handle
         if not callable(self.input):
             raise TypeError("input must be callable!")
+
 
 # TODO update signature
 def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
@@ -464,7 +469,7 @@ class CanonicalForm(object):
         for p in powers:
             a_mat = np.zeros((dim_xb, dim_xb))
             # add integrator chain
-            a_mat[:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order-1)])
+            a_mat[:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order - 1)])
             # add "block-line" with feedback entries
             a_mat[-dim_x:, :] = -self._build_feedback("E", p, e_n_pb_inv)
             a_matrices.update({p: a_mat})
@@ -487,7 +492,7 @@ class CanonicalForm(object):
             b_matrices = None
 
         # the f vector
-        f_mat = np.zeros((dim_xb, ))
+        f_mat = np.zeros((dim_xb,))
         if "f" in self._matrices:
             f_mat[-dim_x:] = self._matrices["f"]
 
@@ -747,7 +752,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
             max_step=temp_domain.step,
             method="adams",
             nsteps=1e3
-            )
+        )
 
     r.set_f_params(state_space)
     r.set_initial_value(q[0], t[0])

@@ -1,17 +1,17 @@
-import numpy as np
+"""
+The shapefunctions module contains generic shapefunctions that can be used to approximate distributed systems without
+giving  any information about the systems themselves. This is achieved by projecting them on generic, piecewise smooth
+functions.
+"""
 
+import numpy as np
 from .core import Function
 from .simulation import Domain
-
-"""
-This module contains all shape functions that come with PyInduct. Furthermore helper methods
-for curing can be found here.
-"""
 
 
 class LagrangeFirstOrder(Function):
     """
-    Lagrangian shape functions of order 1
+    Lagrangian shape functions of order 1.
 
     :param start: start node
     :param top: top node, where :math:`f(x) = 1`
@@ -77,10 +77,11 @@ class LagrangeFirstOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        hint function that will cure the given interval with this function type
+        Hint function that will cure the given interval with LagrangeFirstOrder.
+
         :param domain: domain to be cured
         :type domain: py:class:pyinduct.Domain
-        :return: set of shapefunctions
+        :return: set of LagrangeFirstOrder shapefunctions
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
         funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
@@ -98,9 +99,8 @@ class LagrangeFirstOrder(Function):
 
 
 class LagrangeSecondOrder(Function):
-    # TODO generate svg of 2nd of Lag2nd and remove ascii art from docstring
     """
-    Lagrangian shape functions of order 2
+    Lagrangian shape functions of order 2.
 
     :param start: start node
     :param mid: middle node, where :math:`f(x) = 1`
@@ -205,9 +205,11 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        cure hint for Lag2nd
-        :param domain:
-        :return:
+        Hint function that will cure the given interval with LagrangeSecondOrder.
+
+        :param domain: domain to be cured
+        :type domain: py:class:pyinduct.Domain
+        :return: set of LagrangeSecondOrder shapefunctions
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
             raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
