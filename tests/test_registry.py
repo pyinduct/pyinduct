@@ -13,9 +13,7 @@ Tests for `registry` module.
 
 # TODO add TestCases
 class RegistryTests(unittest.TestCase):
-
     def setUp(self):
-
         pass
 
     def test_registration(self):
@@ -26,6 +24,7 @@ class RegistryTests(unittest.TestCase):
 
     def tearDown(self):
         pass
+
 
 if __name__ == '__main__':
     pass

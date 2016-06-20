@@ -19,22 +19,22 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
 class FindRootsTestCase(unittest.TestCase):
-
     def setUp(self):
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
         def _univar_equation(x):
-            return [np.cos(x[0]), np.cos(4*x[1])]
+            return [np.cos(x[0]), np.cos(4 * x[1])]
 
         def _cmplx_equation(lamda):
             if lamda == 0:
                 return 0
-            return lamda**2 + 9
+            return lamda ** 2 + 9
 
         self.char_eq = _char_equation
         self.univar_eq = _univar_equation
@@ -94,7 +94,7 @@ class FindRootsTestCase(unittest.TestCase):
     def test_cmplx_func(self):
         grid = [np.arange(-10, 10), np.arange(-5, 5)]
         roots = ut.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
-        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0]*len(roots)))
+        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
         print(roots)
 
     def test_n_dim_func(self):
@@ -108,7 +108,6 @@ class FindRootsTestCase(unittest.TestCase):
 
 
 class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
-
     def setUp(self):
         self.psi = cr.Function(np.sin)
         register_base("funcs", self.psi, overwrite=True)
@@ -121,7 +120,6 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
 
 
 class EvaluateApproximationTestCase(unittest.TestCase):
-
     def setUp(self):
         self.node_cnt = 5
         self.time_step = 1e-1
@@ -134,7 +132,8 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
-        self.weights = np.array(list(range(self.node_cnt*self.dates.size))).reshape((self.dates.size, len(self.nodes)))
+        self.weights = np.array(list(range(self.node_cnt * self.dates.size))).reshape(
+            (self.dates.size, len(self.nodes)))
 
     def test_eval_helper(self):
         eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, 1)

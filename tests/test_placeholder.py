@@ -15,11 +15,11 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
 class TestCommonTarget(unittest.TestCase):
-
     def test_call(self):
         t1 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=1, exponent=1))
         t2 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=2, exponent=1))
@@ -40,7 +40,6 @@ class TestCommonTarget(unittest.TestCase):
 
 
 class ScalarsTest(unittest.TestCase):
-
     def setUp(self):
         self.vector = np.array(range(10))
         self.matrix = np.array(range(100)).reshape((10, 10))
@@ -57,7 +56,6 @@ class ScalarsTest(unittest.TestCase):
 
 
 class FieldVariableTest(unittest.TestCase):
-
     def setUp(self):
         nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
         register_base("test_funcs", ini_funcs, overwrite=True)
@@ -84,12 +82,11 @@ class FieldVariableTest(unittest.TestCase):
 
 
 class ProductTest(unittest.TestCase):
-
     def scale(self, z):
-            return 2
+        return 2
 
     def a2(self, z):
-            return 5*z
+        return 5 * z
 
     def setUp(self):
         self.input = ph.Input(np.sin)
@@ -117,14 +114,14 @@ class ProductTest(unittest.TestCase):
         # test single argument call
         p3 = ph.Product(self.test_funcs)
         self.assertTrue(p3.b_empty)
-        res = ut.evaluate_placeholder_function(p3.args[0], np.pi/2)
+        res = ut.evaluate_placeholder_function(p3.args[0], np.pi / 2)
         self.assertTrue(np.allclose(res, [1, 0]))
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
         self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
         res = ut.evaluate_placeholder_function(p4.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0)*np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
+        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
         self.assertEqual(p4.args[1], None)
         self.assertTrue(p4.b_empty)
 
@@ -138,14 +135,14 @@ class ProductTest(unittest.TestCase):
         self.assertFalse(p6.b_empty)
 
         res = ut.evaluate_placeholder_function(p5.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0)*np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
+        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
         res1 = ut.evaluate_placeholder_function(p5.args[0], 1)
-        self.assertTrue(np.allclose(res1, self.scale(1)*np.array([self.ini_funcs[0](1), self.ini_funcs[1](1)])))
+        self.assertTrue(np.allclose(res1, self.scale(1) * np.array([self.ini_funcs[0](1), self.ini_funcs[1](1)])))
 
         res2 = ut.evaluate_placeholder_function(p5.args[1], 0)
-        self.assertTrue(np.allclose(res2, self.scale(0)*np.array([self.t_funcs[0](0), self.t_funcs[1](0)])))
+        self.assertTrue(np.allclose(res2, self.scale(0) * np.array([self.t_funcs[0](0), self.t_funcs[1](0)])))
         res3 = ut.evaluate_placeholder_function(p5.args[1], 1)
-        self.assertTrue(np.allclose(res3, self.scale(0)*np.array([self.t_funcs[0](1), self.t_funcs[1](1)])))
+        self.assertTrue(np.allclose(res3, self.scale(0) * np.array([self.t_funcs[0](1), self.t_funcs[1](1)])))
 
         # test methods
         self.assertEqual(p1.get_arg_by_class(ph.Input), [self.input])
@@ -155,10 +152,9 @@ class ProductTest(unittest.TestCase):
 
 
 class EquationTermsTest(unittest.TestCase):
-
     def setUp(self):
         self.input = ph.Input(np.sin)
-        self.phi = np.array([cr.Function(lambda x: 2*x)])
+        self.phi = np.array([cr.Function(lambda x: 2 * x)])
         register_base("phi", self.phi, overwrite=True)
         self.test_func = ph.TestFunction("phi")
 
@@ -186,7 +182,7 @@ class EquationTermsTest(unittest.TestCase):
         t1 = ph.ScalarTerm(self.xdz_at1)
         self.assertEqual(t1.scale, 1.0)  # default scale
         # check if automated evaluation works
-        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([-1,  1])))
+        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([-1, 1])))
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, ph.IntegralTerm, 7, (0, 1))  # integrand is number
@@ -206,7 +202,6 @@ class EquationTermsTest(unittest.TestCase):
 
 
 class WeakFormulationTest(unittest.TestCase):
-
     def setUp(self):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
