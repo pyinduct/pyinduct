@@ -53,7 +53,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
     def transformation_hint(self, info, target):
         """
-        method that provides a information about how to transform weights from one class:`.BaseFraction` into another.
+        method that provides a information about how to transform weights from one :py:class:`BaseFraction` into another.
 
         In Detail this function has to return a callable, which will take the weights of the source and will return the
         weights of the target system. It can have keyword arguments for other data which is required to perform the
@@ -69,7 +69,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
         Overwrite this Method in your implementation to support conversion between bases that differ from yours.
 
-        This implementation will cover the most basic case, where to two :class:`.BaseFraction` s are of same type.
+        This implementation will cover the most basic case, where to two :py:class:`BaseFraction` s are of same type.
         For any other case it will raise an exception.
 
         :param info: Transformation-Info object
@@ -137,7 +137,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
 class Function(BaseFraction):
     """
-    Most common instance of a :class:`BaseFraction`.
+    Most common instance of a :py:class:`BaseFraction`.
     This class handles all tasks concerning derivation and evaluation of functions.
 
     To ensure the accurateness of numerical handling, areas where nonzero is given have to be provided.
@@ -833,8 +833,10 @@ def normalize_function(x1, x2=None):
     that :math:`\\langle\\boldsymbol{x}_1\\,,\:\\boldsymbol{x}_2\\rangle = 1`.
     If only one function is given, :math:`\\boldsymbol{x}_2` is set to :math:`\\boldsymbol{x}_1`.
 
-    :param x1: core.BaseFraction :math:`\\boldsymbol{x}_1`
-    :param x2: core.BaseFraction :math:`\\boldsymbol{x}_2`
+    :param x1: :math:`\\boldsymbol{x}_1`
+    :type x1: :py:class:`BaseFraction`
+    :param x2: :math:`\\boldsymbol{x}_2`
+    :type x2: :py:class:`BaseFraction`
     :raise: ValueError if given BaseFraction are orthogonal
     :return: normalized function(s)
     """

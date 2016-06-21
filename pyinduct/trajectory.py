@@ -1,5 +1,5 @@
 """
-In the module :mod:`pyinduct.trajectory` are some trajectory generators defined.
+In the module :py:mod:`pyinduct.trajectory` are some trajectory generators defined.
 Besides you can find here a trivial (constant) input signal generator as
 well as input signal generator for equilibrium to equilibrium transitions for
 hyperbolic and parabolic systems.
@@ -201,7 +201,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     a[1] = (2 * tau - 1) * (sigma - 1) / (tau * (1 - tau)) * a[0]
     for k in range(2, n + 2):
         a[k] = (tau * (1 - tau)) ** -1 * (
-        (sigma - 2 + k) * (2 * tau - 1) * a[k - 1] + (k - 1) * (2 * sigma - 4 + k) * a[k - 2])
+            (sigma - 2 + k) * (2 * tau - 1) * a[k - 1] + (k - 1) * (2 * sigma - 4 + k) * a[k - 2])
 
     yy = dict()
     yy[0] = np.tanh(a[1])
@@ -281,7 +281,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
             if j == 0:
                 sum_x += alpha * y[0, i]
             sum_x += (is_robin + alpha * z / (2. * (j + 1))) * z ** (2 * j + 1) / sm.factorial(2 * j + 1) / a2 ** (
-            j + 1) * sum_b
+                j + 1) * sum_b
         d_x[i, :] = sum_x
 
     return x, d_x

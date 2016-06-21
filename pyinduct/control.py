@@ -63,7 +63,8 @@ def approximate_control_law(control_law):
     the result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
     respective label) to be applied
 
-    :param control_law: list of :py:cls:ControlLaw
+    :param control_law:
+    :type control_law: :py:class:`ControlLaw`
     :return: evaluation handle
     """
     print("approximating control law {}".format(control_law.name))

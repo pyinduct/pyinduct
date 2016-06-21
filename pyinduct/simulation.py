@@ -118,7 +118,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         :param time_steps: time points where values are demanded
         :param result_key: type of values to be returned
         :param interpolation: interpolation method to use if demanded time-steps are not covered by the storage,
-            see :func:`scipy.interpolate.interp1d` for all possibilities
+            see :py:func:`scipy.interpolate.interp1d` for all possibilities
         :param as_eval_data: return results as EvalData object for straightforward display
         """
         func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
@@ -157,7 +157,7 @@ class SimulationInputSum(SimulationInput):
 class WeakFormulation(object):
     """
     this class represents the weak formulation of a spatial problem.
-    It can be initialized with several terms (see children of :py:class:`EquationTerm`).
+    It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
     The equation is interpreted as term_0 + term_1 + ... + term_N = 0
 
     :param terms: (list of) of object(s) of type EquationTerm
@@ -232,9 +232,7 @@ class StateSpace(object):
 # TODO update signature
 def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
     """
-    convenience wrapper for simulate system, see :ref:py:func:simulate_system for parameters
-    :param weak_forms:
-    :return:
+    convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters
     """
     return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
             weak_forms]
@@ -245,12 +243,12 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
     convenience wrapper that encapsulates the whole simulation process
 
     :param weak_form: weak formulation of the system to simulate
-    :type weak_form: :class:`WeakForm`
+    :type weak_form: :py:class:`WeakFormulation`
     :param initial_states: np.array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`
     :param temporal_domain: sim.Domain object holding information for time evaluation
     :param spatial_domain: sim.Domain object holding information for spatial evaluation
     :param der_orders: tuple of derivative orders (time, spat) that shall be evaluated additionally
-    :param settings: integrator settings, see :func:`simulate_state_space`
+    :param settings: integrator settings, see :py:func:`simulate_state_space`
 
     :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
     """
@@ -361,21 +359,20 @@ class CanonicalForm(object):
             raise ValueError("already defined target weights are overridden!")
 
     def add_to(self, term, value, column=None):
-        """
-        adds the value *value* to term *term*. Term is a dict that describes which coefficient matrix of the canonical
-        form the value shall be added to. It has to contain:
+        """adds the value :py:obj:`value` to term :py:obj:`term`. :py:obj:`term` is a dict that describes which
+        coefficient matrix of the canonical form the value shall be added to. It has to contain:
 
         name:
             type of the coefficient matrix: 'E', 'f', or 'G'
         order:
             temporal derivative order of the assigned weights
         exponent:
-            exponent of the assigned weights
+            exponent of the assigned weights.
 
         :param term: targeted term in the canonical form h
         :type term: dict
         :param value: value to add
-        :type value: :py:class:`np.ndarray`
+        :type value: :py:obj:`numpy.ndarray`
         :param column: add the value only to one column of term (useful if only one dimension of term is known)
         :type column: int
         """
@@ -523,9 +520,9 @@ class CanonicalForms(object):
 
     def add_to(self, weight_label, term, val):
         """
-        add val to the canonical form for weight_label, see :func:`CanonicalForm.add_to` for further information.
+        add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
         :param weight_label: basis to add onto
-        :param term: coefficient to add onto, see :func:`CanonicalForm.add_to`
+        :param term: coefficient to add onto, see :py:func:`CanonicalForm.add_to`
         :param val: values to add
         """
         if term["name"] in "fG":

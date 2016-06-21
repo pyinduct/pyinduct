@@ -80,7 +80,7 @@ class LagrangeFirstOrder(Function):
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
         :param domain: domain to be cured
-        :type domain: py:class:pyinduct.Domain
+        :type domain: :py:class:`pyinduct.simulation.Domain`
         :return: set of LagrangeFirstOrder shapefunctions
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
@@ -208,7 +208,7 @@ class LagrangeSecondOrder(Function):
         Hint function that will cure the given interval with LagrangeSecondOrder.
 
         :param domain: domain to be cured
-        :type domain: py:class:pyinduct.Domain
+        :type domain: :py:class:`pyinduct.simulation.Domain`
         :return: set of LagrangeSecondOrder shapefunctions
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
@@ -358,7 +358,7 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     """
     Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
 
-    :param shapefunction_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
+    :param shapefunction_class: class to cure the interval (e.g. :py:class:`LagrangeFirstOrder`)
     :param interval: tuple of limits that constrain the interval
     :param node_count: amount of nodes to use
     :param node_distance: distance of nodes

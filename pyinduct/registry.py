@@ -1,5 +1,5 @@
 """
-:mod:`pyinduct.registry` covers the interface for registration of bases (a base is a set of initial functions).
+:py:mod:`pyinduct.registry` covers the interface for registration of bases (a base is a set of initial functions).
 """
 
 import numpy as np
@@ -21,9 +21,9 @@ def is_registered(label):
 
 def register_base(label, functions, overwrite=False):
     """
-    register a set of initial functions to make them accessible all over the pyinduct framework
+    register a set of initial functions to make them accessible all over the :py:mod:`pyinduct` framework
 
-    :param functions: array , list or single instance of ref:py:class:Function
+    :param functions: array , list or single instance of :py:class:`pyinduct.core.Function`
     :param label: string that will be used as label
     :param overwrite: force overwrite if label is already present
     """

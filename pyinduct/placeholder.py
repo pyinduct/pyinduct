@@ -1,5 +1,5 @@
 """
-In :mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
+In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
 """
 
 from abc import ABCMeta

@@ -172,9 +172,9 @@ def evaluate_placeholder_function(placeholder, input_values):
     """
     evaluate a given placeholder object, that contains functions
 
-    :param placeholder: instance of ref:py:class: FieldVariable or ref:py:class TestFunction ref:py:class ScalarFunction
+    :param placeholder: instance of :py:class:`FieldVariable`, :py:class:`TestFunction` or :py:class:`ScalarFunction`
     :param input_values: values to evaluate at
-    :return: np.ndarray of results
+    :return: :py:obj:`numpy.ndarray` of results
     """
     if not isinstance(placeholder, (FieldVariable, TestFunction)):
         raise TypeError("Input Object not supported!")

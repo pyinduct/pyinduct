@@ -3,7 +3,7 @@ Here are some frequently used plot types with the packages :py:mod:`pyqtgraph` a
 The respective :py:mod:`pyinduct.visualization` plotting function get an :py:class:`EvalData` object whose definition
 also placed in this module.
 A :py:class:`EvalData`-object in turn can easily generated from simulation data.
-The function :py:func:`simulate_system` for example already provide the simulation result
+The function :py:func:`pyinduct.simulation.simulate_system` for example already provide the simulation result
 as EvalData object.
 """
 
