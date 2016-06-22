@@ -3,6 +3,7 @@ A few helper functions for users and developer.
 """
 
 import copy as cp
+import os
 import warnings
 from numbers import Number
 import collections
@@ -460,3 +461,20 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
 # TODO: think about interp
 def find_nearest_idx(array, value):
     return (np.abs(array - value)).argmin()
+
+
+def create_dir(dir_name):
+    """
+    Create a directory with name :py:obj:`dir_name` relative to the current path.
+    If the directory already exists it do nothing.
+    But it always return the full path.
+
+    :param dir_name: directory name
+    :type dir_name: string
+    :return: full path, directory included
+    :rtype: string
+    """
+    path = os.getcwd() + os.path.sep + dir_name
+    if not os.path.exists(path) or not os.path.isdir(path):
+        os.mkdir(path)
+    return path

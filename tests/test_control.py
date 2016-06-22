@@ -713,9 +713,9 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # shift transformation
         shifted_fem_funcs_i = np.array(
-            [ef.FiniteTransformFunction(func, M, self.b, self.l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
+            [ef.FiniteTransformFunction(func, M, self.l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
              for func in self.fem_funcs])
-        shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, self.b, self.l) for func in eig_funcs_id])
+        shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, self.l) for func in eig_funcs_id])
         register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
         register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
         sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=self.l)

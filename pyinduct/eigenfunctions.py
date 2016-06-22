@@ -24,6 +24,13 @@ import pyqtgraph as pg
 
 
 class AddMulFunction(object):
+    """
+    (Temporary) Function class wich can multiplied with scalars and added with functions.
+    Only needed to compute the matrix (of scalars) vector (of functions) product in
+    :py:class:`FiniteTransformFunction`. Will be no longer needed when :py:class:`pyinduct.core.Function`
+    is overloaded with __add__ and __mul__ operator.
+    """
+
     def __init__(self, function):
         self.function = function
 
@@ -39,21 +46,20 @@ class AddMulFunction(object):
 
 class FiniteTransformFunction(Function):
     """
-    Provide a transformed function y(z) = T x(z) for a given matrix T and function y(z)
+    Provide a transformed function y(z) = M x(z) for a given matrix T and function y(z).
     """
 
-    def __init__(self, function, M, b, l, scale_func=None, nested_lambda=False):
+    def __init__(self, function, M, l, scale_func=None, nested_lambda=False):
 
         if not isinstance(function, collections.Callable):
             raise TypeError
         if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0:
             raise TypeError
-        if not all([isinstance(num, (int, float)) for num in [b, l]]):
+        if not all([isinstance(num, (int, float)) for num in [l,]]):
             raise TypeError
 
         self.function = function
         self.M = M
-        self.b = b
         self.l = l
         if scale_func == None:
             self.scale_func = lambda z: 1
@@ -134,14 +140,14 @@ class TransformedSecondOrderEigenfunction(Function):
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
         if not all([isinstance(state, (int, float)) for state in init_state_vect]) \
-            and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
+                and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) \
-            and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in
-                     dgl_coefficients]):
+                and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in
+                         dgl_coefficients]):
             raise TypeError
         if not isinstance(domain, (np.ndarray, list)) \
-            or not all([isinstance(num, (int, float)) for num in domain]):
+                or not all([isinstance(num, (int, float)) for num in domain]):
             raise TypeError
 
         if isinstance(target_eigenvalue, complex):

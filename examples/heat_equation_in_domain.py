@@ -179,9 +179,9 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_ti)]
 
 # shift transformation
 shifted_fem_funcs_i = np.array(
-    [ef.FiniteTransformFunction(func, M, b, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
+    [ef.FiniteTransformFunction(func, M, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
      for func in fem_funcs])
-shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, b, l) for func in eig_funcs_id])
+shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, l) for func in eig_funcs_id])
 re.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
 re.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
 sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=l)

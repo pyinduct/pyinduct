@@ -11,15 +11,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numbers import Number
 import time
+import os
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 import pyqtgraph as pg
+import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
 
 from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
@@ -110,15 +114,14 @@ class PgAnimatedPlot(PgDataPlot):
 
     # TODO default realtime, kwarg: T
 
-    def __init__(self, data, title="", dt=None):
+    def __init__(self, data, title="", dt=None, save_pics=False, labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
         self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
         self.state_data = [data_set.output_data for data_set in self._data]
 
-        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title)
-        self._pw.addLegend()
+        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title, labels=labels)
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
         max_times = [max(data) for data in self.time_data]
@@ -135,6 +138,14 @@ class PgAnimatedPlot(PgDataPlot):
         state_min = np.min([np.min(data) for data in self.state_data])
         state_max = np.max([np.max(data) for data in self.state_data])
         self._pw.setYRange(state_min, state_max)
+
+        self.save_pics = save_pics
+        if self.save_pics:
+            self.exporter = pg.exporters.ImageExporter(self._pw.plotItem)
+            self.exporter.parameters()['width'] = 1e3
+            self.path2pics = ut.create_dir('pictures_animation')
+            self.time_stamp = time.ctime().replace(' ', '_') + '_'
+            self.file_name_counter = 0
 
         self._time_text = pg.TextItem('t= 0')
         self._pw.addItem(self._time_text)
@@ -168,8 +179,15 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._dt
+
         if self._t > self._endtime:
             self._t = 0
+            self.save_pics = False
+
+        if self.save_pics:
+            self.exporter.export(
+                self.path2pics + os.path.sep + self.time_stamp + "%04d" % self.file_name_counter + '.png')
+            self.file_name_counter += 1
 
 
 class PgSurfacePlot(PgDataPlot):
@@ -408,11 +426,9 @@ def mpl_activate_latex():
 def mpl_3d_remove_margins():
     """
     Remove thin margins in matplotlib 3d plots.
-
     Code is from here :html:`http://stackoverflow.com/questions/16488182/`
-
-    :return:
     """
+
     ### source code patch start ###
     from mpl_toolkits.mplot3d.axis3d import Axis
 
@@ -426,3 +442,23 @@ def mpl_3d_remove_margins():
         Axis._get_coord_info_old = Axis._get_coord_info
         Axis._get_coord_info = _get_coord_info_new
         ### source code patch end ###
+
+
+def save_2d_pg_plot(plot, filename):
+    """
+    Save a given pyqtgraph plot in the folder <current path>.pictures_plot
+    under the given filename :py:obj:`filename`.
+
+    :param plot: pyqtgraph plot
+    :type plot: :py:class:`pyqtgraph.plotItem`
+    :param filename: png picture filename
+    :type filename: string
+    :return: full path, filename included
+    :rtype: string
+    """
+
+    path_filename = ut.create_dir('pictures_plot') + os.path.sep + filename + '.png'
+    exporter = pg.exporters.ImageExporter(plot.plotItem)
+    exporter.parameters()['width'] = 1e3
+    exporter.export(path_filename)
+    return path_filename

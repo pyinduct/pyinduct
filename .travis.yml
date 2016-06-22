@@ -1,5 +1,9 @@
 # Config file for automatic testing at travis-ci.org
 
+branches:
+  except:
+    - branch2go
+
 language: python
 
 python:

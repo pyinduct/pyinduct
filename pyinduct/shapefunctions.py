@@ -363,7 +363,7 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     :param node_count: amount of nodes to use
     :param node_distance: distance of nodes
 
-    :return: tuple of nodes and functions
+    :return: tupel -- (nodes, functions)
     """
     if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")

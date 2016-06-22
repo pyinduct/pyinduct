@@ -1,7 +1,8 @@
 import sys
+import warnings
 import unittest
-
 import numpy as np
+import scipy.signal as sig
 
 import pyinduct.utils as ut
 from pyinduct import trajectory as tr, visualization as vis
@@ -9,8 +10,8 @@ from pyinduct import trajectory as tr, visualization as vis
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -108,4 +109,55 @@ class FormalPowerSeriesTest(unittest.TestCase):
             pw = pg.plot(title="control_input")
             pw.plot(self.t, u_a_t)
             pw.plot(self.t, u_b_t)
+            app.exec_()
+
+
+class InterpSignalGeneratorTest(unittest.TestCase):
+    def setUp(self):
+        if not any([sig_form in sig.waveforms.__all__ for sig_form in
+                    ['sawtooth', 'square', 'gausspulse', 'chirp', 'sweep_poly']]):
+            warnings.warn("New scipy.signal module interface!"
+                          "Rewrite these test case (and have a look at pyinduct.trajectory.SignalGenerator!")
+
+        # self.t = 2 * np.pi * 5 * np.linspace(0, 1, 500)
+        self.t = np.linspace(0, 1, 500)
+        self.t_interp = np.linspace(0, 1, 10)
+        self.t1 = 1
+        self.f0 = 50
+        self.f1 = 500
+        self.width = 100
+        self.poly = np.array([1, 1, 1])
+        self.no_plot = False
+
+    def test_sawtooth(self):
+        self.sig_gen = tr.SignalGenerator('sawtooth', self.t, offset=0.5, scale=0.5, frequency=5)
+        self.assertTrue(all(np.isclose(np.array([0, 1, 1, 1]),
+                                       self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), atol=0.01)))
+        self.assertTrue(all(np.isclose(np.array([0, .5, .5, .5]),
+                                       self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), atol=0.01)))
+
+    def test_square(self):
+        self.sig_gen = tr.SignalGenerator('square', self.t, offset=0.5, scale=0.5, frequency=5)
+        self.assertTrue(all(np.isclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
+                                       self.sig_gen.__call__(
+                                           time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
+                                       atol=0.01)))
+
+    def test_gausspulse(self):
+        self.sig_gen = tr.SignalGenerator('gausspulse', self.t, phase_shift=0.5)
+        self.assertTrue(all(np.isclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
+                                       self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), atol=0.01)))
+
+    def test_kwarg(self):
+        self.no_plot = True
+        with self.assertWarns(UserWarning):
+            tr.SignalGenerator('square', self.t, offset=0.5, scale=0.5)
+        with self.assertRaises(NotImplementedError):
+            tr.SignalGenerator('gausspulse', self.t, frequency=5)
+
+    def tearDown(self):
+        if show_plots and not self.no_plot:
+            pw = pg.plot(title="control_input")
+            pw.plot(self.t, self.sig_gen.__call__(time=self.t), pen='c')
+            pw.plot(self.t_interp, self.sig_gen.__call__(time=self.t_interp), pen='g')
             app.exec_()

@@ -137,7 +137,7 @@ class EmptyInput(SimulationInput):
         self.dim = dim
 
     def _calc_output(self, **kwargs):
-        return np.zeros((self.dim,))
+        return dict(output=np.zeros((len(np.atleast_1d(kwargs['time'])), self.dim)))
 
 
 class SimulationInputSum(SimulationInput):
@@ -212,7 +212,7 @@ class StateSpace(object):
         else:
             self.B = b_matrices
         if self.B is None:
-            self.B = {1: np.zeros((self.A[1].shape[0],))}
+            self.B = {1: np.zeros((self.A[1].shape[0], 1))}
 
         if self.f is None:
             self.f = np.zeros((self.A[1].shape[0],))
@@ -222,7 +222,7 @@ class StateSpace(object):
             self.D = np.zeros((1, np.atleast_2d(self.B[1]).T.shape[1]))
 
         if input_handle is None:
-            self.input = EmptyInput(self.B[1].shape[0])
+            self.input = EmptyInput(self.B[1].shape[1])
         else:
             self.input = input_handle
         if not callable(self.input):
