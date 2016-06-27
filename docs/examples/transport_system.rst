@@ -5,7 +5,7 @@ Transport System
     :nowrap:
 
     \begin{align*}
-    \dot{x}(z,t) + v x&(z,t) = 0 && z\in (0, l), t>0\\
+    \dot{x}(z,t) + v x'&(z,t) = 0 && z\in (0, l], t>0\\
     x(z,0) &= x_0(z) && z\in [0,l]\\
     x(0,t) &= u(t) && t>0\\
     \end{align*}

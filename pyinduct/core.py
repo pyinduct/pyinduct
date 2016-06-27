@@ -15,11 +15,14 @@ import collections
 
 def sanitize_input(input_object, allowed_type):
     """
-    sanitizes input data by testing if input is an array of type allowed_type.
+    Sanitizes input data by testing if input is an array of type allowed_type.
 
-    :param input_object:
-    :param allowed_type:
-    :return:
+    Args:
+        input_object: Object which is to be checked.
+        allowed_type: desired type
+
+    Return:
+        input_object
     """
     input_object = np.atleast_1d(input_object)
     for obj in np.nditer(input_object, flags=["refs_ok"]):
@@ -31,7 +34,7 @@ def sanitize_input(input_object, allowed_type):
 
 class BaseFraction(object, metaclass=ABCMeta):
     """
-    abstract base class representing a basis that can be used to describe functions of several variables
+    Abstract base class representing a basis that can be used to describe functions of several variables.
     """
 
     def __init__(self, members):
@@ -39,11 +42,13 @@ class BaseFraction(object, metaclass=ABCMeta):
 
     def derive(self, order):
         """
-        basic implementation of derive function.
+        Basic implementation of derive function.
         Empty implementation, overwrite to add more functionality.
 
-        :param order: derivative order
-        :return: derived object
+        Args:
+            order (:class:`numbers.Number`): derivative order
+        Return:
+            :py:class:`BaseFraction`: derived object
         """
         if order == 0:
             return self
@@ -53,7 +58,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
     def transformation_hint(self, info, target):
         """
-        method that provides a information about how to transform weights from one :py:class:`BaseFraction` into another.
+        Method that provides a information about how to transform weights from one :py:class:`BaseFraction` into another.
 
         In Detail this function has to return a callable, which will take the weights of the source and will return the
         weights of the target system. It can have keyword arguments for other data which is required to perform the
@@ -72,10 +77,15 @@ class BaseFraction(object, metaclass=ABCMeta):
         This implementation will cover the most basic case, where to two :py:class:`BaseFraction` s are of same type.
         For any other case it will raise an exception.
 
-        :param info: Transformation-Info object
-        :param target: Transformation-Target object
-        :raises: NotImplementedError
-        :returns: Transformation handle
+        Args:
+            info: Transformation-Info object
+            target: Transformation-Target object
+
+        Raises:
+            NotImplementedError:
+
+        Returns:
+            Transformation handle
         """
         # TODO handle target option!
         if target is False:
@@ -117,10 +127,11 @@ class BaseFraction(object, metaclass=ABCMeta):
     @abstractmethod
     def scale(self, factor):
         """
-        factory method to obtain instances of this base fraction, scaled by the given factor.
+        Factory method to obtain instances of this base fraction, scaled by the given factor.
         Empty function, overwrite to implement custom functionality.
 
-        :param factor: factor to scale the vector
+        Args:
+            factor: Factor to scale the vector.
         """
         pass
 
@@ -130,7 +141,8 @@ class BaseFraction(object, metaclass=ABCMeta):
         Getter function to access members.
         Empty function, overwrite to implement custom functionality.
 
-        :param idx: member-index
+        Args:
+            idx: member index
         """
         pass
 
@@ -150,11 +162,12 @@ class Function(BaseFraction):
         """
         Constructor.
 
-        :param eval_handle: callable object that can be evaluated
-        :param domain: domain on which the eval_handle is defined
-        :param nonzero: region in which the eval_handle will give nonzero output
-        :param derivative_handles: (list of) callable(s) that contain derivatives of eval_handle
-        :param vectorial: indicates whether eval_handle take vectorial or scalar input
+        Args:
+            eval_handle: Callable object that can be evaluated.
+            domain: Domain on which the eval_handle is defined.
+            nonzero: Region in which the eval_handle will give nonzero output.
+            derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
+            vectorial: indicates whether eval_handle take vectorial or scalar input
         """
         BaseFraction.__init__(self, self)
 
@@ -199,21 +212,28 @@ class Function(BaseFraction):
         overwritten to performs that computation. It gets passed an array of places where the caller
         wants to evaluate the function and should return an array of the same length, containing the results.
 
-        This implementation just calls the normal evaluation hook.
+        Note:
+            This implementation just calls the normal evaluation hook.
 
-        :param values: places to be evaluated at
-        :return: np.ndarray
+        Args:
+            values: places to be evaluated at
+
+        Returns:
+            numpy.ndarray:
         """
         return self(values)
 
     def transformation_hint(self, info, target):
         """
-        default method for Functions. If src is a subclass of Function, use default strategy.
+        Default method for functions. If src is a subclass of Function, use default strategy.
         If a different behaviour is desired, overwrite this method.
 
-        :param info:
-        :param target:
-        :return: transformation handle
+        Args:
+            info:
+            target:
+
+        Return:
+            transformation handle
         """
         # TODO handle target option!
         if target is False:
@@ -226,7 +246,7 @@ class Function(BaseFraction):
 
     def scalar_product_hint(self):
         """
-        this one is easy
+        This one is easy.
         """
         return [dot_product_l2]
 
@@ -235,11 +255,16 @@ class Function(BaseFraction):
 
     def raise_to(self, power):
         """
-        raises the function to the power given by *power*
-        .. Note:: derivatives are lost after this action is performed
+        Raises the function to the power given by *power*
 
-        :param power: power to raise the function to
-        :return: raised function
+        Note:
+            Derivatives are lost after this action is performed.
+
+        Args:
+            power (numbers.Number): power to raise the function to
+
+        Return:
+            raised function
         """
         if power == 1:
             return self
@@ -255,9 +280,10 @@ class Function(BaseFraction):
 
     def scale(self, factor):
         """
-        factory method to scale this function.
+        Factory method to scale this function.
 
-        :param factor: number or a callable
+        Args:
+            factor : Number or a callable.
         """
         if factor == 1:
             return self
@@ -280,10 +306,13 @@ class Function(BaseFraction):
 
     def _check_domain(self, value):
         """
-        checks if value fits into domain
+        Checks if value fits into domain.
 
-        :param value: point(s) where function shall be evaluated
-        :raises: ValueError if value not in domain
+        Args:
+            value (array_like): Point(s) where function shall be evaluated.
+
+        Raises:
+            ValueError: If value not in domain.
         """
         in_domain = False
         value = np.atleast_1d(value)
@@ -297,10 +326,13 @@ class Function(BaseFraction):
 
     def __call__(self, argument):
         """
-        handle that is used to evaluate the function on a given point
+        Handle that is used to evaluate the function on a given point.
 
-        :param argument: function parameter
-        :return: function value
+        Args:
+            argument: function parameter
+
+        Return:
+            function value
         """
         self._check_domain(argument)
         if self.vectorial:
@@ -317,7 +349,7 @@ class Function(BaseFraction):
 
     def derive(self, order=1):
         """
-        factory method that is used to evaluate the spatial derivative of this function
+        Factory method that is used to evaluate the spatial derivative of this function.
         """
         if not isinstance(order, int):
             raise TypeError("only integer allowed as derivation order")
@@ -333,8 +365,7 @@ class Function(BaseFraction):
 
 class ComposedFunctionVector(BaseFraction):
     """
-    implementation of composite function vector :math:`\\boldsymbol{x}`.
-
+    Implementation of composite function vector :math:`\\boldsymbol{x}`.
 
     .. math::
         \\boldsymbol{x} = \\begin{pmatrix}
@@ -345,7 +376,6 @@ class ComposedFunctionVector(BaseFraction):
             \\vdots \\\\
             \\xi_m \\\\
         \\end{pmatrix}
-
     """
 
     def __init__(self, functions, scalars):
@@ -373,11 +403,14 @@ class ComposedFunctionVector(BaseFraction):
 
 def domain_intersection(first, second):
     """
-    calculate intersection two domains
+    Calculate intersection of two domains.
 
-    :param first: domain
-    :param second: domain
-    :return: intersection
+    Args:
+        first (:py:class:`pyinduct.simulation.Domain`): first domain
+        second (:py:class:`pyinduct.simulation.Domain`): second domain
+
+    Return:
+        list: intersection
     """
     if isinstance(first, tuple):
         first = [first]
@@ -441,11 +474,14 @@ def domain_intersection(first, second):
 
 def _dot_product_l2(first, second):
     """
-    calculates the inner product of two functions
+    Calculates the inner product of two functions.
 
-    :param first: function
-    :param second: function
-    :return: inner product
+    Args:
+        first (:py:class:`pyinduct.core.Function`): first function
+        second (:py:class:`pyinduct.core.Function`): second function
+
+    Return:
+        inner product
     """
     if not isinstance(first, Function) or not isinstance(second, Function):
         raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
@@ -473,11 +509,14 @@ def _dot_product_l2(first, second):
 
 def integrate_function(function, interval):
     """
-    integrates the given function over given interval
+    Integrates the given function over given interval.
 
-    :param function:
-    :param interval:
-    :return:
+    Args:
+        function:
+        interval:
+
+    Return:
+        tuple: (result, error_message)
     """
     result = 0
     err = 0
@@ -492,13 +531,18 @@ def integrate_function(function, interval):
 
 def complex_quadrature(func, a, b, **kwargs):
     """
-    wraps the scipy qaudpack routines to handle complex valued functions
+    Wraps the scipy qaudpack routines to handle complex valued functions.
 
-    :param func: callable
-    :param a: lower limit
-    :param b: upper limit
-    :param kwargs: kwargs for func
-    :return:
+    Args:
+        func (callable): function
+        a (numbers.Number): lower limit
+        b (numbers.Number): upper limit
+
+    Keyword Args:
+        kwargs (dict): Kwargs for desired scipy qaudpack routine.
+
+    Return:
+        tupel: (real part, imaginary part)
     """
 
     def real_func(x):
@@ -515,22 +559,28 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def dot_product(first, second):
     """
-    calculates the inner product of the scalars
+    Calculates the inner product of the scalars.
 
-    :param first:
-    :param second:
-    :return:
+    Args:
+        first:
+        second:
+
+    Return:
+        inner product
     """
     return np.inner(first, second)
 
 
 def dot_product_l2(first, second):
     """
-    vectorized version of dot_product
+    Vectorized version of dot_product.
 
-    :param first: numpy.ndarray of function
-    :param second: numpy.ndarray of function
-    :return: numpy.nadarray of inner product
+    Args:
+        first (numpy.ndarray):  ndarray of functions
+        second (numpy.ndarray):  ndarray of functions
+
+    Return:
+        numpy.nadarray:  inner product
     """
     # TODO seems like for now vectorize is the better alternative here
     # frst = sanitize_input(first, Function)
@@ -559,11 +609,15 @@ def dot_product_l2(first, second):
 
 def calculate_scalar_matrix(values_a, values_b):
     """
-    convenience function wrapper of py:function:`calculate_scalar_product_matrix` for the case of scalar elements.
+    Convenience function wrapper of py:function:`calculate_scalar_product_matrix` for the case of scalar elements.
 
-    :param values_a:
-    :param values_b:
-    :return:
+    Args:
+        values_a:
+        values_b:
+
+
+    Return:
+        scalar matrix
     """
     return calculate_scalar_product_matrix(np.multiply,
                                            sanitize_input(values_a, Number),
@@ -577,12 +631,15 @@ def calculate_scalar_matrix(values_a, values_b):
 
 def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b):
     """
-    calculates a matrix :math:`A` whose elements are the scalar products of each element from Bases and b,
+    Calculates a matrix :math:`A` whose elements are the scalar products of each element from Bases and b,
     so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
 
-    :param base_a: (array of) BaseFraction
-    :param base_b: (array of) BaseFraction
-    :return: matrix :math:`A` as np.ndarray
+    Args:
+        base_a (numpy.ndarray): array of :py:class:`BaseFraction`
+        base_b (numpy.ndarray): array of :py:class:`BaseFraction`
+
+    Return:
+        numpy.ndarray: matrix :math:`A`
     """
     # TODO make use of symmetry to save some operations
     i, j = np.mgrid[0:base_a.shape[0], 0:base_b.shape[0]]
@@ -594,14 +651,17 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b):
 
 def project_on_base(function, base):
     """
-    projects given function on a basis given by base
+    Projects given function on a basis given by base.
 
-    :param function: function the approximate
-    :param base: functions or function vectors that generate the base
-    :return: weights
+    Args:
+        function (:py:class:`Function`): Function to approximate.
+        base: Single :py:class:`Function` or vector (numpy.ndarray) that generate the base.
+
+    Return:
+        numpy.ndarray: weights
     """
     if not isinstance(function, Function):
-        raise TypeError("Only pyinduct.Function accepted as 'func'")
+        raise TypeError("Only pyinduct.Function accepted as 'function'")
 
     if isinstance(base, Function):  # convenience case
         base = np.asarray([base])
@@ -620,11 +680,14 @@ def project_on_base(function, base):
 
 def back_project_from_base(weights, base):
     """
-    build handle for function that was expressed in a certain basis with weights
+    Build handle for function that was expressed in a certain basis with weights.
 
-    :param weights:
-    :param base:
-    :return: evaluation handle
+    Args:
+        weights (numpy.ndarray): Vector of numbers.
+        base (numpy.ndarray): Vector that generate the base.
+
+    Return:
+        evaluation handle
     """
     if isinstance(weights, Number):
         weights = np.asarray([weights])
@@ -651,13 +714,16 @@ def back_project_from_base(weights, base):
 
 def change_projection_base(src_weights, src_base, dst_base):
     """
-    converts given weights that form an approximation using src_base to the best possible fit using
-    dst_base. bases can be given as BaseFraction Array or Function Array.
+    Converts given weights that form an approximation using src_base to the best possible fit using
+    dst_base. Bases can be given as :py:class:`BaseFraction` array or :py:class:`Function` array.
 
-    :param src_weights: current weights
-    :param src_base: original basis (np.ndarray)
-    :param dst_base: target basis (np.ndarray)
-    :return: target weights
+    Args:
+        weights (numpy.ndarray): Vector of numbers.
+        src_base (numpy.ndarray): Vector that generate the original basis
+        dst_base (numpy.ndarray): Vector that generate the target basis
+
+    Return:
+        target weights
     """
     pro_mat = calculate_base_transformation_matrix(src_base, dst_base)
     return project_weights(pro_mat, src_weights)
@@ -665,11 +731,14 @@ def change_projection_base(src_weights, src_base, dst_base):
 
 def project_weights(projection_matrix, src_weights):
     """
-    project weights on new basis using the provided projection
+    Project weights on new basis using the provided projection.
 
-    :param src_weights: src_weights
-    :param projection_matrix: projection
-    :return:
+    Args:
+        src_weights: src_weights
+        projection_matrix: projection
+
+    Return:
+        numpy.ndarray: projection
     """
     if isinstance(src_weights, Number):
         src_weights = np.asarray([src_weights])
@@ -679,7 +748,7 @@ def project_weights(projection_matrix, src_weights):
 
 class TransformationInfo(object):
     """
-    wrapper that holds information about transformations
+    Wrapper that holds information about transformations.
     """
 
     def __init__(self):
@@ -700,11 +769,14 @@ class TransformationInfo(object):
 
 def get_weight_transformation(info):
     """
-    somehow calculates a handle that will transform weights from src into weights for dst with the given derivative
+    Somehow calculates a handle that will transform weights from src into weights for dst with the given derivative
     orders.
 
-    :param info: transformation info
-    :return: handle
+    Args:
+        info: transformation info
+
+    Return:
+        callable: transformation function handle
     """
     # trivial case
     if info.src_lbl == info.dst_lbl:
@@ -756,15 +828,18 @@ def get_weight_transformation(info):
 
 def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order, dst_order, use_eye=False):
     """
-    constructs a transformation matrix from basis given by 'src_base' to basis given by 'dst_base' that also
+    Constructs a transformation matrix from basis given by 'src_base' to basis given by 'dst_base' that also
     transforms all temporal derivatives of the given weights.
 
-    :param src_base: the source basis, given by an array of BaseFractions
-    :param dst_base: the destination basis, given by an array of BaseFractions
-    :param src_order: temporal derivative order available in src
-    :param dst_order: temporal derivative order needed in dst
-    :param use_eye: use identity as base transformation matrix
-    :return: transformation matrix as 2d np.ndarray
+    Args:
+        src_base: The source basis, given by an array of BaseFractions.
+        dst_base: The destination basis, given by an array of BaseFractions.
+        src_order: Temporal derivative order available in src.
+        dst_order: Temporal derivative order needed in dst.
+        use_eye: Use identity as base transformation matrix.
+
+    Return:
+        numpy.ndarray: Transformation matrix (2d ndarray).
     """
     if src_order < dst_order:
         raise ValueError("higher derivative order needed than provided!")
@@ -784,7 +859,7 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
 
 def calculate_base_transformation_matrix(src_base, dst_base):
     """
-    calculates the transformation matrix :math:`V` so that the vector of src_weights can be transformed in a vector of
+    Calculates the transformation matrix :math:`V` so that the vector of src_weights can be transformed in a vector of
     dst_weights, making the smallest error possible. Quadratic error is used as the error-norm for this case.
 
     This method assumes that all are members of the given bases are of same type and that the BaseFractions,
@@ -792,9 +867,12 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     For BaseFractions, that are not compatible in a way that a simple matrix vector multiplication will do the job,
     XXXX should be used.
 
-    :param dst_base: new projection base
-    :param src_base: current projection base
-    :return:
+    Args:
+        dst_base (:py:class:`BaseFraction`): New projection base.
+        src_base (:py:class:`BaseFraction`): Current projection base.
+
+    Return:
+        numpy.ndarray: Transformation matrix.
     """
     src_base = sanitize_input(src_base, BaseFraction)
     dst_base = sanitize_input(dst_base, BaseFraction)
@@ -829,16 +907,20 @@ def calculate_base_transformation_matrix(src_base, dst_base):
 # TODO rename to something that emphasizes the general application a little more e.g. normalize_base_fraction
 def normalize_function(x1, x2=None):
     """
-    takes two the two BaseFractions :math:`\\boldsymbol{x}_1` and  :math:`\\boldsymbol{x}_2` and normalizes them so
+    Takes two the two BaseFractions :math:`\\boldsymbol{x}_1` and  :math:`\\boldsymbol{x}_2` and normalizes them so
     that :math:`\\langle\\boldsymbol{x}_1\\,,\:\\boldsymbol{x}_2\\rangle = 1`.
     If only one function is given, :math:`\\boldsymbol{x}_2` is set to :math:`\\boldsymbol{x}_1`.
 
-    :param x1: :math:`\\boldsymbol{x}_1`
-    :type x1: :py:class:`BaseFraction`
-    :param x2: :math:`\\boldsymbol{x}_2`
-    :type x2: :py:class:`BaseFraction`
-    :raise: ValueError if given BaseFraction are orthogonal
-    :return: normalized function(s)
+    Args:
+        x1 (:py:class:`BaseFraction`): :math:`\\boldsymbol{x}_1`
+        x2 (:py:class:`BaseFraction`): :math:`\\boldsymbol{x}_2`
+
+    Raises:
+        ValueError: If given BaseFraction are orthogonal
+
+    Return:
+         if x2 is None --> :py:class:`BaseFraction`, if x2 is not None --> tupel of 2 :py:class:`BaseFraction`'s:
+            Normalized function(s).
     """
     if x2 is None:
         x2 = x1

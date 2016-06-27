@@ -28,10 +28,13 @@ pg.setConfigOption('foreground', 'k')
 
 def create_colormap(cnt):
     """
-    create a colormap containing cnt values
+    Create a colormap containing cnt values.
 
-    :param cnt:
-    :return:
+    Args:
+        cnt (int):
+
+    Return:
+        Colormap ...
     """
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
@@ -41,8 +44,8 @@ def create_colormap(cnt):
 
 class EvalData:
     """
-    convenience wrapper for function evaluation
-    contains the input data that was used for evaluation and the results
+    Convenience wrapper for function evaluation.
+    Contains the input data that was used for evaluation and the results.
     """
 
     # TODO: add scipy n-D-interp function, min+max
@@ -77,7 +80,7 @@ class EvalData:
 
 class DataPlot:
     """
-    base class for all plotting related classes
+    Base class for all plotting related classes.
     """
 
     def __init__(self, data):
@@ -96,7 +99,7 @@ class DataPlot:
 
 class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
-    base class for all pyqtgraph plotting related classes
+    Base class for all pyqtgraph plotting related classes.
     """
 
     def __init__(self, data):
@@ -106,10 +109,10 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
 
 class PgAnimatedPlot(PgDataPlot):
     """
-    wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
+    Wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
     It is assumed that time propagates along axis1 and and location along axis2 of values
     values are therefore expected to be a array of shape (n, t, z)
-    playback set can be set via "dt" which is the real world step size. default is playback in realtime
+    playback set can be set via "dt" which is the real world step size. default is playback in realtime.
     """
 
     # TODO default realtime, kwarg: T
@@ -165,7 +168,7 @@ class PgAnimatedPlot(PgDataPlot):
 
     def _update_plot(self):
         """
-        update plot window
+        Update plot window.
         """
         for idx, data_set in enumerate(self._data):
             # find nearest time index
@@ -192,7 +195,7 @@ class PgAnimatedPlot(PgDataPlot):
 
 class PgSurfacePlot(PgDataPlot):
     """
-    plot as 3d surface
+    Plot as 3d surface.
     """
 
     def __init__(self, data, grid_height=None, title=""):
@@ -241,7 +244,7 @@ class PgSurfacePlot(PgDataPlot):
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
     """
-    plot selected slice of given DataSets
+    Plot selected slice of given DataSets.
     """
 
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
@@ -281,8 +284,8 @@ class PgSlicePlot(PgDataPlot):
 # TODO: alpha
 class PgLinePlot3d(PgDataPlot):
     """
-    plots a series of n-lines of the systems state.
-    scaling in z-direction can be changed with the scale setting
+    Ulots a series of n-lines of the systems state.
+    Scaling in z-direction can be changed with the scale setting.
     """
 
     def __init__(self, data, n=50, scale=1):
@@ -323,7 +326,7 @@ class PgLinePlot3d(PgDataPlot):
 
 class MplSurfacePlot(DataPlot):
     """
-    plot as 3d surface
+    Plot as 3d surface.
     """
 
     def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
@@ -412,7 +415,7 @@ class MplSlicePlot(PgDataPlot):
 
 def mpl_activate_latex():
     """
-    Activate full (label, ticks, ...) latex printing in matplotlib plots
+    Activate full (label, ticks, ...) latex printing in matplotlib plots.
     """
     plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
     params = {'text.usetex': True,
@@ -449,12 +452,12 @@ def save_2d_pg_plot(plot, filename):
     Save a given pyqtgraph plot in the folder <current path>.pictures_plot
     under the given filename :py:obj:`filename`.
 
-    :param plot: pyqtgraph plot
-    :type plot: :py:class:`pyqtgraph.plotItem`
-    :param filename: png picture filename
-    :type filename: string
-    :return: full path, filename included
-    :rtype: string
+    Args:
+        plot (:py:class:`pyqtgraph.plotItem`): Pyqtgraph plot.
+        filename (str): Png picture filename.
+
+    Return:
+        str: Full path, filename included.
     """
 
     path_filename = ut.create_dir('pictures_plot') + os.path.sep + filename + '.png'

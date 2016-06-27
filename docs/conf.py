@@ -46,6 +46,16 @@ extensions = ['sphinx.ext.autodoc',
               # 'sphinxcontrib.aafig'
               ]
 
+# Add napoleon to the extension (to write/precompile google style docstrings)
+import sphinx
+
+if sphinx.version_info[0] <= 1 and sphinx.version_info[1] <= 2:
+    # up to version 1.2 napoleon is not part of sphinx extensions
+    extensions.append('sphinxcontrib.napoleon')
+else:
+    # from version 1.3 onwards napoleon is part of the extensions
+    extensions.append('sphinx.ext.napoleon')
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -121,6 +131,7 @@ autoclass_content = "both"
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if not on_rtd:  # only import and set the theme if we're building docs locally
     import sphinx_rtd_theme
+
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # otherwise, readthedocs.org uses their theme by default, so no need to specify it

@@ -21,13 +21,16 @@ from .visualization import EvalData
 
 class Domain(object):
     """
-    Helper class that manages ranges for data evaluation, containing:
-    - interval bounds
-    - number of points in interval
-    - distance between points (if homogeneous)
-    - points themselves
+    Helper class that manages ranges for data evaluation, containing parameters.
 
-    If num and step are given, num will take precedence.
+    Args:
+        bounds (tupel): Interval bounds.
+        num (int): Number of points in interval.
+        step (numbers.Number): Distance between points (if homogeneous).
+        points (array_like): Points themselves.
+
+    Note:
+        If num and step are given, num will take precedence.
     """
 
     def __init__(self, bounds=None, num=None, step=None, points=None):
@@ -73,10 +76,10 @@ class Domain(object):
 
 class SimulationInput(object, metaclass=ABCMeta):
     """
-    base class for all objects that want to act as an input for the time-step simulation.
+    Base class for all objects that want to act as an input for the time-step simulation.
 
     The calculated values for each time-step are stored in internal memory and can be accessed by
-    py:func:`get_results` . After the simulation is finished.
+    :py:func:`get_results` (after the simulation is finished).
     """
 
     def __init__(self, name=""):
@@ -100,26 +103,34 @@ class SimulationInput(object, metaclass=ABCMeta):
     @abstractmethod
     def _calc_output(self, **kwargs):
         """
-        handle that has to be implemented for output calculation
+        Handle that has to be implemented for output calculation.
 
-        :param kwargs:
-            -"time": the current simulation time
-            -"weights": the current weight vector
-            -"weight_lbl": the label of the weights used
-        :returns: dict with mandatory key ``output``
+        Keyword Args:
+            time: The current simulation time.
+            weights: The current weight vector.
+            weight_lbl: The label of the weights used.
+
+        Returns:
+            dict: Dictionary with mandatory key ``output``.
         """
         return dict(output=0)
 
     def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
-        return results from internal storage for given time steps.
-        .. warning:: calling this method before a simulation was run will result in an error.
+        Return results from internal storage for given time steps.
 
-        :param time_steps: time points where values are demanded
-        :param result_key: type of values to be returned
-        :param interpolation: interpolation method to use if demanded time-steps are not covered by the storage,
-            see :py:func:`scipy.interpolate.interp1d` for all possibilities
-        :param as_eval_data: return results as EvalData object for straightforward display
+        Raises:
+            Error: If calling this method before a simulation was running.
+
+        Args:
+            time_steps: Time points where values are demanded.
+            result_key: Type of values to be returned.
+            interpolation: Interpolation method to use if demanded time-steps are not covered by the storage,
+                see :func:`scipy.interpolate.interp1d` for all possibilities.
+            as_eval_data: Return results as EvalData object for straightforward display.
+
+        Return:
+            Corresponding function values to the given time steps.
         """
         func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
                         kind=interpolation, assume_sorted=True, axis=0)
@@ -142,7 +153,7 @@ class EmptyInput(SimulationInput):
 
 class SimulationInputSum(SimulationInput):
     """
-    helper that represents a signal mixer
+    Helper that represents a signal mixer.
     """
 
     def __init__(self, inputs):
@@ -156,11 +167,14 @@ class SimulationInputSum(SimulationInput):
 
 class WeakFormulation(object):
     """
-    this class represents the weak formulation of a spatial problem.
+    This class represents the weak formulation of a spatial problem.
     It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
-    The equation is interpreted as term_0 + term_1 + ... + term_N = 0
+    The equation is interpreted as
 
-    :param terms: (list of) of object(s) of type EquationTerm
+    .. math:: term_0 + term_1 + ... + term_N = 0.
+
+    Args:
+        terms (list): List of object(s) of type EquationTerm.
     """
 
     def __init__(self, terms, name=None):
@@ -179,16 +193,22 @@ class WeakFormulation(object):
 
 class StateSpace(object):
     """
-    wrapper class that represents the state space form of a dynamic system where
-    :math:`\\boldsymbol{\\dot{x}}(t) = \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t)` and
-    :math:`\\boldsymbol{y}(t) = \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)`
+    Wrapper class that represents the state space form of a dynamic system where
+
+    .. math::
+        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) \\\\
+        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
+
     which has been approximated by projection on a base given by weight_label.
 
-    :param weight_label: label that has been used for approximation
-    :param a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
-    :param b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
-    :param c_matrix: :math:`\\boldsymbol{C}`
-    :param d_matrix: :math:`\\boldsymbol{D}`
+    Args:
+        weight_label: Label that has been used for approximation.
+        a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
+        b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
+        input_handle: :math:`u(t)`
+        f_vector:
+        c_matrix: :math:`\\boldsymbol{C}`
+        d_matrix: :math:`\\boldsymbol{D}`
     """
 
     def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
@@ -232,7 +252,15 @@ class StateSpace(object):
 # TODO update signature
 def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
     """
-    convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters
+    Convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters.
+
+    Args:
+        weak_forms (:py:class:`WeakFormulation`):
+        initial_states:
+        time_interval:
+        time_step:
+        spatial_interval:
+        spatial_step:
     """
     return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
             weak_forms]
@@ -240,17 +268,18 @@ def simulate_systems(weak_forms, initial_states, time_interval, time_step, spati
 
 def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, settings=None, der_orders=(0, 0)):
     """
-    convenience wrapper that encapsulates the whole simulation process
+    Convenience wrapper that encapsulates the whole simulation process.
 
-    :param weak_form: weak formulation of the system to simulate
-    :type weak_form: :py:class:`WeakFormulation`
-    :param initial_states: np.array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`
-    :param temporal_domain: sim.Domain object holding information for time evaluation
-    :param spatial_domain: sim.Domain object holding information for spatial evaluation
-    :param der_orders: tuple of derivative orders (time, spat) that shall be evaluated additionally
-    :param settings: integrator settings, see :py:func:`simulate_state_space`
+    Args:
+        weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
+        initial_states (numpy.ndarray): Array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
+        temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
+        spatial_domain (:py:class:`Domain`): Domain object holding information for spatial evaluation.
+        der_orders (tuple): Tuple of derivative orders (time, spat) that shall be evaluated additionally.
+        settings: Integrator settings, see :py:func:`simulate_state_space`.
 
-    :return: list of EvalData object, holding the results for the FieldVariable and asked derivatives
+    Return:
+        list: List of EvalData objects, holding the results for the FieldVariable and asked derivatives.
     """
     print(("simulating system: {0}".format(weak_form.name)))
     if not isinstance(weak_form, WeakFormulation):
@@ -291,14 +320,16 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
 def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_order, name=""):
     """
-    create handles and evaluate at given points
-    :param weight_lbl: label of Basis for reconstruction
-    :param temp_order: order or temporal derivatives to evaluate additionally
-    :param spat_order: order or spatial derivatives to evaluate additionally
-    :param q: weights
-    :param spat_domain: sim.Domain object providing values for spatial evaluation
-    :param temp_domain: timesteps on which rows of q are given
-    :param name: name of the WeakForm, used to generate the dataset
+    Create handles and evaluate at given points.
+
+    Args:
+        weight_lbl (str): Label of Basis for reconstruction.
+        temp_order: Order or temporal derivatives to evaluate additionally.
+        spat_order: Order or spatial derivatives to evaluate additionally.
+        q: weights
+        spat_domain (:py:class:`Domain`): Domain object providing values for spatial evaluation.
+        temp_domain (:py:class:`Domain`): Timesteps on which rows of q are given.
+        name (str): Name of the WeakForm, used to generate the dataset.
     """
     data = []
 
@@ -359,22 +390,18 @@ class CanonicalForm(object):
             raise ValueError("already defined target weights are overridden!")
 
     def add_to(self, term, value, column=None):
-        """adds the value :py:obj:`value` to term :py:obj:`term`. :py:obj:`term` is a dict that describes which
-        coefficient matrix of the canonical form the value shall be added to. It has to contain:
+        """
+        Adds the value :py:obj:`value` to term :py:obj:`term`. :py:obj:`term` is a dict that describes which
+        coefficient matrix of the canonical form the value shall be added to.
 
-        name:
-            type of the coefficient matrix: 'E', 'f', or 'G'
-        order:
-            temporal derivative order of the assigned weights
-        exponent:
-            exponent of the assigned weights.
+        Args:
+            term (dict): Targeted term in the canonical form h.  It has to contain:
 
-        :param term: targeted term in the canonical form h
-        :type term: dict
-        :param value: value to add
-        :type value: :py:obj:`numpy.ndarray`
-        :param column: add the value only to one column of term (useful if only one dimension of term is known)
-        :type column: int
+                - name: Type of the coefficient matrix: 'E', 'f', or 'G'.
+                - order: Temporal derivative order of the assigned weights.
+                - exponent: Exponent of the assigned weights.
+            value (:py:obj:`numpy.ndarray`): Value to add.
+            column (int): Add the value only to one column of term (useful if only one dimension of term is known).
         """
         if not isinstance(value, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
@@ -416,18 +443,20 @@ class CanonicalForm(object):
 
     def get_terms(self):
         """
-        return all coefficient matrices of the canonical formulation
+        Return all coefficient matrices of the canonical formulation.
 
-        :return: cascade of dictionaries with structure: Type > Order > Exponent
+        Return:
+            Cascade of dictionaries: Structure: Type > Order > Exponent.
         """
         return self._matrices
 
     def convert_to_state_space(self):
         """
-        convert the canonical ode system of order n a into an ode system of order 1
+        Convert the canonical ode system of order n a into an ode system of order 1.
         This will only work if the highest derivative of the given FieldVariable can be isolated!
 
-        :return: :py:class:`StateSpace` object
+        Return:
+            :py:class:`StateSpace` object:
         """
         if "f" in self._matrices:
             # TODO add functionality to StateSpace and allow f
@@ -510,7 +539,7 @@ class CanonicalForm(object):
 
 class CanonicalForms(object):
     """
-    wrapper that holds several entities of canonical forms for different sets of weights
+    Wrapper that holds several entities of canonical forms for different sets of weights.
     """
 
     def __init__(self, name):
@@ -520,10 +549,12 @@ class CanonicalForms(object):
 
     def add_to(self, weight_label, term, val):
         """
-        add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
-        :param weight_label: basis to add onto
-        :param term: coefficient to add onto, see :py:func:`CanonicalForm.add_to`
-        :param val: values to add
+        Add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
+
+        Args:
+            weight_label (str): Basis to add onto.
+            term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
+            val: Values to add.
         """
         if term["name"] in "fG":
             # hold f and g vector separately
@@ -537,23 +568,28 @@ class CanonicalForms(object):
 
     def get_static_terms(self):
         """
-        return terms that do not depend on a certain weight set
+        Return:
+            Terms that do not depend on a certain weight set.
         """
         return self._static_form.get_terms()
 
     def get_dynamic_terms(self):
         """
-        return dict of terms for each weight set
+        Return:
+            dict: Dictionary of terms for each weight set.
         """
         return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
 
 
 def parse_weak_formulation(weak_form):
     """
-    creates an ode system for the weights x_i based on the weak formulation.
+    Creates an ode system for the weights x_i based on the weak formulation.
 
-    :param weak_form: weak formulation of the pde
-    :return: nth-order ode system as :py:class:`CanonicalForm`
+    Args:
+        weak_form: Weak formulation of the pde.
+
+    Return:
+        :py:class:`CanonicalForm`: n'th-order ode system.
     """
 
     if not isinstance(weak_form, WeakFormulation):
@@ -702,16 +738,19 @@ def _compute_product_of_scalars(scalars):
 
 def simulate_state_space(state_space, initial_state, temp_domain, settings=None):
     """
-    wrapper to simulate a system given in state space form:
-    :math:`\\dot{q} = A_pq^p + A_{p-1}q^{p-1} + \\dotsb + A_0q + Bu`
+    Wrapper to simulate a system given in state space form:
 
-    :param state_space: state space formulation of the system
-    :param initial_state: initial state vector of the system
-    :param temp_domain: tuple of t_start and t_end
-    :param settings: parameters to pass to the `set_integrator` method of the `scipy.ode` class, with the integrator
-        name included under the key ``name``
-    :type settings: dict
-    :return:
+    .. math:: \\dot{q} = A_pq^p + A_{p-1}q^{p-1} + \\dotsb + A_0q + Bu.
+
+    Args:
+        state_space (:py:class:`StateSpace`): State space formulation of the system.
+        initial_state: Initial state vector of the system.
+        temp_domain (tuple): Tuple with start time and end time.
+        settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
+            name included under the key :obj:`name`.
+
+    Return:
+        tuple: Time :py:class:`Domain` object and weights matrix.
     """
     if not isinstance(state_space, StateSpace):
         raise TypeError
@@ -771,15 +810,18 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
 
 def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
     """
-    evaluate an approximation given by weights and functions at the points given in spatial and temporal steps
+    Evaluate an approximation given by weights and functions at the points given in spatial and temporal steps.
 
-    :param weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index
-    :param base_label: functions to use for back-projection
-    :param temp_domain: steps to evaluate at
-    :param spat_domain: sim.Domain to evaluate at (or in)
-    :param spat_order: spatial derivative order to use
-    :param name: name to use
-    :return: EvalData
+    Args:
+        weights: 2d np.ndarray where axis 1 is the weight index and axis 0 the temporal index.
+        base_label (str): Functions to use for back-projection.
+        temp_domain (:py:class:`Domain`): For steps to evaluate at.
+        spat_domain (:py:class:`Domain`): For points to evaluate at (or in).
+        spat_order: Spatial derivative order to use.
+        name: Name to use.
+
+    Return:
+        :py:class:`pyinduct.visualisation.EvalData`
     """
     funcs = get_base(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:

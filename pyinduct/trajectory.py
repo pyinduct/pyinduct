@@ -22,7 +22,10 @@ K_tanh = 2.
 
 class ConstantTrajectory(SimulationInput):
     """
-    trivial trajectory generator for a constant value as simulation input signal
+    Trivial trajectory generator for a constant value as simulation input signal.
+
+    Args:
+        const (numbers.Number): Desired constant value of the output.
     """
 
     def __init__(self, const=0):
@@ -40,21 +43,21 @@ class ConstantTrajectory(SimulationInput):
 
 class SmoothTransition:
     """
-    a smooth transition between two given steady-states *states* on an *interval*
+    A smooth transition between two given steady-states *states* on an *interval*
     using either:
     polynomial method
     trigonometric method
 
-    to create smooth transitions.
+    To create smooth transitions.
+
+    Args:
+        states (tuple): States at beginning and end of interval.
+        interval (tuple): Time interval.
+        method (str): Method to use (``poly`` or ``tanh``).
+        differential_order (int): Grade of differential flatness :math:`\\gamma`.
     """
 
     def __init__(self, states, interval, method, differential_order=0):
-        """
-        :param states: tuple of states in beginning and end of interval
-        :param interval: time interval (tuple)
-        :param method: method to use (``poly`` or ``tanh``)
-        :param differential_order: grade of differential flatness :math:`\\gamma`
-        """
         self.yd = states
         self.t0 = interval[0]
         self.t1 = interval[1]
@@ -93,11 +96,13 @@ class SmoothTransition:
 
     def _desired_values(self, t):
         """
-        calculates the desired trajectory and its derivatives for time-step *t*
+        Calculates the desired trajectory and its derivatives for time-step *t*.
 
-        :param t: time-step for which trajectory and derivatives are needed
-        :returns np.ndarray
-        :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
+        Args:
+            t (array_like): Time-step for which trajectory and derivatives are needed.
+
+        Return:
+            np.ndarray: :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
         """
         y = np.zeros((len(self.dphi_num)))
         if t <= self.t0:
@@ -118,8 +123,8 @@ class SmoothTransition:
 
 class FlatString(SimulationInput):
     """
-    class that implements a flatness based control approach
-    for the "string with mass" model
+    Class that implements a flatness based control approach
+    for the "string with mass" model.
     """
 
     def __init__(self, y0, y1, z0, z1, t0, dt, params):
@@ -143,11 +148,14 @@ class FlatString(SimulationInput):
 
     def _control_input(self, t):
         """
-        control input for system gained through flatness based approach that will
-        satisfy the target trajectory for y
+        Control input for system gained through flatness based approach that will
+        satisfy the target trajectory for y.
 
-        :param t: time
-        :return: input force f
+        Args:
+            t: time
+
+        Return:
+            input force f
         """
         yd1 = self.trajectory_gen(t - self._dz * self._tau)
         yd2 = self.trajectory_gen(t + self._dz * self._tau)
@@ -156,10 +164,14 @@ class FlatString(SimulationInput):
 
     def _system_sate(self, z, t):
         """
-        x(z, t) of string-mass system for given flat output y
-        :param z: location
-        :param t: time
-        :return: state (deflection of string)
+        x(z, t) of string-mass system for given flat output y.
+
+        Args:
+            z: location
+            t: time
+
+        Return:
+            state (deflection of string)
         """
         yd1 = self.trajectory_gen(t - z * self._tau)
         yd2 = self.trajectory_gen(t + z * self._tau)
@@ -168,11 +180,14 @@ class FlatString(SimulationInput):
 
     def _calc_output(self, **kwargs):
         """
-        use time to calculate system input and return force
-        :param t:
-        :param q:
-        :param kwargs:
-        :return:
+        Use time to calculate system input and return force
+
+        Keyword Args:
+            t:
+            q:
+
+        Return:
+            dict:
         """
         return dict(output=self._control_input(kwargs["time"]))
 
@@ -182,11 +197,15 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     """
     Provide the flat output y(t) = phi(t), with the gevrey-order
     1+1/sigma, and the derivatives up to order n.
-    :param t: [0, ... , t_end]  (numpy array)
-    :param n: (integer)
-    :param sigma: (float)
-    :param K: (float)
-    :return: np.array([[phi], ... ,[phi^(n)]])
+
+    Args:
+        t (numpy array): [0, ... , t_end]
+        n (int):
+        sigma (numbers.Number):
+        K (numbers.Number):
+
+    Return:
+        numpy.array([[phi], ... ,[phi^(n)]])
     """
 
     t_init = t = np.linspace(0., T, int(0.5 * 10 ** (2 + np.log10(T))))
@@ -239,13 +258,18 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
 
 
 def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
-    """ Provide the power series approximation for x(z,t) and x'(z,t).
-    :param z: [0, ..., l] (numpy array)
-    :param t: [0, ... , t_end] (numpy array)
-    :param n: series termination index (integer)
-    :param param: [a2, a1, a0, alpha, beta] (list)
-    :param y: flat output with derivation np.array([[y],...,[y^(n/2)]])
-    :return: field variable x(z,t) and spatial derivation x'(z,t)
+    """
+    Provide the power series approximation for x(z,t) and x'(z,t).
+
+    Args:
+        z (numpy.ndarray): [0, ..., l]
+        t (numpy.ndarray): [0, ... , t_end]
+        n (int): Series termination index.
+        param (array_like): [a2, a1, a0, alpha, beta]
+        y (array_like): Flat output and derivatives np.array([[y],...,[y^(n/2)]]).
+
+    Return:
+        Field variable x(z,t) and spatial derivative x'(z,t).
     """
     # TODO: documentation
     a2, a1, a0, alpha, beta = param
@@ -291,21 +315,35 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
 
 def coefficient_recursion(c0, c1, param):
     """
-    return to the recursion
+    Return to the recursion
+
     c_k = (c_{k-2}^{(1)} - a_1*c_{k-1} - a_0*c_{k-2}) / a_2
+
     with initial values
+
     c0 = np.array([c_0^{(0)}, ... , c_0^{(N)}])
+
     c1 = np.array([c_1^{(0)}, ... , c_1^{(N)}])
+
     as much as computable subsequent coefficients
+
     c2 = np.array([c_2^{(0)}, ... , c_2^{(N-1)}])
+
     c3 = np.array([c_3^{(0)}, ... , c_3^{(N-1)}])
+
     ....
+
     c_{2N-1} = np.array([c_{2N-1}^{(0)}])
+
     c_{2N} = np.array([c_{2N}^{(0)}])
-    :param c0:
-    :param c1:
-    :param param:
-    :return: C = {0: c0, 1: c1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}}
+
+    Args:
+        c0 (array_like):
+        c1 (array_like):
+        param (array_like): (a_2, a_1, a_0, None, None)
+
+    Return:
+        dict: C = {0: c0, 1: c1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}}
     """
     # TODO: documentation: only constant coefficients
     if c0.shape != c1.shape:
@@ -329,15 +367,21 @@ def coefficient_recursion(c0, c1, param):
 
 def temporal_derived_power_series(z, C, up_to_order, series_termination_index, spatial_der_order=0):
     """
-    compute the temporal derivatives
+    Compute the temporal derivatives
+
     q^{(n)}(z) = \sum_{k=0}^{series_termination_index} C[k][n,:] z^k / k!
-    from n=0 to n=up_to_order
-    :param z: scalar
-    :param C:
-    :param up_to_order:
-    :param series_termination_index:
-    :param spatial_der_order:
-    :return: Q = np.array( [q^{(0)}, ... , q^{(up_to_order)}] )
+
+    from n=0 to n=up_to_order.
+
+    Args:
+        z (numbers.Number):
+        C (array_like): Coefficient vector which elements should be arrays of scalars.
+        up_to_order (int): Max. derivative index.
+        series_termination_index (int): Series termination index.
+        spatial_der_order:
+
+    Return:
+        Q = np.array( [q^{(0)}, ... , q^{(up_to_order)}] )
     """
 
     if not isinstance(z, Number):
@@ -394,12 +438,57 @@ class InterpTrajectory(SimulationInput):
             pg.QtGui.QApplication.instance().exec_()
 
     def _calc_output(self, **kwargs):
-        """
-        use time to calculate system input and return force
-        :param kwargs:
-        :return:
-        """
         return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
+
+
+class SignalGenerator(InterpTrajectory):
+    """
+    Signal generator which simply combine :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
+
+    Args:
+        waveform (string): A waveform which is provided from :py:mod:`scipy.signal.waveforms`.
+        t: Array with time steps or :py:class:`pyinduct.simulation.Domain` instance.
+
+    Keyword Args:
+        scale: see kwargs
+        offset: see kwargs
+        kwargs: The corresponding keyword arguments to the desired :py:mod:`scipy.signal` waveform.
+            In addition to the kwargs of the desired waveform function from scipy.signal
+            (which will simply forwarded) the keyword arguments :py:obj:`frequency`
+            (for waveforms: 'sawtooth' and 'square') and :py:obj:`phase_shift`
+            (for all waveforms) provided.
+    """
+
+    def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
+        """
+        """
+        if not waveform in sig.waveforms.__all__:
+            raise ValueError('Desired waveform is not provided from scipy.signal module.')
+        if not any([isinstance(value, Number) for value in [scale, offset]]):
+            raise ValueError('scale and offset must be a Number')
+        self._signal = getattr(sig, waveform)
+
+        if waveform in {'sawtooth', 'square'}:
+            # pop not scipy.signal.waveform.__all__ kwarg
+            try:
+                frequency = kwargs.pop('frequency')
+            except KeyError:
+                warnings.warn('If keyword argument frequency is not provided, it is set to 1.')
+                frequency = 1
+            t_gen_sig = 2 * np.pi * frequency * t
+        else:
+            if 'frequency' in kwargs.keys():
+                raise NotImplementedError
+            t_gen_sig = t
+
+        # pop not scipy.signal.waveform.__all__ kwarg
+        try:
+            phase_shift = kwargs.pop('phase_shift')
+        except:
+            phase_shift = 0
+        u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
+
+        InterpTrajectory.__init__(self, t, u)
 
 
 class SignalGenerator(InterpTrajectory):
@@ -451,20 +540,26 @@ class RadTrajectory(InterpTrajectory):
     """
     Class that implements a flatness based control approach
     for the reaction-advection-diffusion equation
+
     d/dt x(z,t) = a2 x''(z,t) + a1 x'(z,t) + a0 x(z,t)
 
     with the
     boundary condition
+
     case 1: x(0,t)=0  (Dirichlet)
     --> a transition from x'(0,0)=0 to  x'(0,t_end)=1 is considered
     --> with x'(0,t) = y(t) where y(t) is the flat output
+
     case 2: x'(0,t) = alpha x(0,t)  (Robin)
     --> a transition from x(0,0)=0 to  x(0,t_end)=1 is considered
     --> with x(0,t) = y(t) where y(t) is the flat output
 
     and the
+
     actuation_type
+
     case 1: x(l,t)=u(t)  (Dirichlet)
+
     case 2: x'(l,t) = -beta x(l,t) + u(t)  (Robin).
     """
 
