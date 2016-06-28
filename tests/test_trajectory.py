@@ -5,6 +5,7 @@ import numpy as np
 import scipy.signal as sig
 
 import pyinduct.utils as ut
+import pyinduct.simulation as sim
 from pyinduct import trajectory as tr, visualization as vis
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
@@ -19,6 +20,19 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 else:
     app = None
+
+
+class ConstantTrajectoryTestCase(unittest.TestCase):
+    def setUp(self):
+        self.spat_domain = sim.Domain(bounds=(0, 1), num=2)
+        self.temp_domain = sim.Domain(bounds=(0, 1), num=10)
+        self.const_traj = tr.ConstantTrajectory(1)
+
+    def test_const_traj(self):
+        self.assertAlmostEqual(self.const_traj(time=1), 1)
+        self.assertTrue(all(np.isclose(self.const_traj(time=np.arange(10)), np.ones((10,)))))
+        with self.assertRaises(NotImplementedError):
+            self.const_traj(time=(1,))
 
 
 class SmoothTransitionTestCase(unittest.TestCase):

@@ -34,9 +34,9 @@ class ConstantTrajectory(SimulationInput):
 
     def _calc_output(self, **kwargs):
         if isinstance(kwargs["time"], (list, np.ndarray)):
-            return np.ones(len(kwargs["time"])) * self._const
+            return dict(output=np.ones(len(np.atleast_1d(kwargs["time"]))) * self._const)
         elif isinstance(kwargs["time"], Number):
-            return self._const
+            return dict(output=self._const)
         else:
             raise NotImplementedError
 
