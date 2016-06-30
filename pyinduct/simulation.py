@@ -745,7 +745,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     Args:
         state_space (:py:class:`StateSpace`): State space formulation of the system.
         initial_state: Initial state vector of the system.
-        temp_domain (tuple): Tuple with start time and end time.
+        temp_domain (:py:class:`Domain`): Temporal domain object.
         settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
             name included under the key :obj:`name`.
 

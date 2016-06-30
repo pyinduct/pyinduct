@@ -432,13 +432,18 @@ class InterpTrajectory(SimulationInput):
         self.scale = 1
 
         if show_plot:
-            pw = pg.plot(title="InterpTrajectory")
-            pw.plot(self._t, self.__call__(time=self._t))
-            pw.plot([0, self._T], self.__call__(time=[0, self._T]), pen=None, symbolPen=pg.mkPen("g"))
-            pg.QtGui.QApplication.instance().exec_()
+            self.get_plot()
 
     def _calc_output(self, **kwargs):
         return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
+
+    def get_plot(self):
+        pw = pg.plot(title="InterpTrajectory", labels=dict(left='u(t)', bottom='t'), pen='b')
+        pw.plot(self._t, self.__call__(time=self._t), pen='b')
+        # pw.plot([0, self._T], self.__call__(time=[0, self._T]), pen=None, symbolPen=pg.mkPen("g"))
+        pg.QtGui.QApplication.instance().exec_()
+        return pw
+
 
 
 class SignalGenerator(InterpTrajectory):
