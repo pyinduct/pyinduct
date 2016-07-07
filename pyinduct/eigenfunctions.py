@@ -258,8 +258,8 @@ class SecondOrderRobinEigenfunction(Function):
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
         spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
-            the spatial domain :math:`[z_0,z_1]\\ni z`
-        phi_0 (numbers.Number): factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`)
+            the spatial domain :math:`[z_0,z_1]\\ni z`.
+        phi_0 (numbers.Number): Factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`).
     """
 
     def __init__(self, om, param, spatial_domain, phi_0=1):
@@ -320,8 +320,8 @@ class SecondOrderDirichletEigenfunction(Function):
 
     .. math::
         a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi'(0) &= 0 \\\\
-        \\varphi'(l) &= 0.
+        \\varphi(0) &= 0 \\\\
+        \\varphi(l) &= 0.
 
     The eigenfrequency
 
@@ -333,8 +333,8 @@ class SecondOrderDirichletEigenfunction(Function):
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
         spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
-            the spatial domain :math:`[z_0,z_1]\\ni z`
-        phi_0 (numbers.Number): factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`)
+            the spatial domain :math:`[z_0,z_1]\\ni z`.
+        norm_fac (numbers.Number): Factor to scale the eigenfunctions.
     """
 
     def __init__(self, omega, param, spatial_domain, norm_fac=1.):
@@ -453,13 +453,13 @@ def return_real_part(to_return):
     and return the real part.
 
     Args:
-        to_return (numbers.Number or array_like):
+        to_return (numbers.Number or array_like): Variable to check.
 
     Raises:
         ValueError: If (all) imaginary part(s) not vanishes.
 
     Return:
-        type(to_return) but numpy.ndarray if to_return is array_like: Real part of :code:`to_return`.
+        numbers.Number or array_like: Real part of :code:`to_return`.
     """
     if not isinstance(to_return, (Number, list, np.ndarray)):
         raise TypeError
@@ -549,7 +549,8 @@ def transform2intermediate(param, d_end=None):
 
             .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t) + \\tilde a_0(z) \\tilde x(z,t)
 
-            and the corresponding boundary conditions (alpha and/or beta set to None by dirichlet boundary condition).
+            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None by dirichlet
+            boundary condition).
 
     """
     if not isinstance(param, (tuple, list)) or not len(param) == 5:

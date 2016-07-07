@@ -29,7 +29,7 @@ and dirichlet actuation by :math:`z=l`.
             :scale: 40 %
             :align: center
 
-    - :math:`x(z,t)`
+    - :math:`x'(z,t)`
 
         .. image:: /ressources/rad_diri_dx_ani.gif
             :scale: 40 %
@@ -96,7 +96,7 @@ and dirichlet actuation by :math:`z=l`.
 
 * input derivative elimination through the transformation:
 
-    - :math:`\bar{\boldsymbol{x}} = \tilde A \boldsymbol x - \boldsymbol{b}_1 u`
+    - :math:`\bar{\boldsymbol{x}}^* = \tilde A \boldsymbol x^* - \boldsymbol{b}_1 u`
     - respectively :math:`\bar x_j^* = \sum_{i=1}^{N} \langle \varphi_i(z),\varphi_j(z)\rangle x_i^*(t) - (\boldsymbol b_1)_j u`
     - leads to
 

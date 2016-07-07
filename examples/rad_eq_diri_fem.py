@@ -12,7 +12,7 @@ import pyqtgraph as pg
 n_fem = 17
 T = 1
 l = 1
-param = [1, 0, 0, None, None]   # or try this: param = [1, -0.5, -8, None, None]     :)))
+param = [1, 0, 0, None, None]  # or try this: param = [1, -0.5, -8, None, None]     :)))
 a2, a1, a0, _, _ = param
 
 temp_domain = sim.Domain(bounds=(0, T), num=1e2)
@@ -54,11 +54,11 @@ E1 = cf._matrices["E"][1][1]
 A = cf.convert_to_state_space().A[1]
 A_tilde = sim.calculate_scalar_product_matrix(sim.dot_product_l2, not_act_fem_funcs, not_act_fem_funcs)
 b0_sum = - a2 * np.array(
-            [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(1))] for fem_func in not_act_fem_funcs]) \
+    [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(1))] for fem_func in not_act_fem_funcs]) \
          + a1 * np.array(
-            [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(0))] for fem_func in not_act_fem_funcs]) \
+    [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(0))] for fem_func in not_act_fem_funcs]) \
          + a0 * np.array(
-            [[sim.dot_product_l2(act_fem_func.derive(0), fem_func.derive(0))] for fem_func in not_act_fem_funcs])
+    [[sim.dot_product_l2(act_fem_func.derive(0), fem_func.derive(0))] for fem_func in not_act_fem_funcs])
 b0 = np.dot(np.linalg.inv(E1), b0_sum)
 b1_sum = - np.array([[sim.dot_product_l2(act_fem_func, fem_func)] for fem_func in not_act_fem_funcs])
 b1 = np.dot(np.linalg.inv(E1), b1_sum)
@@ -80,7 +80,6 @@ sim_weights = np.nan * np.zeros((sim_transf_weights.shape[0], len(not_act_fem_fu
 for i in range(sim_transf_weights.shape[0]):
     sim_weights[i, :] = np.dot(np.linalg.inv(A_tilde), sim_transf_weights[i, :]) + (b1 * u_vec[i]).flatten()
 
-
 # visualisation
 save_pics = False
 vis_weights = np.hstack((np.matrix(sim_weights), u_vec))
@@ -92,10 +91,8 @@ win3 = vis.PgSurfacePlot(eval_d, title="x(z,t)")
 win4 = vis.PgSurfacePlot(der_eval_d, title="x'(z,t)")
 
 # save pics
-path = vis.save_2d_pg_plot(u.get_plot(), 'rad_dirichlet_traj')[1]
 if save_pics:
     path = vis.save_2d_pg_plot(u.get_plot(), 'rad_dirichlet_traj')[1]
-    win3.gl_widget.grabFrameBuffer().save(path+'rad_dirichlet_3d_x.png')
-    win4.gl_widget.grabFrameBuffer().save(path+'rad_dirichlet_3d_dx.png')
+    win3.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_x.png')
+    win4.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_dx.png')
 pg.QtGui.QApplication.instance().exec_()
-
