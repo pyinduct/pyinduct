@@ -1,3 +1,7 @@
+"""
+This module contains all classes and functions related to the creation of controllers as well as the implementation
+for simulation purposes.
+"""
 
 from itertools import chain
 import numpy as np
@@ -7,20 +11,23 @@ from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
 from .simulation import SimulationInput, CanonicalForms
-"""
-This module contains all classes and functions related to the creation of controllers as well as the implementation
-for simulation purposes.
-"""
 
 
 class ControlLaw(object):
     """
-    this class represents the approximated formulation of a control law.
-    It can be initialized with several terms (see children of :py:class:`EquationTerm`).
-    The equation is interpreted as term_0 + term_1 + ... + term_N = u, where u is the control output.
+    This class represents the approximated formulation of a control law.
+    It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
+    The equation is interpreted as
 
-    :param terms: (list of) of object(s) of type EquationTerm
+    .. math::
+        term_0 + term_1 + ... + term_N = u
+
+    where :math:`u` is the control output.
+
+    Args:
+        terms (list): List with object(s) of type :py:class:`pyinduct.placeholder.EquationTerm`.
     """
+
     def __init__(self, terms, name=""):
         if isinstance(terms, EquationTerm):
             terms = [terms]
@@ -37,9 +44,11 @@ class ControlLaw(object):
 
 class Controller(SimulationInput):
     """
-    wrapper class for all controllers that have to interact with the simulation environment
+    Wrapper class for all controllers that have to interact with the simulation environment.
 
-    :param control_law: function handle that calculates the control output if provided with correct weights
+    Args:
+        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
+            correct weights.
     """
 
     def __init__(self, control_law):
@@ -49,21 +58,28 @@ class Controller(SimulationInput):
 
     def _calc_output(self, **kwargs):
         """
-        calculates the controller output based on the current_weights
-        :param current_weights: current weights of the simulations system approximation
-        :return: control output :math:`u`
+        Calculates the controller output based on the current_weights.
+
+        Keyword Args:
+            current_weights (str): Current weights of the simulations system approximation.
+
+        Return:
+            dict: control output :math:`u`
         """
         return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
 
 
 def approximate_control_law(control_law):
     """
-    function that approximates the control law, given by a list of sum terms that equal u.
-    the result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
-    respective label) to be applied
+    Function that approximates the control law, given by a list of sum terms that equal u.
+    The result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
+    respective label) to be applied.
 
-    :param control_law: list of :py:cls:ControlLaw
-    :return: evaluation handle
+    Args:
+        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
+            correct weights.
+    Return:
+        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
     """
     print("approximating control law {}".format(control_law.name))
     if not isinstance(control_law, ControlLaw):
@@ -74,10 +90,15 @@ def approximate_control_law(control_law):
 
 def _parse_control_law(law):
     """
-    parses the given control law by approximating given terms
-    :param law:  list of equation terms
-    :return: evaluation handle
+    Parses the given control law by approximating given terms.
+
+    Args:
+        law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
+
+    Return:
+        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
     """
+
     # check terms
     for term in law.terms:
         if not isinstance(term, EquationTerm):
@@ -128,8 +149,13 @@ def _parse_control_law(law):
 
 class LawEvaluator(object):
     """
-    object that evaluates the control law approximation given by a CanonicalForms object
+    Object that evaluates the control law approximation given by a :py:class:`pyinduct.simulation.CanonicalForms`
+    object.
+
+    Args:
+        cfs (:py:class:`pyinduct.simulation.CanonicalForms`): evaluation handle
     """
+
     def __init__(self, cfs, storage=None):
         self._cfs = cfs
         self._transformations = {}
@@ -139,11 +165,13 @@ class LawEvaluator(object):
     @staticmethod
     def _build_eval_vector(terms):
         """
-        build a set of vectors that will compute the output by multiplication with the corresponding
-        power of the weight vector
+        Build a set of vectors that will compute the output by multiplication with the corresponding
+        power of the weight vector.
 
-        :param terms: coefficient vectors
-        :return: evaluation vector
+        Args:
+            terms (dict): coefficient vectors
+        Return:
+            dict: evaluation vector
         """
         orders = set(terms["E"].keys())
         powers = set(chain.from_iterable([list(mat) for mat in terms["E"].values()]))
@@ -151,20 +179,24 @@ class LawEvaluator(object):
 
         vectors = {}
         for power in powers:
-            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders)+1)])
+            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders) + 1)])
             vectors.update({power: vector})
 
         return vectors
 
     def __call__(self, weights, weight_label):
         """
-        evaluation function for approximated control law
-        :param weights: 1d ndarray of approximation weights
-        :param weight_label: string, label of functions the weights correspond to.
-        :return: control output u
+        Evaluation function for approximated control law.
+
+        Args:
+            weights (numpy.ndarray): 1d ndarray of approximation weights.
+            weight_label (string): Label of functions the weights correspond to.
+
+        Return:
+            dict: control output :math:`u`
         """
         res = {}
-        output = 0+0j
+        output = 0 + 0j
 
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().items():
@@ -211,7 +243,7 @@ class LawEvaluator(object):
         out = np.real_if_close(output, tol=10000000)
         if np.imag(out) != 0:
             raise ValueError("calculated complex control output u={0},"
-                                          " check for errors in control law!".format(out))
+                             " check for errors in control law!".format(out))
 
         res["output"] = out
         return res

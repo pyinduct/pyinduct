@@ -46,6 +46,16 @@ extensions = ['sphinx.ext.autodoc',
               # 'sphinxcontrib.aafig'
               ]
 
+# Add napoleon to the extension (to write/precompile google style docstrings)
+import sphinx
+
+if sphinx.version_info[0] <= 1 and sphinx.version_info[1] <= 2:
+    # up to version 1.2 napoleon is not part of sphinx extensions
+    extensions.append('sphinxcontrib.napoleon')
+else:
+    # from version 1.3 onwards napoleon is part of the extensions
+    extensions.append('sphinx.ext.napoleon')
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -59,8 +69,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'PyInduct'
-copyright = '2015, Stefan Ecklebe'
+project = u'PyInduct'
+copyright = u'2015, Stefan Ecklebe, Marcus Riesmeier'
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -121,6 +131,7 @@ autoclass_content = "both"
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if not on_rtd:  # only import and set the theme if we're building docs locally
     import sphinx_rtd_theme
+
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # otherwise, readthedocs.org uses their theme by default, so no need to specify it
@@ -220,8 +231,8 @@ latex_elements = {
 # [howto/manual]).
 latex_documents = [
     ('index', 'pyinduct.tex',
-     'PyInduct Documentation',
-     'Stefan Ecklebe', 'manual'),
+     u'PyInduct Documentation',
+     u'Stefan Ecklebe, Marcus Riesmeier', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at
@@ -251,8 +262,8 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'pyinduct',
-     'PyInduct Documentation',
-     ['Stefan Ecklebe'], 1)
+     u'PyInduct Documentation',
+     [u'Stefan Ecklebe, Marcus Riesmeier'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -267,7 +278,7 @@ man_pages = [
 texinfo_documents = [
     ('index', 'pyinduct',
      'PyInduct Documentation',
-     'Stefan Ecklebe',
+     'Stefan Ecklebe, Marcus Riesmeier',
      'pyinduct',
      'One line description of project.',
      'Miscellaneous'),

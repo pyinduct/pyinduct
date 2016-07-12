@@ -1,23 +1,40 @@
+"""
+Here are some frequently used plot types with the packages :py:mod:`pyqtgraph` and/or :py:mod:`matplotlib` implemented.
+The respective :py:mod:`pyinduct.visualization` plotting function get an :py:class:`EvalData` object whose definition
+also placed in this module.
+A :py:class:`EvalData`-object in turn can easily generated from simulation data.
+The function :py:func:`pyinduct.simulation.simulate_system` for example already provide the simulation result
+as EvalData object.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from numbers import Number
 import time
+import os
 import scipy.interpolate as si
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 import pyqtgraph as pg
+import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
 
 from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
     """
-    create a colormap containing cnt values
-    :param cnt:
-    :return:
+    Create a colormap containing cnt values.
+
+    Args:
+        cnt (int):
+
+    Return:
+        Colormap ...
     """
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
@@ -27,8 +44,8 @@ def create_colormap(cnt):
 
 class EvalData:
     """
-    convenience wrapper for function evaluation
-    contains the input data that was used for evaluation and the results
+    Convenience wrapper for function evaluation.
+    Contains the input data that was used for evaluation and the results.
     """
 
     # TODO: add scipy n-D-interp function, min+max
@@ -63,7 +80,7 @@ class EvalData:
 
 class DataPlot:
     """
-    base class for all plotting related classes
+    Base class for all plotting related classes.
     """
 
     def __init__(self, data):
@@ -82,7 +99,7 @@ class DataPlot:
 
 class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
-    base class for all pyqtgraph plotting related classes
+    Base class for all pyqtgraph plotting related classes.
     """
 
     def __init__(self, data):
@@ -92,23 +109,22 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
 
 class PgAnimatedPlot(PgDataPlot):
     """
-    wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
+    Wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
     It is assumed that time propagates along axis1 and and location along axis2 of values
     values are therefore expected to be a array of shape (n, t, z)
-    playback set can be set via "dt" which is the real world step size. default is playback in realtime
+    playback set can be set via "dt" which is the real world step size. default is playback in realtime.
     """
 
     # TODO default realtime, kwarg: T
 
-    def __init__(self, data, title="", dt=None):
+    def __init__(self, data, title="", dt=None, save_pics=False, labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
         self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
         self.state_data = [data_set.output_data for data_set in self._data]
 
-        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title)
-        self._pw.addLegend()
+        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title, labels=labels)
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
         max_times = [max(data) for data in self.time_data]
@@ -125,6 +141,14 @@ class PgAnimatedPlot(PgDataPlot):
         state_min = np.min([np.min(data) for data in self.state_data])
         state_max = np.max([np.max(data) for data in self.state_data])
         self._pw.setYRange(state_min, state_max)
+
+        self.save_pics = save_pics
+        if self.save_pics:
+            self.exporter = pg.exporters.ImageExporter(self._pw.plotItem)
+            self.exporter.parameters()['width'] = 1e3
+            self.path2pics = ut.create_dir('pictures_animation')
+            self.time_stamp = time.ctime().replace(' ', '_') + '_'
+            self.file_name_counter = 0
 
         self._time_text = pg.TextItem('t= 0')
         self._pw.addItem(self._time_text)
@@ -144,7 +168,7 @@ class PgAnimatedPlot(PgDataPlot):
 
     def _update_plot(self):
         """
-        update plot window
+        Update plot window.
         """
         for idx, data_set in enumerate(self._data):
             # find nearest time index
@@ -158,13 +182,20 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._dt
+
         if self._t > self._endtime:
             self._t = 0
+            self.save_pics = False
+
+        if self.save_pics:
+            self.exporter.export(
+                self.path2pics + os.path.sep + self.time_stamp + "%04d" % self.file_name_counter + '.png')
+            self.file_name_counter += 1
 
 
 class PgSurfacePlot(PgDataPlot):
     """
-    plot as 3d surface
+    Plot as 3d surface.
     """
 
     def __init__(self, data, grid_height=None, title=""):
@@ -213,7 +244,7 @@ class PgSurfacePlot(PgDataPlot):
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
     """
-    plot selected slice of given DataSets
+    Plot selected slice of given DataSets.
     """
 
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
@@ -253,8 +284,8 @@ class PgSlicePlot(PgDataPlot):
 # TODO: alpha
 class PgLinePlot3d(PgDataPlot):
     """
-    plots a series of n-lines of the systems state.
-    scaling in z-direction can be changed with the scale setting
+    Ulots a series of n-lines of the systems state.
+    Scaling in z-direction can be changed with the scale setting.
     """
 
     def __init__(self, data, n=50, scale=1):
@@ -295,7 +326,7 @@ class PgLinePlot3d(PgDataPlot):
 
 class MplSurfacePlot(DataPlot):
     """
-    plot as 3d surface
+    Plot as 3d surface.
     """
 
     def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
@@ -384,8 +415,7 @@ class MplSlicePlot(PgDataPlot):
 
 def mpl_activate_latex():
     """
-    Activate full (label, ticks, ...) latex printing in matplotlib plots
-    :return:
+    Activate full (label, ticks, ...) latex printing in matplotlib plots.
     """
     plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
     params = {'text.usetex': True,
@@ -398,11 +428,11 @@ def mpl_activate_latex():
 
 def mpl_3d_remove_margins():
     """
-    Remove thin margins in matplotlib 3d plots
-    form here: http://stackoverflow.com/questions/16488182/
-    :return:
+    Remove thin margins in matplotlib 3d plots.
+    Code is from here :html:`http://stackoverflow.com/questions/16488182/`
     """
-    # ##source code patch start## #
+
+    ### source code patch start ###
     from mpl_toolkits.mplot3d.axis3d import Axis
 
     if not hasattr(Axis, "_get_coord_info_old"):
@@ -414,4 +444,24 @@ def mpl_3d_remove_margins():
 
         Axis._get_coord_info_old = Axis._get_coord_info
         Axis._get_coord_info = _get_coord_info_new
-    # ##source code patch end## #
+        ### source code patch end ###
+
+
+def save_2d_pg_plot(plot, filename):
+    """
+    Save a given pyqtgraph plot in the folder <current path>.pictures_plot
+    under the given filename :py:obj:`filename`.
+
+    Args:
+        plot (:py:class:`pyqtgraph.plotItem`): Pyqtgraph plot.
+        filename (str): Png picture filename.
+
+    Return:
+        str: Full path, filename included.
+    """
+
+    path_filename = ut.create_dir('pictures_plot') + os.path.sep + filename + '.png'
+    exporter = pg.exporters.ImageExporter(plot.plotItem)
+    exporter.parameters()['width'] = 1e3
+    exporter.export(path_filename)
+    return path_filename

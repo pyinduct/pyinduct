@@ -22,4 +22,4 @@ from .utils import find_roots
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
-__version__ = '0.3.0'
+__version__ = '0.4.0'

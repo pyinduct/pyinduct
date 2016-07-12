@@ -1,21 +1,27 @@
-import numpy as np
+"""
+The shapefunctions module contains generic shapefunctions that can be used to approximate distributed systems without
+giving  any information about the systems themselves. This is achieved by projecting them on generic, piecewise smooth
+functions.
+"""
 
+import numpy as np
 from .core import Function
 from .simulation import Domain
-
-"""
-This module contains all shape functions that come with PyInduct. Furthermore helper methods
-for curing can be found here.
-"""
 
 
 class LagrangeFirstOrder(Function):
     """
-    Lagrangian shape functions of order 1
+    Lagrangian shape functions of order 1.
 
-    :param start: start node
-    :param top: top node, where :math:`f(x) = 1`
-    :param start: end node
+    Args:
+        start: start node
+        top: top node, where :math:`f(x) = 1`
+        end: end node
+
+    Keyword Args:
+        half:
+        right_border:
+        left_border:
     """
 
     def __init__(self, start, top, end, **kwargs):
@@ -77,10 +83,13 @@ class LagrangeFirstOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        hint function that will cure the given interval with this function type
-        :param domain: domain to be cured
-        :type domain: py:class:pyinduct.Domain
-        :return: set of shapefunctions
+        Hint function that will cure the given interval with LagrangeFirstOrder.
+
+        Args:
+            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+
+        Return:
+            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
         funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
@@ -98,15 +107,17 @@ class LagrangeFirstOrder(Function):
 
 
 class LagrangeSecondOrder(Function):
-    # TODO generate svg of 2nd of Lag2nd and remove ascii art from docstring
     """
-    Lagrangian shape functions of order 2
+    Lagrangian shape functions of order 2.
 
-    :param start: start node
-    :param mid: middle node, where :math:`f(x) = 1`
-    :param end: end node
-    :param curvature: concave or convex
-    :param half: generate only left or right half
+    Args:
+        start: start node
+        mid: middle node, where :math:`f(x) = 1`
+        end: end node
+
+    Keyword Args:
+        curvature (str): "concave" or "convex"
+        half (str): Generate only "left" or "right" half.
     """
 
     def __init__(self, start, mid, end, **kwargs):
@@ -205,9 +216,13 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        cure hint for Lag2nd
-        :param domain:
-        :return:
+        Hint function that will cure the given interval with LagrangeSecondOrder.
+
+        Args:
+            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+
+        Return:
+            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
             raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
@@ -356,12 +371,16 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     """
     Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
 
-    :param shapefunction_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
-    :param interval: tuple of limits that constrain the interval
-    :param node_count: amount of nodes to use
-    :param node_distance: distance of nodes
+    Args:
+        shapefunction_class: Class to cure the interval (e.g. :py:class:`LagrangeFirstOrder`).
+        interval (tuple): Limits that constrain the interval.
+        node_count (int): Amount of nodes to use.
+        node_distance (numbers.Number): Distance of nodes.
 
-    :return: tuple of nodes and functions
+    Return:
+        tupel:
+            (domain, funcs), where domain is a :py:class:`pyinduct.simulation.Domain` instance
+            and funcs is set of LagrangeFirstOrder shapefunctions.
     """
     if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")

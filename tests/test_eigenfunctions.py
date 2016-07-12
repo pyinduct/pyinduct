@@ -58,7 +58,7 @@ class FiniteTransformTest(unittest.TestCase):
         k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
         M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
         func = lambda z: np.cos(z)
-        shifted_func = ef.FiniteTransformFunction(func, M, b, l, nested_lambda=self.nested_lambda)
+        shifted_func = ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda)
         z = np.linspace(0, l, 1e3)
         if show_plots:
             for i in [0]:
@@ -80,7 +80,7 @@ class FiniteTransformTest(unittest.TestCase):
         eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
         eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
         shifted_eig_funcs = np.array(
-            [ef.FiniteTransformFunction(func, M, b, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
+            [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
         z = np.linspace(0, l, 1e3)
         if show_plots:
             for i in range(n):
@@ -105,7 +105,7 @@ class FiniteTransformTest(unittest.TestCase):
                 eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
                 eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
                 shifted_eig_funcs = np.array(
-                    [ef.FiniteTransformFunction(func, M, b, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
+                    [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
                 z = np.linspace(0, l, 1e3)
                 y = shifted_eig_funcs[0](z)
                 self.assertLess(max(np.diff(y)), 0.1)
