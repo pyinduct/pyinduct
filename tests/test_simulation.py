@@ -747,8 +747,22 @@ class RadFemTrajectoryTest(unittest.TestCase):
             self.assertLess(np.abs(ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
             return t, q
 
+        # check if simulation interface call tr.ConstantTrajectory properly
+        def test_rr_const_traj():
+            # const trajectory simulation call test
+            u = tr.ConstantTrajectory(1)
+            # derive state-space system
+            rad_pde = ut.get_parabolic_robin_weak_form("init_funcs_1", "init_funcs_1", u, param, dz.bounds)
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+
+            # simulate system
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_1.shape), dt)
+            return t, q
+
         t, q = test_dr()
         _, _ = test_rr()
+        _, _ = test_rr_const_traj()
         # TODO: fit LagrangeSecondOrder to test_dd and test_rd
         # t, q = test_dd()
         # t, q = test_rd()
