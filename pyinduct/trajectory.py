@@ -443,7 +443,7 @@ class InterpTrajectory(SimulationInput):
 
 class SignalGenerator(InterpTrajectory):
     """
-    Signal generator which simply combine :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
+    Signal generator that combines :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
 
     Args:
         waveform (string): A waveform which is provided from :py:mod:`scipy.signal.waveforms`.
@@ -462,7 +462,7 @@ class SignalGenerator(InterpTrajectory):
     def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
         """
         """
-        if not waveform in sig.waveforms.__all__:
+        if waveform not in sig.waveforms.__all__:
             raise ValueError('Desired waveform is not provided from scipy.signal module.')
         if not any([isinstance(value, Number) for value in [scale, offset]]):
             raise ValueError('scale and offset must be a Number')
@@ -487,52 +487,6 @@ class SignalGenerator(InterpTrajectory):
         except:
             phase_shift = 0
         u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
-
-        InterpTrajectory.__init__(self, t, u)
-
-
-class SignalGenerator(InterpTrajectory):
-    """
-    Signal generator which simply combine :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
-    """
-
-    def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
-        """
-        :param waveform: a waveform which is provided from :py:mod:`scipy.signal.waveforms`
-        :type waveform: string
-        :param t: array with time steps or :py:class:`pyinduct.simulation.Domain` instance
-        :param kwargs: The corresponding keyword arguments to the desired :py:mod:`scipy.signal` waveform. \
-                       In addition to the kwargs of the desired waveform function from scipy.signal \
-                       (which will simply forwarded) the keyword arguments :py:obj:`frequency` \
-                       (for waveforms: 'sawtooth' and 'square') and :py:obj:`phase_shift` \
-                       (for all waveforms) provided.
-        """
-        if not waveform in sig.waveforms.__all__:
-            raise ValueError('Desired waveform is not provided from scipy.signal module.')
-        if not any([isinstance(value, Number) for value in [scale, offset]]):
-            raise ValueError('scale and offset must be a Number')
-        self._signal = getattr(sig, waveform)
-
-        if waveform in {'sawtooth', 'square'}:
-            # pop not scipy.signal.waveform.__all__ kwarg
-            try:
-                frequency = kwargs.pop('frequency')
-            except KeyError:
-                warnings.warn('If keyword argument frequency is not provided, it is set to 1.')
-                frequency = 1
-            t_gen_sig = 2 * np.pi * frequency * t
-        else:
-            if 'frequency' in kwargs.keys():
-                raise NotImplementedError
-            t_gen_sig = t
-
-        # pop not scipy.signal.waveform.__all__ kwarg
-        try:
-            phase_shift = kwargs.pop('phase_shift')
-        except:
-            phase_shift = 0
-        u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
-
         InterpTrajectory.__init__(self, t, u)
 
 
