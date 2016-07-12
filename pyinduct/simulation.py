@@ -127,7 +127,8 @@ class SimulationInput(object, metaclass=ABCMeta):
             result_key: Type of values to be returned.
             interpolation: Interpolation method to use if demanded time-steps are not covered by the storage,
                 see :func:`scipy.interpolate.interp1d` for all possibilities.
-            as_eval_data: Return results as EvalData object for straightforward display.
+            as_eval_data (bool): Return results as :py:class:`pyinduct.visualization.EvalData`
+                object for straightforward display.
 
         Return:
             Corresponding function values to the given time steps.
@@ -279,7 +280,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
         settings: Integrator settings, see :py:func:`simulate_state_space`.
 
     Return:
-        list: List of EvalData objects, holding the results for the FieldVariable and asked derivatives.
+        list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable and asked derivatives.
     """
     print(("simulating system: {0}".format(weak_form.name)))
     if not isinstance(weak_form, WeakFormulation):
@@ -745,7 +746,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     Args:
         state_space (:py:class:`StateSpace`): State space formulation of the system.
         initial_state: Initial state vector of the system.
-        temp_domain (tuple): Tuple with start time and end time.
+        temp_domain (:py:class:`Domain`): Temporal domain object.
         settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
             name included under the key :obj:`name`.
 
@@ -821,7 +822,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
         name: Name to use.
 
     Return:
-        :py:class:`pyinduct.visualisation.EvalData`
+        :py:class:`pyinduct.visualization.EvalData`
     """
     funcs = get_base(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:

@@ -43,7 +43,8 @@ weak_form = sim.WeakFormulation([
 eval_data = sim.simulate_system(weak_form, init_x, temp_domain, spat_domain)
 
 win0 = pg.plot(np.array(eval_data[0].input_data[0]), u.get_results(eval_data[0].input_data[0]),
-               labels=dict(left='u(t)', bottom='t'), pen='b'); win0.showGrid(x=False, y=True, alpha=0.5)
+               labels=dict(left='u(t)', bottom='t'), pen='b')
+win0.showGrid(x=False, y=True, alpha=0.5)
 vis.save_2d_pg_plot(win0, 'transport_system')
 win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name, dt=temp_domain.step, save_pics=True,
                           labels=dict(left='x(z,t)', bottom='z'))
