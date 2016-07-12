@@ -1,3 +1,6 @@
+"""
+:py:mod:`pyinduct.registry` covers the interface for registration of bases (a base is a set of initial functions).
+"""
 
 import numpy as np
 
@@ -6,9 +9,13 @@ _registry = {}
 
 def is_registered(label):
     """
-    checks whether a specific label has already been registered
-    :param label: string, label to check for
-    :return: True if registered, False if not
+    Checks whether a specific label has already been registered.
+
+    Args:
+    label (str): Label to check for.
+
+    Return:
+        bool: True if registered, False if not.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("only strings allowed as labels!")
@@ -18,11 +25,12 @@ def is_registered(label):
 
 def register_base(label, functions, overwrite=False):
     """
-    register a set of initial functions to make them accessible all over the pyinduct framework
+    Register a set of initial functions to make them accessible all over the :py:mod:`pyinduct` framework.
 
-    :param functions: array , list or single instance of ref:py:class:Function
-    :param label: string that will be used as label
-    :param overwrite: force overwrite if label is already present
+    Args:
+        functions: Array , list or single instance of :py:class:`pyinduct.core.Function`.
+        label (str): String that will be used as label.
+        overwrite: Force overwrite if label is already present.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("only strings allowed as labels!")
@@ -49,9 +57,13 @@ def register_base(label, functions, overwrite=False):
 
 def deregister_base(label):
     """
-    removes a set of initial functions from the packages registry
-    :param label: string, label of functions that are to be removed
-    :raises ValueError if label is not found in registry
+    Removes a set of initial functions from the packages registry.
+
+    Args:
+        label (str): String, label of functions that are to be removed.
+
+    Raises:
+        ValueError: If label is not found in registry.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as label!")
@@ -63,10 +75,14 @@ def deregister_base(label):
 
 def get_base(label, order):
     """
-    retrieve registered set of initial functions by their label
-    :param label: string, label of functions to retrieve
-    :param order: desired derivative order of base
-    :return: initial_functions
+    Retrieve registered set of initial functions by their label.
+
+    Args:
+        label (str): String, label of functions to retrieve.
+        order (int): Desired derivative order of base.
+
+    Return:
+        initial_functions
     """
     if is_registered(label):
         base = _registry[label].get(order, None)

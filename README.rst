@@ -5,6 +5,12 @@ PyInduct
 .. image:: https://img.shields.io/travis/cklb/pyinduct.svg
         :target: https://travis-ci.org/cklb/pyinduct
 
+.. image:: https://readthedocs.org/projects/pyinduct-fork/badge/?version=latest
+        :target: http://pyinduct-fork.readthedocs.io/en/latest/?badge=latest
+
+.. image:: https://img.shields.io/codecov/c/github/riemarc/pyinduct.svg
+        :target: https://codecov.io/github/riemarc/pyinduct
+
 .. image:: https://img.shields.io/pypi/v/pyinduct.svg
         :target: https://pypi.python.org/pypi/pyinduct
 

@@ -1,22 +1,29 @@
-import numpy as np
+"""
+The shapefunctions module contains generic shapefunctions that can be used to approximate distributed systems without
+giving  any information about the systems themselves. This is achieved by projecting them on generic, piecewise smooth
+functions.
+"""
 
+import numpy as np
 from .core import Function
 from .simulation import Domain
-
-"""
-This module contains all shape functions that come with PyInduct. Furthermore helper methods
-for curing can be found here.
-"""
 
 
 class LagrangeFirstOrder(Function):
     """
-    Lagrangian shape functions of order 1
+    Lagrangian shape functions of order 1.
 
-    :param start: start node
-    :param top: top node, where :math:`f(x) = 1`
-    :param start: end node
+    Args:
+        start: start node
+        top: top node, where :math:`f(x) = 1`
+        end: end node
+
+    Keyword Args:
+        half:
+        right_border:
+        left_border:
     """
+
     def __init__(self, start, top, end, **kwargs):
         if not start <= top <= end or start == end:
             raise ValueError("Input data is nonsense, see Definition.")
@@ -32,10 +39,12 @@ class LagrangeFirstOrder(Function):
             def _lag1st_factory(der):
                 def _lag1st_complete(z):
                     if z == top:
-                        return .5*(rise_fncs[der](z) + fall_fncs[der](z))
+                        return .5 * (rise_fncs[der](z) + fall_fncs[der](z))
                     else:
                         return rise_fncs[der](z) + fall_fncs[der](z)
+
                 return _lag1st_complete
+
             funcs = [_lag1st_factory(derivative) for derivative in [0, 1]]
         else:
             funcs = self._function_factory(start, top, end, **kwargs)
@@ -47,23 +56,23 @@ class LagrangeFirstOrder(Function):
 
         if start == mid:
             m = -1 / (start - end)
-            n = -m*start
+            n = -m * start
         elif mid == end:
             m = 1 / (start - end)
-            n = 1 - m*start
+            n = 1 - m * start
         else:
             raise ValueError
 
         def _lag1st_half(z):
             if start <= z <= end:
-                return m*z + n
+                return m * z + n
             else:
                 return 0
 
         def _lag1st_half_dz(z):
             if z == start and not kwargs.get("left_border", False) or \
                         z == end and not kwargs.get("right_border", False):
-                return .5*m
+                return .5 * m
             if start <= z <= end:
                 return m
             else:
@@ -74,10 +83,13 @@ class LagrangeFirstOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        hint function that will cure the given interval with this function type
-        :param domain: domain to be cured
-        :type domain: py:class:pyinduct.Domain
-        :return: set of shapefunctions
+        Hint function that will cure the given interval with LagrangeFirstOrder.
+
+        Args:
+            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+
+        Return:
+            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
         funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
@@ -85,47 +97,39 @@ class LagrangeFirstOrder(Function):
         funcs[-1] = LagrangeFirstOrder(domain[-2], domain[-2], domain[-1], half="right", right_border=True,
                                        left_border=True if len(domain) == 2 else False)
 
-        for idx in range(1, len(domain)-1):
-            funcs[idx] = LagrangeFirstOrder(domain[idx-1],
+        for idx in range(1, len(domain) - 1):
+            funcs[idx] = LagrangeFirstOrder(domain[idx - 1],
                                             domain[idx],
-                                            domain[idx+1],
+                                            domain[idx + 1],
                                             left_border=True if idx == 1 else False,
-                                            right_border=True if idx == len(domain)-2 else False)
+                                            right_border=True if idx == len(domain) - 2 else False)
         return domain, funcs
 
 
 class LagrangeSecondOrder(Function):
-    # TODO generate svg of 2nd of Lag2nd and remove ascii art from docstring
     """
-    Implementation of an lagrangian initial function of order 2::
+    Lagrangian shape functions of order 2.
 
-      ^                                    _
-    1-|           ^                      / | \
-      |          /|\                   /   |   \
-      |         / | \                 /    |    \
-      |        /  |  \               /     |     \
-    0-|--\----/   |   \----/--------/------|----- \---> z
-          \_/     |    \_/
-       start    top       end     start   top    end
-         |<----- d ------>|        |<---- d/2 --->|
+    Args:
+        start: start node
+        mid: middle node, where :math:`f(x) = 1`
+        end: end node
 
-
-    :param start: start node
-    :param mid: middle node, where :math:`f(x) = 1`
-    :param end: end node
-    :param curvature: concave or convex
-    :param half: generate only left or right haf
+    Keyword Args:
+        curvature (str): "concave" or "convex"
+        half (str): Generate only "left" or "right" half.
     """
+
     def __init__(self, start, mid, end, **kwargs):
-        assert(start <= mid <= end)
+        assert (start <= mid <= end)
         if kwargs["curvature"] == "concave" and "half" not in kwargs:
             # interior special case
             args1 = kwargs.copy()
             args1.update({"right_border": False, "half": "right"})
-            func1 = self._function_factory(start, start + (mid-start)/2, mid, **args1)
+            func1 = self._function_factory(start, start + (mid - start) / 2, mid, **args1)
             args2 = kwargs.copy()
             args2.update({"left_border": False, "half": "left"})
-            func2 = self._function_factory(mid, mid + (end-mid)/2, end, **args2)
+            func2 = self._function_factory(mid, mid + (end - mid) / 2, end, **args2)
 
             def composed_func(z):
                 if start <= z <= mid:
@@ -166,34 +170,34 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
         if kwargs["curvature"] == "convex":
-            p = -(start+end)
-            q = start*end
-            s = 1/(mid**2 + p*mid + q)
+            p = -(start + end)
+            q = start * end
+            s = 1 / (mid ** 2 + p * mid + q)
 
         elif kwargs["curvature"] == "concave":
             if kwargs["half"] == "left":
-                p = -(mid+end)
-                q = mid*end
-                s = 1/(start**2 + p*start + q)
+                p = -(mid + end)
+                q = mid * end
+                s = 1 / (start ** 2 + p * start + q)
             elif kwargs["half"] == "right":
-                p = -(start+mid)
-                q = start*mid
-                s = 1/(end**2 + p*end + q)
+                p = -(start + mid)
+                q = start * mid
+                s = 1 / (end ** 2 + p * end + q)
         else:
             raise ValueError
 
         def lag2nd(z):
             if start <= z <= end:
-                return s*(z**2 + p*z + q)
+                return s * (z ** 2 + p * z + q)
             else:
                 return 0
 
         def lag2nd_dz(z):
             if z == start and not kwargs.get("left_border", False) or \
                         z == end and not kwargs.get("right_border", False):
-                return .5*s*(2*z + p)
+                return .5 * s * (2 * z + p)
             if start <= z <= end:
-                return s*(2*z + p)
+                return s * (2 * z + p)
             else:
                 return 0
 
@@ -203,7 +207,7 @@ class LagrangeSecondOrder(Function):
                         z == end and not kwargs.get("right_border", False):
                 return s
             if start <= z <= end:
-                return s*2
+                return s * 2
             else:
                 return 0
 
@@ -212,9 +216,13 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def cure_hint(domain):
         """
-        cure hint for Lag2nd
-        :param domain:
-        :return:
+        Hint function that will cure the given interval with LagrangeSecondOrder.
+
+        Args:
+            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+
+        Return:
+            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
             raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
@@ -228,16 +236,16 @@ class LagrangeSecondOrder(Function):
                                         curvature="concave", half="right", right_border=True)
 
         # interior
-        for idx in range(1, len(domain)-1):
+        for idx in range(1, len(domain) - 1):
             if idx % 2 != 0:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-1], domain[idx], domain[idx+1], curvature="convex",
+                funcs[idx] = LagrangeSecondOrder(domain[idx - 1], domain[idx], domain[idx + 1], curvature="convex",
                                                  left_border=True if idx == 1 else False,
-                                                 right_border=True if idx == len(domain)-2 else False,
+                                                 right_border=True if idx == len(domain) - 2 else False,
                                                  )
             else:
-                funcs[idx] = LagrangeSecondOrder(domain[idx-2], domain[idx], domain[idx+2], curvature="concave",
+                funcs[idx] = LagrangeSecondOrder(domain[idx - 2], domain[idx], domain[idx + 2], curvature="concave",
                                                  left_border=True if idx == 2 else False,
-                                                 right_border=True if idx == len(domain)-3 else False,
+                                                 right_border=True if idx == len(domain) - 3 else False,
                                                  )
 
         return domain, funcs
@@ -363,12 +371,16 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     """
     Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
 
-    :param shapefunction_class: class to cure the interval (e.g. py:LagrangeFirstOrder)
-    :param interval: tuple of limits that constrain the interval
-    :param node_count: amount of nodes to use
-    :param node_distance: distance of nodes
+    Args:
+        shapefunction_class: Class to cure the interval (e.g. :py:class:`LagrangeFirstOrder`).
+        interval (tuple): Limits that constrain the interval.
+        node_count (int): Amount of nodes to use.
+        node_distance (numbers.Number): Distance of nodes.
 
-    :return: tuple of nodes and functions
+    Return:
+        tupel:
+            (domain, funcs), where domain is a :py:class:`pyinduct.simulation.Domain` instance
+            and funcs is set of LagrangeFirstOrder shapefunctions.
     """
     if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")

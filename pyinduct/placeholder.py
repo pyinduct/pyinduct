@@ -1,3 +1,7 @@
+"""
+In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
+"""
+
 from abc import ABCMeta
 from numbers import Number
 
@@ -10,14 +14,15 @@ import collections
 
 class Placeholder(object):
     """
-    class that works as an placeholder for terms that are later substituted
+    Class that works as an placeholder for terms that are later substituted.
+
+    Args:
+        data:
+        order: How many derivations are to be applied before evaluation (t, z).
+        location: Location to evaluate at before further computation.
     """
 
     def __init__(self, data, order=(0, 0), location=None):
-        """
-        :param order: how many derivations are to be applied before evaluation (t, z)
-        :param location: location to evaluate at before further computation
-        """
         self.data = data
 
         if not isinstance(order, tuple) or any([not isinstance(o, int) or o < 0 for o in order]):
@@ -32,16 +37,15 @@ class Placeholder(object):
 
 class Scalars(Placeholder):
     """
-    placeholder for scalars that will be replaced later
+    Placeholder for scalars that will be replaced later.
+
+    Args:
+        values: Iterable object containing the scalars for every n-th equation.
+        target_term: Coefficient matrix to :py:func:`add_to`.
+        target_form: Desired weight set.
     """
 
     def __init__(self, values, target_term=None, target_form=None):
-        """
-
-        :param values: iterable object containing the scalars for every n-th equation
-        :param target_term: coefficient matrix to :py:func:`add_to`
-        :param target_form: desired weight set
-        """
         if target_term is None:
             target_term = dict(name="f")
         values = np.atleast_2d(values)
@@ -53,7 +57,13 @@ class Scalars(Placeholder):
 
 class ScalarFunction(Placeholder):
     """
-    class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients
+    Class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients.
+
+    Args:
+        function_label (str):
+        order (int):
+        location:
+
     """
 
     def __init__(self, function_label, order=0, location=None):
@@ -65,12 +75,13 @@ class ScalarFunction(Placeholder):
 
 class Input(Placeholder):
     """
-    class that works as a placeholder for the input of a system
+    Class that works as a placeholder for the input of a system.
 
-    :param function_handle: callable object
-    :param index: if input is a vector, which element shall be used
-    :param order: see :py:class:`Placeholder`
-    :param exponent: see :py:class:`FieldVariable`
+    Args:
+        function_handle (callable):
+        index: If input is a vector, which element shall be used.
+        order: See :py:class:`Placeholder`.
+        exponent: See :py:class:`FieldVariable`.
     """
 
     def __init__(self, function_handle, index=0, order=0, exponent=1):
@@ -83,7 +94,12 @@ class Input(Placeholder):
 
 class TestFunction(Placeholder):
     """
-    class that works as a placeholder for test-functions in an equation
+    Class that works as a placeholder for test-functions in an equation.
+
+    Args:
+        function_label (str):
+        order (int):
+        location:
     """
 
     def __init__(self, function_label, order=0, location=None):
@@ -95,31 +111,39 @@ class TestFunction(Placeholder):
 
 class FieldVariable(Placeholder):
     """
-    class that represents terms of the systems field variable :math:`x(z, t)` .
+    Class that represents terms of the systems field variable :math:`x(z, t)`.
+
+    Note:
+        Use :py:class:`TemporalDerivedFieldVariable` and :py:class:`SpatialDerivedFieldVariable` if no mixed
+        derivatives occur.
+
+    Args:
+        function_label (str): Label of shapefunctions to use for approximation, see :py:func:`register_base`
+            for more information about how to register an approximation basis.
+        order tuple of int: Tuple of temporal_order and spatial_order derivation order.
+        weight_label (str): Label of weights for which coefficients are to be calculated (defaults to function_label).
+        location: Where the expression is to be evaluated.
+        exponent: Exponent of the term.
+
+    Examples:
+        Assuming some shapefunctions have been registered under the label ``"phi"`` the following expressions hold:
+
+        - :math:`\\frac{\\partial^{2}}{\\partial t \\partial z}x(z, t)`
+
+        >>> x_dtdz = FieldVariable("phi", order=(1, 1))
+
+        - :math:`\\frac{\\partial^2}{\\partial t^2}x(3, t)`
+
+        >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
+
+        - :math:`\\frac{\\partial}{\\partial t}x^2(z, t)`
+
+        >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
     """
 
     def __init__(self, function_label, order=(0, 0), weight_label=None, location=None, exponent=1,
                  raised_spatially=False):
         """
-        :param function_label: label of shapefunctions to use for approximation, see :py:func:`register_base`
-            for more information about how to register an approximation basis.
-        :param order: tuple of temporal_order and spatial_order derivation order.
-        :param weight_label: label of weights for which coefficients are to be calculated (defaults to function_label)
-        :param location: where the expression is to be evaluated
-        :param exponent: exponent of the term
-
-        Assuming some shapefunctions have been registered under the label ``"phi"`` the following expressions hold:
-
-        :math:`\\frac{\\partial^{2}}{\\partial t \\partial z}x(z, t)`
-            >>> x_dtdz = FieldVariable("phi", order=(1, 1))
-        :math:`\\frac{\\partial^2}{\\partial t^2}x(3, t)`
-            >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
-        :math:`\\frac{\\partial}{\\partial t}x^2(z, t)`
-            >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
-
-        .. tip::
-            Use :py:class:`TemporalDerivedFieldVariable` and :py:class:`SpatialDerivedFieldVariable` if no mixed
-            derivatives occur.
         """
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
@@ -161,7 +185,11 @@ class MixedDerivedFieldVariable(FieldVariable):
 
 class Product(object):
     """
-    represents a product
+    Represents a product.
+
+    Args:
+        a:
+        b:
     """
 
     def __init__(self, a, b=None):
@@ -252,15 +280,24 @@ class Product(object):
 
     def get_arg_by_class(self, cls):
         """
-        extract element from product that is an instance of cls
-        :return:
+        Extract element from product that is an instance of cls.
+
+        Args:
+            cls:
+
+        Return:
+            list:
         """
         return [elem for elem in self.args if isinstance(elem, cls)]
 
 
 class EquationTerm(object, metaclass=ABCMeta):
     """
-    base class for all accepted terms in a weak formulation
+    Base class for all accepted terms in a weak formulation.
+
+    Args:
+        scale:
+        arg:
     """
 
     def __init__(self, scale, arg):
@@ -281,7 +318,11 @@ class EquationTerm(object, metaclass=ABCMeta):
 
 class ScalarTerm(EquationTerm):
     """
-    class that represents a scalar term in a weak equation
+    Class that represents a scalar term in a weak equation.
+
+    Args:
+        argument:
+        scale:
     """
 
     def __init__(self, argument, scale=1.0):
@@ -293,7 +334,12 @@ class ScalarTerm(EquationTerm):
 
 class IntegralTerm(EquationTerm):
     """
-    Class that represents an integral term in a weak equation
+    Class that represents an integral term in a weak equation.
+
+    Args:
+        integrand:
+        limits:
+        scale:
     """
 
     def __init__(self, integrand, limits, scale=1.0):
@@ -308,10 +354,13 @@ class IntegralTerm(EquationTerm):
 
 def _evaluate_placeholder(placeholder):
     """
-    evaluates a placeholder object and returns a Scalars object
+    Evaluates a placeholder object and returns a Scalars object.
 
-    :param placeholder:
-    :return:
+    Args:
+        placeholder (:py:class:`Placholder`):
+
+    Return:
+        :py:class:`Scalars` or NotImplementedError
     """
     if not isinstance(placeholder, Placeholder):
         raise TypeError("only placeholders supported")
@@ -338,11 +387,13 @@ def _evaluate_placeholder(placeholder):
 
 def get_common_target(scalars):
     """
-    extracts the common target from list of scalars while making sure that targets are equivalent.
+    Extracts the common target from list of scalars while making sure that targets are equivalent.
 
-    :param scalars:
-    :type scalars: Scalars
-    :return: common target as dict
+    Args:
+        scalars (:py:class:`Scalars`):
+
+    Return:
+        dict: Common target.
     """
     e_targets = [scal.target_term for scal in scalars if scal.target_term["name"] == "E"]
     if e_targets:

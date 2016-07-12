@@ -17,6 +17,8 @@ develop-eggs
 .installed.cfg
 lib
 lib64
+*resources*
+examples_*
 
 # Installer logs
 pip-log.txt
@@ -45,3 +47,7 @@ docs/_build
 # Sublime
 pyinduct.sublime-workspace
 pyinduct.sublime-project
+
+# PyCharm
+.idea/
+.settings/

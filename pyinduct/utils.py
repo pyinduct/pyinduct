@@ -1,4 +1,9 @@
+"""
+A few helper functions for users and developer.
+"""
+
 import copy as cp
+import os
 import warnings
 from numbers import Number
 import collections
@@ -13,7 +18,7 @@ import pyqtgraph as pg
 
 class Parameters:
     """
-    empty class to pass system parameters
+    Empty class to pass system parameters.
     """
 
     def __init__(self):
@@ -22,9 +27,13 @@ class Parameters:
 
 def complex_wrapper(func):
     """
-    wraps complex valued function into 2 dimensional function for easier handling
-    :param func:
-    :return: 2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)]
+    Wraps complex valued function into 2 dimensional function for easier handling.
+
+    Args:
+        func (callable):
+
+    Return:
+        2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
     """
 
     def wrapper(x):
@@ -46,14 +55,16 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     entries error and the current error is performed. If the newly calculated root comes with a smaller error it
     supersedes the present entry.
 
-    :param function: function handle for f(x) whose roots shall be found
-    :param n_roots: number of roots to find
-    :param grid: np.ndarray (first dimension should fit the input dimension of the provided func) of values where to
-        start searching
-    :param rtol: magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol
-    :param atol: absolute tolerance to zero  f(root) < atol
-    :param show_plot: shows a debug plot containing the given functions behavior completed by the extracted roots
-    :return: numpy.ndarray of roots
+    Args:
+        function: Function handle for f(x) whose roots shall be found.
+        n_roots: Number of roots to find.
+        grid: numpy.ndarray (first dimension should fit the input dimension of the provided func) of values where to
+            start searching.
+        rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
+        atol: Absolute tolerance to zero  f(root) < atol.
+        show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
+    Return:
+        numpy.ndarray of roots.
     """
     # positive_numbers = [n_roots, points_per_root, area, atol]
     # integers = [n_roots, points_per_root, rtol]
@@ -166,11 +177,14 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
 def evaluate_placeholder_function(placeholder, input_values):
     """
-    evaluate a given placeholder object, that contains functions
+    Evaluate a given placeholder object, that contains functions.
 
-    :param placeholder: instance of ref:py:class: FieldVariable or ref:py:class TestFunction ref:py:class ScalarFunction
-    :param input_values: values to evaluate at
-    :return: np.ndarray of results
+    Args:
+        placeholder: Instance of :py:class:`FieldVariable`, :py:class:`TestFunction` or :py:class:`ScalarFunction`.
+        input_values: Values to evaluate at.
+
+    Return:
+        :py:obj:`numpy.ndarray` of results.
     """
     if not isinstance(placeholder, (FieldVariable, TestFunction)):
         raise TypeError("Input Object not supported!")
@@ -183,20 +197,24 @@ def split_domain(n, a_desired, l, mode='coprime'):
     """
     Consider a domain [0,l] which is divided into the two sub domains [0,a] and [a,l]
     with:
-     -the discretization l_0 = l/n
-     -and a partition a+b=l.
 
-    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close to a_desired.
-    modes:
+    -the discretization l_0 = l/n
+
+    -and a partition a+b=l.
+
+    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close to a_desired modes:
+
     - 'force_k2_as_prime_number': k2 is an prime number (k1,k2 are coprime)
+
     - 'coprime': k1,k2 are coprime
+
     - 'one_even_one_odd': just meet the specification from the doc (default)
 
-    :param n:
-    :param a_desired:
-    :param l:
-    :param mode:
-    :return:
+    Args:
+        n:
+        a_desired:
+        l:
+        mode:
     """
 
     if not isinstance(n, (int, float)):
@@ -219,9 +237,10 @@ def split_domain(n, a_desired, l, mode='coprime'):
     def get_candidate_tuple(n, num):
         """
         TODO docstring
-        :param n:
-        :param num:
-        :return:
+
+        Args:
+            n:
+            num:
         """
         k1 = (n - num)
         k2 = num
@@ -261,24 +280,25 @@ def split_domain(n, a_desired, l, mode='coprime'):
 def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     """
     Returns the transformation matrix M. M is one part of a transformation
+
     x = My + Ty
+
     where x is the field variable of an interior point controlled parabolic system
     and y is the field variable of an boundary controlled parabolic system.
     T is a (Fredholm-) integral transformation (which can be approximated with M).
-    Invertibility of M:
-    - ensured if n is odd
-    - ensured if k1=0 or k2=0
-    - for even k1 and k2, given in some cases (further condition not known)
-    - not given if k1 and k2 are odd
-    - not given if k1=k2.
-    modes:
-    - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
-    - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
 
-    :param k1:
-    :param k2:
-    :param mode:
-    :return:
+
+    Args:
+        k1:
+        k2:
+        mode: Available modes:
+
+            - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
+
+            - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
+
+    Return:
+        numpy.array: Transformation matrix M.
     """
     if not all(isinstance(i, (int, float)) for i in [k1, k2]):
         raise TypeError("TypeErrorMessage")
@@ -309,9 +329,14 @@ def scale_equation_term_list(eqt_list, factor):
     """
     Temporary function, as long pyinduct.placeholder.EquationTerm can only be scaled individually.
     Return a scaled copy of eqt_list.
-    :param eqt_list: list of EquationTerms: [scalar_term_1, integral_term_1, ....]
-    :param factor: isinstance from numbers.Number
-    :return:
+
+    Args:
+        eqt_list (:py:class:`pyinduct.placeholder.EquationTerm`):
+            List of EquationTerm's: [scalar_term_1, integral_term_1, ....]
+        factor (scalar): Scale factor.
+
+    Return:
+        Scaled list of :py:class:`pyinduct.placeholder.EquationTerm`'s (eqt_list).
     """
     if not isinstance(eqt_list, list):
         raise TypeError
@@ -456,3 +481,21 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
 # TODO: think about interp
 def find_nearest_idx(array, value):
     return (np.abs(array - value)).argmin()
+
+
+def create_dir(dir_name):
+    """
+    Create a directory with name :py:obj:`dir_name` relative to the current path.
+    If the directory already exists it do nothing.
+    But it always return the full path.
+
+    Args:
+        dir_name (str): Directory name.
+
+    Return:
+        str: Full path, directory included.
+    """
+    path = os.getcwd() + os.path.sep + dir_name
+    if not os.path.exists(path) or not os.path.isdir(path):
+        os.mkdir(path)
+    return path

@@ -14,11 +14,11 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTestCase(unittest.TestCase):
-
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
         core.sanitize_input(1, int)
@@ -93,13 +93,14 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(10*np.sin(list(range(100))), g2(list(range(100)))))
+        self.assertTrue(np.array_equal(10 * np.sin(list(range(100))), g2(list(range(100)))))
 
         # scale with function
         g3 = f.scale(lambda z: z)
 
         def check_handle(z):
-            return z*f(z)
+            return z * f(z)
+
         self.assertIsInstance(g3(5), Number)
         self.assertNotIsInstance(g3(5), np.ndarray)
         self.assertTrue(np.array_equal(g3(list(range(10))), check_handle(list(range(10)))))
@@ -117,13 +118,13 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(np.sin(np.array(range(100)))**2,
+        self.assertTrue(np.array_equal(np.sin(np.array(range(100))) ** 2,
                                        g2(np.array(range(100)))))
         self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
         def func(x):
-            return 2*x
+            return 2 * x
 
         # call with scalar should return scalar with correct value
         f = core.Function(func)
@@ -176,7 +177,6 @@ class FunctionTestCase(unittest.TestCase):
 
 
 class IntersectionTestCase(unittest.TestCase):
-
     def test_wrong_arguments(self):
         # interval bounds not sorted
         self.assertRaises(ValueError, core.domain_intersection, (3, 2), (1, 3))
@@ -203,12 +203,11 @@ class IntersectionTestCase(unittest.TestCase):
 
 
 class DotProductL2TestCase(unittest.TestCase):
-
     def setUp(self):
         self.f1 = core.Function(lambda x: 1, domain=(0, 10))
         self.f2 = core.Function(lambda x: 2, domain=(0, 5))
         self.f3 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
-        self.f4 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2+1e-1))
+        self.f4 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2 + 1e-1))
 
         self.f5 = shapefunctions.LagrangeFirstOrder(0, 1, 2)
         self.f6 = shapefunctions.LagrangeFirstOrder(1, 2, 3)
@@ -223,13 +222,12 @@ class DotProductL2TestCase(unittest.TestCase):
 
     def test_lagrange(self):
         self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1/6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1/6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2/3)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
 
 
 class ProjectionTest(unittest.TestCase):
-
     def setUp(self):
         interval = (0, 10)
         node_cnt = 11
@@ -238,10 +236,10 @@ class ProjectionTest(unittest.TestCase):
         register_base("ini_funcs", self.initial_functions, overwrite=True)
 
         # "real" functions
-        self.z_values = np.linspace(interval[0], interval[1], 100*node_cnt)  # because we are smarter
+        self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)  # because we are smarter
         self.funcs = [core.Function(lambda x: 2),
-                      core.Function(lambda x: 2*x),
-                      core.Function(lambda x: x**2),
+                      core.Function(lambda x: 2 * x),
+                      core.Function(lambda x: x ** 2),
                       core.Function(lambda x: np.sin(x))
                       ]
         self.real_values = [func(self.z_values) for func in self.funcs]
@@ -255,7 +253,7 @@ class ProjectionTest(unittest.TestCase):
 
         # convenience wrapper for non array input -> constant function
         weight = core.project_on_base(self.funcs[0], self.initial_functions[1])
-        self.assertTrue(np.allclose(weight, 1.5*self.funcs[0](self.nodes[1])))
+        self.assertTrue(np.allclose(weight, 1.5 * self.funcs[0](self.nodes[1])))
 
         # linear function -> should be fitted exactly
         weights.append(core.project_on_base(self.funcs[1], self.initial_functions))
@@ -272,7 +270,7 @@ class ProjectionTest(unittest.TestCase):
             # since test function are lagrange1st order, plotting the results is fairly easy
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
-                pw.plot(x=self.z_values, y=self.real_values[idx+1], pen="r")
+                pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
                 pw.plot(x=self.nodes, y=w, pen="b")
                 app.exec_()
 
@@ -300,7 +298,6 @@ class ProjectionTest(unittest.TestCase):
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
-
     def setUp(self):
         # real function
         self.z_values = np.linspace(0, 1, 1000)
@@ -318,8 +315,10 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # approximation by sin(w*x)
         def trig_factory(freq):
             def func(x):
-                return np.sin(freq*x)
+                return np.sin(freq * x)
+
             return func
+
         self.trig_test_funcs = np.array([core.Function(trig_factory(w), domain=(0, 1)) for w in range(1, 3)])
 
     def test_types_change_projection_base(self):
@@ -359,10 +358,9 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
 
 class NormalizeFunctionsTestCase(unittest.TestCase):
-
     def setUp(self):
-        self.f = core.Function(np.sin, domain=(0, np.pi*2))
-        self.g = core.Function(np.cos, domain=(0, np.pi*2))
+        self.f = core.Function(np.sin, domain=(0, np.pi * 2))
+        self.g = core.Function(np.cos, domain=(0, np.pi * 2))
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
     def test_self_scale(self):

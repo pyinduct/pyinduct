@@ -6,7 +6,7 @@ from pickle import dump
 import numpy as np
 
 from pyinduct import register_base, \
-    eigenfunctions as ef,\
+    eigenfunctions as ef, \
     core as cr, \
     simulation as sim, \
     utils as ut, \
@@ -23,6 +23,7 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 else:
     app = None
@@ -34,6 +35,7 @@ class SimpleInput(sim.SimulationInput):
     """
     the simplest input we can imagine
     """
+
     def _calc_output(self, **kwargs):
         return 0
 
@@ -42,6 +44,7 @@ class MonotonousInput(sim.SimulationInput):
     """
     an input that ramps up
     """
+
     def _calc_output(self, **kwargs):
         return dict(output=kwargs["time"])
 
@@ -50,6 +53,7 @@ class CorrectInput(sim.SimulationInput):
     """
     a diligent input
     """
+
     def _calc_output(self, **kwargs):
         if "time" not in kwargs:
             raise ValueError("mandatory key not found!")
@@ -61,7 +65,6 @@ class CorrectInput(sim.SimulationInput):
 
 
 class SimulationInputTest(unittest.TestCase):
-
     def setUp(self):
         pass
 
@@ -111,7 +114,6 @@ class SimulationInputTest(unittest.TestCase):
 
 
 class CanonicalFormTest(unittest.TestCase):
-
     def setUp(self):
         self.cf = sim.CanonicalForm()
         self.u = SimpleInput()
@@ -120,8 +122,8 @@ class CanonicalFormTest(unittest.TestCase):
         a = np.eye(5)
         self.cf.add_to(dict(name="E", order=0, exponent=1), a)
         self.assertTrue(np.array_equal(self.cf._matrices["E"][0][1], a))
-        self.cf.add_to(dict(name="E", order=0, exponent=1), 5*a)
-        self.assertTrue(np.array_equal(self.cf._matrices["E"][0][1], 6*a))
+        self.cf.add_to(dict(name="E", order=0, exponent=1), 5 * a)
+        self.assertTrue(np.array_equal(self.cf._matrices["E"][0][1], 6 * a))
 
         b = np.eye(10)
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), b)
@@ -134,7 +136,7 @@ class CanonicalFormTest(unittest.TestCase):
         self.assertTrue(np.array_equal(self.cf._matrices["f"], f))
         # try to add something with derivative or exponent to f: value should end up in f
         self.cf.add_to(dict(name="f", order=None, exponent=None), f)
-        self.assertTrue(np.array_equal(self.cf._matrices["f"], 2*f))
+        self.assertTrue(np.array_equal(self.cf._matrices["f"], 2 * f))
 
         c = np.atleast_2d(np.array(range(5))).T
         # that one should be easy
@@ -151,7 +153,6 @@ class CanonicalFormTest(unittest.TestCase):
 
 
 class ParseTest(unittest.TestCase):
-
     def setUp(self):
         # scalars
         self.scalars = ph.Scalars(np.vstack(list(range(3))))
@@ -265,7 +266,8 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_squared_int)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[1/6, 1/3, 1/6], [1/6, 1/3, 1/6], [1/6, 1/3, 1/6]])))
+        self.assertTrue(np.allclose(terms["E"][0][2],
+                                    np.array([[1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.field_term_dz_at1)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]])))
@@ -289,13 +291,16 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
+        self.assertTrue(
+            np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_squared_f)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[1/8, 1/24, 0], [1/24, 1/4, 1/24], [0, 1/24, 1/8]])))
+        self.assertTrue(
+            np.allclose(terms["E"][0][2], np.array([[1 / 8, 1 / 24, 0], [1 / 24, 1 / 4, 1 / 24], [0, 1 / 24, 1 / 8]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_f_swapped)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
+        self.assertTrue(
+            np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_at1_f)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
@@ -307,7 +312,7 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_f_squared_f_at1)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1/6, 1/3, 1/6]])))
+        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1 / 6, 1 / 3, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_f_at1_f_at1)).get_terms()
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
@@ -317,7 +322,8 @@ class ParseTest(unittest.TestCase):
 
         # more complex terms
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_int_fddt_f)).get_terms()
-        self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])))
+        self.assertTrue(
+            np.allclose(terms["E"][2][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.prod_term_fddt_at0_f_at0)).get_terms()
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
@@ -343,9 +349,7 @@ class ParseTest(unittest.TestCase):
 
 
 class StateSpaceTests(unittest.TestCase):
-
     def setUp(self):
-
         self.u = CorrectInput()
 
         # setup temp and spat domain
@@ -385,7 +389,6 @@ class StateSpaceTests(unittest.TestCase):
 
 
 class StringMassTest(unittest.TestCase):
-
     def setUp(self):
 
         z_start = 0
@@ -439,7 +442,7 @@ class StringMassTest(unittest.TestCase):
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma*self.params.tau**2)
+                       ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma * self.params.tau ** 2)
         s1 = ph.ScalarTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
                        ph.TestFunction("init_funcs", location=0)), scale=self.params.m)
@@ -466,7 +469,7 @@ class StringMassTest(unittest.TestCase):
             eval_data.append(
                 sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
                                            t, self.dz))
-            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_"+"".join(["d" for x in range(der_idx)])
+            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
 
         # display results
@@ -527,6 +530,7 @@ class StringMassTest(unittest.TestCase):
             """
             String With Mass Function Vector, necessary due to manipulated scalar product
             """
+
             @property
             def func(self):
                 return self.members["funcs"][0]
@@ -614,6 +618,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
     and generic trajectory generator tr.RadTrajectory
     for the reaction-advection-diffusion equation.
     """
+
     def setUp(self):
         pass
 
@@ -674,7 +679,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=l),
                                           ph.TestFunction("init_funcs_2", order=0, location=l)), -a2)
             s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
-                                          ph.TestFunction("init_funcs_2", order=0, location=0)), a2*alpha)
+                                          ph.TestFunction("init_funcs_2", order=0, location=0)), a2 * alpha)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
                                           ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
             s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
@@ -708,7 +713,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
                                           ph.TestFunction("init_funcs_1", order=0, location=l)), -a1)
             s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
-                                          ph.TestFunction("init_funcs_1", order=0, location=l)), a2*beta)
+                                          ph.TestFunction("init_funcs_1", order=0, location=l)), a2 * beta)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
                                           ph.TestFunction("init_funcs_1", order=0, location=0)), a2)
             s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
@@ -742,8 +747,22 @@ class RadFemTrajectoryTest(unittest.TestCase):
             self.assertLess(np.abs(ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
             return t, q
 
+        # check if simulation interface call tr.ConstantTrajectory properly
+        def test_rr_const_traj():
+            # const trajectory simulation call test
+            u = tr.ConstantTrajectory(1)
+            # derive state-space system
+            rad_pde = ut.get_parabolic_robin_weak_form("init_funcs_1", "init_funcs_1", u, param, dz.bounds)
+            cf = sim.parse_weak_formulation(rad_pde)
+            ss = cf.convert_to_state_space()
+
+            # simulate system
+            t, q = sim.simulate_state_space(ss, np.zeros(ini_funcs_1.shape), dt)
+            return t, q
+
         t, q = test_dr()
         _, _ = test_rr()
+        _, _ = test_rr_const_traj()
         # TODO: fit LagrangeSecondOrder to test_dd and test_rd
         # t, q = test_dd()
         # t, q = test_rd()
@@ -759,6 +778,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
 class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
+
     def setUp(self):
         pass
 
@@ -777,9 +797,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 1e2
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
-        omega = np.array([(i+1)*np.pi/l for i in range(spatial_disc)])
-        eig_values = a0 - a2*omega**2 - a1**2/4./a2
-        norm_fak = np.ones(omega.shape)*np.sqrt(2)
+        omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
+        eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
+        norm_fak = np.ones(omega.shape) * np.sqrt(2)
         eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
                               for i in range(spatial_disc)])
         register_base("eig_funcs", eig_funcs, overwrite=True)
@@ -805,7 +825,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2*np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
+        B = -a2 * np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
@@ -825,6 +845,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
     """
     """
+
     def setUp(self):
         pass
 
@@ -873,7 +894,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
-        B = a2*np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
+        B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
