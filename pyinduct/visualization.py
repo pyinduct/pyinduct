@@ -457,11 +457,12 @@ def save_2d_pg_plot(plot, filename):
         filename (str): Png picture filename.
 
     Return:
-        str: Full path, filename included.
+        tuple of 2 str's: Path with filename and path only.
     """
 
-    path_filename = ut.create_dir('pictures_plot') + os.path.sep + filename + '.png'
+    path = ut.create_dir('pictures_plot') + os.path.sep
+    path_filename = path + filename + '.png'
     exporter = pg.exporters.ImageExporter(plot.plotItem)
     exporter.parameters()['width'] = 1e3
     exporter.export(path_filename)
-    return path_filename
+    return path_filename, path

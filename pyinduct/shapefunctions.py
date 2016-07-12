@@ -369,7 +369,7 @@ class LagrangeSecondOrder(Function):
 
 def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None):
     """
-    Use test functions to cure an interval with either node_count nodes or nodes with node_node_distance.
+    Use test functions to cure an interval with either node_count nodes or nodes with node_distance.
 
     Args:
         shapefunction_class: Class to cure the interval (e.g. :py:class:`LagrangeFirstOrder`).
@@ -379,8 +379,8 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
 
     Return:
         tupel:
-            (domain, funcs), where domain is a :py:class:`pyinduct.simulation.Domain` instance
-            and funcs is set of LagrangeFirstOrder shapefunctions.
+            :code:`(domain, funcs)`: Where :code:`domain` is a :py:class:`pyinduct.simulation.Domain` instance
+            and :code:`funcs` is set of :py:class:`LagrangeFirstOrder` shapefunctions.
     """
     if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")

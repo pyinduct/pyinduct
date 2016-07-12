@@ -61,10 +61,11 @@ class Controller(SimulationInput):
         Calculates the controller output based on the current_weights.
 
         Keyword Args:
-            current_weights (str): Current weights of the simulations system approximation.
+            weights: Current weights of the simulations system approximation.
+            weights_lbl (str): Corresponding label of :code:`weights`.
 
         Return:
-            dict: control output :math:`u`
+            dict: Controller output :math:`u`.
         """
         return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
 
