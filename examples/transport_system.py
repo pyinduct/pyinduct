@@ -46,8 +46,8 @@ win0 = pg.plot(np.array(eval_data[0].input_data[0]), u.get_results(eval_data[0].
                labels=dict(left='u(t)', bottom='t'), pen='b')
 win0.showGrid(x=False, y=True, alpha=0.5)
 vis.save_2d_pg_plot(win0, 'transport_system')
-win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name, dt=temp_domain.step, save_pics=True,
-                          labels=dict(left='x(z,t)', bottom='z'))
+win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name,
+                          save_pics=True, labels=dict(left='x(z,t)', bottom='z'))
 pg.QtGui.QApplication.instance().exec_()
 
 # ffmpeg -r "10" -i Fri_Jun_24_15:03:21_2016_%04d.png -c:v libx264 -pix_fmt yuv420p transport_system.mp4

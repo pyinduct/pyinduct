@@ -122,7 +122,7 @@ t, q = sim.simulate_state_space(ss_weak, np.zeros((len(fem_funcs))), temporal_do
 
 # pyqtgraph visualization
 evald_x = sim.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t)")
-win1 = vis.PgAnimatedPlot([evald_x], title="animation", dt=temporal_domain.step*.25)
+win1 = vis.PgAnimatedPlot([evald_x], title="animation", replay_gain=.25)
 win2 = vis.PgSurfacePlot(evald_x, title=evald_x.name, grid_height=1)
 pg.QtGui.QApplication.instance().exec_()
 

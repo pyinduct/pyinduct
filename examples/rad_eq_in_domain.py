@@ -235,8 +235,7 @@ evald_appr_xi = vis.EvalData(evald_modal_xi.input_data,
 evald_fem_x = sim.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t) simulation")
 
 # pyqtgraph visualisations
-win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired],
-                          dt=temporal_domain.step)
+win1 = vis.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired])
 win2 = vis.PgSurfacePlot([evald_xd], title=evald_xd.name, grid_height=1)
 win3 = vis.PgSurfacePlot([evald_fem_x], title=evald_fem_x.name, grid_height=1)
 

@@ -22,8 +22,8 @@ import pyqtgraph.opengl as gl
 from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
-pg.setConfigOption('background', 'w')
-pg.setConfigOption('foreground', 'k')
+# pg.setConfigOption('background', 'w')
+# pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
@@ -123,6 +123,7 @@ class PgAnimatedPlot(PgDataPlot):
         self.state_data = [data_set.output_data for data_set in self._data]
 
         self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title, labels=labels)
+        self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
         max_times = [max(data) for data in self.time_data]
