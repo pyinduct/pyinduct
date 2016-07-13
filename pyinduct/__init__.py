@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition
+from .trajectory import SmoothTransition, gevrey_tanh
 # noinspection PyUnresolvedReferences
 from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences

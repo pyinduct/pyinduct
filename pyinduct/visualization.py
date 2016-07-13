@@ -115,9 +115,7 @@ class PgAnimatedPlot(PgDataPlot):
     playback set can be set via "dt" which is the real world step size. default is playback in realtime.
     """
 
-    # TODO default realtime, kwarg: T
-
-    def __init__(self, data, title="", dt=None, save_pics=False, labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
@@ -131,8 +129,8 @@ class PgAnimatedPlot(PgDataPlot):
         self._endtime = max(max_times)
         self._longest_idx = max_times.index(self._endtime)
 
-        if dt is not None:
-            self._dt = dt
+        self.tr = refresh_time
+        self.t_step = self.tr * replay_gain
 
         spat_min = np.min([np.min(data) for data in self.spatial_data])
         spat_max = np.max([np.max(data) for data in self.spatial_data])
@@ -164,7 +162,7 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
-        self._timer.start(1e3 * self._dt)
+        self._timer.start(self.tr)
 
     def _update_plot(self):
         """
@@ -181,7 +179,7 @@ class PgAnimatedPlot(PgDataPlot):
                                                y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
-        self._t += self._dt
+        self._t += self.t_step
 
         if self._t > self._endtime:
             self._t = 0
