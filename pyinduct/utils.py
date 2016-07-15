@@ -2,6 +2,7 @@
 A few helper functions for users and developer.
 """
 
+from subprocess import call
 import copy as cp
 import os
 import warnings
@@ -492,9 +493,38 @@ def create_dir(dir_name):
         dir_name (str): Directory name.
 
     Return:
-        str: Full path, directory included.
+        str: Full absolute path of the created directory.
     """
-    path = os.getcwd() + os.path.sep + dir_name
-    if not os.path.exists(path) or not os.path.isdir(path):
-        os.mkdir(path)
+    path = os.sep.join([os.getcwd(), dir_name])
+    if not os.path.exists(path):
+        os.makedirs(path)
+    if not os.path.isdir(path):
+        raise FileExistsError("cannot create directory, file of same name already present.")
+
     return path
+
+
+def create_animation(input_file_mask="", input_file_names=None):
+    """
+    Create an animation from the given files.
+
+    If no file names are given, a file selection dialog will appear.
+
+    Args:
+        input_file_mask (basestring): file name mask with c-style format string
+        input_file_names (iterable): names of the files
+
+    Return:
+        animation file
+    """
+    # TODO process user input on frame rate file format and so on
+
+    if input_file_mask is not "":
+        output_name = "_".join(input_file_mask.split("_")[:-2]) + ".mp4"
+        # cmd = "ffmpeg -r "10" -i Fri_Jun_24_15:03:21_2016_%04d.png -c:v libx264 -pix_fmt yuv420p transport_system.mp4"
+        frame_rate = 10
+        args = "-i {} -c:v libx264 -pix_fmt yuv420p {}".format(input_file_mask, output_name)
+        call(["ffmpeg", args])
+
+    # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
+    # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif

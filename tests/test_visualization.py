@@ -8,15 +8,13 @@ import matplotlib.pyplot as plt
 import pyqtgraph as pg
 
 
-
 # TODO: __init__ global variable show_plots
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 app = pg.QtGui.QApplication([])
-
 
 
 class PlotTestCase(unittest.TestCase):
@@ -34,6 +32,12 @@ class PlotTestCase(unittest.TestCase):
         except:
             raise ValueError("run 'test_simulation' first!")
 
+        lim = 50
+        self.short_data = vis.EvalData([
+            self.test_data[0].input_data[0][0:lim],
+            self.test_data[0].input_data[1][0:lim]],
+            self.test_data[0].output_data[0:lim, 0:lim], name="short set")
+
     def test_slice_plot(self):
         pt = vis.PgSlicePlot(self.test_data[0])
         if show_plots:
@@ -44,15 +48,19 @@ class PlotTestCase(unittest.TestCase):
         if show_plots:
             app.exec_()
 
-    def test_animated_plot(self):
-        lim = 50
-        short_data = vis.EvalData([
-            self.test_data[0].input_data[0][0:lim],
-            self.test_data[0].input_data[1][0:lim]],
-            self.test_data[0].output_data[0:lim, 0:lim], name="short set")
-        pt = vis.PgAnimatedPlot(self.test_data + [short_data], title="Test Plot")
+    def test_animated_plot_unequal(self):
+        # test plotting of data sets with unequal length and spatial discretization
+        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data], title="Test Plot")
         if show_plots:
             app.exec_()
+
+    def test_animated_plot_export(self):
+        # test export
+        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data], title="Test Plot", save_pics=True)
+        if show_plots:
+            app.exec_()
+
+        self.assertTrue(os.path.isdir(os.sep.join([os.getcwd(), pt._res_path])))
 
     def test_surface_plot(self):
         pt = vis.PgSurfacePlot(self.test_data[0], grid_height=10)

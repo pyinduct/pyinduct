@@ -50,6 +50,4 @@ win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name,
                           save_pics=True, labels=dict(left='x(z,t)', bottom='z'))
 pg.QtGui.QApplication.instance().exec_()
 
-# ffmpeg -r "10" -i Fri_Jun_24_15:03:21_2016_%04d.png -c:v libx264 -pix_fmt yuv420p transport_system.mp4
-# ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
-# convert Fri_Jun_24_16:14:50_2016_00*.png out.gif
+

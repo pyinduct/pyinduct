@@ -109,11 +109,22 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
 
 class PgAnimatedPlot(PgDataPlot):
     """
-    Wrapper that shows an updating one dimensional plot. of n-curves discretized in t time steps and z spatial steps
-    It is assumed that time propagates along axis1 and and location along axis2 of values
+    Wrapper that shows an updating one dimensional plot of n-curves discretized in t time steps and z spatial steps
+    It is assumed that time propagates along axis0 and and location along axis1 of values.
     values are therefore expected to be a array of shape (n, t, z)
-    playback set can be set via "dt" which is the real world step size. default is playback in realtime.
+
+    Args:
+        data ((iterable of) :py:class:`EvalData`): results to animate
+        title (basestring): window title
+        refresh_time (int): time in msec to refresh the window must be greater than zero
+        replay_gain (float): values above 1 acc- and below 1 decelerate the playback process, must be greater than zero
+        save_pics (bool):
+        labels: ??
+
+    Return:
     """
+
+    _res_path = "animation_output"
 
     def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, labels=None):
         PgDataPlot.__init__(self, data)
@@ -122,7 +133,9 @@ class PgAnimatedPlot(PgDataPlot):
         self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
         self.state_data = [data_set.output_data for data_set in self._data]
 
-        self._pw = pg.plot(title=time.strftime("%H:%M:%S") + ' - ' + title, labels=labels)
+        self._time_stamp = time.strftime("%H:%M:%S")
+
+        self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
@@ -130,8 +143,10 @@ class PgAnimatedPlot(PgDataPlot):
         self._endtime = max(max_times)
         self._longest_idx = max_times.index(self._endtime)
 
-        self.tr = refresh_time
-        self.t_step = self.tr * replay_gain
+        assert refresh_time > 0
+        self._tr = refresh_time
+        assert replay_gain > 0
+        self._t_step = self._tr / 1000 * replay_gain
 
         spat_min = np.min([np.min(data) for data in self.spatial_data])
         spat_max = np.max([np.max(data) for data in self.spatial_data])
@@ -142,12 +157,26 @@ class PgAnimatedPlot(PgDataPlot):
         self._pw.setYRange(state_min, state_max)
 
         self.save_pics = save_pics
+        self._export_complete = False
+        self._exported_files = []
+
         if self.save_pics:
-            self.exporter = pg.exporters.ImageExporter(self._pw.plotItem)
-            self.exporter.parameters()['width'] = 1e3
-            self.path2pics = ut.create_dir('pictures_animation')
-            self.time_stamp = time.ctime().replace(' ', '_') + '_'
-            self.file_name_counter = 0
+            self._exporter = pg.exporters.ImageExporter(self._pw.plotItem)
+            self._exporter.parameters()['width'] = 1e3
+
+            picture_path = ut.create_dir(self._res_path)
+            export_digits = int(np.abs(np.round(np.log(self._endtime % self._t_step), 0)))
+            # ffmpeg uses c-style format strings
+            self.ff_mask = "_".join([title.replace(" ", "_"),
+                                     self._time_stamp.replace(":", "_"),
+                                     "%0{}d".format(export_digits),
+                                     ".png"])
+            file_name = "_".join([title.replace(" ", "_"),
+                                  self._time_stamp.replace(":", "_"),
+                                  "{"+":0{}d".format(export_digits)+"}",
+                                  ".png"])
+            self._file_mask = os.sep.join([picture_path, file_name])
+            self._file_name_counter = 0
 
         self._time_text = pg.TextItem('t= 0')
         self._pw.addItem(self._time_text)
@@ -163,7 +192,7 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
-        self._timer.start(self.tr)
+        self._timer.start(self._tr)
 
     def _update_plot(self):
         """
@@ -180,16 +209,26 @@ class PgAnimatedPlot(PgDataPlot):
                                                y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
-        self._t += self.t_step
+        self._t += self._t_step
 
         if self._t > self._endtime:
             self._t = 0
-            self.save_pics = False
+            self._export_complete = True
+            # TODO control behavior with direct export flag
+            # ut.create_animation(input_file_mask=self.ff_mask)
 
-        if self.save_pics:
-            self.exporter.export(
-                self.path2pics + os.path.sep + self.time_stamp + "%04d" % self.file_name_counter + '.png')
-            self.file_name_counter += 1
+        if self.save_pics and not self._export_complete:
+            f_name = self._file_mask.format(self._file_name_counter)
+            self._exporter.export(f_name)
+            self._exported_files.append(f_name)
+            self._file_name_counter += 1
+
+    @property
+    def exported_files(self):
+        if self._export_complete:
+            return self._exported_files
+        else:
+            return None
 
 
 class PgSurfacePlot(PgDataPlot):

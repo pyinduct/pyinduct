@@ -1,7 +1,7 @@
 import sys
 import unittest
-
 import numpy as np
+import os
 
 from pyinduct import register_base, \
     core as cr, \
@@ -144,3 +144,36 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+
+class CreateDirTestCase(unittest.TestCase):
+    existing_dir = "already_there"
+    new_dir = "not_yet_there"
+
+    def setUp(self):
+        # check if test directories already exist and stop if they do
+        for name in [self.existing_dir, self.new_dir]:
+            dir_name = os.sep.join([os.getcwd(), name])
+            if os.path.exists(dir_name):
+                self.fail("test directory already exists, tests cannot be run.")
+
+        os.makedirs(os.sep.join([os.getcwd(), self.existing_dir]))
+
+    def test_existing_dir(self):
+        dir_name = os.sep.join([os.getcwd(), self.existing_dir])
+        ret = ut.create_dir(self.existing_dir)
+        self.assertTrue(os.path.exists(dir_name))  # do not remove the directory
+        self.assertEqual(ret, dir_name)  # return abs path of created dir
+
+        os.rmdir(dir_name)
+
+    def test_non_existing_dir(self):
+        dir_name = os.sep.join([os.getcwd(), self.new_dir])
+        ret = ut.create_dir(self.new_dir)
+        self.assertTrue(os.path.exists(dir_name))  # directory should be created
+        self.assertEqual(ret, dir_name)  # return abs path of created dir
+
+        os.rmdir(dir_name)
+
+    def tearDown(self):
+        os.rmdir(os.sep.join([os.getcwd(), self.existing_dir]))
