@@ -157,14 +157,12 @@ class CreateDirTestCase(unittest.TestCase):
             if os.path.exists(dir_name):
                 self.fail("test directory already exists, tests cannot be run.")
 
-        os.makedirs(os.sep.join([os.getcwd(), self.existing_dir]))
-
     def test_existing_dir(self):
         dir_name = os.sep.join([os.getcwd(), self.existing_dir])
+        os.makedirs(dir_name)
         ret = ut.create_dir(self.existing_dir)
         self.assertTrue(os.path.exists(dir_name))  # do not remove the directory
         self.assertEqual(ret, dir_name)  # return abs path of created dir
-
         os.rmdir(dir_name)
 
     def test_non_existing_dir(self):
@@ -174,6 +172,3 @@ class CreateDirTestCase(unittest.TestCase):
         self.assertEqual(ret, dir_name)  # return abs path of created dir
 
         os.rmdir(dir_name)
-
-    def tearDown(self):
-        os.rmdir(os.sep.join([os.getcwd(), self.existing_dir]))
