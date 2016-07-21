@@ -165,9 +165,9 @@ class PgAnimatedPlot(PgDataPlot):
             self._exporter.parameters()['width'] = 1e3
 
             picture_path = ut.create_dir(self._res_path)
-            export_digits = int(np.abs(np.round(np.log(self._endtime % self._t_step), 0)))
+            export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
             # ffmpeg uses c-style format strings
-            self.ff_mask = "_".join([title.replace(" ", "_"),
+            ff_name = "_".join([title.replace(" ", "_"),
                                      self._time_stamp.replace(":", "_"),
                                      "%0{}d".format(export_digits),
                                      ".png"])
@@ -175,6 +175,7 @@ class PgAnimatedPlot(PgDataPlot):
                                   self._time_stamp.replace(":", "_"),
                                   "{"+":0{}d".format(export_digits)+"}",
                                   ".png"])
+            self._ff_mask = os.sep.join([picture_path, ff_name])
             self._file_mask = os.sep.join([picture_path, file_name])
             self._file_name_counter = 0
 
@@ -215,7 +216,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._t = 0
             self._export_complete = True
             # TODO control behavior with direct export flag
-            # ut.create_animation(input_file_mask=self.ff_mask)
+            # ut.create_animation(input_file_mask=self.ff_name)
 
         if self.save_pics and not self._export_complete:
             f_name = self._file_mask.format(self._file_name_counter)
