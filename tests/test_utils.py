@@ -172,3 +172,10 @@ class CreateDirTestCase(unittest.TestCase):
         self.assertEqual(ret, dir_name)  # return abs path of created dir
 
         os.rmdir(dir_name)
+
+
+class CreateVideoTestCase(unittest.TestCase):
+
+    def test_creation(self):
+        # TODO generate Tes tData first!
+        ut.create_animation("./animation_output/Test_Plot_21_55_32_%03d_.png")
