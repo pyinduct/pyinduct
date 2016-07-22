@@ -89,7 +89,7 @@ class LagrangeFirstOrder(Function):
             domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
 
         Return:
-            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
+            tupel: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
         funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
@@ -222,7 +222,7 @@ class LagrangeSecondOrder(Function):
             domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
 
         Return:
-            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
+            tupel: (domain, funcs), where funcs is set of :py:class:`LagrangeSecondOrder` shapefunctions.
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
             raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
@@ -380,7 +380,7 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     Return:
         tupel:
             :code:`(domain, funcs)`: Where :code:`domain` is a :py:class:`pyinduct.simulation.Domain` instance
-            and :code:`funcs` is set of :py:class:`LagrangeFirstOrder` shapefunctions.
+            and :code:`funcs` is a list of (e.g. :py:class:`LagrangeFirstOrder`) shapefunctions.
     """
     if not issubclass(shapefunction_class, Function):
         raise TypeError("test_function_class must be a SubClass of Function.")

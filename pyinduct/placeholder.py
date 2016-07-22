@@ -166,6 +166,10 @@ class FieldVariable(Placeholder):
         Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
                              order=order, location=location)
 
+    # TODO: factory method to avoid variables like x_at1 (in future simply call x(1))
+    def __call__(self, location):
+        pass
+
 
 class TemporalDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
@@ -338,7 +342,7 @@ class IntegralTerm(EquationTerm):
 
     Args:
         integrand:
-        limits:
+        limits (tuple):
         scale:
     """
 
