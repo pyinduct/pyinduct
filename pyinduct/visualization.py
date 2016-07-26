@@ -221,14 +221,15 @@ class PgAnimatedPlot(PgDataPlot):
 
         if self._t > self._endtime:
             self._t = 0
-            self._export_complete = True
-            print("saved pictures using mask: " + self._ff_mask)
-            if self.create_video:
-                ut.create_animation(input_file_mask=self._ff_mask)
+            if self.save_pics:
+                self._export_complete = True
+                print("saved pictures using mask: " + self._ff_mask)
+                if self.create_video:
+                    ut.create_animation(input_file_mask=self._ff_mask)
 
         if self.save_pics and not self._export_complete:
             if new_indexes != self._plot_indexes:
-                # only export snapshot if the data changed
+                # only export a snapshot if the data changed
                 f_name = self._file_mask.format(self._file_name_counter)
                 self._exporter.export(f_name)
                 self._exported_files.append(f_name)
