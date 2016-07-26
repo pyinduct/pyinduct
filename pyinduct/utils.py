@@ -504,7 +504,7 @@ def create_dir(dir_name):
     return path
 
 
-def create_animation(input_file_mask="", input_file_names=None):
+def create_animation(input_file_mask="", input_file_names=None, target_format=".mp4"):
     """
     Create an animation from the given files.
 
@@ -519,7 +519,7 @@ def create_animation(input_file_mask="", input_file_names=None):
     """
     # TODO process user input on frame rate file format and so on
     if input_file_mask is not "":
-        output_name = "_".join(input_file_mask.split("_")[:-2]) + ".mp4"
+        output_name = "_".join(input_file_mask.split("_")[:-2]) + target_format
         args = ["-i", input_file_mask,
                 "-c:v", "libx264",
                 "-pix_fmt",  "yuv420p",
