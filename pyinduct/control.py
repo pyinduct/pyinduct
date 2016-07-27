@@ -4,12 +4,13 @@ for simulation purposes.
 """
 
 from itertools import chain
+
 import numpy as np
 
-from .registry import get_base
 from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
-from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
+from .placeholder import EquationTerm, Scalars, FieldVariable, get_common_target
+from .registry import get_base
 from .simulation import SimulationInput, CanonicalForms
 
 
@@ -50,6 +51,7 @@ class Feedback(SimulationInput):
         feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the state feedback if provided with
             correct weights.
     """
+
     def __init__(self, feedback_law):
         SimulationInput.__init__(self, name=feedback_law.name)
         c_forms = approximate_feedback_law(feedback_law)

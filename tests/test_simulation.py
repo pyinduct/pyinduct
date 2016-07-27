@@ -28,6 +28,7 @@ if show_plots:
 else:
     app = None
 
+
 # TODO Test for Domain
 
 
@@ -60,6 +61,23 @@ class CorrectInput(sim.SimulationInput):
         if "weights" not in kwargs:
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        return dict(output=0)
+
+
+class CorrectObserverError(sim.SimulationInput):
+    """
+    another diligent input
+    """
+
+    def _calc_output(self, **kwargs):
+        if "sys_weights" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        if "sys_weight_lbl" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        if "obs_weights" not in kwargs:
+            raise ValueError("mandatory key not found!")
+        if "obs_weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
         return dict(output=0)
 
@@ -351,6 +369,7 @@ class ParseTest(unittest.TestCase):
 class StateSpaceTests(unittest.TestCase):
     def setUp(self):
         self.u = CorrectInput()
+        self.y = CorrectObserverError()
 
         # setup temp and spat domain
         spat_domain = sim.Domain((0, 1), num=3)
@@ -386,6 +405,8 @@ class StateSpaceTests(unittest.TestCase):
         self.assertEqual(ss.B[1].shape, (6, 1))
         self.assertTrue(np.allclose(ss.B[1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
+
+    def test_convert_to_observer(self):
 
 
 class StringMassTest(unittest.TestCase):

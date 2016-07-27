@@ -6,6 +6,7 @@ import pyinduct.visualization as vis
 import pyinduct.placeholder as ph
 import pyinduct.utils as ut
 import pyinduct.control as ct
+import pyinduct.observer as obs
 from pyinduct import register_base
 import numpy as np
 from pyqtgraph.Qt import QtGui

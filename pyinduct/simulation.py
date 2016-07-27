@@ -3,19 +3,19 @@ Simulation infrastructure with helpers and data structures for preprocessing of 
 and functions for postprocessing of simulation data.
 """
 
-from abc import ABCMeta, abstractmethod
-from collections import Iterable
 import warnings
-import numpy as np
+from abc import ABCMeta, abstractmethod
 from itertools import chain
-from scipy.linalg import block_diag
-from scipy.interpolate import interp1d
-from scipy.integrate import ode
 
-from .registry import get_base, is_registered
+import numpy as np
+from scipy.integrate import ode
+from scipy.interpolate import interp1d
+from scipy.linalg import block_diag
+
 from .core import (Function, integrate_function, calculate_scalar_product_matrix,
                    project_on_base, dot_product_l2)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
+from .registry import get_base
 from .visualization import EvalData
 
 
@@ -166,6 +166,47 @@ class SimulationInputSum(SimulationInput):
         return dict(output=np.sum(outs, axis=0))
 
 
+class SimulationInputVector(SimulationInput):
+    """
+    Class that represent the input vector :math:`\\boldsymbol{u}\\in\\mathbb R^n` from a state space
+    system (:py:class:`StateSpace`) like
+
+    .. math::
+        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}\\boldsymbol{u}(t) \\\\
+        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}\\boldsymbol{u}(t).
+
+    Args:
+        input_vector (list): List which holds (in sum) :math:`n` :py:class:`SimulationInput` and/or
+            :py:class:`ObserverError` instances.
+    """
+
+    def __init__(self, input_vector):
+        if not all([isinstance(input, SimulationInput) and not isinstance(input, SimulationInputVector)
+                    for input in input_vector]):
+            raise TypeError("A SimulationInputVector can only hold SimulationInputs's and can not nest.")
+
+        self.input_vector = input_vector
+        self.len = len(input_vector)
+        self.indices = set(np.arange(self.len) + 1)
+        self.obs_err_indices = set()
+        for index in self.indices:
+            if isinstance(input_vector[index - 1], ObserverError):
+                self.obs_err_indices.add(index)
+        self.input_indices = self.indices - self.obs_err_indices
+
+    def __call__(self, sys_weights, sys_weight_lbl, obs_weights=None, obs_weight_lbl=None):
+        output = list()
+        if obs_weights:
+            for index in self.obs_err_indices:
+                output.append(self.input_vector[index](sys_weights=sys_weights, sys_weight_lbl=sys_weight_lbl,
+                                                       obs_weights=obs_weights, obs_weight_lbl=obs_weights))
+        else:
+            for index in self.input_indices:
+                output.append(self.input_vector[index](weights=sys_weights, weight_lbl=sys_weight_lbl))
+
+        return np.array(output)
+
+
 class WeakFormulation(object):
     """
     This class represents the weak formulation of a spatial problem.
@@ -194,13 +235,13 @@ class WeakFormulation(object):
 
 class StateSpace(object):
     """
-    Wrapper class that represents the state space form of a dynamic system where
+    Standard state space implementation for a dynamic system with
 
     .. math::
         \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) \\\\
-        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
+        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t).
 
-    which has been approximated by projection on a base given by weight_label.
+    The corresponding infinite dimensional system has been approximated by a base given by weight_label.
 
     Args:
         weight_label: Label that has been used for approximation.
@@ -246,8 +287,26 @@ class StateSpace(object):
             self.input = EmptyInput(self.B[1].shape[1])
         else:
             self.input = input_handle
-        if not callable(self.input):
-            raise TypeError("input must be callable!")
+        if isinstance(self.input, SimulationInputVector):
+            if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
+                raise ValueError("Input vector has more elements than one of the B matrix has rows.")
+        elif isinstance(self.input, SimulationInput):
+            if not all([bi.shape[1] == 1 for bi in self.B.values()]):
+                raise ValueError("All B matrices must be column vectors.")
+        elif not callable(self.input):
+            raise TypeError("Input must be callable!")
+
+    def rhs_hint(self, _t, _q, ss):
+        q_t = ss.f
+        for p, a_mat in ss.A.items():
+            # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
+            q_t = q_t + np.dot(a_mat, np.power(_q, p))
+
+        u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
+        for p, b_mat in ss.B.items():
+            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+
+        return q_t
 
 
 # TODO update signature
@@ -737,43 +796,40 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(state_space, initial_state, temp_domain, settings=None):
+def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_init_state=None, settings=None):
     """
     Wrapper to simulate a system given in state space form:
 
     .. math:: \\dot{q} = A_pq^p + A_{p-1}q^{p-1} + \\dotsb + A_0q + Bu.
 
     Args:
-        state_space (:py:class:`StateSpace`): State space formulation of the system.
-        initial_state: Initial state vector of the system.
+        sys_ss (:py:class:`StateSpace`): State space formulation of the system.
+        init_state: Initial state vector of the system.
         temp_domain (:py:class:`Domain`): Temporal domain object.
+        obs_ss (:py:class:`pyinduct.simulation.Observer`): State space formulation of the observer.
         settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
             name included under the key :obj:`name`.
 
     Return:
         tuple: Time :py:class:`Domain` object and weights matrix.
     """
-    if not isinstance(state_space, StateSpace):
+    if not isinstance(sys_ss, StateSpace) or isinstance(sys_ss, Observer):
         raise TypeError
 
-    input_handle = state_space.input
+    input_handle = sys_ss.input
 
     if not isinstance(input_handle, SimulationInput):
-        raise TypeError("only simulation.SimulationInput supported.")
+        raise TypeError("Only pyinduct.simulation.SimulationInput supported.")
+    if isinstance(input_handle, SimulationInputVector):
+        if any([isinstance(input, ObserverError) for input in input_handle.input_vector]):
+            raise TypeError
 
-    q = [initial_state]
     t = [temp_domain[0]]
+    q = [sys_init_state]
 
     # TODO export cython code?
     def _rhs(_t, _q, ss):
-        q_t = ss.f
-        for p, a_mat in ss.A.items():
-            # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
-            q_t = q_t + np.dot(a_mat, np.power(_q, p))
-
-        u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
-        for p, b_mat in ss.B.items():
-            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+        q_t = ss.rhs_hint(_t, _q, ss)
 
         return q_t
 
@@ -791,7 +847,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
             nsteps=1e3
         )
 
-    r.set_f_params(state_space)
+    r.set_f_params(sys_ss)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
@@ -837,3 +893,47 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return EvalData([temp_domain, spat_domain], data, name=name)
+
+
+class Observer(StateSpace):
+    """
+    Standard observer class which correspond structurally to the standard state space implementation
+    :py:class:`StateSpace` (from which it is derived).
+
+    .. math::
+        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t)
+        \\boldsymbol{L} \\tilde{\boldsymbol{y}} \\\\
+        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
+
+    Where :math:`\tilde{\\boldsymbol{y}}` is the observer error.
+    The corresponding infinite dimensional observer has been approximated by a base given by weight_label.
+
+    Args:
+        weight_label: Label that has been used for approximation.
+        a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
+        b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
+        input_handle: :math:`u(t)`
+        f_vector:
+        c_matrix: :math:`\\boldsymbol{C}`
+        d_matrix: :math:`\\boldsymbol{D}`
+        observer_error_indices (array_like): List of indices. The indices show which
+            input variable is an observer error.
+    """
+
+    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, l_matrices=None, obs_err_handle=None,
+                 f_vector=None, c_matrix=None, d_matrix=None, observer_error_indices=None):
+        StateSpace.__init__(self, weight_label, a_matrices, b_matrices, input_handle, f_vector, c_matrix, d_matrix)
+
+        if isinstance(l_matrices, np.ndarray):
+            self.L = {1: l_matrices}
+        else:
+            self.L = l_matrices
+        if self.L is None:
+            self.L = {1: np.zeros((self.A[1].shape[0], 1))}
+
+        if obs_err_handle is None:
+            self.obs_err = EmptyInput(self.L[1].shape[1])
+        else:
+            self.obs_err = obs_err_handle
+        if not callable(self.obs_err):
+            raise TypeError("observer error must be callable!")
