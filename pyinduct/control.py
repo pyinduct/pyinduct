@@ -13,9 +13,9 @@ from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldV
 from .simulation import SimulationInput, CanonicalForms
 
 
-class ControlLaw(object):
+class FeedbackLaw(object):
     """
-    This class represents the approximated formulation of a control law.
+    This class represents the approximated formulation of a control law or observer error.
     It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
     The equation is interpreted as
 
@@ -42,56 +42,55 @@ class ControlLaw(object):
         self.name = name
 
 
-class Controller(SimulationInput):
+class Feedback(SimulationInput):
     """
-    Wrapper class for all controllers that have to interact with the simulation environment.
+    Wrapper class for all state feedbacks that have to interact with the simulation environment.
 
     Args:
-        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
+        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the state feedback if provided with
             correct weights.
     """
-
-    def __init__(self, control_law):
-        SimulationInput.__init__(self, name=control_law.name)
-        c_forms = approximate_control_law(control_law)
+    def __init__(self, feedback_law):
+        SimulationInput.__init__(self, name=feedback_law.name)
+        c_forms = approximate_feedback_law(feedback_law)
         self._evaluator = LawEvaluator(c_forms, self._value_storage)
 
     def _calc_output(self, **kwargs):
         """
-        Calculates the controller output based on the current_weights.
+        Calculates the feedback based on the current_weights.
 
         Keyword Args:
             weights: Current weights of the simulations system approximation.
             weights_lbl (str): Corresponding label of :code:`weights`.
 
         Return:
-            dict: Controller output :math:`u`.
+            dict: Feedback under the key :code:`"output"`.
         """
         return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
 
 
-def approximate_control_law(control_law):
+def approximate_feedback_law(feedback_law):
     """
-    Function that approximates the control law, given by a list of sum terms that equal u.
+    Function that approximates the feedback law, given by a list of sum terms that equal u.
     The result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
     respective label) to be applied.
 
     Args:
-        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
+        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the feedback law output if provided with
             correct weights.
     Return:
         :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
     """
-    print("approximating control law {}".format(control_law.name))
-    if not isinstance(control_law, ControlLaw):
-        raise TypeError("only input of Type ControlLaw allowed!")
+    print("approximating feedback law {}".format(feedback_law.name))
+    if not isinstance(feedback_law, FeedbackLaw):
+        raise TypeError("only input of Type FeedbackLaw allowed!")
 
-    return _parse_control_law(control_law)
+    return _parse_feedback_law(feedback_law)
 
 
-def _parse_control_law(law):
+def _parse_feedback_law(law):
     """
-    Parses the given control law by approximating given terms.
+    Parses the given feedback law by approximating given terms.
 
     Args:
         law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
@@ -150,7 +149,7 @@ def _parse_control_law(law):
 
 class LawEvaluator(object):
     """
-    Object that evaluates the control law approximation given by a :py:class:`pyinduct.simulation.CanonicalForms`
+    Object that evaluates the feedback law approximation given by a :py:class:`pyinduct.simulation.CanonicalForms`
     object.
 
     Args:
@@ -187,7 +186,7 @@ class LawEvaluator(object):
 
     def __call__(self, weights, weight_label):
         """
-        Evaluation function for approximated control law.
+        Evaluation function for approximated feedback law.
 
         Args:
             weights (numpy.ndarray): 1d ndarray of approximation weights.
@@ -244,7 +243,7 @@ class LawEvaluator(object):
         out = np.real_if_close(output, tol=10000000)
         if np.imag(out) != 0:
             raise ValueError("calculated complex control output u={0},"
-                             " check for errors in control law!".format(out))
+                             " check for errors in feedback law!".format(out))
 
         res["output"] = out
         return res

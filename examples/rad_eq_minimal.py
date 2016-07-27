@@ -57,7 +57,7 @@ re.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
 # init controller
 x_at_1 = ph.FieldVariable("eig_funcs", location=1)
 xt_at_1 = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=1)
-controller = ct.Controller(ct.ControlLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
+controller = ct.Feedback(ct.FeedbackLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
 
 # derive initial field variable x(z,0) and weights
 start_state = cr.Function(lambda z: init_profile)

@@ -55,7 +55,7 @@ def build_control_law(approx_label, params):
                        ph.IntegralTerm(ph.Product(ph.ScalarFunction("int_scale4"), dz_x1), limits=limits, scale=-1),
                        ph.IntegralTerm(ph.Product(ph.ScalarFunction("int_scale4"), x2), limits=limits)]
 
-    return ct.ControlLaw(ut.scale_equation_term_list(
+    return ct.FeedbackLaw(ut.scale_equation_term_list(
         [ph.ScalarTerm(x2(1), scale=-(1 - params.alpha))] +
         ut.scale_equation_term_list(dz_y_bar_plus1, factor=(1 - params.m * params.k1)) +
         ut.scale_equation_term_list(dz_y_bar_minus1, factor=-params.alpha * (1 + params.m * params.k1)) +
@@ -135,7 +135,7 @@ if 1:
     smooth_transition = tr.SmoothTransition((0, 1), (1, 3), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
     # controller
-    ctrl = ct.Controller(build_control_law("ctrl", params))
+    ctrl = ct.Feedback(build_control_law("ctrl", params))
     u = sim.SimulationInputSum([closed_loop_traj, ctrl])
 else:
     # trajectory for the original input (open_loop_traj)

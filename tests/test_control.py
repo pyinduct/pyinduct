@@ -27,7 +27,7 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
-# TODO Test for ControlLaw and LawEvaluator
+# TODO Test for FeedbackLaw and LawEvaluator
 
 
 class CollocatedTestCase(unittest.TestCase):
@@ -52,17 +52,17 @@ class CollocatedTestCase(unittest.TestCase):
         self.weights = np.array([1, 1, 1, 2, 2, 2])
 
     def test_temp_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term1])))
         res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 6)
 
     def test_spat_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term2])))
         res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term3])))
         res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 1 * np.exp(1))
 
@@ -87,17 +87,17 @@ class ContinuousTestCase(unittest.TestCase):
         self.weights = np.hstack([1, 1, 1, 2, 2, 2])
 
     def test_temp_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term1])))
         res = law(self.weights, self.weight_label)["output"]
         self.assertTrue(np.equal(res, 6))
 
     def test_spat_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term2])))
         res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
+        law = ct.LawEvaluator(ct.approximate_feedback_law(ct.FeedbackLaw([self.term3])))
         res = law(self.weights, self.weight_label)["output"]
         # TODO calculate expected result
         # self.assertAlmostEqual(res, 1*np.exp(1))
@@ -158,7 +158,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # init controller
         x_at_1 = ph.FieldVariable("eig_funcs", location=1)
         xt_at_1 = ph.FieldVariable("eig_funcs_t", weight_label="eig_funcs", location=1)
-        controller = ct.Controller(ct.ControlLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
+        controller = ct.Feedback(ct.FeedbackLaw([ph.ScalarTerm(x_at_1, 1), ph.ScalarTerm(xt_at_1, -1)]))
 
         # input with feedback
         control_law = sim.SimulationInputSum([traj, controller])
@@ -258,15 +258,15 @@ class RadRobinControlApproxTest(unittest.TestCase):
         xd_t_at_l = ph.SpatialDerivedFieldVariable("eig_funcs_t", 1, weight_label="eig_funcs", location=self.l)
         combined_transform = lambda z: np.exp((a1_t - a1) / 2 / a2 * z)
         int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
-        controller = ct.Controller(
-            ct.ControlLaw([ph.ScalarTerm(x_at_l, (beta_i - beta_ti - int_kernel_zz(self.l))),
-                           ph.ScalarTerm(x_t_at_l, -beta_ti * combined_transform(self.l)),
-                           ph.ScalarTerm(x_at_l, beta_ti),
-                           ph.ScalarTerm(xd_t_at_l, -combined_transform(self.l)),
-                           ph.ScalarTerm(x_t_at_l, -a1_t / 2 / a2 * combined_transform(self.l)),
-                           ph.ScalarTerm(xd_at_l, 1),
-                           ph.ScalarTerm(x_at_l, a1 / 2 / a2 + int_kernel_zz(self.l))
-                           ]))
+        controller = ct.Feedback(
+            ct.FeedbackLaw([ph.ScalarTerm(x_at_l, (beta_i - beta_ti - int_kernel_zz(self.l))),
+                            ph.ScalarTerm(x_t_at_l, -beta_ti * combined_transform(self.l)),
+                            ph.ScalarTerm(x_at_l, beta_ti),
+                            ph.ScalarTerm(xd_t_at_l, -combined_transform(self.l)),
+                            ph.ScalarTerm(x_t_at_l, -a1_t / 2 / a2 * combined_transform(self.l)),
+                            ph.ScalarTerm(xd_at_l, 1),
+                            ph.ScalarTerm(x_at_l, a1 / 2 / a2 + int_kernel_zz(self.l))
+                            ]))
 
         # init trajectory
         traj = tr.RadTrajectory(self.l, T, param_t, bound_cond_type, actuation_type)
