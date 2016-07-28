@@ -176,6 +176,7 @@ class CreateDirTestCase(unittest.TestCase):
 
 class CreateVideoTestCase(unittest.TestCase):
 
+    @unittest.skip("unfinished test case that requires ffmpeg")
     def test_creation(self):
         # TODO generate test data first!
         ut.create_animation("./animation_output/Test_Plot_21_55_32_%03d_.png")
