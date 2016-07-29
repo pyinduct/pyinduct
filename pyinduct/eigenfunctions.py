@@ -7,20 +7,12 @@ order to handle transformations and reduce effort by the controller implementati
 
 import numpy as np
 import scipy.integrate as si
-from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
 from . import utils as ut
-from . import placeholder as ph
-from .core import Function, back_project_from_base
-from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
-from .placeholder import FieldVariable, TestFunction
-from .visualization import EvalData
+from .core import Function
 from numbers import Number
 from functools import partial
-import warnings
-import copy as cp
 import collections
-import pyqtgraph as pg
 
 
 class AddMulFunction(object):

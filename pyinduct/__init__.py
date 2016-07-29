@@ -6,7 +6,7 @@ from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
 from .core import Function, normalize_function
 # noinspection PyUnresolvedReferences
-from .control import FeedbackLaw, Feedback
+from pyinduct.simulation import FeedbackLaw, Feedback
 # noinspection PyUnresolvedReferences
 from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
                           TemporalDerivedFieldVariable, Product, TestFunction, Input)

@@ -22,7 +22,6 @@ access any PyInduct module, or use this contens:
     registry
     placeholder
     simulation
-    control
     trajectory
     visualization
     utils

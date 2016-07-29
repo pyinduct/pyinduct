@@ -10,6 +10,8 @@ from numbers import Number
 import collections
 import numpy as np
 from scipy.optimize import root
+
+import pyinduct.core as cr
 from .registry import get_base, register_base
 from . import placeholder as ph
 from .placeholder import FieldVariable, TestFunction
@@ -356,9 +358,8 @@ def scale_equation_term_list(eqt_list, factor):
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
                                                 d_approx_target_state, integral_kernel_zz, original_beta,
                                                 target_beta, trajectory=None, scale=None):
+    import pyinduct.simulation as sim
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
-    from . import control as ct
-    from . import simulation as sim
     if not all([isinstance(arg, list) for arg in args]):
         raise TypeError
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
@@ -393,9 +394,11 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
 
     c_name = "parabolic_robin_backstepping_controller"
     if trajectory is not None:
-        return sim.SimulationInputSum([trajectory, ct.Feedback(ct.FeedbackLaw(scaled_control_law, name=c_name))])
+        return sim.SimulationInputSum([trajectory, sim.Feedback(
+            sim.FeedbackLaw(scaled_control_law, name=c_name))])
     else:
-        return sim.SimulationInputSum([ct.Feedback(ct.FeedbackLaw(scaled_control_law, name=c_name))])
+        return sim.SimulationInputSum([sim.Feedback(
+            sim.FeedbackLaw(scaled_control_law, name=c_name))])
 
 
 # TODO: change to factory, rename: function_wrapper
@@ -407,7 +410,6 @@ def _convert_to_function(coef):
 
 
 def _convert_to_scalar_function(coef, label):
-    from . import core as cr
     if not isinstance(coef, collections.Callable):
         register_base(label, cr.Function(lambda z: coef), overwrite=True)
     elif isinstance(coef, cr.Function):
