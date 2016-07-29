@@ -270,7 +270,7 @@ class StateSpace(object):
         # optional
         # TODO change order: 1 to order that is guaranteed to be in.
         if isinstance(b_matrices, np.ndarray):
-            self.B = {1: b_matrices}
+            self.B = {1: np.atleast_2d(b_matrices)}
         else:
             self.B = b_matrices
         if self.B is None:
@@ -289,9 +289,9 @@ class StateSpace(object):
             self.input = input_handle
         if isinstance(self.input, SimulationInputVector):
             if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
-                raise ValueError("Input vector has more elements than one of the B matrix has rows.")
+                raise ValueError("Input vector has more elements than (at least) one of the B matrices has rows.")
         elif isinstance(self.input, SimulationInput):
-            if not all([bi.shape[1] == 1 for bi in self.B.values()]):
+            if not all([1 in np.atleast_2d(bi).shape for bi in self.B.values()]):
                 raise ValueError("All B matrices must be column vectors.")
         elif not callable(self.input):
             raise TypeError("Input must be callable!")
@@ -322,8 +322,8 @@ def simulate_systems(weak_forms, initial_states, time_interval, time_step, spati
         spatial_interval:
         spatial_step:
     """
-    return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
-            weak_forms]
+    return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step)
+            for sys in weak_forms]
 
 
 def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, settings=None, der_orders=(0, 0)):

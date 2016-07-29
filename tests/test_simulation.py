@@ -407,6 +407,7 @@ class StateSpaceTests(unittest.TestCase):
         self.assertEqual(self.cf.input_function, self.u)
 
     def test_convert_to_observer(self):
+        pass
 
 
 class StringMassTest(unittest.TestCase):
