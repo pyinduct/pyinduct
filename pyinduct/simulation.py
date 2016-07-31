@@ -1,17 +1,4 @@
 """
-This module consist of three parts.
-
-    1'st Part:
-        Simulation infrastructure with helpers and data structures for preprocessing of the given equations
-        and functions for postprocessing of simulation data.
-
-    2'nd Part:
-        All classes and functions related to the creation of controllers as well as the implementation
-        for simulation purposes.
-
-    3'rd Part:
-        Some objects for observer implementation which are mostly a combination from the objects for
-        simulation and control tasks.
 """
 
 import warnings
