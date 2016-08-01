@@ -2,7 +2,7 @@
 A few helper functions for users and developer.
 """
 
-from subprocess import call
+from subprocess import run, call
 import copy as cp
 import os
 import warnings
@@ -506,7 +506,7 @@ def create_dir(dir_name):
     return path
 
 
-def create_animation(input_file_mask="", input_file_names=None):
+def create_animation(input_file_mask="", input_file_names=None, target_format=".mp4"):
     """
     Create an animation from the given files.
 
@@ -520,13 +520,13 @@ def create_animation(input_file_mask="", input_file_names=None):
         animation file
     """
     # TODO process user input on frame rate file format and so on
-
     if input_file_mask is not "":
-        output_name = "_".join(input_file_mask.split("_")[:-2]) + ".mp4"
-        # cmd = "ffmpeg -r "10" -i Fri_Jun_24_15:03:21_2016_%04d.png -c:v libx264 -pix_fmt yuv420p transport_system.mp4"
-        frame_rate = 10
-        args = "-i {} -c:v libx264 -pix_fmt yuv420p {}".format(input_file_mask, output_name)
-        call(["ffmpeg", args])
+        output_name = "_".join(input_file_mask.split("_")[:-2]) + target_format
+        args = ["-i", input_file_mask,
+                "-c:v", "libx264",
+                "-pix_fmt",  "yuv420p",
+                output_name]
+        call(["ffmpeg"] + args)
 
     # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
     # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif

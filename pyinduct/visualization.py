@@ -22,8 +22,8 @@ import pyqtgraph.opengl as gl
 from . import utils as ut
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
-# pg.setConfigOption('background', 'w')
-# pg.setConfigOption('foreground', 'k')
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
@@ -126,7 +126,8 @@ class PgAnimatedPlot(PgDataPlot):
 
     _res_path = "animation_output"
 
-    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1,
+                 save_pics=False, create_video=False, labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
@@ -157,6 +158,7 @@ class PgAnimatedPlot(PgDataPlot):
         self._pw.setYRange(state_min, state_max)
 
         self.save_pics = save_pics
+        self.create_video = create_video and save_pics
         self._export_complete = False
         self._exported_files = []
 
@@ -184,8 +186,11 @@ class PgAnimatedPlot(PgDataPlot):
         self._time_text.setPos(.9 * spat_max, .9 * state_min)
 
         self._plot_data_items = []
+        self._plot_indexes = []
+        cls = create_colormap(len(self._data))
         for idx, data_set in enumerate(self._data):
-            self._plot_data_items.append(pg.PlotDataItem(pen=colors[idx], name=data_set.name))
+            self._plot_indexes.append(0)
+            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2), name=data_set.name))
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
@@ -199,9 +204,11 @@ class PgAnimatedPlot(PgDataPlot):
         """
         Update plot window.
         """
+        new_indexes = []
         for idx, data_set in enumerate(self._data):
             # find nearest time index
             t_idx = ut.find_nearest_idx(self.time_data[idx], self._t)
+            new_indexes.append(t_idx)
 
             # TODO draw grey line if value is outdated
 
@@ -214,15 +221,21 @@ class PgAnimatedPlot(PgDataPlot):
 
         if self._t > self._endtime:
             self._t = 0
-            self._export_complete = True
-            # TODO control behavior with direct export flag
-            # ut.create_animation(input_file_mask=self.ff_name)
+            if self.save_pics:
+                self._export_complete = True
+                print("saved pictures using mask: " + self._ff_mask)
+                if self.create_video:
+                    ut.create_animation(input_file_mask=self._ff_mask)
 
         if self.save_pics and not self._export_complete:
-            f_name = self._file_mask.format(self._file_name_counter)
-            self._exporter.export(f_name)
-            self._exported_files.append(f_name)
-            self._file_name_counter += 1
+            if new_indexes != self._plot_indexes:
+                # only export a snapshot if the data changed
+                f_name = self._file_mask.format(self._file_name_counter)
+                self._exporter.export(f_name)
+                self._exported_files.append(f_name)
+                self._file_name_counter += 1
+
+        self._plot_indexes = new_indexes
 
     @property
     def exported_files(self):
