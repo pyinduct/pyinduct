@@ -755,7 +755,7 @@ def parse_weak_formulation(weak_form):
                 if input_order > 0:
                     raise NotImplementedError
 
-                result = np.array([integrate_function(func, func.nonzero)[0] for func in init_funcs])
+                result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
                 cf.add_to(dict(name="G", order=input_order, exponent=input_exp), result * term.scale,
                           column=input_index)
                 cf.input_function = input_func
