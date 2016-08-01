@@ -2,42 +2,71 @@
 Simulation
 ==========
 
-This module consist of three parts.
-
-    Simulation:
-        Simulation infrastructure with helpers and data structures for preprocessing of the given equations
-        and functions for postprocessing of simulation data.
-
-    Controller:
-        All classes and functions related to the creation of controllers as well as the implementation
-        for simulation purposes.
-
-    Observer:
-        Some objects for observer implementation which are mostly a combination from the objects for
-        simulation and control tasks.
+.. automodule:: pyinduct.simulation
+.. currentmodule:: pyinduct.simulation
 
 
 Simulation
 ==========
 
-.. automodule:: pyinduct.simulation
-    :members: Domain, SimulationInput, SimulationInputSum, SimulationInputVector, WeakFormulation, CanonicalForm, CanonicalForms, StateSpace, simulate_system, simulate_systems, process_sim_data, parse_weak_formulation, simulate_state_space, evaluate_approximation
+.. autoclass:: Domain
+    :members:
     :show-inheritance:
+.. autoclass:: SimulationInput
+    :members:
+    :show-inheritance:
+.. autoclass:: SimulationInputSum
+    :members:
+    :show-inheritance:
+.. autoclass:: SimulationInputVector
+    :members:
+    :show-inheritance:
+.. autoclass:: WeakFormulation
+    :members:
+    :show-inheritance:
+.. autoclass:: CanonicalForm
+    :members:
+    :show-inheritance:
+.. autoclass:: CanonicalForms
+    :members:
+    :show-inheritance:
+.. autoclass:: StateSpace
+    :members:
+    :show-inheritance:
+
+.. autofunction:: simulate_system
+.. autofunction:: simulate_systems
+.. autofunction:: process_sim_data
+.. autofunction:: parse_weak_formulation
+.. autofunction:: simulate_state_space
+.. autofunction:: evaluate_approximation
 
 
 Control
 =======
 
-.. automodule:: pyinduct.simulation
-    :members: FeedbackLaw, Feedback, LawEvaluator, approximate_feedback_law
+.. autoclass:: FeedbackLaw
+    :members:
+    :show-inheritance:
+.. autoclass:: Feedback
+    :members:
+    :show-inheritance:
+.. autoclass:: LawEvaluator
+    :members:
     :show-inheritance:
 
-.. autofunction:: pyinduct.simulation._parse_feedback_law
+.. autofunction:: approximate_feedback_law
+.. autofunction:: _parse_feedback_law
 
 
 Observer
 ========
 
-.. automodule:: pyinduct.simulation
-    :members: ObserverError, Observer, build_observer_from_state_space
+.. autoclass:: ObserverError
+    :members:
     :show-inheritance:
+.. autoclass:: Observer
+    :members:
+    :show-inheritance:
+
+.. autofunction:: build_observer_from_state_space

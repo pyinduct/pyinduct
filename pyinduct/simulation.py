@@ -1,4 +1,17 @@
 """
+This module consist of three parts.
+
+    Simulation:
+        Simulation infrastructure with helpers and data structures for preprocessing of the given equations
+        and functions for postprocessing of simulation data.
+
+    `Control`_:
+        All classes and functions related to the creation of controllers as well as the implementation
+        for simulation purposes.
+
+    `Observer`_:
+        Some objects for observer implementation which are mostly a combination from the objects for
+        simulation and control tasks.
 """
 
 import warnings
@@ -19,7 +32,7 @@ from .registry import get_base
 from .visualization import EvalData
 
 """
-Part 1: Simulation
+Simulation section
 """
 
 
@@ -899,7 +912,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
 
 
 """
-Part 2: Controller
+Control section
 """
 
 
@@ -1141,7 +1154,7 @@ class LawEvaluator(object):
 
 
 """
-Part 2: Observer
+Observer section
 """
 
 class Observer(StateSpace):
@@ -1192,7 +1205,7 @@ class ObserverError(SimulationInput):
     Wrapper class for all observer errors that have to interact with the simulation environment. The terms which
     have to approximated on the basis of the system weights have to provided through the argument :code:`sys_part`
     and the terms which have to approximated on the basis of the observer weights have to provided through the
-    argument :code:`obs_part`. The observer error is provided as sum of the (:py:class:`FeedbackLaw`)'s
+    argument :code:`obs_part`. The observer error is provided as sum of the :py:class:`FeedbackLaw`'s
     :code:`sys_part` and :code:`obs_part`.
 
     Args:
