@@ -28,6 +28,7 @@ if show_plots:
 else:
     app = None
 
+
 # TODO Test for Domain
 
 
@@ -162,6 +163,9 @@ class ParseTest(unittest.TestCase):
         self.input = ph.Input(self.u)
         self.input_squared = ph.Input(self.u, exponent=2)
 
+        # scale function
+        register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
+
         nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                  (0, 1), node_count=3)
 
@@ -195,6 +199,11 @@ class ParseTest(unittest.TestCase):
 
         self.input_term2 = ph.ScalarTerm(ph.Product(self.dphi_at1, self.input))
         self.func_term = ph.ScalarTerm(self.phi_at1)
+
+        self.input_term3 = ph.IntegralTerm(ph.Product(self.phi, self.input), (0, 1))
+        self.input_term3_swapped = ph.IntegralTerm(ph.Product(self.input, self.phi), (0, 1))
+        self.input_term3_scaled = ph.IntegralTerm(
+            ph.Product(ph.Product(ph.ScalarFunction("heavi"), self.phi), self.input), (0, 1))
 
         # same goes for field variables
         self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
@@ -250,6 +259,15 @@ class ParseTest(unittest.TestCase):
 
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term1_squared)).get_terms()
         self.assertTrue(np.allclose(terms["G"][0][2], np.array([[0], [0], [1]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term3)).get_terms()
+        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.25], [.5], [.25]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term3_swapped)).get_terms()
+        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.25], [.5], [.25]])))
+
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(self.input_term3_scaled)).get_terms()
+        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.0], [.25], [.25]])))
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(sim.WeakFormulation(self.func_term)).get_terms()
