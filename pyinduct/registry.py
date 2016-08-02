@@ -18,9 +18,19 @@ def is_registered(label):
         bool: True if registered, False if not.
     """
     if not isinstance(label, (str, bytes)):
-        raise TypeError("only strings allowed as labels!")
+        raise TypeError("Only strings allowed as labels!")
 
     return label in list(_registry.keys())
+
+
+def register_weight(label):
+    """
+    Register a scalar weight which can used as finite dimensional state vector component.
+
+    Args:
+        label (str): Corresponding weight label.
+    """
+    _registry[label] = None
 
 
 def register_base(label, functions, overwrite=False):

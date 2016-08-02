@@ -233,9 +233,11 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
+        dynamic_weights (str): Weights (weight label) which occur temporal derived. It is only one kind of weight
+            labels allowed in the weak formulation if :code:`dynamic_weights` will not provided.
     """
 
-    def __init__(self, terms, name=None):
+    def __init__(self, terms, dynamic_weights=None, name=None):
         if isinstance(terms, EquationTerm):
             terms = [terms]
         if not isinstance(terms, list):
@@ -246,6 +248,7 @@ class WeakFormulation(object):
                 raise TypeError("Only EquationTerm(s) are accepted.")
 
         self.terms = terms
+        self.dynamic_weights = dynamic_weights
         self.name = name
 
 
@@ -458,7 +461,7 @@ class CanonicalForm(object):
 
     @weights.setter
     def weights(self, weight_lbl):
-        if not isinstance(weight_lbl, str):
+        if not isinstance(weight_lbl, str) and not weight_lbl is None:
             raise TypeError("only string allowed as weight label!")
         if self._weights is None:
             self._weights = weight_lbl
@@ -618,12 +621,12 @@ class CanonicalForms(object):
     Wrapper that holds several entities of canonical forms for different sets of weights.
     """
 
-    def __init__(self, name):
-        self.name = name
-        self._dynamic_forms = {}
-        self._static_form = CanonicalForm(self.name + "static")
+    def __init__(self, dynamic_weight_label):
+        self.dynamic_weight_label = dynamic_weight_label
+        self.dynamic_form = CanonicalForm(dynamic_weight_label)
+        self.static_forms = dict()
 
-    def add_to(self, weight_label, term, val):
+    def add_to(self, weight_label, term, val, column=None):
         """
         Add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
 
@@ -632,29 +635,35 @@ class CanonicalForms(object):
             term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
             val: Values to add.
         """
-        if term["name"] in "fG":
-            # hold f and g vector separately
-            self._static_form.add_to(term, val)
-            return
+        if weight_label == self.dynamic_weight_label or self.dynamic_weight_label is None:
+            if term["name"] == "E" and term["order"] > 1:
+                # raise ValueError("Only time derivatives order 1 is provided at the moment.")
+                pass
+            self.dynamic_form.add_to(term, val, column=column)
+        else:
+            if weight_label not in list(self.static_forms.keys()):
+                self.static_forms[weight_label] = CanonicalForm(weight_label)
+            elif not isinstance(weight_label, str):
+                raise TypeError("Argument weight_label must provided as string.")
+            elif term["name"] == "E" and term["order"] != 0:
+                raise ValueError("Weak fomulation can hold time derivatives for that weights"
+                                 "which are specified as dynamic weights.")
 
-        if weight_label not in list(self._dynamic_forms.keys()):
-            self._dynamic_forms[weight_label] = CanonicalForm("_".join([self.name + weight_label]))
-
-        self._dynamic_forms[weight_label].add_to(term, val)
-
-    def get_static_terms(self):
-        """
-        Return:
-            Terms that do not depend on a certain weight set.
-        """
-        return self._static_form.get_terms()
+            self.static_forms[weight_label].add_to(term, val, column=column)
 
     def get_dynamic_terms(self):
         """
         Return:
-            dict: Dictionary of terms for each weight set.
+            dict: Terms of the dynamic :py:class:`CanonicalForm`.
         """
-        return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
+        return self.dynamic_form.get_terms()
+
+    def get_static_terms(self):
+        """
+        Return:
+            dict: Dictionary of terms for each static :py:class:`CanonicalForm`.
+        """
+        return {label: val.get_terms() for label, val in self.static_forms.items()}
 
 
 def parse_weak_formulation(weak_form):
@@ -671,7 +680,7 @@ def parse_weak_formulation(weak_form):
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("only able to parse WeakFormulation")
 
-    cf = CanonicalForm(weak_form.name)
+    cfs = CanonicalForms(weak_form.dynamic_weights)
 
     # handle each term
     for term in weak_form.terms:
@@ -713,8 +722,11 @@ def parse_weak_formulation(weak_form):
 
                 result = _compute_product_of_scalars([a, b])
 
-            cf.weights = field_var.data["weight_lbl"]
-            cf.add_to(dict(name="E", order=temp_order, exponent=exponent), result * term.scale)
+            if cfs.dynamic_weight_label is None:
+                cfs.dynamic_form.weights = field_var.data["weight_lbl"]
+            cfs.add_to(field_var.data["weight_lbl"],
+                       dict(name="E", order=temp_order, exponent=exponent),
+                       result * term.scale)
             continue
 
         # TestFunction or pre evaluated terms, those can end up in E, f or G
@@ -731,7 +743,7 @@ def parse_weak_formulation(weak_form):
                 func2 = placeholders["functions"][1]
                 test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
                 result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
-                cf.add_to(("f", 0), result * term.scale)
+                cfs.add_to(weak_form.dynamic_weights, ("f", 0), result * term.scale)
                 continue
 
             if placeholders["scalars"]:
@@ -739,7 +751,10 @@ def parse_weak_formulation(weak_form):
                 b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
                                        for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
-                cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
+                weight_lbl, target = get_common_target(placeholders["scalars"])
+                if cfs.dynamic_weight_label is None:
+                    cfs.dynamic_form.weights = weight_lbl
+                cfs.add_to(weight_lbl, target, result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -756,15 +771,17 @@ def parse_weak_formulation(weak_form):
                     raise NotImplementedError
 
                 result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
-                cf.add_to(dict(name="G", order=input_order, exponent=input_exp), result * term.scale,
+                cfs.add_to(weak_form.dynamic_weights,
+                          dict(name="G", order=input_order, exponent=input_exp),
+                          result * term.scale,
                           column=input_index)
-                cf.input_function = input_func
+                cfs.dynamic_form.input_function = input_func
                 continue
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
             result = _compute_product_of_scalars(placeholders["scalars"])
-            target = get_common_target(placeholders["scalars"])
+            weight_lbl, target = get_common_target(placeholders["scalars"])
 
             if placeholders["inputs"]:
                 input_var = placeholders["inputs"][0]
@@ -781,15 +798,22 @@ def parse_weak_formulation(weak_form):
                 if target["name"] == "E":
                     raise NotImplementedError
 
-                cf.add_to(dict(name="G", order=input_order, exponent=input_exp), result * term.scale,
-                          column=input_index)
-                cf.input_function = input_func
+                cfs.add_to(weak_form.dynamic_weights,
+                           dict(name="G", order=input_order, exponent=input_exp),
+                           result * term.scale,
+                           column=input_index)
+                cfs.dynamic_form.input_function = input_func
                 continue
 
-            cf.add_to(target, result * term.scale)
+            if cfs.dynamic_weight_label is None:
+                cfs.dynamic_form.weights = weight_lbl
+            cfs.add_to(weight_lbl, target, result * term.scale)
             continue
 
-    return cf
+    if cfs.static_forms == dict():
+        return cfs.dynamic_form
+    else:
+        return cfs
 
 
 def _compute_product_of_scalars(scalars):
@@ -973,91 +997,13 @@ class Feedback(SimulationInput):
         return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
 
 
-def approximate_feedback_law(feedback_law):
-    """
-    Function that approximates the feedback law, given by a list of sum terms that equal u.
-    The result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
-    respective label) to be applied.
-
-    Args:
-        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the feedback law output if provided with
-            correct weights.
-    Return:
-        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
-    """
-    print("approximating feedback law {}".format(feedback_law.name))
-    if not isinstance(feedback_law, FeedbackLaw):
-        raise TypeError("only input of Type FeedbackLaw allowed!")
-
-    return _parse_feedback_law(feedback_law)
-
-
-def _parse_feedback_law(law):
-    """
-    Parses the given feedback law by approximating given terms.
-
-    Args:
-        law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
-
-    Return:
-        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
-    """
-
-    # check terms
-    for term in law.terms:
-        if not isinstance(term, EquationTerm):
-            raise TypeError("only EquationTerm(s) accepted.")
-
-    cfs = CanonicalForms(law.name)
-
-    for term in law.terms:
-        placeholders = dict([
-            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
-            ("scalars", term.arg.get_arg_by_class(Scalars)),
-        ])
-        if placeholders["field_variables"]:
-            field_var = placeholders["field_variables"][0]
-            temp_order = field_var.order[0]
-            func_lbl = field_var.data["func_lbl"]
-            weight_lbl = field_var.data["weight_lbl"]
-            init_funcs = get_base(func_lbl, field_var.order[1])
-
-            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
-                                     for func in init_funcs])
-
-            if placeholders["scalars"]:
-                scales = placeholders["scalars"][0]
-                res = np.prod(np.array([factors, scales]), axis=0)
-            else:
-                res = factors
-
-            # HACK! hardcoded exponent
-            cfs.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
-
-        elif placeholders["scalars"]:
-            # TODO make sure that all have the same target form!
-            scalars = placeholders["scalars"]
-            if len(scalars) > 1:
-                # TODO if one of 'em is just a scalar and no array an error occurs
-                res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-            else:
-                res = scalars[0].data
-
-            cfs.add_to(scalars[0].target_form, get_common_target(scalars), res * term.scale)
-
-        else:
-            raise NotImplementedError
-
-    return cfs
-
-
 class LawEvaluator(object):
     """
     Object that evaluates the feedback law approximation given by a :py:class:`pyinduct.simulation.CanonicalForms`
     object.
 
     Args:
-        cfs (:py:class:`pyinduct.simulation.CanonicalForms`): evaluation handle
+        cfs (:py:class:`pyinduct.simulation.FeedbackCanonicalForms`): evaluation handle
     """
 
     def __init__(self, cfs, storage=None):
@@ -1153,9 +1099,132 @@ class LawEvaluator(object):
         return res
 
 
+class FeedbackCanonicalForms(object):
+    """
+    Wrapper that holds several entities of canonical forms for different sets of weights.
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self._dynamic_forms = {}
+        self._static_form = CanonicalForm(self.name + "static")
+
+    def add_to(self, weight_label, term, val):
+        """
+        Add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
+
+        Args:
+            weight_label (str): Basis to add onto.
+            term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
+            val: Values to add.
+        """
+        if term["name"] in "fG":
+            # hold f and g vector separately
+            self._static_form.add_to(term, val)
+            return
+
+        if weight_label not in list(self._dynamic_forms.keys()):
+            self._dynamic_forms[weight_label] = CanonicalForm("_".join([self.name + weight_label]))
+
+        self._dynamic_forms[weight_label].add_to(term, val)
+
+    def get_static_terms(self):
+        """
+        Return:
+            Terms that do not depend on a certain weight set.
+        """
+        return self._static_form.get_terms()
+
+    def get_dynamic_terms(self):
+        """
+        Return:
+            dict: Dictionary of terms for each weight set.
+        """
+        return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
+
+
+def approximate_feedback_law(feedback_law):
+    """
+    Function that approximates the feedback law, given by a list of sum terms that equal u.
+    The result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
+    respective label) to be applied.
+
+    Args:
+        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the feedback law output if provided with
+            correct weights.
+    Return:
+        :py:class:`pyinduct.simulation.FeedbackCanonicalForms`: evaluation handle
+    """
+    print("approximating feedback law {}".format(feedback_law.name))
+    if not isinstance(feedback_law, FeedbackLaw):
+        raise TypeError("only input of Type FeedbackLaw allowed!")
+
+    return _parse_feedback_law(feedback_law)
+
+
+def _parse_feedback_law(law):
+    """
+    Parses the given feedback law by approximating given terms.
+
+    Args:
+        law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
+
+    Return:
+        :py:class:`pyinduct.simulation.FeedbackCanonicalForms`: evaluation handle
+    """
+
+    # check terms
+    for term in law.terms:
+        if not isinstance(term, EquationTerm):
+            raise TypeError("only EquationTerm(s) accepted.")
+
+    cfs = FeedbackCanonicalForms(law.name)
+
+    for term in law.terms:
+        placeholders = dict([
+            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
+            ("scalars", term.arg.get_arg_by_class(Scalars)),
+        ])
+        if placeholders["field_variables"]:
+            field_var = placeholders["field_variables"][0]
+            temp_order = field_var.order[0]
+            func_lbl = field_var.data["func_lbl"]
+            weight_lbl = field_var.data["weight_lbl"]
+            init_funcs = get_base(func_lbl, field_var.order[1])
+
+            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
+                                     for func in init_funcs])
+
+            if placeholders["scalars"]:
+                scales = placeholders["scalars"][0]
+                res = np.prod(np.array([factors, scales]), axis=0)
+            else:
+                res = factors
+
+            # HACK! hardcoded exponent
+            cfs.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
+
+        elif placeholders["scalars"]:
+            # TODO make sure that all have the same target form!
+            scalars = placeholders["scalars"]
+            if len(scalars) > 1:
+                # TODO if one of 'em is just a scalar and no array an error occurs
+                res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
+            else:
+                res = scalars[0].data
+
+            cfs.add_to(scalars[0].target_weight_label, get_common_target(scalars)[1], res * term.scale)
+
+        else:
+            raise NotImplementedError
+
+    return cfs
+
+
 """
 Observer section
 """
+
 
 class Observer(StateSpace):
     """

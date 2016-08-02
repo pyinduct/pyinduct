@@ -51,6 +51,9 @@ Control
 .. autoclass:: Feedback
     :members:
     :show-inheritance:
+.. autoclass:: FeedbackCanonicalForms
+    :members:
+    :show-inheritance:
 .. autoclass:: LawEvaluator
     :members:
     :show-inheritance:

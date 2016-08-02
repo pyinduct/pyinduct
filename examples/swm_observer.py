@@ -123,7 +123,7 @@ ic = np.array([
 # initial function
 sys_nodes, sys_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=10)
 ctrl_nodes, ctrl_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=20)
-obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=7)
+obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=40)
 register_base("sim", sys_funcs)
 register_base("ctrl", ctrl_funcs)
 register_base("obs", obs_funcs)

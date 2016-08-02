@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
-from pyinduct import register_base, LagrangeFirstOrder, cure_interval
+from pyinduct import register_base, LagrangeFirstOrder, cure_interval, register_weight
 
 # TODO Test for all Placeholders
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
@@ -21,19 +21,19 @@ if show_plots:
 
 class TestCommonTarget(unittest.TestCase):
     def test_call(self):
-        t1 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=1, exponent=1))
-        t2 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=2, exponent=1))
+        t1 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=1, exponent=1), target_weight_label="dummy")
+        t2 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=2, exponent=1), target_weight_label="dummy")
         t3 = ph.Scalars(np.zeros(2), target_term=dict(name="f"))
         t4 = ph.Scalars(np.zeros(2), target_term=dict(name="f"))
 
         # simple case
-        self.assertEqual(ph.get_common_target([t1]), t1.target_term)
-        self.assertEqual(ph.get_common_target([t2]), t2.target_term)
-        self.assertEqual(ph.get_common_target([t3]), t3.target_term)
+        self.assertEqual(ph.get_common_target([t1]), ("dummy", t1.target_term))
+        self.assertEqual(ph.get_common_target([t2]), ("dummy", t2.target_term))
+        self.assertEqual(ph.get_common_target([t3]), (None, t3.target_term))
 
         # E precedes f
-        self.assertEqual(ph.get_common_target([t2, t3]), t2.target_term)
-        self.assertEqual(ph.get_common_target([t4, t1, t3]), t1.target_term)
+        self.assertEqual(ph.get_common_target([t2, t3]), ("dummy", t2.target_term))
+        self.assertEqual(ph.get_common_target([t4, t1, t3]), ("dummy", t1.target_term))
 
         # different derivatives produce problems
         self.assertRaises(ValueError, ph.get_common_target, [t1, t2])
@@ -52,7 +52,65 @@ class ScalarsTest(unittest.TestCase):
         t = ph.Scalars(self.vector)
         t.data = np.atleast_2d(self.vector)
         t.target_term = dict(name="f")
-        t.target_form = None
+        t.target_weigth_label = None
+
+class MultiplePdeAndScalarTest(unittest.TestCase):
+    def setUp(self):
+        nodes, base_funcs1 = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, base_funcs2 = cure_interval(LagrangeFirstOrder, (0, 1), node_count=3)
+
+        register_weight("scalar1")
+        register_weight("scalar2")
+        register_base("field1", base_funcs1, overwrite=True)
+        register_base("field2", base_funcs2, overwrite=True)
+
+        self.scalar_var1 = ph.ScalarVariable("scalar1")
+        self.scalar_var2 = ph.ScalarVariable("scalar2")
+        self.field_var1 = ph.FieldVariable("field1")
+        self.field_var2 = ph.FieldVariable("field2")
+        self.test_func1 = ph.TestFunction("field1")
+        self.test_func2 = ph.TestFunction("field2")
+
+        self.weak_form0 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0,1))
+            ]
+        )
+        self.weak_form1 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0,1)),
+                ph.IntegralTerm(ph.Product(self.field_var2, self.test_func2), limits=(0,1)),
+            ],
+            dynamic_weights="field1"
+        )
+        self.weak_form2 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0,1)),
+                ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0,1)),
+            ],
+            dynamic_weights="field2"
+        )
+
+    def test_parser(self):
+        cf0 = sim.parse_weak_formulation(self.weak_form0)
+        cfs1 = sim.parse_weak_formulation(self.weak_form1)
+        cfs2 = sim.parse_weak_formulation(self.weak_form2)
+
+        self.assertIsInstance(cf0, sim.CanonicalForm)
+        self.assertIsInstance(cfs1, sim.CanonicalForms)
+        self.assertIsInstance(cfs2, sim.CanonicalForms)
+
+        matrix1 = np.array([[1/3, 1/6], [1/6, 1/3]])
+        matrix2 = np.array([[1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6]])
+        self.assertTrue(np.allclose(cf0.get_terms()["E"][0][1], matrix1))
+        self.assertTrue(np.allclose(cfs1.dynamic_form.get_terms()["E"][1][1], matrix1))
+        self.assertTrue(np.allclose(cfs1.static_forms["field2"].get_terms()["E"][0][1], matrix2))
+        self.assertTrue(np.allclose(cfs2.dynamic_form.get_terms()["E"][1][1], matrix2))
+        self.assertTrue(np.allclose(cfs2.static_forms["field1"].get_terms()["E"][0][1], matrix1))
+
+    def test_unstested(self):
+        ph.ScalarVariable()
+        register_weight()
 
 
 class FieldVariableTest(unittest.TestCase):

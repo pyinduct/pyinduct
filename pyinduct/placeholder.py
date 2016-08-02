@@ -41,18 +41,20 @@ class Scalars(Placeholder):
 
     Args:
         values: Iterable object containing the scalars for every n-th equation.
-        target_term: Coefficient matrix to :py:func:`add_to`.
-        target_form: Desired weight set.
+        target_term (dict): Coefficient matrix to :py:func:`add_to`.
+        target_weight_label (str): Desired weight label.
     """
 
-    def __init__(self, values, target_term=None, target_form=None):
+    def __init__(self, values, target_term=None, target_weight_label=None):
         if target_term is None:
             target_term = dict(name="f")
+        if target_term["name"] == "E" and target_weight_label is None:
+            raise ValueError("Weight label must provided")
         values = np.atleast_2d(values)
 
         Placeholder.__init__(self, sanitize_input(values, Number))
         self.target_term = target_term
-        self.target_form = target_form
+        self.target_weight_label = target_weight_label
 
 
 class ScalarFunction(Placeholder):
@@ -134,6 +136,24 @@ class TestFunction(Placeholder):
             New :py:class:`TestFunction` instance with the desired derivative order.
         """
         return TestFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
+
+class ScalarVariable(Placeholder):
+    def __init__(self, weight_label, order=0, exponent=1):
+        """
+        """
+        if order < 0:
+            raise ValueError("derivative orders must be positive")
+        if order > 2:
+            raise ValueError("only derivatives of order one and two supported")
+        if not is_registered(weight_label):
+            raise ValueError("Unknown function label '{0}'!".format(weight_label))
+        elif not isinstance(weight_label, str):
+            raise TypeError("only strings allowed as 'weight_label'")
+        if not isinstance(exponent, Number):
+            raise TypeError("exponent must be a number")
+
+        # TODO: spatial order "0" make no sense
+        Placeholder.__init__(self, {"weight_lbl": weight_label, "exponent": exponent}, order=(order, 0))
 
 
 class FieldVariable(Placeholder):
@@ -451,7 +471,7 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=dict(name="E", order=placeholder.order[0],
                                                 exponent=placeholder.data["exponent"]),
-                       target_form=placeholder.data["weight_lbl"])
+                       target_weight_label=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
         # target form doesn't matter, since the f vector is added independently
         return Scalars(values.T, target_term=dict(name="f"))
@@ -467,12 +487,15 @@ def get_common_target(scalars):
         scalars (:py:class:`Scalars`):
 
     Return:
-        dict: Common target.
+        tuple: Weight label as string and common target as dict.
     """
     e_targets = [scal.target_term for scal in scalars if scal.target_term["name"] == "E"]
+    e_labels = [scal.target_weight_label for scal in scalars if scal.target_term["name"] == "E"]
     if e_targets:
+        if not all([e_labels[0] == label  for label in e_labels]):
+            raise ValueError("Think about this!")
         if len(e_targets) == 1:
-            return e_targets[0]
+            return e_labels[0], e_targets[0]
 
         # more than one E-target, check if all entries are identical
         for key in ["order", "exponent"]:
@@ -480,6 +503,6 @@ def get_common_target(scalars):
             if entries[1:] != entries[:-1]:
                 raise ValueError("mismatch in target terms!")
 
-        return e_targets[0]
+        return e_labels[0], e_targets[0]
     else:
-        return dict(name="f")
+        return None, dict(name="f")
