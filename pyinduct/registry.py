@@ -23,16 +23,6 @@ def is_registered(label):
     return label in list(_registry.keys())
 
 
-def register_weight(label):
-    """
-    Register a scalar weight which can used as finite dimensional state vector component.
-
-    Args:
-        label (str): Corresponding weight label.
-    """
-    _registry[label] = None
-
-
 def register_base(label, functions, overwrite=False):
     """
     Register a set of initial functions to make them accessible all over the :py:mod:`pyinduct` framework.

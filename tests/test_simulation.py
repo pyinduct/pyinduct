@@ -170,6 +170,159 @@ class CanonicalFormTest(unittest.TestCase):
         self.assertTrue(np.array_equal(self.cf._matrices["G"][0][1], np.hstack((c, c, np.zeros_like(c), c))))
 
 
+class CanonicalFormsTest(unittest.TestCase):
+    def setUp(self):
+        nodes, base_funcs1 = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes, base_funcs2 = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
+
+        def dummy_one(z):
+            return 1
+
+        register_base("scalar1", cr.Function(dummy_one), overwrite=True)
+        register_base("scalar2", cr.Function(dummy_one), overwrite=True)
+        register_base("field1", base_funcs1, overwrite=True)
+        register_base("field2", base_funcs2, overwrite=True)
+
+        self.scalar_var1 = ph.FieldVariable("scalar1")
+        self.scalar_var2 = ph.FieldVariable("scalar2")
+        self.field_var1 = ph.FieldVariable("field1")
+        self.field_var2 = ph.FieldVariable("field2")
+        self.test_func1 = ph.TestFunction("field1")
+        self.test_func2 = ph.TestFunction("field2")
+
+    def test_scalar_variable(self):
+        weak_form1 = sim.WeakFormulation(
+            [ph.IntegralTerm(ph.Product(self.scalar_var1, self.test_func2), limits=(0, 1))])
+        weak_form2 = sim.WeakFormulation([ph.ScalarTerm(self.field_var2(1))])
+        weak_form3 = sim.WeakFormulation([ph.ScalarTerm(self.field_var2(0.75))])
+        weak_form4 = sim.WeakFormulation([ph.ScalarTerm(self.scalar_var1(1))])
+
+        cfs1 = sim.parse_weak_formulation(weak_form1)
+        cfs2 = sim.parse_weak_formulation(weak_form2)
+        cfs3 = sim.parse_weak_formulation(weak_form3)
+        cfs4 = sim.parse_weak_formulation(weak_form4)
+
+        self.assertTrue(np.allclose(cfs1.get_terms()["E"][0][1], np.matrix([.25, .5, .25]).T))
+        self.assertTrue(np.allclose(cfs2.get_terms()["E"][0][1], np.matrix([0, 0, 1])))
+        self.assertTrue(np.allclose(cfs3.get_terms()["E"][0][1], np.matrix([0, .5, .5])))
+        self.assertTrue(np.allclose(cfs4.get_terms()["E"][0][1], np.matrix([1])))
+
+    def test_parser(self):
+        weak_form0 = sim.WeakFormulation(
+            [ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1))]
+        )
+        weak_form1 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2, self.test_func2), limits=(0, 1)),
+            ],
+            dynamic_weights="field1"
+        )
+        weak_form2 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
+            ],
+            dynamic_weights="field2"
+        )
+
+        cf0 = sim.parse_weak_formulation(weak_form0)
+        cfs1 = sim.parse_weak_formulation(weak_form1)
+        cfs2 = sim.parse_weak_formulation(weak_form2)
+
+        self.assertIsInstance(cf0, sim.CanonicalForm)
+        self.assertIsInstance(cfs1, sim.CanonicalForms)
+        self.assertIsInstance(cfs2, sim.CanonicalForms)
+
+        matrix1 = np.array([[1 / 3, 1 / 6], [1 / 6, 1 / 3]])
+        matrix2 = np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])
+        self.assertTrue(np.allclose(cf0.get_terms()["E"][0][1], matrix1))
+        self.assertTrue(np.allclose(cfs1.dynamic_form.get_terms()["E"][1][1], matrix1))
+        self.assertTrue(np.allclose(cfs1.static_forms["field2"].get_terms()["E"][0][1], matrix2))
+        self.assertTrue(np.allclose(cfs2.dynamic_form.get_terms()["E"][1][1], matrix2))
+        self.assertTrue(np.allclose(cfs2.static_forms["field1"].get_terms()["E"][0][1], matrix1))
+
+    def test_convert_2_ss(self):
+        bad_wf11 = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+            ],
+            dynamic_weights="scalar1"
+        )
+        bad_wf12 = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+            ],
+            dynamic_weights="scalar1"
+        )
+        bad_wf13 = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(ph.FieldVariable("scalar2", location=0, exponent=2)),
+            ],
+            dynamic_weights="scalar1"
+        )
+        wf1 = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var1(0)),
+                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var2(0)),
+                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
+                ph.ScalarTerm(self.field_var1(0.25)),
+                ph.ScalarTerm(self.field_var2(0.75))
+            ],
+            dynamic_weights="scalar1"
+        )
+        wf2 = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var1(0)),
+                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var2(0)),
+                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+                ph.ScalarTerm(self.field_var1(0)),
+                ph.ScalarTerm(self.field_var2(1))
+            ],
+            dynamic_weights="scalar2"
+        )
+        wf3 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.scalar_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.scalar_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.scalar_var2.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.scalar_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2, self.test_func1), limits=(0, 1)),
+            ],
+            dynamic_weights="field1"
+        )
+        wf4 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
+            ],
+            dynamic_weights="field2"
+        )
+
+        bad_cfs11, bad_cfs12, bad_cfs13, cfs1, cfs2, cfs3, cfs4 = [sim.parse_weak_formulation(wf)
+                                                                  for wf in
+                                                                  [bad_wf11, bad_wf12, bad_wf13, wf1, wf2, wf3, wf4]]
+
+        with self.assertRaises(TypeError):
+            sim.convert_cfs_2_state_space([bad_cfs11, cfs2, cfs3, cfs4])
+
+        with self.assertRaises(ValueError):
+            sim.convert_cfs_2_state_space([bad_cfs12, cfs2, cfs3, cfs4])
+
+        with self.assertRaises(NotImplementedError):
+            sim.convert_cfs_2_state_space([bad_cfs13, cfs2, cfs3, cfs4])
+
+        ss = sim.convert_cfs_2_state_space([cfs1, cfs2, cfs3, cfs4])
+
+
 class ParseTest(unittest.TestCase):
     def setUp(self):
         # scalars

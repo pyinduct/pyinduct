@@ -22,6 +22,7 @@ import numpy as np
 from scipy.integrate import ode
 from scipy.interpolate import interp1d
 from scipy.linalg import block_diag
+import collections
 
 from pyinduct.core import domain_intersection, TransformationInfo, get_weight_transformation
 
@@ -436,9 +437,12 @@ class CanonicalForm(object):
     def __init__(self, name=None):
         self.name = name
         self._matrices = {}
-        self._max_idx = dict(E=0, f=0, G=0)
+        self._max_order = dict(E=None, G=None)
+        self._max_exponent = dict(E=None, G=None)
         self._weights = None
         self._input_function = None
+        self._inverse_en_hash = None
+        self._en_hash = None
 
     @staticmethod
     def _build_name(term):
@@ -468,6 +472,22 @@ class CanonicalForm(object):
         if self._weights != weight_lbl:
             raise ValueError("already defined target weights are overridden!")
 
+    @property
+    def inverse_e_n(self):
+        if self._max_order["E"] is None:
+            warnings.warn("There is no E matrix in this canonical form.")
+            return None
+        else:
+            en = self._matrices["E"][self._max_order["E"]][1]
+        if self._en_hash is None or not np.allclose(en, self._en_hash):
+            self._en_hash = en
+            if en.shape[0] != en.shape[1]:
+                raise warnings.warn("CanonicalForm holds rectangle matrix. Unintended?")
+            self._inverse_en_hash = en.I
+            return self._inverse_en_hash
+        else:
+            return self._inverse_en_hash
+
     def add_to(self, term, value, column=None):
         """
         Adds the value :py:obj:`value` to term :py:obj:`term`. :py:obj:`term` is a dict that describes which
@@ -479,11 +499,14 @@ class CanonicalForm(object):
                 - name: Type of the coefficient matrix: 'E', 'f', or 'G'.
                 - order: Temporal derivative order of the assigned weights.
                 - exponent: Exponent of the assigned weights.
-            value (:py:obj:`numpy.ndarray`): Value to add.
+            value (:py:obj:`numpy.ndarray`): Value to add. It is converted in numpy.matrix if it is not already a
+                numpy.matrix instance.
             column (int): Add the value only to one column of term (useful if only one dimension of term is known).
         """
         if not isinstance(value, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
+        elif not isinstance(value, np.matrix):
+            value = np.matrix(value)
         if column and not isinstance(column, int):
             raise TypeError("column index must be int")
 
@@ -520,6 +543,12 @@ class CanonicalForm(object):
         type_group[term["order"]] = derivative_group
         self._matrices[term["name"]] = type_group
 
+        # store greatest temporal derivative orders and exponents for "E" and "G" matrices
+        if self._max_order[term["name"]] is None or term["order"] > self._max_order[term["name"]]:
+            self._max_order[term["name"]] = term["order"]
+        if self._max_exponent[term["name"]] is None or term["exponent"] > self._max_exponent[term["name"]]:
+            self._max_exponent[term["name"]] = term["exponent"]
+
     def get_terms(self):
         """
         Return all coefficient matrices of the canonical formulation.
@@ -543,7 +572,7 @@ class CanonicalForm(object):
 
         # system matrices A_*
         # check whether the system can be formulated in an explicit form
-        max_order = max(self._matrices["E"])
+        max_order = self._max_order["E"]
 
         if len(self._matrices["E"][max_order]) > 1:
             # more than one power of the highest derivative -> implicit formulation
@@ -554,13 +583,8 @@ class CanonicalForm(object):
             # TODO raise the resulting last blocks to 1/pb
             raise NotImplementedError
 
-        e_n_pb = self._matrices["E"][max_order][pb]
-        rank_e_n_pb = np.linalg.matrix_rank(e_n_pb)
-        if rank_e_n_pb != max(e_n_pb.shape) or e_n_pb.shape[0] != e_n_pb.shape[1]:
-            raise ValueError("singular matrix provided")
-
-        dim_x = e_n_pb.shape[0]  # length of the weight vector
-        e_n_pb_inv = np.linalg.inv(e_n_pb)
+        e_n_pb_inv = self.inverse_e_n
+        dim_x = e_n_pb_inv.shape[0]  # length of the weight vector
 
         dim_xb = max_order * dim_x  # dimension of the new system
 
@@ -622,8 +646,8 @@ class CanonicalForms(object):
     """
 
     def __init__(self, dynamic_weight_label):
-        self.dynamic_weight_label = dynamic_weight_label
-        self.dynamic_form = CanonicalForm(dynamic_weight_label)
+        self.dynamic_form = CanonicalForm()
+        self.dynamic_form.weights = dynamic_weight_label
         self.static_forms = dict()
 
     def add_to(self, weight_label, term, val, column=None):
@@ -635,19 +659,13 @@ class CanonicalForms(object):
             term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
             val: Values to add.
         """
-        if weight_label == self.dynamic_weight_label or self.dynamic_weight_label is None:
-            if term["name"] == "E" and term["order"] > 1:
-                # raise ValueError("Only time derivatives order 1 is provided at the moment.")
-                pass
+        if weight_label == self.dynamic_form.weights or self.dynamic_form.weights is None or weight_label is None:
             self.dynamic_form.add_to(term, val, column=column)
         else:
             if weight_label not in list(self.static_forms.keys()):
                 self.static_forms[weight_label] = CanonicalForm(weight_label)
             elif not isinstance(weight_label, str):
                 raise TypeError("Argument weight_label must provided as string.")
-            elif term["name"] == "E" and term["order"] != 0:
-                raise ValueError("Weak fomulation can hold time derivatives for that weights"
-                                 "which are specified as dynamic weights.")
 
             self.static_forms[weight_label].add_to(term, val, column=column)
 
@@ -664,6 +682,50 @@ class CanonicalForms(object):
             dict: Dictionary of terms for each static :py:class:`CanonicalForm`.
         """
         return {label: val.get_terms() for label, val in self.static_forms.items()}
+
+
+def convert_cfs_2_state_space(list_of_cfs):
+    """
+    Create :py:class:`StateSpace` from list :code:`list_of_cfs` with elements from type :py:class:`CanonicalForms`.
+    In the common case the :math:`N` list elements are derived from :math:`N` :py:class:`WeakFormulation`s which
+    represent :math:`N` coupled pde's with boundary conditions.
+
+    Args:
+        list_of_cfs (list): List with elements from type :py:class:`CanonicalForms`.
+
+    Returns:
+        :py:class:`StateSpace`: State space approximation for the time dynamic of (basically) coupled pde's.
+    """
+    value_error_string = "Problem formulation meets not the specification. \n\n"
+    dyn_weights_dict = collections.OrderedDict()
+    for label, order in [(cf.dynamic_form.weights, cf.dynamic_form._max_order["E"]) for cf in list_of_cfs]:
+        if order is None:
+            raise TypeError(value_error_string + "The dynamic_form of an CanonicalForms object must hold "
+                                                 "temporal derived weights.")
+        dyn_weights_dict[label] = dict()
+        dyn_weights_dict[label]["max_order"] = order
+        dyn_weights_dict[label]["weights_length"] = len(get_base(label, 0))
+
+    for cfs in list_of_cfs:
+        cfs_to_check = [cfs.dynamic_form] + list(cfs.static_forms.values())
+        list_of_powers = np.array([list(cf._max_exponent.values()) for cf in cfs_to_check]).flatten().astype(float)
+        if any([power > 1 for power in list_of_powers]):
+            raise NotImplementedError("Exponents greater 1 not implemented (but its not a big thing).")
+
+    # check for valid problem formulation
+    for dyn_label in dyn_weights_dict.keys():
+        for cfs in list_of_cfs:
+            if dyn_label in cfs.static_forms.keys():
+                if cfs.static_forms[dyn_label]._max_order["E"] >= dyn_weights_dict[dyn_label]["max_order"]:
+                    raise ValueError(value_error_string +
+                                     "For a specific weight_label, the temporal order of the static_form"
+                                     "can not be greater or equal as that from the corresponding dynamic form.")
+
+    dim = np.sum([value["weights_length"] for value in dyn_weights_dict.values()])
+
+    list_of_ss = [cfs.dynamic_form.convert_to_state_space() for cfs in list_of_cfs]
+
+    A = np.nan * np.matrix(np.ones((dim, dim)))
 
 
 def parse_weak_formulation(weak_form):
@@ -722,7 +784,7 @@ def parse_weak_formulation(weak_form):
 
                 result = _compute_product_of_scalars([a, b])
 
-            if cfs.dynamic_weight_label is None:
+            if cfs.dynamic_form.weights is None:
                 cfs.dynamic_form.weights = field_var.data["weight_lbl"]
             cfs.add_to(field_var.data["weight_lbl"],
                        dict(name="E", order=temp_order, exponent=exponent),
@@ -752,7 +814,7 @@ def parse_weak_formulation(weak_form):
                                        for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
                 weight_lbl, target = get_common_target(placeholders["scalars"])
-                if cfs.dynamic_weight_label is None:
+                if cfs.dynamic_form.weights is None:
                     cfs.dynamic_form.weights = weight_lbl
                 cfs.add_to(weight_lbl, target, result * term.scale)
                 continue
@@ -772,9 +834,9 @@ def parse_weak_formulation(weak_form):
 
                 result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
                 cfs.add_to(weak_form.dynamic_weights,
-                          dict(name="G", order=input_order, exponent=input_exp),
-                          result * term.scale,
-                          column=input_index)
+                           dict(name="G", order=input_order, exponent=input_exp),
+                           result * term.scale,
+                           column=input_index)
                 cfs.dynamic_form.input_function = input_func
                 continue
 
@@ -805,7 +867,7 @@ def parse_weak_formulation(weak_form):
                 cfs.dynamic_form.input_function = input_func
                 continue
 
-            if cfs.dynamic_weight_label is None:
+            if cfs.dynamic_form.weights is None:
                 cfs.dynamic_form.weights = weight_lbl
             cfs.add_to(weight_lbl, target, result * term.scale)
             continue

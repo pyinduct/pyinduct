@@ -2,7 +2,7 @@
 # noinspection PyUnresolvedReferences
 from .trajectory import SmoothTransition, gevrey_tanh
 # noinspection PyUnresolvedReferences
-from .registry import register_base, deregister_base, get_base, is_registered, register_weight
+from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
 from .core import Function, normalize_function
 # noinspection PyUnresolvedReferences

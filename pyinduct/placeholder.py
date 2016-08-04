@@ -137,24 +137,6 @@ class TestFunction(Placeholder):
         """
         return TestFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
 
-class ScalarVariable(Placeholder):
-    def __init__(self, weight_label, order=0, exponent=1):
-        """
-        """
-        if order < 0:
-            raise ValueError("derivative orders must be positive")
-        if order > 2:
-            raise ValueError("only derivatives of order one and two supported")
-        if not is_registered(weight_label):
-            raise ValueError("Unknown function label '{0}'!".format(weight_label))
-        elif not isinstance(weight_label, str):
-            raise TypeError("only strings allowed as 'weight_label'")
-        if not isinstance(exponent, Number):
-            raise TypeError("exponent must be a number")
-
-        # TODO: spatial order "0" make no sense
-        Placeholder.__init__(self, {"weight_lbl": weight_label, "exponent": exponent}, order=(order, 0))
-
 
 class FieldVariable(Placeholder):
     """
@@ -290,7 +272,7 @@ class Product(object):
         # convenience: accept single arguments
         if b is None:  # multiply by one as Default
             self.b_empty = True
-            if isinstance(a, Input):
+            if isinstance(a, (Input)):
                 b = Scalars(np.ones(1))
             if isinstance(a, Scalars):
                 if a.target_term["name"] == "E":
