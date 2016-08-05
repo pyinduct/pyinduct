@@ -457,7 +457,7 @@ class CanonicalForm(object):
         if self._input_function is None:
             self._input_function = func
         if self._input_function != func:
-            raise ValueError("already defined input is overridden!")
+            raise ValueError("Already defined input is overridden!")
 
     @property
     def weights(self):
@@ -466,11 +466,13 @@ class CanonicalForm(object):
     @weights.setter
     def weights(self, weight_lbl):
         if not isinstance(weight_lbl, str) and not weight_lbl is None:
-            raise TypeError("only string allowed as weight label!")
+            raise TypeError("Only string allowed as weight label!")
         if self._weights is None:
             self._weights = weight_lbl
+            if weight_lbl is not None:
+                self._len_weights = len(get_base(self._weights, 0))
         if self._weights != weight_lbl:
-            raise ValueError("already defined target weights are overridden!")
+            raise ValueError("Already defined target weights are overridden!")
 
     @property
     def inverse_e_n(self):
@@ -478,11 +480,11 @@ class CanonicalForm(object):
             warnings.warn("There is no E matrix in this canonical form.")
             return None
         else:
-            en = self._matrices["E"][self._max_order["E"]][1]
+            en = self._matrices["E"][self._max_order["E"]][self._max_exponent["E"]]
         if self._en_hash is None or not np.allclose(en, self._en_hash):
             self._en_hash = en
             if en.shape[0] != en.shape[1]:
-                raise warnings.warn("CanonicalForm holds rectangle matrix. Unintended?")
+                raise warnings.warn("CanonicalForm holds rectangle matrix. Request for inverse unintended?")
             self._inverse_en_hash = en.I
             return self._inverse_en_hash
         else:
@@ -504,16 +506,16 @@ class CanonicalForm(object):
             column (int): Add the value only to one column of term (useful if only one dimension of term is known).
         """
         if not isinstance(value, np.ndarray):
-            raise TypeError("val must be numpy.ndarray")
+            raise TypeError("Argument val must be numpy.ndarray.")
         elif not isinstance(value, np.matrix):
             value = np.matrix(value)
         if column and not isinstance(column, int):
-            raise TypeError("column index must be int")
+            raise TypeError("Argument column (index) must be int.")
 
         # get entry
         if term["name"] == "f":
             if "order" in term or "exponent" in term:
-                warnings.warn("order and exponent are ignored for f_vector!")
+                warnings.warn("Values to the keys order and exponent are ignored for f_vector!")
             f_vector = self._matrices.get("f", np.zeros_like(value))
             self._matrices["f"] = value + f_vector
             return
@@ -544,10 +546,11 @@ class CanonicalForm(object):
         self._matrices[term["name"]] = type_group
 
         # store greatest temporal derivative orders and exponents for "E" and "G" matrices
-        if self._max_order[term["name"]] is None or term["order"] > self._max_order[term["name"]]:
-            self._max_order[term["name"]] = term["order"]
-        if self._max_exponent[term["name"]] is None or term["exponent"] > self._max_exponent[term["name"]]:
-            self._max_exponent[term["name"]] = term["exponent"]
+        if term["name"] in ("E", "G"):
+            if self._max_order[term["name"]] is None or term["order"] > self._max_order[term["name"]]:
+                self._max_order[term["name"]] = term["order"]
+            if self._max_exponent[term["name"]] is None or term["exponent"] > self._max_exponent[term["name"]]:
+                self._max_exponent[term["name"]] = term["exponent"]
 
     def get_terms(self):
         """
@@ -659,9 +662,19 @@ class CanonicalForms(object):
             term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
             val: Values to add.
         """
+
         if weight_label == self.dynamic_form.weights or self.dynamic_form.weights is None or weight_label is None:
+            # if not val.shape[0] == self.dynamic_form._len_weights:
+            #     raise ValueError("Row width must correspond to the number of weights.")
+            # if term["name"] == "E" and val.shape[1] != self.dynamic_form._len_weights:
+            #     raise ValueError("Column width of E matrix must correspond to the number of weights!")
+
             self.dynamic_form.add_to(term, val, column=column)
         else:
+            # if not val.shape[0] == self.static_forms[weight_label]._len_weights:
+            #     raise ValueError("Row width must correspond to the number of weights of dynamic form.")
+            # if term["name"] == "E" and val.shape[1] != self.static_forms[weight_label]._len_weights:
+            #     raise ValueError("Column width of E matrix must correspond to the number of weights!")
             if weight_label not in list(self.static_forms.keys()):
                 self.static_forms[weight_label] = CanonicalForm(weight_label)
             elif not isinstance(weight_label, str):
@@ -684,7 +697,7 @@ class CanonicalForms(object):
         return {label: val.get_terms() for label, val in self.static_forms.items()}
 
 
-def convert_cfs_2_state_space(list_of_cfs):
+def convert_cfs_to_state_space(list_of_cfs):
     """
     Create :py:class:`StateSpace` from list :code:`list_of_cfs` with elements from type :py:class:`CanonicalForms`.
     In the common case the :math:`N` list elements are derived from :math:`N` :py:class:`WeakFormulation`s which
@@ -697,35 +710,111 @@ def convert_cfs_2_state_space(list_of_cfs):
         :py:class:`StateSpace`: State space approximation for the time dynamic of (basically) coupled pde's.
     """
     value_error_string = "Problem formulation meets not the specification. \n\n"
-    dyn_weights_dict = collections.OrderedDict()
-    for label, order in [(cf.dynamic_form.weights, cf.dynamic_form._max_order["E"]) for cf in list_of_cfs]:
+    odict_info = collections.OrderedDict()
+    # for label, order in [(cf.dynamic_form.weights, cf.dynamic_form._max_order["E"]) for cf in list_of_cfs]:
+    for cfs in list_of_cfs:
+        label = cfs.dynamic_form.weights
+        order = cfs.dynamic_form._max_order["E"]
         if order is None:
             raise TypeError(value_error_string + "The dynamic_form of an CanonicalForms object must hold "
                                                  "temporal derived weights.")
-        dyn_weights_dict[label] = dict()
-        dyn_weights_dict[label]["max_order"] = order
-        dyn_weights_dict[label]["weights_length"] = len(get_base(label, 0))
+        odict_info[label] = dict()
+        odict_info[label]["max_order"] = order
+        odict_info[label]["weights_length"] = len(get_base(label, 0))
+        odict_info[label]["state_space"] = cfs.dynamic_form.convert_to_state_space()
+        odict_info[label]["stat_weights"] = set(cfs.static_forms.keys())
+        odict_info[label]["cfs"] = cfs
+
+    if len(set(odict_info.keys())) != len(list(odict_info.keys())):
+        raise ValueError("There are at least two CanonicalForms objects with the same dynamic weight label.")
+
+    input_function_set = set(
+        [cfs.dynamic_form.input_function for cfs in list_of_cfs if not cfs.dynamic_form.input_function is None]
+    )
+    if len(input_function_set) > 1:
+        raise ValueError("All given CanonicalForms.dynamic_form's must hold the same input function (or None).")
+    elif len(input_function_set) == 1:
+        if not isinstance(list(input_function_set)[0], (SimulationInput, SimulationInputVector)):
+            raise TypeError("Input function must be from type SimulationInput or SimulationInputVector.")
+        else:
+            input_function = input_function_set.pop()
+    else:
+        input_function = None
 
     for cfs in list_of_cfs:
         cfs_to_check = [cfs.dynamic_form] + list(cfs.static_forms.values())
+
         list_of_powers = np.array([list(cf._max_exponent.values()) for cf in cfs_to_check]).flatten().astype(float)
         if any([power > 1 for power in list_of_powers]):
-            raise NotImplementedError("Exponents greater 1 not implemented (but its not a big thing).")
+            raise NotImplementedError("Exponents greater 1 not implemented yet.")
+
+        if not all([cf.input_function == None for cf in cfs.static_forms.values()]):
+            raise ValueError("Input functions in static forms not allowed.")
+
+        if any(["f" in cf._matrices.keys() for cf in cfs_to_check]):
+            raise ValueError("No matrix \"f\" allowed for now.")
+
+        if cfs.dynamic_form.max_order["G"] > 1:
+            raise ValueError("For now, only order 1 for input matrix \"G\" supported.")
 
     # check for valid problem formulation
-    for dyn_label in dyn_weights_dict.keys():
+    for dyn_label in odict_info.keys():
         for cfs in list_of_cfs:
             if dyn_label in cfs.static_forms.keys():
-                if cfs.static_forms[dyn_label]._max_order["E"] >= dyn_weights_dict[dyn_label]["max_order"]:
+                if cfs.static_forms[dyn_label]._max_order["E"] >= odict_info[dyn_label]["max_order"]:
                     raise ValueError(value_error_string +
                                      "For a specific weight_label, the temporal order of the static_form"
                                      "can not be greater or equal as that from the corresponding dynamic form.")
 
-    dim = np.sum([value["weights_length"] for value in dyn_weights_dict.values()])
+    dim_x = np.sum([value["weights_length"] * value["max_order"] for value in odict_info.values()])
+    if isinstance(input_function, SimulationInput):
+        dim_u = 1
+    elif isinstance(input_function, SimulationInputVector):
+        dim_u = len(input_function.indices)
 
-    list_of_ss = [cfs.dynamic_form.convert_to_state_space() for cfs in list_of_cfs]
+    A = np.nan * np.matrix(np.zeros((dim_x, dim_x)))
+    B = np.nan * np.matrix(np.zeros((dim_x,)))
+    C = np.matrix(np.zeros((dim_u, dim_x)))
+    D = np.matrix(np.zeros((dim_u, dim_u)))
 
-    A = np.nan * np.matrix(np.ones((dim, dim)))
+    list_of_labels = list(odict_info.keys())
+    a = None
+    for a_lbl in list_of_labels:
+        row_dict = dict()
+        a_fraction = odict_info[a_lbl]["state_space"].A[1]
+        row_dict[list_of_labels.index(a_lbl)] = a_fraction
+        list_without_a_lbl = list(odict_info.keys()).remove(a_lbl)
+        for h_lbl in list_without_a_lbl:
+            if h_lbl in odict_info[a_lbl]["stat_weights"]:
+                for ord in range(odict_info[h_lbl]["max_order"] + 1):
+                    if ord in odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"].keys():
+                        h_fraction = - odict_info[a_lbl]["cfs"].dynamic_form.inverse_e_n * \
+                                     odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"][ord]
+                    else:
+                        h_fraction = np.matrix(np.zeros((odict_info[a_lbl]["weights_length"] * odict_info[a_lbl]["max_order"],
+                                                         odict_info[h_lbl]["weights_length"])))
+                    if ord > 0:
+                        h_block = np.hstack((h_block, h_fraction))
+                    else:
+                        h_block = h_fraction
+                if odict_info[a_lbl]["max_order"] > 1:
+                    h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"] - 1),
+                                                   odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
+                                         h_block))
+            else:
+                h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"]),
+                                               odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
+                                     h_block))
+            row_dict[list_of_labels.index(h_lbl)] = h_block
+        row_odict = collections.OrderedDict(sorted(row_dict.items(), key=lambda t: t[0]))
+        row = np.hstack(tuple(row_dict.values()))
+        if list_of_labels.index(a_lbl) == 0:
+            matrix = row
+        else:
+            matrix = np.vstack((matrix, row))
+
+
+
 
 
 def parse_weak_formulation(weak_form):
@@ -740,7 +829,7 @@ def parse_weak_formulation(weak_form):
     """
 
     if not isinstance(weak_form, WeakFormulation):
-        raise TypeError("only able to parse WeakFormulation")
+        raise TypeError("Only able to parse WeakFormulation.")
 
     cfs = CanonicalForms(weak_form.dynamic_weights)
 
@@ -761,6 +850,14 @@ def parse_weak_formulation(weak_form):
             exponent = field_var.data["exponent"]
             init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
             shape_funcs = np.array([func.raise_to(exponent) for func in init_funcs])
+
+            # for now we use .startswith and .endswith, while the function label
+            # will manipulated from placeholder.Product._simplify_product
+            if not field_var.data["func_lbl"].startswith(field_var.data["weight_lbl"]):
+                if not field_var.data["func_lbl"].endswith(field_var.data["weight_lbl"]):
+                    raise ValueError("In the simulation infrastructure of pyinduct field variables with weight labels"
+                                     "which differing from function labels not considered. Use this feature only for"
+                                     "controller approximation.")
 
             if placeholders["inputs"]:
                 # TODO think about this case, is it relevant?

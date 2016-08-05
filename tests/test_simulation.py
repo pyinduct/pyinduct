@@ -312,15 +312,15 @@ class CanonicalFormsTest(unittest.TestCase):
                                                                   [bad_wf11, bad_wf12, bad_wf13, wf1, wf2, wf3, wf4]]
 
         with self.assertRaises(TypeError):
-            sim.convert_cfs_2_state_space([bad_cfs11, cfs2, cfs3, cfs4])
+            sim.convert_cfs_to_state_space([bad_cfs11, cfs2, cfs3, cfs4])
 
         with self.assertRaises(ValueError):
-            sim.convert_cfs_2_state_space([bad_cfs12, cfs2, cfs3, cfs4])
+            sim.convert_cfs_to_state_space([bad_cfs12, cfs2, cfs3, cfs4])
 
         with self.assertRaises(NotImplementedError):
-            sim.convert_cfs_2_state_space([bad_cfs13, cfs2, cfs3, cfs4])
+            sim.convert_cfs_to_state_space([bad_cfs13, cfs2, cfs3, cfs4])
 
-        ss = sim.convert_cfs_2_state_space([cfs1, cfs2, cfs3, cfs4])
+        ss = sim.convert_cfs_to_state_space([cfs1, cfs2, cfs3, cfs4])
 
 
 class ParseTest(unittest.TestCase):

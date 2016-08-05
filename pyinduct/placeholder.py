@@ -339,7 +339,7 @@ class Product(object):
 
             exp = other_func.data.get("exponent", 1)
             new_func = np.asarray([func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)])
-            new_name = new_func.tobytes()
+            new_name = other_func.data["func_lbl"] + str(new_func.tobytes()) + other_func.data["func_lbl"]
             register_base(new_name, new_func)
 
             # overwrite spatial derivative order since derivation take place
