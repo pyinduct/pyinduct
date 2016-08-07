@@ -271,10 +271,12 @@ class StateSpace(object):
         f_vector:
         c_matrix: :math:`\\boldsymbol{C}`
         d_matrix: :math:`\\boldsymbol{D}`
+        family_tree (collections.OrderedDict or NoneType): Ordered dictionary which hold informations about
+            nesting of the original weights. Is None if the state space derived from only one weak formulation.
     """
 
     def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
-                 d_matrix=None):
+                 d_matrix=None, family_tree=None):
         self.weight_lbl = weight_label
 
         self.f = f_vector
@@ -315,6 +317,8 @@ class StateSpace(object):
                 raise ValueError("All B matrices must be column vectors.")
         elif not callable(self.input):
             raise TypeError("Input must be callable!")
+
+        self.family_tree = family_tree
 
     def rhs_hint(self, _t, _q, ss):
         q_t = ss.f
@@ -652,6 +656,19 @@ class CanonicalForms(object):
         self.dynamic_form = CanonicalForm()
         self.dynamic_form.weights = dynamic_weight_label
         self.static_forms = dict()
+        self._len_weights = None
+
+    @property
+    def len_weights(self):
+        return self._len_weights
+
+    @len_weights.setter
+    def len_weights(self, length):
+        if self._len_weights is None:
+            self._len_weights = length
+        else:
+            if length != self._len_weights:
+                raise ValueError("It is not allowed to change the length of the weights vector.")
 
     def add_to(self, weight_label, term, val, column=None):
         """
@@ -662,6 +679,14 @@ class CanonicalForms(object):
             term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
             val: Values to add.
         """
+
+        try:
+            self.len_weights = val.shape[0]
+        except ValueError:
+            raise ValueError("All matrices in the static forms must have the same row width as the matrices in "
+                             "the dynamic form. Also all matrices in the dynamic form must have the same row "
+                             "width. Maybe you projected different terms of one pde with different test functions. "
+                             "Check your weak formulation!")
 
         if weight_label == self.dynamic_form.weights or self.dynamic_form.weights is None or weight_label is None:
             # if not val.shape[0] == self.dynamic_form._len_weights:
@@ -720,7 +745,7 @@ def convert_cfs_to_state_space(list_of_cfs):
                                                  "temporal derived weights.")
         odict_info[label] = dict()
         odict_info[label]["max_order"] = order
-        odict_info[label]["weights_length"] = len(get_base(label, 0))
+        odict_info[label]["weights_length"] = cfs.len_weights
         odict_info[label]["state_space"] = cfs.dynamic_form.convert_to_state_space()
         odict_info[label]["stat_weights"] = set(cfs.static_forms.keys())
         odict_info[label]["cfs"] = cfs
@@ -752,9 +777,9 @@ def convert_cfs_to_state_space(list_of_cfs):
             raise ValueError("Input functions in static forms not allowed.")
 
         if any(["f" in cf._matrices.keys() for cf in cfs_to_check]):
-            raise ValueError("No matrix \"f\" allowed for now.")
+            raise ValueError("No matrix \"f\" allowed (for now).")
 
-        if cfs.dynamic_form.max_order["G"] > 1:
+        if not cfs.dynamic_form._max_order["G"] is None and cfs.dynamic_form._max_order["G"] > 1:
             raise ValueError("For now, only order 1 for input matrix \"G\" supported.")
 
     # check for valid problem formulation
@@ -766,55 +791,77 @@ def convert_cfs_to_state_space(list_of_cfs):
                                      "For a specific weight_label, the temporal order of the static_form"
                                      "can not be greater or equal as that from the corresponding dynamic form.")
 
-    dim_x = np.sum([value["weights_length"] * value["max_order"] for value in odict_info.values()])
-    if isinstance(input_function, SimulationInput):
-        dim_u = 1
-    elif isinstance(input_function, SimulationInputVector):
-        dim_u = len(input_function.indices)
-
-    A = np.nan * np.matrix(np.zeros((dim_x, dim_x)))
-    B = np.nan * np.matrix(np.zeros((dim_x,)))
-    C = np.matrix(np.zeros((dim_u, dim_x)))
-    D = np.matrix(np.zeros((dim_u, dim_u)))
-
     list_of_labels = list(odict_info.keys())
-    a = None
+    exponent = 1  # hard coded for now
     for a_lbl in list_of_labels:
         row_dict = dict()
-        a_fraction = odict_info[a_lbl]["state_space"].A[1]
-        row_dict[list_of_labels.index(a_lbl)] = a_fraction
-        list_without_a_lbl = list(odict_info.keys()).remove(a_lbl)
+        a_block = odict_info[a_lbl]["state_space"].A[exponent]
+        row_dict[list_of_labels.index(a_lbl)] = a_block
+        list_without_a_lbl = list(odict_info.keys())
+        list_without_a_lbl.remove(a_lbl)
         for h_lbl in list_without_a_lbl:
             if h_lbl in odict_info[a_lbl]["stat_weights"]:
-                for ord in range(odict_info[h_lbl]["max_order"] + 1):
+                for ord in range(odict_info[h_lbl]["max_order"]):
                     if ord in odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"].keys():
                         h_fraction = - odict_info[a_lbl]["cfs"].dynamic_form.inverse_e_n * \
-                                     odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"][ord]
+                                     odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"][ord][exponent]
                     else:
-                        h_fraction = np.matrix(np.zeros((odict_info[a_lbl]["weights_length"] * odict_info[a_lbl]["max_order"],
+                        h_fraction = np.matrix(np.zeros((odict_info[a_lbl]["weights_length"],
                                                          odict_info[h_lbl]["weights_length"])))
                     if ord > 0:
                         h_block = np.hstack((h_block, h_fraction))
                     else:
                         h_block = h_fraction
                 if odict_info[a_lbl]["max_order"] > 1:
-                    h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"] - 1),
-                                                   odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
-                                         h_block))
+                    h_block = np.vstack(
+                        (np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"] - 1),
+                                   odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
+                         h_block))
             else:
-                h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"]),
-                                               odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
-                                     h_block))
+                h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * odict_info[a_lbl]["max_order"],
+                                               odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"]))))
             row_dict[list_of_labels.index(h_lbl)] = h_block
         row_odict = collections.OrderedDict(sorted(row_dict.items(), key=lambda t: t[0]))
-        row = np.hstack(tuple(row_dict.values()))
-        if list_of_labels.index(a_lbl) == 0:
-            matrix = row
+        row = np.hstack(tuple(row_odict.values()))
+        if list_of_labels[0] == a_lbl:
+            a_matrix = row
         else:
-            matrix = np.vstack((matrix, row))
+            a_matrix = np.vstack((a_matrix, row))
 
+    dim_x = np.sum([value["weights_length"] * value["max_order"] for value in odict_info.values()])
+    if not a_matrix.shape == (dim_x, dim_x):
+        raise ValueError("Check algorithm.")
 
+    if isinstance(input_function, SimulationInput):
+        dim_u = 1
+    elif isinstance(input_function, SimulationInputVector):
+        dim_u = len(input_function.indices)
+    else:
+        dim_u = None
+        b_matrix = None
 
+    if not dim_u is None:
+        for b_lbl in list_of_labels:
+            b_fraction = odict_info[b_lbl]["state_space"].B[exponent]
+            if odict_info[b_lbl]["max_order"] == 1:
+                b_block = b_fraction
+            else:
+                b_block = np.vstack(
+                    (np.matrix(np.zeros((odict_info[b_lbl]["weights_length"] * (odict_info[b_lbl]["max_order"] - 1)))),
+                     b_fraction))
+            if list_of_labels[0] == b_lbl:
+                b_matrix = b_block
+            else:
+                b_matrix = np.vstack((b_matrix, b_block))
+
+        if not b_matrix.shape == (dim_x, dim_u):
+            raise ValueError("Check algorithm.")
+
+    new_weight_lbl = str()
+    for lbl in list_of_labels:
+        new_weight_lbl += lbl
+
+    return StateSpace(new_weight_lbl, a_matrix, b_matrix, input_handle=input_function, family_tree=odict_info)
 
 
 def parse_weak_formulation(weak_form):
@@ -1061,7 +1108,17 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
     # create results
     q = np.array(q)
 
-    return Domain(points=np.array(t), step=temp_domain.step), q
+    if not sys_ss.family_tree is None:
+        weights_lengths = [w_dict["weights_length"] for w_dict in sys_ss.family_tree.values()]
+    else:
+        weights_lengths = [q.shape[1]]
+
+    # indices to cut the weights matrix in slices (corresponding tor the weights in sys_ss.family_tree)
+    slice_indices = [(0, weights_lengths.pop(0))]
+    for length in weights_lengths:
+        slice_indices.append((slice_indices[-1][1], slice_indices[-1][1] + length))
+
+    return [Domain(points=np.array(t), step=temp_domain.step)] + [q[:, a:b] for a, b in slice_indices]
 
 
 def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):

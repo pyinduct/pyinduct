@@ -214,13 +214,13 @@ class CanonicalFormsTest(unittest.TestCase):
         weak_form1 = sim.WeakFormulation(
             [
                 ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.field_var2, self.test_func2), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2, self.test_func1), limits=(0, 1)),
             ],
             dynamic_weights="field1"
         )
         weak_form2 = sim.WeakFormulation(
             [
-                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func2), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
             ],
             dynamic_weights="field2"
@@ -235,12 +235,15 @@ class CanonicalFormsTest(unittest.TestCase):
         self.assertIsInstance(cfs2, sim.CanonicalForms)
 
         matrix1 = np.array([[1 / 3, 1 / 6], [1 / 6, 1 / 3]])
-        matrix2 = np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])
+        matrix2 = np.matrix([[0.20833333, 0.25, 0.04166667], [0.04166667, 0.25, 0.20833333]])
+        matrix3 = np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])
+        matrix4 = np.matrix([[0.20833333, 0.04166667], [0.25, 0.25], [0.04166667, 0.20833333]])
+
         self.assertTrue(np.allclose(cf0.get_terms()["E"][0][1], matrix1))
         self.assertTrue(np.allclose(cfs1.dynamic_form.get_terms()["E"][1][1], matrix1))
         self.assertTrue(np.allclose(cfs1.static_forms["field2"].get_terms()["E"][0][1], matrix2))
-        self.assertTrue(np.allclose(cfs2.dynamic_form.get_terms()["E"][1][1], matrix2))
-        self.assertTrue(np.allclose(cfs2.static_forms["field1"].get_terms()["E"][0][1], matrix1))
+        self.assertTrue(np.allclose(cfs2.dynamic_form.get_terms()["E"][1][1], matrix3))
+        self.assertTrue(np.allclose(cfs2.static_forms["field1"].get_terms()["E"][0][1], matrix4))
 
     def test_convert_2_ss(self):
         bad_wf11 = sim.WeakFormulation(
@@ -301,15 +304,15 @@ class CanonicalFormsTest(unittest.TestCase):
         )
         wf4 = sim.WeakFormulation(
             [
-                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func2), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
             ],
             dynamic_weights="field2"
         )
 
         bad_cfs11, bad_cfs12, bad_cfs13, cfs1, cfs2, cfs3, cfs4 = [sim.parse_weak_formulation(wf)
-                                                                  for wf in
-                                                                  [bad_wf11, bad_wf12, bad_wf13, wf1, wf2, wf3, wf4]]
+                                                                   for wf in
+                                                                   [bad_wf11, bad_wf12, bad_wf13, wf1, wf2, wf3, wf4]]
 
         with self.assertRaises(TypeError):
             sim.convert_cfs_to_state_space([bad_cfs11, cfs2, cfs3, cfs4])

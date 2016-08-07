@@ -91,14 +91,9 @@ class Parameters:
 app = QtGui.QApplication([])
 
 # temporal and spatial domain specification
-t_start = 0
 t_end = 10
-t_step = .01
-temp_domain = sim.Domain(bounds=(t_start, t_end), step=t_step)
-z_start = 0
-z_end = 1
-z_step = .01
-spat_domain = sim.Domain(bounds=(z_start, z_end), step=z_step)
+temp_domain = sim.Domain(bounds=(0, t_end), step=.01)
+spat_domain = sim.Domain(bounds=(0, 1), step=.01)
 
 # system/simulation parameters
 params = Parameters
@@ -112,7 +107,7 @@ params.k0 = 10
 params.k1 = 10
 params.alpha = 0.7
 
-# inital conditions
+# initial conditions
 x_zt = lambda z, t: 0
 dt_x_zt = lambda z, t: 0
 ic = np.array([
@@ -138,7 +133,7 @@ if 1:
     u = sim.SimulationInputSum([closed_loop_traj, ctrl])
 else:
     # trajectory for the original input (open_loop_traj)
-    open_loop_traj = tr.FlatString(y0=x_zt(0, 0), y1=1, z0=z_start, z1=z_end, t0=1, dt=3, params=params)
+    open_loop_traj = tr.FlatString(y0=x_zt(0, 0), y1=1, z0=spat_domain[0], z1=spat_domain[1], t0=1, dt=3, params=params)
     u = sim.SimulationInputSum([open_loop_traj])
 
 # weak formulation
