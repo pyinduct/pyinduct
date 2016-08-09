@@ -57,7 +57,7 @@ and dirichlet actuation by :math:`z=l`.
 
 * approach:
 
-.. math:: x(z,t) = \sum_{i=1}^{n+1} x_i^*(t) \varphi_i(z)\Big|_{x^*_{n+1}=u} =  \sum_{i=1}^{n} x_i^*(t) \varphi_i(z) + \varphi_{n+1}(z) u(t)
+.. math:: x(z,t) = \sum_{i=1}^{n+1} x_i^*(t) \varphi_i(z)\Big|_{x^*_{n+1}=u} =  \underbrace{\sum_{i=1}^{n} x_i^*(t) \varphi_i(z)}_{\hat x(z,t)} + \varphi_{n+1}(z) u(t)
 
 * weak formulation...
 
@@ -82,7 +82,12 @@ and dirichlet actuation by :math:`z=l`.
         \overbrace{[a_2 [x'(z,t)\varphi_j(z)]_0^l}^{=0} - a_2 \langle x'(z,t),\varphi'_j(z)\rangle \\
         &\hphantom =+
         a_1 \langle x'(z,t), \varphi_j(z)\rangle  +
-        a_0 \langle x(z,t), \varphi_j(z)\rangle && j=1,...,n
+        a_0 \langle x(z,t), \varphi_j(z)\rangle && j=1,...,n \\
+        \langle\dot{\hat{x}}(z,t),\varphi_j(z)\rangle + \langle\varphi_{N+1}(z),\varphi_j(z)\rangle \dot u(t) &= - a_2 \langle \hat x'(z,t),\varphi'_j(z)\rangle - a_2 \langle \varphi'_{N+1}(z),\varphi'_j(z)\rangle u(t) \\
+        &\hphantom =+
+        a_1 \langle \hat x'(z,t), \varphi_j(z)\rangle + a_1 \langle \varphi'_{N+1}(z), \varphi_j(z)\rangle u(t)  + \\
+        &\hphantom =+
+        a_0 \langle \hat x(z,t), \varphi_j(z)\rangle + a_0 \langle \varphi_{N+1}(z), \varphi_j(z)\rangle u(t) && j=1,...,n
     \end{align*}
 
 * leads to state space model for the weights :math:`\boldsymbol{x}^*=(x_1^*,...,x_n^*)^T`:
@@ -97,7 +102,7 @@ and dirichlet actuation by :math:`z=l`.
 * input derivative elimination through the transformation:
 
     - :math:`\bar{\boldsymbol{x}}^* = \tilde A \boldsymbol x^* - \boldsymbol{b}_1 u`
-    - respectively :math:`\bar x_j^* = \sum_{i=1}^{N} \langle \varphi_i(z),\varphi_j(z)\rangle x_i^*(t) - (\boldsymbol b_1)_j u`
+    - :math:`\text{e.g.: } \tilde A = I`
     - leads to
 
 .. math::
