@@ -8,7 +8,6 @@ import pyinduct.visualization as vis
 import numpy as np
 import pyqtgraph as pg
 
-sys_name = 'pipe_wall_temp'
 v = 10
 c1, c2, c3 = [1, 1, 1]
 l = 5
@@ -20,8 +19,8 @@ temp_domain = sim.Domain(bounds=(0, T), num=1e2)
 init_x1 = np.zeros(len(spat_domain))
 init_x2 = np.zeros(len(spat_domain)-21)
 
-nodes, init_funcs1 = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=len(spat_domain))
-nodes, init_funcs2 = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=len(spat_domain)-21)
+nodes, init_funcs1 = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=len(init_x1))
+nodes, init_funcs2 = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=len(init_x2))
 reg.register_base("x1_funcs", init_funcs1)
 reg.register_base("x2_funcs", init_funcs2)
 
@@ -60,7 +59,9 @@ t, q1, q2 = sim.simulate_state_space(state_space, np.hstack((init_x1, init_x2)),
 evald1 = sim.evaluate_approximation("x1_funcs", q1, temp_domain, spat_domain, spat_order=0)
 evald2 = sim.evaluate_approximation("x2_funcs", q2, temp_domain, spat_domain, spat_order=0)
 
-win1 = vis.PgAnimatedPlot(evald1, labels=dict(left='x_1(z,t)', bottom='z'))
-win2 = vis.PgAnimatedPlot(evald2, labels=dict(left='x_2(z,t)', bottom='z'))
+win1 = vis.PgAnimatedPlot(evald1, labels=dict(left='x_1(z,t)', bottom='z'), title="fluid temperature")
+win2 = vis.PgAnimatedPlot(evald2, labels=dict(left='x_2(z,t)', bottom='z'), title="wall temperature")
+win3 = vis.PgSurfacePlot(evald1, title="fluid temperature")
+win4 = vis.PgSurfacePlot(evald2, title="wall temperature")
 pg.QtGui.QApplication.instance().exec_()
 

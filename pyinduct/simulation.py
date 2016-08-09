@@ -458,6 +458,8 @@ class CanonicalForm(object):
 
     @input_function.setter
     def input_function(self, func):
+        if not (func is None or isinstance(func, (SimulationInput))):
+            raise TypeError("Input function must be a instance from SimulationInput.")
         if self._input_function is None:
             self._input_function = func
         if self._input_function != func:
@@ -689,17 +691,8 @@ class CanonicalForms(object):
                              "Check your weak formulation!")
 
         if weight_label == self.dynamic_form.weights or self.dynamic_form.weights is None or weight_label is None:
-            # if not val.shape[0] == self.dynamic_form._len_weights:
-            #     raise ValueError("Row width must correspond to the number of weights.")
-            # if term["name"] == "E" and val.shape[1] != self.dynamic_form._len_weights:
-            #     raise ValueError("Column width of E matrix must correspond to the number of weights!")
-
             self.dynamic_form.add_to(term, val, column=column)
         else:
-            # if not val.shape[0] == self.static_forms[weight_label]._len_weights:
-            #     raise ValueError("Row width must correspond to the number of weights of dynamic form.")
-            # if term["name"] == "E" and val.shape[1] != self.static_forms[weight_label]._len_weights:
-            #     raise ValueError("Column width of E matrix must correspond to the number of weights!")
             if weight_label not in list(self.static_forms.keys()):
                 self.static_forms[weight_label] = CanonicalForm(weight_label)
             elif not isinstance(weight_label, str):
@@ -743,6 +736,9 @@ def convert_cfs_to_state_space(list_of_cfs):
         if order is None:
             raise TypeError(value_error_string + "The dynamic_form of an CanonicalForms object must hold "
                                                  "temporal derived weights.")
+        if label in odict_info.keys():
+            raise ValueError("There are at least two CanonicalForms objects with the same dynamic weight label.")
+
         odict_info[label] = dict()
         odict_info[label]["max_order"] = order
         odict_info[label]["weights_length"] = cfs.len_weights
@@ -750,19 +746,13 @@ def convert_cfs_to_state_space(list_of_cfs):
         odict_info[label]["stat_weights"] = set(cfs.static_forms.keys())
         odict_info[label]["cfs"] = cfs
 
-    if len(set(odict_info.keys())) != len(list(odict_info.keys())):
-        raise ValueError("There are at least two CanonicalForms objects with the same dynamic weight label.")
-
     input_function_set = set(
         [cfs.dynamic_form.input_function for cfs in list_of_cfs if not cfs.dynamic_form.input_function is None]
     )
     if len(input_function_set) > 1:
         raise ValueError("All given CanonicalForms.dynamic_form's must hold the same input function (or None).")
     elif len(input_function_set) == 1:
-        if not isinstance(list(input_function_set)[0], (SimulationInput, SimulationInputVector)):
-            raise TypeError("Input function must be from type SimulationInput or SimulationInputVector.")
-        else:
-            input_function = input_function_set.pop()
+        input_function = input_function_set.pop()
     else:
         input_function = None
 
@@ -777,10 +767,10 @@ def convert_cfs_to_state_space(list_of_cfs):
             raise ValueError("Input functions in static forms not allowed.")
 
         if any(["f" in cf._matrices.keys() for cf in cfs_to_check]):
-            raise ValueError("No matrix \"f\" allowed (for now).")
+            raise NotImplementedError("No matrix \"f\" allowed (for now).")
 
         if not cfs.dynamic_form._max_order["G"] is None and cfs.dynamic_form._max_order["G"] > 1:
-            raise ValueError("For now, only order 1 for input matrix \"G\" supported.")
+            raise NotImplementedError("For now, only order 1 for input matrix \"G\" supported.")
 
     # check for valid problem formulation
     for dyn_label in odict_info.keys():
@@ -900,11 +890,12 @@ def parse_weak_formulation(weak_form):
 
             # for now we use .startswith and .endswith, while the function label
             # will manipulated from placeholder.Product._simplify_product
-            if not field_var.data["func_lbl"].startswith(field_var.data["weight_lbl"]):
-                if not field_var.data["func_lbl"].endswith(field_var.data["weight_lbl"]):
-                    raise ValueError("In the simulation infrastructure of pyinduct field variables with weight labels"
-                                     "which differing from function labels not considered. Use this feature only for"
-                                     "controller approximation.")
+            # if not field_var.data["func_lbl"].startswith(field_var.data["weight_lbl"]):
+            #     if not field_var.data["func_lbl"].endswith(field_var.data["weight_lbl"]):
+            if not True:
+                raise ValueError("In the simulation infrastructure of pyinduct field variables with weight labels"
+                                 "which differing from function labels not considered. Use this feature only for"
+                                 "controller approximation.")
 
             if placeholders["inputs"]:
                 # TODO think about this case, is it relevant?
@@ -1057,7 +1048,7 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
             name included under the key :obj:`name`.
 
     Return:
-        tuple: Time :py:class:`Domain` object and weights matrix.
+        tuple: Time :py:class:`Domain` object and weights matrix/matrices.
     """
     if not isinstance(sys_ss, StateSpace) or isinstance(sys_ss, Observer):
         raise TypeError

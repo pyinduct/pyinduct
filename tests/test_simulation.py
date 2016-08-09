@@ -246,6 +246,37 @@ class CanonicalFormsTest(unittest.TestCase):
         self.assertTrue(np.allclose(cfs2.static_forms["field1"].get_terms()["E"][0][1], matrix4))
 
     def test_convert_2_ss(self):
+        u1 = tr.ConstantTrajectory(1)
+        u2 = tr.ConstantTrajectory(1)
+
+        u1_wf = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var1.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive_temp(0)(0)),
+                ph.ScalarTerm(ph.Input(u2))
+            ],
+            dynamic_weights="scalar1"
+        )
+        u2_wf = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive_temp(0)(0)),
+                ph.ScalarTerm(ph.Input(u1))
+            ],
+            dynamic_weights="scalar2"
+        )
+        pow_wf = sim.WeakFormulation(
+            [
+                ph.ScalarTerm(ph.FieldVariable("scalar2", location=1, exponent=2)),
+                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(ph.Input(u1))
+            ],
+            dynamic_weights="scalar1"
+        )
+
+        u1_cfs, u2_cfs, pow_cfs = [sim.parse_weak_formulation(wf) for wf in [u1_wf, u2_wf, pow_wf]]
+
+
         bad_wf11 = sim.WeakFormulation(
             [
                 ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
@@ -265,6 +296,12 @@ class CanonicalFormsTest(unittest.TestCase):
                 ph.ScalarTerm(ph.FieldVariable("scalar2", location=0, exponent=2)),
             ],
             dynamic_weights="scalar1"
+        )
+        bad_wf14 = sim.WeakFormulation(
+            [
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1, self.test_func2), limits=(0, 1)),
+            ]
         )
         wf1 = sim.WeakFormulation(
             [
@@ -286,7 +323,7 @@ class CanonicalFormsTest(unittest.TestCase):
                 ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
                 ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
                 ph.ScalarTerm(self.field_var1(0)),
-                ph.ScalarTerm(self.field_var2(1))
+                ph.ScalarTerm(self.field_var2(1)),
             ],
             dynamic_weights="scalar2"
         )
@@ -314,14 +351,26 @@ class CanonicalFormsTest(unittest.TestCase):
                                                                    for wf in
                                                                    [bad_wf11, bad_wf12, bad_wf13, wf1, wf2, wf3, wf4]]
 
+        with self.assertRaises(NotImplementedError):
+            sim.convert_cfs_to_state_space([pow_cfs, u2_cfs])
+
+        with self.assertRaises(ValueError):
+            sim.convert_cfs_to_state_space([u1_cfs, u2_cfs])
+
         with self.assertRaises(TypeError):
             sim.convert_cfs_to_state_space([bad_cfs11, cfs2, cfs3, cfs4])
 
         with self.assertRaises(ValueError):
             sim.convert_cfs_to_state_space([bad_cfs12, cfs2, cfs3, cfs4])
 
+        with self.assertRaises(ValueError):
+            sim.convert_cfs_to_state_space([cfs1, cfs2, cfs3, cfs4, cfs1])
+
         with self.assertRaises(NotImplementedError):
             sim.convert_cfs_to_state_space([bad_cfs13, cfs2, cfs3, cfs4])
+
+        with self.assertRaises(ValueError):
+            bad_cfs14 = sim.parse_weak_formulation(bad_wf14)
 
         ss = sim.convert_cfs_to_state_space([cfs1, cfs2, cfs3, cfs4])
 
@@ -332,7 +381,7 @@ class ParseTest(unittest.TestCase):
         self.scalars = ph.Scalars(np.vstack(list(range(3))))
 
         # inputs
-        self.u = np.sin
+        self.u = tr.ConstantTrajectory(1)
         self.input = ph.Input(self.u)
         self.input_squared = ph.Input(self.u, exponent=2)
 

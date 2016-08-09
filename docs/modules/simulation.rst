@@ -38,6 +38,7 @@ Simulation
 .. autofunction:: simulate_systems
 .. autofunction:: process_sim_data
 .. autofunction:: parse_weak_formulation
+.. autofunction:: convert_cfs_to_state_space
 .. autofunction:: simulate_state_space
 .. autofunction:: evaluate_approximation
 

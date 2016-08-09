@@ -136,7 +136,7 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._time_stamp = time.strftime("%H:%M:%S")
 
-        self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
+        self._pw = pg.plot(title=self._time_stamp + " - " + title, labels=labels)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 

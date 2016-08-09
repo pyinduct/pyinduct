@@ -291,7 +291,7 @@ class Product(object):
 
         # check for allowed terms
         if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
-            raise TypeError("argument not allowed in product")
+            raise TypeError("Argument not allowed in product.")
 
         a, b = self._simplify_product(a, b)
         if b is None:
