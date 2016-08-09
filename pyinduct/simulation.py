@@ -961,11 +961,7 @@ def parse_weak_formulation(weak_form):
                 input_func = input_var.data["input"]
                 input_index = input_var.data["index"]
                 input_exp = input_var.data["exponent"]
-
-                # here we would need to provide derivative handles in the callable
                 input_order = input_var.order[0]
-                if input_order > 0:
-                    raise NotImplementedError
 
                 result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
                 cfs.add_to(weak_form.dynamic_weights,

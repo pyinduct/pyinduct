@@ -74,6 +74,33 @@ class ScalarFunction(Placeholder):
 
         Placeholder.__init__(self, {"func_lbl": function_label}, (0, order), location)
 
+    def __call__(self, location):
+        """
+        Factory method which provide an instance with the same properties at the desired :code:`location`.
+
+        Args:
+            location: Location to be set.
+
+        Returns:
+            New :py:class:`ScalarFunction` instance at the desired location.
+        """
+        return ScalarFunction(self.data["func_lbl"], order=self.order[1], location=location)
+
+    def derive(self, order):
+        """
+        Factory method which provide an instance with the same properties and the desired derivative order.
+
+        Note:
+            The desired derivative order :code:`order` is added to the original order.
+
+        Args:
+            order: Derivative order to be set.
+
+        Returns:
+            New :py:class:`ScalarFunction` instance with the desired derivative order.
+        """
+        return ScalarFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
+
 
 class Input(Placeholder):
     """

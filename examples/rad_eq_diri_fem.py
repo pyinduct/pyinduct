@@ -23,47 +23,41 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, n
 act_fem_func = fem_funcs[-1]
 not_act_fem_funcs = fem_funcs[1:-1]
 vis_fems_funcs = fem_funcs[1:]
+register_base("act_func", act_fem_func)
 register_base("sim", not_act_fem_funcs)
 register_base("vis", vis_fems_funcs)
 
 # trajectory
 u = tr.RadTrajectory(l, T, param, "dirichlet", "dirichlet")
 
-# weak form of the homogeneous system
+# weak form ...
+x = ph.FieldVariable("sim")
+phi = ph.TestFunction("sim")
+act_phi = ph.ScalarFunction("act_func")
 not_acuated_weak_form = sim.WeakFormulation([
-    ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("sim", order=1),
-                               ph.TestFunction("sim", order=0)),
-                    limits=spat_domain.bounds),
-    ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("sim", order=1),
-                               ph.TestFunction("sim", order=1)),
-                    limits=spat_domain.bounds,
-                    scale=a2),
-    ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("sim", order=1),
-                               ph.TestFunction("sim", order=0)),
-                    limits=spat_domain.bounds,
-                    scale=-a1),
-    ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("sim", order=0),
-                               ph.TestFunction("sim", order=0)),
-                    limits=spat_domain.bounds,
-                    scale=-a0),
+    # ... of the homogeneous part of the system
+    ph.IntegralTerm(ph.Product(x.derive_temp(1), phi), limits=spat_domain.bounds),
+    ph.IntegralTerm(ph.Product(x.derive_spat(1), phi.derive(1)), limits=spat_domain.bounds, scale=a2),
+    ph.IntegralTerm(ph.Product(x.derive_spat(1), phi), limits=spat_domain.bounds, scale=-a1),
+    ph.IntegralTerm(ph.Product(x, phi), limits=spat_domain.bounds, scale=-a0),
+    # ... of the inhomogeneous part of the system
+    ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u, order=1)), limits=spat_domain.bounds),
+    ph.IntegralTerm(
+        ph.Product(ph.Product(act_phi.derive(1), phi.derive(1)), ph.Input(u)), limits=spat_domain.bounds, scale=a2),
+    ph.IntegralTerm(ph.Product(ph.Product(act_phi.derive(1), phi), ph.Input(u)), limits=spat_domain.bounds, scale=-a1),
+    ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u)), limits=spat_domain.bounds, scale=-a0)
 ])
 
-# inhomogeneous part of the system
+# system matrices \dot x = A x + b0 u + b1 \dot u
 cf = sim.parse_weak_formulation(not_acuated_weak_form)
-E1 = cf._matrices["E"][1][1]
-A = cf.convert_to_state_space().A[1]
-A_tilde = sim.calculate_scalar_product_matrix(sim.dot_product_l2, not_act_fem_funcs, not_act_fem_funcs)
-b0_sum = - a2 * np.array(
-    [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(1))] for fem_func in not_act_fem_funcs]) \
-         + a1 * np.array(
-    [[sim.dot_product_l2(act_fem_func.derive(1), fem_func.derive(0))] for fem_func in not_act_fem_funcs]) \
-         + a0 * np.array(
-    [[sim.dot_product_l2(act_fem_func.derive(0), fem_func.derive(0))] for fem_func in not_act_fem_funcs])
-b0 = np.dot(np.linalg.inv(E1), b0_sum)
-b1_sum = - np.array([[sim.dot_product_l2(act_fem_func, fem_func)] for fem_func in not_act_fem_funcs])
-b1 = np.dot(np.linalg.inv(E1), b1_sum)
+E1_inv = np.linalg.inv(cf._matrices["E"][1][1])
+ss = cf.convert_to_state_space()
+A = ss.A[1]
+b0 = np.array(np.matrix(ss.B[1][:, 0]).T)
+b1 = np.array(np.matrix(ss.B[1][:, 1]).T)
 
 # transformation
+A_tilde = np.diag(np.ones(A.shape[0]), 0)
 A_bar = np.dot(np.dot(A_tilde, A), np.linalg.inv(A_tilde))
 b_bar = np.dot(A_tilde, np.dot(A, b1) + b0)
 
