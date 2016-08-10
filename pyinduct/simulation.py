@@ -212,7 +212,7 @@ class SimulationInputVector(SimulationInput):
                 self.obs_err_indices.add(index)
         self.input_indices = self.indices - self.obs_err_indices
 
-    def __call__(self, **kwargs):
+    def _calc_output(self, **kwargs):
         output = list()
         if "obs_weights" in kwargs.keys():
             for index in self.obs_err_indices:
@@ -310,8 +310,10 @@ class StateSpace(object):
         else:
             self.input = input_handle
         if isinstance(self.input, SimulationInputVector):
-            if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
-                raise ValueError("Input vector has more elements than (at least) one of the B matrices has rows.")
+            pass
+            # TODO: replace this check
+            # if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
+            #     raise ValueError("Input vector has more elements than (at least) one of the B matrices has rows.")
         elif isinstance(self.input, SimulationInput):
             if not all([1 in np.atleast_2d(bi).shape for bi in self.B.values()]):
                 raise ValueError("All B matrices must be column vectors.")
@@ -822,10 +824,10 @@ def convert_cfs_to_state_space(list_of_cfs):
     if not a_matrix.shape == (dim_x, dim_x):
         raise ValueError("Check algorithm.")
 
-    if isinstance(input_function, SimulationInput):
+    if isinstance(input_function, SimulationInputVector):
+        dim_u = input_function.len
+    elif isinstance(input_function, SimulationInput):
         dim_u = 1
-    elif isinstance(input_function, SimulationInputVector):
-        dim_u = len(input_function.indices)
     else:
         dim_u = None
         b_matrix = None
@@ -859,10 +861,13 @@ def parse_weak_formulation(weak_form):
     Creates an ode system for the weights x_i based on the weak formulation.
 
     Args:
-        weak_form: Weak formulation of the pde.
+        weak_form (:py:class:`WeakFormulation`): Weak formulation of the pde.
 
     Return:
-        :py:class:`CanonicalForm`: n'th-order ode system.
+        :py:class:`CanonicalForm` or :py:class:`CanonicalForms`: n'th-order ode system. If the desired canonical form
+            should be from type :py:class:`CanonicalForms` (as a part of multi-pde system) then the label of the
+            dynamic weights must be defined in :code:`weak_form.dynamic_weights` otherwise you get a
+            :py:class:`CanonicalForm` object.
     """
 
     if not isinstance(weak_form, WeakFormulation):
@@ -1003,7 +1008,7 @@ def parse_weak_formulation(weak_form):
             cfs.add_to(weight_lbl, target, result * term.scale)
             continue
 
-    if cfs.static_forms == dict():
+    if weak_form.dynamic_weights is None:
         return cfs.dynamic_form
     else:
         return cfs
