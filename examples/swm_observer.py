@@ -10,7 +10,7 @@ import numpy as np
 from pyqtgraph.Qt import QtGui
 
 
-def build_weak_form(approx_label, spatial_interval, u, params):
+def build_system_state_space(approx_label, spatial_interval, u, params):
     x = ph.FieldVariable(approx_label)
     psi = ph.TestFunction(approx_label)
     term1 = ph.IntegralTerm(ph.Product(x.derive_temp(2), psi), limits=spatial_interval)
@@ -18,7 +18,10 @@ def build_weak_form(approx_label, spatial_interval, u, params):
     term3 = ph.ScalarTerm(ph.Product(x(0).derive_temp(2), psi(0)), scale=params.m)
     term4 = ph.ScalarTerm(ph.Product(ph.Input(u), psi(1)), scale=-1)
 
-    return sim.WeakFormulation([term1, term2, term3, term4], name="swm_system")
+    wf = sim.WeakFormulation([term1, term2, term3, term4], name="swm_system")
+    cf = sim.parse_weak_formulation(wf)
+
+    return cf.convert_to_state_space()
 
 
 def build_control_law(approx_label, params):
@@ -114,8 +117,8 @@ def build_observer(approx_label, sys_input, params):
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
             # \hat y(t)
-            ph.IntegralTerm(ph.Product(eta2, psi), limits=limits, scale=-1/params.m),
-            ph.IntegralTerm(ph.Product(eta3(-1), psi), limits=limits, scale=1/params.m),
+            ph.IntegralTerm(ph.Product(eta2, psi), limits=limits, scale=-1 / params.m),
+            ph.IntegralTerm(ph.Product(eta3(-1), psi), limits=limits, scale=1 / params.m),
             ph.IntegralTerm(ph.Product(psi, ph.Input(u_vec, index=1)),
                             limits=limits, scale=1 / params.m * (params.alpha_ob - 1)),
         ],
@@ -127,6 +130,8 @@ def build_observer(approx_label, sys_input, params):
     d_eta3_cfs = sim.parse_weak_formulation(d_eta3)
 
     obs_ss = sim.convert_cfs_to_state_space([d_eta1_cfs, d_eta2_cfs, d_eta3_cfs])
+
+    return sim.build_observer_from_state_space(obs_ss)
 
 
 class SecondOrderFeedForward(sim.SimulationInput):
@@ -173,14 +178,6 @@ params.k0_ob = params.k0_ct
 params.k1_ob = params.k1_ct
 params.alpha_ob = params.alpha_ct
 
-# initial conditions
-x_zt = lambda z, t: 0
-dt_x_zt = lambda z, t: 0
-ic = np.array([
-    cr.Function(lambda z: x_zt(z, 0)),
-    cr.Function(lambda z: dt_x_zt(z, 0)),
-])
-
 # initial function
 sys_nodes, sys_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=10)
 ctrl_nodes, ctrl_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=20)
@@ -190,7 +187,7 @@ register_base("ctrl", ctrl_funcs)
 register_base("obs", obs_funcs)
 
 # system input
-if 1:
+if 0:
     # trajectory for the new input (closed_loop_traj)
     smooth_transition = tr.SmoothTransition((0, 1), (1, 3), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
@@ -199,19 +196,26 @@ if 1:
     u = sim.SimulationInputSum([closed_loop_traj, ctrl])
 else:
     # trajectory for the original input (open_loop_traj)
-    open_loop_traj = tr.FlatString(y0=x_zt(0, 0), y1=1, z0=spat_domain[0], z1=spat_domain[1], t0=1, dt=3, params=params)
+    open_loop_traj = tr.FlatString(y0=0, y1=1, z0=spat_domain.bounds[0], z1=spat_domain.bounds[1],
+                                   t0=1, dt=3, params=params)
     u = sim.SimulationInputSum([open_loop_traj])
 
-# observer
-obs = build_observer("obs", u, params)
+# system state space
+sys_ss = build_system_state_space("sim", spat_domain.bounds, u, params)
+sys_init = np.zeros(sys_ss.A[1].shape[0])
 
-# weak formulation
-sys = build_weak_form("sim", spat_domain.bounds, u, params)
+# observer state space
+obs_ss = build_observer("obs", u, params)
+obs_init = np.zeros(obs_ss.A[1].shape[0])
 
 # simulation
-results = sim.simulate_system(sys, ic, temp_domain, spat_domain)
+# sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init)
+sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain)
+
+# evaluate
+x_data = sim.process_sim_data("sim", weights, temp_domain, spat_domain, 0, 0)
 
 # animation
-plot1 = vis.PgAnimatedPlot(results)
-plot2 = vis.PgSurfacePlot(results)
+plot1 = vis.PgAnimatedPlot(x_data)
+plot2 = vis.PgSurfacePlot(x_data)
 app.exec_()

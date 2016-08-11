@@ -1153,3 +1153,5 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
+
+

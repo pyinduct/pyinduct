@@ -205,23 +205,25 @@ class SimulationInputVector(SimulationInput):
 
         self.input_vector = input_vector
         self.len = len(input_vector)
-        self.indices = set(np.arange(self.len) + 1)
-        self.obs_err_indices = set()
+        self.indices = np.arange(self.len)
+        self._sys_inputs = collections.OrderedDict()
+        self._obs_errors = collections.OrderedDict()
         for index in self.indices:
-            if isinstance(input_vector[index - 1], ObserverError):
-                self.obs_err_indices.add(index)
-        self.input_indices = self.indices - self.obs_err_indices
+            if isinstance(input_vector[index], ObserverError):
+                self._obs_errors[index] = input_vector[index]
+            else:
+                self._sys_inputs[index] = input_vector[index]
 
     def _calc_output(self, **kwargs):
         output = list()
         if "obs_weights" in kwargs.keys():
-            for index in self.obs_err_indices:
-                output.append(self.input_vector[index](kwargs))
+            for obs_err in self._obs_errors.values():
+                output.append(obs_err(kwargs))
         else:
-            for index in self.input_indices:
-                output.append(self.input_vector[index](kwargs))
+            for sys_input in self._sys_inputs.values():
+                output.append(sys_input(kwargs))
 
-        return np.array(output)
+        return np.matrix(output).T
 
 
 class WeakFormulation(object):
@@ -278,6 +280,7 @@ class StateSpace(object):
     def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
                  d_matrix=None, family_tree=None):
         self.weight_lbl = weight_label
+        self._weight_num = None
 
         self.f = f_vector
         self.C = c_matrix
@@ -285,6 +288,7 @@ class StateSpace(object):
 
         # mandatory
         if isinstance(a_matrices, np.ndarray):
+
             self.A = {1: a_matrices}
         else:
             self.A = a_matrices
@@ -1063,13 +1067,20 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
             raise TypeError
 
     t = [temp_domain[0]]
-    q = [sys_init_state]
+    q = [np.hstack((np.array(sys_init_state), np.empty(0) if obs_init_state is None else obs_init_state))]
+
+    split_index = list(dict(list(sys_ss.A.items()) + list(sys_ss.B.items())).values())[0].shape[0]
 
     # TODO export cython code?
-    def _rhs(_t, _q, ss):
-        q_t = ss.rhs_hint(_t, _q, ss)
+    def _rhs(_t, _q, sys_ss, obs_ss, split_index):
+        sys_q_t = sys_ss.rhs_hint(_t, _q[:split_index], sys_ss)
 
-        return q_t
+        if not obs_ss is None:
+            obs_q_t = sys_ss.rhs_hint(_t, _q[split_index:], obs_ss)
+        else:
+            obs_q_t = np.empty(0)
+
+        return np.hstack((sys_q_t, obs_q_t))
 
     r = ode(_rhs)
 
@@ -1085,7 +1096,7 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
             nsteps=1e3
         )
 
-    r.set_f_params(sys_ss)
+    r.set_f_params(sys_ss, obs_ss, split_index)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
@@ -1100,17 +1111,31 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
     # create results
     q = np.array(q)
 
-    if not sys_ss.family_tree is None:
-        weights_lengths = [w_dict["weights_length"] for w_dict in sys_ss.family_tree.values()]
+    def split_weight_matrix(q, family_tree):
+        if not family_tree is None:
+            weights_lengths = [w_dict["weights_length"] for w_dict in family_tree.values()]
+        else:
+            weights_lengths = [q.shape[1]]
+
+        # indices to cut the weights matrix in slices (corresponding tor the weights in sys_ss.family_tree)
+        slice_indices = [(0, weights_lengths.pop(0))]
+        for length in weights_lengths:
+            slice_indices.append((slice_indices[-1][1], slice_indices[-1][1] + length))
+
+        return [q[:, a:b] for a, b in slice_indices]
+
+    sys_q = q[:,:split_index]
+    sys_weights_matrices = split_weight_matrix(sys_q, sys_ss.family_tree)
+    sim_domain = Domain(points=np.array(t), step=temp_domain.step)
+
+    if obs_ss is None:
+
+        return [sim_domain] + sys_weights_matrices
     else:
-        weights_lengths = [q.shape[1]]
+        obs_q = q[:,split_index:]
+        obs_weights_matrices = split_weight_matrix(obs_q, obs_ss.family_tree)
 
-    # indices to cut the weights matrix in slices (corresponding tor the weights in sys_ss.family_tree)
-    slice_indices = [(0, weights_lengths.pop(0))]
-    for length in weights_lengths:
-        slice_indices.append((slice_indices[-1][1], slice_indices[-1][1] + length))
-
-    return [Domain(points=np.array(t), step=temp_domain.step)] + [q[:, a:b] for a, b in slice_indices]
+        return [sim_domain] + sys_weights_matrices + obs_weights_matrices
 
 
 def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
@@ -1454,13 +1479,14 @@ class Observer(StateSpace):
         f_vector:
         c_matrix: :math:`\\boldsymbol{C}`
         d_matrix: :math:`\\boldsymbol{D}`
-        observer_error_indices (array_like): List of indices. The indices show which
-            input variable is an observer error.
+        family_tree:
+        l_matrices:
     """
 
-    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, l_matrices=None, obs_err_handle=None,
-                 f_vector=None, c_matrix=None, d_matrix=None, observer_error_indices=None):
-        StateSpace.__init__(self, weight_label, a_matrices, b_matrices, input_handle, f_vector, c_matrix, d_matrix)
+    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
+                 d_matrix=None, family_tree=None, l_matrices=None):
+        StateSpace.__init__(self, weight_label, a_matrices, b_matrices, input_handle, f_vector, c_matrix, d_matrix,
+                            family_tree)
 
         if isinstance(l_matrices, np.ndarray):
             self.L = {1: l_matrices}
@@ -1468,13 +1494,6 @@ class Observer(StateSpace):
             self.L = l_matrices
         if self.L is None:
             self.L = {1: np.zeros((self.A[1].shape[0], 1))}
-
-        if obs_err_handle is None:
-            self.obs_err = EmptyInput(self.L[1].shape[1])
-        else:
-            self.obs_err = obs_err_handle
-        if not callable(self.obs_err):
-            raise TypeError("observer error must be callable!")
 
 
 class ObserverError(SimulationInput):
@@ -1514,14 +1533,41 @@ class ObserverError(SimulationInput):
                self._obs_evaluator(kwargs["obs_weights"], kwargs["obs_weight_lbl"])
 
 
-def build_observer_from_state_space(self, state_space):
+def build_observer_from_state_space(state_space):
     """
     Return a :py:class:`Observer` object based on the given :py:class:`StateSpace` object.
     The method return :code:`None` if state_space.input is not a instance of
     :py:class:`ObserverError` or if self._input_function is a instance of
-    :py:class:`SimulationInputSum` which not contain any :py:class:`ObserverError` instance.
+    :py:class:`SimulationInputSum` which not hold any :py:class:`ObserverError` instance.
+
+    Args:
+        state_space (:py:class:`StateSpace`): State space to be convert.
 
     Returns:
         :py:class:`pyinduct.simulation.Observer` or None: See docstring.
     """
-    pass
+    input_func = state_space.input
+    if not isinstance(input_func, SimulationInput):
+        raise TypeError("The input function of the given state space must be a instance from SimulationInput.")
+    if not isinstance(input_func, ObserverError):
+        if isinstance(input_func, SimulationInputVector):
+            if not any([isinstance(i, ObserverError) for i in input_func.input_vector]):
+                return None
+        else:
+            raise NotImplementedError
+    else:
+        return Observer(state_space.weight_lbl, state_space.A, None, state_space.input, state_space.f,
+                        state_space.C, state_space.D, state_space.family_tree, l_matrices=state_space.B)
+
+    obs_b_matrices = dict()
+    obs_l_matrices = dict()
+    for exp, mat in state_space.B.items():
+        obs_b_matrices[exp] = np.hstack(
+            tuple([state_space.B[exp][:, index] for index in state_space.input._sys_inputs.keys()])
+        )
+        obs_l_matrices[exp] = np.hstack(
+            tuple([state_space.B[exp][:, index] for index in state_space.input._obs_errors.keys()])
+        )
+
+    return Observer(state_space.weight_lbl, state_space.A, obs_b_matrices, state_space.input, state_space.f,
+                    state_space.C, state_space.D, state_space.family_tree, obs_l_matrices)
