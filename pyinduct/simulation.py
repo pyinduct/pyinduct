@@ -199,6 +199,7 @@ class SimulationInputVector(SimulationInput):
     """
 
     def __init__(self, input_vector):
+        SimulationInput.__init__(self)
         if not all([isinstance(input, SimulationInput) and not isinstance(input, SimulationInputVector)
                     for input in input_vector]):
             raise TypeError("A SimulationInputVector can only hold SimulationInputs's and can not nest.")
@@ -218,12 +219,12 @@ class SimulationInputVector(SimulationInput):
         output = list()
         if "obs_weights" in kwargs.keys():
             for obs_err in self._obs_errors.values():
-                output.append(obs_err(kwargs))
+                output.append(obs_err(**kwargs))
         else:
             for sys_input in self._sys_inputs.values():
-                output.append(sys_input(kwargs))
+                output.append(sys_input(**kwargs))
 
-        return np.matrix(output).T
+        return dict(output=np.matrix(output).T)
 
 
 class WeakFormulation(object):
@@ -326,17 +327,16 @@ class StateSpace(object):
 
         self.family_tree = family_tree
 
-    def rhs_hint(self, _t, _q, ss):
+    def rhs_hint(self, _t, _q, _u, ss):
         q_t = ss.f
         for p, a_mat in ss.A.items():
             # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
             q_t = q_t + np.dot(a_mat, np.power(_q, p))
 
-        u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
         for p, b_mat in ss.B.items():
-            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+            q_t = q_t + np.dot(b_mat, np.power(_u, p)).flatten()
 
-        return q_t
+        return np.asarray(q_t)
 
 
 # TODO update signature
@@ -823,6 +823,7 @@ def convert_cfs_to_state_space(list_of_cfs):
             a_matrix = row
         else:
             a_matrix = np.vstack((a_matrix, row))
+    a_matrix = np.matrix(a_matrix)
 
     dim_x = np.sum([value["weights_length"] * value["max_order"] for value in odict_info.values()])
     if not a_matrix.shape == (dim_x, dim_x):
@@ -852,6 +853,7 @@ def convert_cfs_to_state_space(list_of_cfs):
 
         if not b_matrix.shape == (dim_x, dim_u):
             raise ValueError("Check algorithm.")
+    b_matrix = np.matrix(b_matrix)
 
     new_weight_lbl = str()
     for lbl in list_of_labels:
@@ -1073,14 +1075,15 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
 
     # TODO export cython code?
     def _rhs(_t, _q, sys_ss, obs_ss, split_index):
-        sys_q_t = sys_ss.rhs_hint(_t, _q[:split_index], sys_ss)
+        u = sys_ss.input(time=_t, weights=_q[:split_index], weight_lbl=sys_ss.weight_lbl, fam_tree=sys_ss.family_tree)
+        sys_q_t = sys_ss.rhs_hint(_t, _q[:split_index], u, sys_ss)
 
-        if not obs_ss is None:
-            obs_q_t = sys_ss.rhs_hint(_t, _q[split_index:], obs_ss)
-        else:
+        if obs_ss is None:
             obs_q_t = np.empty(0)
+        else:
+            obs_q_t = obs_ss.rhs_hint(_t, _q[:split_index], u, sys_ss, _q[split_index:], obs_ss)
 
-        return np.hstack((sys_q_t, obs_q_t))
+        return np.hstack((sys_q_t.flatten(), obs_q_t.flatten()))
 
     r = ode(_rhs)
 
@@ -1124,7 +1127,7 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
 
         return [q[:, a:b] for a, b in slice_indices]
 
-    sys_q = q[:,:split_index]
+    sys_q = q[:, :split_index]
     sys_weights_matrices = split_weight_matrix(sys_q, sys_ss.family_tree)
     sim_domain = Domain(points=np.array(t), step=temp_domain.step)
 
@@ -1132,7 +1135,7 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
 
         return [sim_domain] + sys_weights_matrices
     else:
-        obs_q = q[:,split_index:]
+        obs_q = q[:, split_index:]
         obs_weights_matrices = split_weight_matrix(obs_q, obs_ss.family_tree)
 
         return [sim_domain] + sys_weights_matrices + obs_weights_matrices
@@ -1227,7 +1230,7 @@ class Feedback(SimulationInput):
         Return:
             dict: Feedback under the key :code:`"output"`.
         """
-        return self._evaluator(kwargs["weights"], kwargs["weight_lbl"])
+        return self._evaluator(kwargs["weights"], kwargs["weight_lbl"], kwargs["fam_tree"])
 
 
 class LawEvaluator(object):
@@ -1267,7 +1270,7 @@ class LawEvaluator(object):
 
         return vectors
 
-    def __call__(self, weights, weight_label):
+    def __call__(self, weights, weight_label, family_tree=None):
         """
         Evaluation function for approximated feedback law.
 
@@ -1495,6 +1498,17 @@ class Observer(StateSpace):
         if self.L is None:
             self.L = {1: np.zeros((self.A[1].shape[0], 1))}
 
+    def rhs_hint(self, _t, _sys_q, _u, sys_ss, _obs_q, obs_ss):
+        q_t = StateSpace.rhs_hint(self, _t, _obs_q, _u, obs_ss)
+
+        obs_error = obs_ss.input(time=_t,
+                                 sys_weights=_sys_q, sys_weights_lbl=sys_ss.weight_lbl, sys_fam_tree=sys_ss.family_tree,
+                                 obs_weights=_obs_q, obs_weights_lbl=obs_ss.weight_lbl, obs_fam_tree=obs_ss.family_tree)
+        for p, l_mat in obs_ss.L.items():
+            q_t = q_t + np.asarray(np.dot(l_mat, np.power(obs_error, p))).flatten()
+
+        return np.asarray(q_t)
+
 
 class ObserverError(SimulationInput):
     """
@@ -1529,8 +1543,9 @@ class ObserverError(SimulationInput):
         Return:
             dict: Feedback under the key :code:`"output"`.
         """
-        return self._sys_evaluator(kwargs["sys_weights"], kwargs["sys_weight_lbl"]) + \
-               self._obs_evaluator(kwargs["obs_weights"], kwargs["obs_weight_lbl"])
+        sp = self._sys_evaluator(kwargs["sys_weights"], kwargs["sys_weights_lbl"], kwargs["sys_fam_tree"])["output"]
+        op = self._obs_evaluator(kwargs["obs_weights"], kwargs["obs_weights_lbl"], kwargs["obs_fam_tree"])["output"]
+        return dict(output=sp + op)
 
 
 def build_observer_from_state_space(state_space):

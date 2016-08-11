@@ -7,21 +7,24 @@ import pyinduct.placeholder as ph
 import pyinduct.utils as ut
 from pyinduct import register_base
 import numpy as np
-from pyqtgraph.Qt import QtGui
+import pyqtgraph as pg
 
 
 def build_system_state_space(approx_label, spatial_interval, u, params):
     x = ph.FieldVariable(approx_label)
     psi = ph.TestFunction(approx_label)
-    term1 = ph.IntegralTerm(ph.Product(x.derive_temp(2), psi), limits=spatial_interval)
-    term2 = ph.IntegralTerm(ph.Product(x.derive_spat(1), psi.derive(1)), limits=spatial_interval)
-    term3 = ph.ScalarTerm(ph.Product(x(0).derive_temp(2), psi(0)), scale=params.m)
-    term4 = ph.ScalarTerm(ph.Product(ph.Input(u), psi(1)), scale=-1)
 
-    wf = sim.WeakFormulation([term1, term2, term3, term4], name="swm_system")
-    cf = sim.parse_weak_formulation(wf)
+    wf = sim.WeakFormulation(
+        [
+            ph.IntegralTerm(ph.Product(x.derive_temp(2), psi), limits=spatial_interval),
+            ph.IntegralTerm(ph.Product(x.derive_spat(1), psi.derive(1)), limits=spatial_interval),
+            ph.ScalarTerm(ph.Product(x(0).derive_temp(2), psi(0)), scale=params.m),
+            ph.ScalarTerm(ph.Product(ph.Input(u), psi(1)), scale=-1),
+        ],
+        name="swm_system"
+    )
 
-    return cf.convert_to_state_space()
+    return sim.parse_weak_formulation(wf).convert_to_state_space()
 
 
 def build_control_law(approx_label, params):
@@ -154,8 +157,6 @@ class Parameters:
         pass
 
 
-app = QtGui.QApplication([])
-
 # temporal and spatial domain specification
 t_end = 10
 temp_domain = sim.Domain(bounds=(0, t_end), step=.01)
@@ -187,7 +188,7 @@ register_base("ctrl", ctrl_funcs)
 register_base("obs", obs_funcs)
 
 # system input
-if 0:
+if 1:
     # trajectory for the new input (closed_loop_traj)
     smooth_transition = tr.SmoothTransition((0, 1), (1, 3), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
@@ -209,13 +210,16 @@ obs_ss = build_observer("obs", u, params)
 obs_init = np.zeros(obs_ss.A[1].shape[0])
 
 # simulation
-# sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init)
-sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain)
+sim_domain, x_w, eta1_w, et2_w, et3_w = sim.simulate_state_space(
+    sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init
+)
+# sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain)
 
 # evaluate
-x_data = sim.process_sim_data("sim", weights, temp_domain, spat_domain, 0, 0)
+x_data = sim.process_sim_data("sim", x_w, temp_domain, spat_domain, 0, 0)
 
 # animation
 plot1 = vis.PgAnimatedPlot(x_data)
 plot2 = vis.PgSurfacePlot(x_data)
-app.exec_()
+pg.QtGui.QApplication.instance().exec_()
+
