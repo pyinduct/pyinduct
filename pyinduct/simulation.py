@@ -224,7 +224,7 @@ class SimulationInputVector(SimulationInput):
             for sys_input in self._sys_inputs.values():
                 output.append(sys_input(**kwargs))
 
-        return dict(output=np.matrix(output).T)
+        return dict(output=np.matrix(np.vstack(output)))
 
 
 class WeakFormulation(object):
@@ -237,8 +237,8 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
-        dynamic_weights (str): Weights (weight label) which occur temporal derived. It is only one kind of weight
-            labels allowed in the weak formulation if :code:`dynamic_weights` will not provided.
+        dynamic_weights (str): Only for multi-pde systems. Weights (weight label) which occur temporal derived. It is only one kind of weight
+            labels (one pde) allowed in the weak formulation if :code:`dynamic_weights` will not provided.
     """
 
     def __init__(self, terms, dynamic_weights=None, name=None):
@@ -751,6 +751,9 @@ def convert_cfs_to_state_space(list_of_cfs):
         odict_info[label]["state_space"] = cfs.dynamic_form.convert_to_state_space()
         odict_info[label]["stat_weights"] = set(cfs.static_forms.keys())
         odict_info[label]["cfs"] = cfs
+        slice_begin = 0 if len(odict_info) == 1 else list(odict_info.values())[-2]["slice_indices"][1]
+        odict_info[label]["slice_indices"] = (slice_begin, slice_begin + cfs.len_weights)
+
 
     input_function_set = set(
         [cfs.dynamic_form.input_function for cfs in list_of_cfs if not cfs.dynamic_form.input_function is None]
@@ -1048,9 +1051,10 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
 
     Args:
         sys_ss (:py:class:`StateSpace`): State space formulation of the system.
-        init_state: Initial state vector of the system.
+        sys_init_state (numpy.array): Initial state vector of the system.
         temp_domain (:py:class:`Domain`): Temporal domain object.
         obs_ss (:py:class:`Observer`): State space formulation of the observer.
+        obs_init_state (numpy.array): Initial state vector of the observer.
         settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
             name included under the key :obj:`name`.
 
@@ -1069,9 +1073,9 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
             raise TypeError
 
     t = [temp_domain[0]]
-    q = [np.hstack((np.array(sys_init_state), np.empty(0) if obs_init_state is None else obs_init_state))]
+    q = [np.hstack((sys_init_state.flatten(), np.empty(0) if obs_init_state is None else obs_init_state.flatten()))]
 
-    split_index = list(dict(list(sys_ss.A.items()) + list(sys_ss.B.items())).values())[0].shape[0]
+    split_index = list(sys_ss.A.values())[0].shape[0]
 
     # TODO export cython code?
     def _rhs(_t, _q, sys_ss, obs_ss, split_index):
@@ -1115,15 +1119,11 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
     q = np.array(q)
 
     def split_weight_matrix(q, family_tree):
-        if not family_tree is None:
-            weights_lengths = [w_dict["weights_length"] for w_dict in family_tree.values()]
-        else:
-            weights_lengths = [q.shape[1]]
-
         # indices to cut the weights matrix in slices (corresponding tor the weights in sys_ss.family_tree)
-        slice_indices = [(0, weights_lengths.pop(0))]
-        for length in weights_lengths:
-            slice_indices.append((slice_indices[-1][1], slice_indices[-1][1] + length))
+        if family_tree is None:
+            slice_indices = [(0, q.shape[1])]
+        else:
+            slice_indices = [si["slice_indices"] for si in family_tree.values()]
 
         return [q[:, a:b] for a, b in slice_indices]
 
@@ -1263,7 +1263,7 @@ class LawEvaluator(object):
         powers = set(chain.from_iterable([list(mat) for mat in terms["E"].values()]))
         dim = next(iter(terms["E"][max(orders)].values())).shape
 
-        vectors = {}
+        vectors = dict()
         for power in powers:
             vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders) + 1)])
             vectors.update({power: vector})
@@ -1287,28 +1287,40 @@ class LawEvaluator(object):
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().items():
             dst_weights = [0]
+
             if "E" in law is not None:
                 # build eval vector
                 if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
-                # collect information
-                info = TransformationInfo()
-                info.src_lbl = weight_label
-                info.dst_lbl = lbl
-                info.src_base = get_base(weight_label, 0)
-                info.dst_base = get_base(lbl, 0)
-                info.src_order = int(weights.size / info.src_base.size) - 1
-                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
+                if family_tree is None:
+                    # collect information
+                    info = TransformationInfo()
+                    info.src_lbl = weight_label
+                    info.dst_lbl = lbl
+                    info.src_base = get_base(weight_label, 0)
+                    info.dst_base = get_base(lbl, 0)
+                    info.src_order = int(weights.size / info.src_base.size) - 1
+                    info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
 
-                # look up transformation
-                if info not in self._transformations.keys():
-                    # fetch handle
-                    handle = get_weight_transformation(info)
-                    self._transformations[info] = handle
+                    # look up transformation
+                    if info not in self._transformations.keys():
+                        # fetch handle
+                        handle = get_weight_transformation(info)
+                        self._transformations[info] = handle
 
-                # transform weights
-                dst_weights = self._transformations[info](weights)
+                    # transform weights
+                    dst_weights = self._transformations[info](weights)
+
+                # TODO: Support transformation hints for nested weights, too!
+                elif isinstance(family_tree, collections.OrderedDict):
+                    if not lbl in family_tree:
+                        raise ValueError("Transformation hints for nested weights not supported yet.")
+                    s_start, s_stop = family_tree[lbl]["slice_indices"]
+                    dst_weights = weights[s_start: s_stop]
+
+                else:
+                    raise NotImplementedError
 
                 # evaluate
                 vectors = self._eval_vectors[lbl]

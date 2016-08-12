@@ -70,7 +70,7 @@ def build_control_law(approx_label, params):
     ))
 
 
-def build_observer(approx_label, sys_input, params):
+def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
     limits = (-1, 1)
 
     def heavi(z):
@@ -90,10 +90,16 @@ def build_observer(approx_label, sys_input, params):
     register_base("eta2", cr.Function(dummy_one, domain=limits))
     eta1 = ph.FieldVariable("eta1")
     eta2 = ph.FieldVariable("eta2")
-    eta3 = ph.FieldVariable(approx_label)
-    psi = ph.TestFunction("obs")
+    eta3 = ph.FieldVariable(obs_approx_label)
+    psi = ph.TestFunction(obs_approx_label)
 
-    obs_err = sim.ObserverError(sim.FeedbackLaw([]), sim.FeedbackLaw([]))
+    obs_err = sim.ObserverError(sim.FeedbackLaw([
+        ph.ScalarTerm(ph.FieldVariable(sys_approx_label, location=0), scale=-1)
+    ]), sim.FeedbackLaw([
+        ph.ScalarTerm(eta3(-1).derive_spat(1), scale=-params.m / 2),
+        ph.ScalarTerm(eta3(1).derive_spat(1), scale=-params.m / 2),
+        ph.ScalarTerm(eta1(0), scale=-params.m / 2),
+    ]))
     u_vec = sim.SimulationInputVector([sys_input, obs_err])
 
     d_eta1 = sim.WeakFormulation(
@@ -116,7 +122,7 @@ def build_observer(approx_label, sys_input, params):
     d_eta3 = sim.WeakFormulation(
         [
             ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
-            ph.IntegralTerm(ph.Product(eta3, psi), limits=limits, scale=-1),
+            ph.IntegralTerm(ph.Product(eta3.derive_spat(1), psi), limits=limits, scale=-1),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
             # \hat y(t)
@@ -125,7 +131,7 @@ def build_observer(approx_label, sys_input, params):
             ph.IntegralTerm(ph.Product(psi, ph.Input(u_vec, index=1)),
                             limits=limits, scale=1 / params.m * (params.alpha_ob - 1)),
         ],
-        dynamic_weights=approx_label
+        dynamic_weights=obs_approx_label
     )
 
     d_eta1_cfs = sim.parse_weak_formulation(d_eta1)
@@ -172,12 +178,12 @@ params.sigma = 1.0  # hard written to 1 in this example script
 # controller parameters
 params.k0_ct = 10
 params.k1_ct = 10
-params.alpha_ct = 0.7
+params.alpha_ct = 0
 
 # controller parameters
-params.k0_ob = params.k0_ct
-params.k1_ob = params.k1_ct
-params.alpha_ob = params.alpha_ct
+params.k0_ob = 100
+params.k1_ob = 100
+params.alpha_ob = 0
 
 # initial function
 sys_nodes, sys_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=10)
@@ -206,20 +212,26 @@ sys_ss = build_system_state_space("sim", spat_domain.bounds, u, params)
 sys_init = np.zeros(sys_ss.A[1].shape[0])
 
 # observer state space
-obs_ss = build_observer("obs", u, params)
+obs_ss = build_observer("sim", "obs", u, params)
 obs_init = np.zeros(obs_ss.A[1].shape[0])
 
 # simulation
-sim_domain, x_w, eta1_w, et2_w, et3_w = sim.simulate_state_space(
+sim_domain, x_w, eta1_w, eta2_w, eta3_w = sim.simulate_state_space(
     sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init
 )
-# sim_domain, weights = sim.simulate_state_space(sys_ss, sys_init, temp_domain)
 
 # evaluate
-x_data = sim.process_sim_data("sim", x_w, temp_domain, spat_domain, 0, 0)
+x_data = sim.process_sim_data("sim", x_w, temp_domain, spat_domain, 0, 0)[0]
+eta1_data = sim.process_sim_data("eta1", eta1_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e2), 0, 0)[0]
+dz_et3_m1_0 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(-1, 0), num=1e2), 0, 1)[1]
+dz_et3_0_p1 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e2), 0, 1)[1]
+
+x_obs_data = vis.EvalData(eta1_data.input_data, -params.m / 2 * (
+    dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data
+))
 
 # animation
-plot1 = vis.PgAnimatedPlot(x_data)
+plot1 = vis.PgAnimatedPlot([x_data, x_obs_data])
 plot2 = vis.PgSurfacePlot(x_data)
+plot3 = vis.PgSurfacePlot(x_obs_data)
 pg.QtGui.QApplication.instance().exec_()
-

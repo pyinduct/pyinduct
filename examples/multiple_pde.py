@@ -15,9 +15,8 @@ T = 5
 spat_domain = sim.Domain(bounds=(0, l), num=51)
 temp_domain = sim.Domain(bounds=(0, T), num=1e2)
 
-
 init_x1 = np.zeros(len(spat_domain))
-init_x2 = np.zeros(len(spat_domain)-21)
+init_x2 = np.zeros(len(spat_domain) - 21)
 
 nodes, init_funcs1 = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=len(init_x1))
 nodes, init_funcs2 = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=len(init_x2))
@@ -41,14 +40,16 @@ weak_form1 = sim.WeakFormulation(
         ph.ScalarTerm(ph.Product(ph.Input(u), psi1(0)), scale=-v),
         ph.IntegralTerm(ph.Product(x1, psi1), limits=spat_domain.bounds, scale=c1),
         ph.IntegralTerm(ph.Product(x2, psi1), limits=spat_domain.bounds, scale=-c1),
-    ]
+    ],
+    dynamic_weights="x1_funcs"
 )
 weak_form2 = sim.WeakFormulation(
     [
         ph.IntegralTerm(ph.Product(x2.derive_temp(1), psi2), limits=spat_domain.bounds),
         ph.IntegralTerm(ph.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
-        ph.IntegralTerm(ph.Product(x2, psi2), limits=spat_domain.bounds, scale=c2+c3),
-    ]
+        ph.IntegralTerm(ph.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c3),
+    ],
+    dynamic_weights="x2_funcs"
 )
 
 cfs1 = sim.parse_weak_formulation(weak_form1)
@@ -64,4 +65,3 @@ win2 = vis.PgAnimatedPlot(evald2, labels=dict(left='x_2(z,t)', bottom='z'), titl
 win3 = vis.PgSurfacePlot(evald1, title="fluid temperature")
 win4 = vis.PgSurfacePlot(evald2, title="wall temperature")
 pg.QtGui.QApplication.instance().exec_()
-

@@ -7,6 +7,7 @@ import pyinduct.trajectory as tr
 import pyinduct.visualization as vis
 import numpy as np
 import pyqtgraph as pg
+import matplotlib.pyplot as plt
 
 sys_name = 'transport system'
 v = 10
@@ -47,7 +48,10 @@ win0 = pg.plot(np.array(eval_data[0].input_data[0]), u.get_results(eval_data[0].
 win0.showGrid(x=False, y=True, alpha=0.5)
 vis.save_2d_pg_plot(win0, 'transport_system')
 win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name,
-                          save_pics=True, labels=dict(left='x(z,t)', bottom='z'))
+                          save_pics=False, labels=dict(left='x(z,t)', bottom='z'))
+win2 = vis.MplSlicePlot(eval_data, spatial_point=0, ylabel="x(0,t)")
+plt.show()
 pg.QtGui.QApplication.instance().exec_()
+
 
 

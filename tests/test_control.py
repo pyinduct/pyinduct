@@ -172,7 +172,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
+        B = -a2 * np.matrix([[eig_funcs[i].derive()(l)] for i in range(n)])
         ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
 
         # simulate
