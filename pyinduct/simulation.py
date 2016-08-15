@@ -739,7 +739,7 @@ def convert_cfs_to_state_space(list_of_cfs):
     for cfs in list_of_cfs:
         label = cfs.dynamic_form.weights
         order = cfs.dynamic_form._max_order["E"]
-        if order is None:
+        if order is None or order <= 0:
             raise TypeError(value_error_string + "The dynamic_form of an CanonicalForms object must hold "
                                                  "temporal derived weights.")
         if label in odict_info.keys():
@@ -1031,12 +1031,11 @@ def _compute_product_of_scalars(scalars):
         res = scalars[0].data
     elif scalars[0].data.shape == scalars[1].data.shape:
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    elif scalars[0].data.shape == scalars[1].data.T.shape:
-        # guarantee dyadic product no matter in which order args are passed
-        if scalars[0].data.shape[0] > scalars[0].data.shape[1]:
-            res = np.dot(scalars[0].data, scalars[1].data)
-        else:
-            res = np.dot(scalars[1].data, scalars[0].data)
+    # guarantee dyadic product no matter in which order args are passed
+    elif scalars[0].data.shape[0] == scalars[1].data.shape[1] == 1:
+        res = np.dot(scalars[1].data, scalars[0].data)
+    elif scalars[0].data.shape[1] == scalars[1].data.shape[0] == 1:
+        res = np.dot(scalars[0].data, scalars[1].data)
     else:
         raise NotImplementedError
 

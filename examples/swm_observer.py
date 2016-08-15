@@ -119,17 +119,39 @@ def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
         ],
         dynamic_weights="eta2"
     )
+    # d_eta3 = sim.WeakFormulation(
+    #     [
+    #         ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
+    #         ph.IntegralTerm(ph.Product(eta3.derive_spat(1), psi), limits=limits, scale=-1),
+    #         ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
+    #         ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
+    #         # \hat y(t)
+    #         ph.IntegralTerm(ph.Product(eta2, psi), limits=limits, scale=-1 / params.m),
+    #         ph.IntegralTerm(ph.Product(eta3(-1), psi), limits=limits, scale=1 / params.m),
+    #         ph.IntegralTerm(ph.Product(psi, ph.Input(u_vec, index=1)),
+    #                         limits=limits, scale=1 / params.m * (params.alpha_ob - 1)),
+    #     ],
+    #     dynamic_weights=obs_approx_label
+    # )
     d_eta3 = sim.WeakFormulation(
         [
             ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
-            ph.IntegralTerm(ph.Product(eta3.derive_spat(1), psi), limits=limits, scale=-1),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
-            # \hat y(t)
-            ph.IntegralTerm(ph.Product(eta2, psi), limits=limits, scale=-1 / params.m),
-            ph.IntegralTerm(ph.Product(eta3(-1), psi), limits=limits, scale=1 / params.m),
-            ph.IntegralTerm(ph.Product(psi, ph.Input(u_vec, index=1)),
-                            limits=limits, scale=1 / params.m * (params.alpha_ob - 1)),
+            # \hat y
+            ph.IntegralTerm(ph.Product(eta3(-1).derive_spat(1), psi), limits=limits, scale=1/2),
+            ph.IntegralTerm(ph.Product(eta3(1).derive_spat(1), psi), limits=limits, scale=1/2),
+            ph.IntegralTerm(ph.Product(eta1, psi), limits=limits, scale=1/2),
+            # shift
+            ph.IntegralTerm(ph.Product(eta3, psi.derive(1)), limits=limits),
+            ph.ScalarTerm(ph.Product(eta3(1), psi(1)), scale=-1),
+            # bc
+            ph.ScalarTerm(ph.Product(psi(-1), eta2(0))),
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi(-1)), scale=1-params.alpha_ob),
+            # bc \hat y
+            ph.ScalarTerm(ph.Product(eta3(-1).derive_spat(1), psi(-1)), params.m/2),
+            ph.ScalarTerm(ph.Product(eta3(1).derive_spat(1), psi(-1)), params.m/2),
+            ph.ScalarTerm(ph.Product(eta1(1), psi(-1)), params.m/2),
         ],
         dynamic_weights=obs_approx_label
     )
@@ -164,7 +186,7 @@ class Parameters:
 
 
 # temporal and spatial domain specification
-t_end = 10
+t_end = 30
 temp_domain = sim.Domain(bounds=(0, t_end), step=.01)
 spat_domain = sim.Domain(bounds=(0, 1), step=.01)
 
@@ -188,7 +210,7 @@ params.alpha_ob = 0
 # initial function
 sys_nodes, sys_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=10)
 ctrl_nodes, ctrl_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=20)
-obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeSecondOrder, (-1, 1), node_count=41)
+obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeSecondOrder, (-1, 1), node_count=21)
 register_base("sim", sys_funcs)
 register_base("ctrl", ctrl_funcs)
 register_base("obs", obs_funcs)
@@ -196,7 +218,7 @@ register_base("obs", obs_funcs)
 # system input
 if 1:
     # trajectory for the new input (closed_loop_traj)
-    smooth_transition = tr.SmoothTransition((0, 1), (1, 3), method="poly", differential_order=2)
+    smooth_transition = tr.SmoothTransition((0, 1), (2, 4), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
     # controller
     ctrl = sim.Feedback(build_control_law("ctrl", params))
@@ -220,11 +242,11 @@ sim_domain, x_w, eta1_w, eta2_w, eta3_w = sim.simulate_state_space(
     sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init
 )
 
-# evaluate
+# evaluate data
 x_data = sim.process_sim_data("sim", x_w, temp_domain, spat_domain, 0, 0)[0]
-eta1_data = sim.process_sim_data("eta1", eta1_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e2), 0, 0)[0]
-dz_et3_m1_0 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(-1, 0), num=1e2), 0, 1)[1]
-dz_et3_0_p1 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e2), 0, 1)[1]
+eta1_data = sim.process_sim_data("eta1", eta1_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e1), 0, 0)[0]
+dz_et3_m1_0 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(-1, 0), num=1e1), 0, 1)[1]
+dz_et3_0_p1 = sim.process_sim_data("obs", eta3_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e1), 0, 1)[1]
 
 x_obs_data = vis.EvalData(eta1_data.input_data, -params.m / 2 * (
     dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data
@@ -232,6 +254,6 @@ x_obs_data = vis.EvalData(eta1_data.input_data, -params.m / 2 * (
 
 # animation
 plot1 = vis.PgAnimatedPlot([x_data, x_obs_data])
-plot2 = vis.PgSurfacePlot(x_data)
-plot3 = vis.PgSurfacePlot(x_obs_data)
+# plot2 = vis.PgSurfacePlot(x_data)
+# plot3 = vis.PgSurfacePlot(x_obs_data)
 pg.QtGui.QApplication.instance().exec_()
