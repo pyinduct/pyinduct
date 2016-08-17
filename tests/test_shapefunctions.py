@@ -4,14 +4,14 @@ import unittest
 import numpy as np
 
 import pyinduct as pi
-import pyinduct.shapefunctions
+import pyinduct.shapefunctions as sh
 from pyinduct.visualization import create_colormap
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -21,11 +21,11 @@ if show_plots:
 
 class CureTestCase(unittest.TestCase):
     def test_init(self):
-        self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, [2, 3])
-        self.assertRaises(TypeError, pyinduct.shapefunctions.cure_interval, np.sin, (2, 3))
-        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder,
+        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3])
+        self.assertRaises(TypeError, sh.cure_interval, np.sin, (2, 3))
+        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
                           (0, 2))
-        self.assertRaises(ValueError, pyinduct.shapefunctions.cure_interval, pyinduct.shapefunctions.LagrangeFirstOrder,
+        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
                           (0, 2), 2, 1)
 
     def test_smoothness(self):
@@ -71,6 +71,75 @@ class CureTestCase(unittest.TestCase):
                                         weights[idx] * func.derive(der_order)(dz),
                                         pen=pg.mkPen(color=c_map[idx]),
                                         name="{}.{}".format(cls.__name__, idx)))
+             for idx, func in enumerate(funcs)]
+
+            # plot hull curve
+            pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :],
+                                       pen=pg.mkPen(width=2), name="hull-curve"))
+            # plot original function
+            pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
+                                       pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
+            pg.QtCore.QCoreApplication.instance().exec_()
+
+        return np.sum(np.abs(hull.output_data[0, :] - approx_func.derive(der_order)(dz)))
+
+class NthOrderCureTestCase(unittest.TestCase):
+    def test_init(self):
+        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3])
+        self.assertRaises(TypeError, sh.cure_interval, np.sin, (2, 3))
+        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
+                          (0, 2))
+        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
+                          (0, 2), 2, 1)
+
+    def test_smoothness(self):
+        orders = [1]
+        derivatives = [range(0, order + 1) for order in orders]
+        tolerances = {1: [5e0, 1.5e2],
+                      2: [1e0, 1e2, 9e2]}
+
+        for order in orders:
+            for der_order in derivatives[order-1]:
+                # self.assertGreater(tolerances[order][der_order], self.shape_generator(order, der_order))
+                self.shape_generator(order, der_order)
+
+    def shape_generator(self, order, der_order):
+        """
+        verify the correct connection with visual feedback
+        """
+
+        dz = pi.Domain((0, 1), step=.001)
+        dt = pi.Domain((0, 0), num=1)
+
+        nodes, funcs = pi.cure_interval(sh.LagrangeNthOrder, dz.bounds, node_count=11, order=order)
+        pi.register_base("test", funcs, overwrite=True)
+
+        # approx_func = pi.Function(np.cos, domain=dz.bounds,
+        #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
+        approx_func = pi.Function(lambda z: np.sin(3 * z), domain=dz.bounds,
+                                  derivative_handles=[lambda z: 3 * np.cos(3 * z), lambda z: -9 * np.sin(3 * z)])
+
+        weights = approx_func(nodes)
+
+        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
+                                         temp_domain=dt, spat_domain=dz, spat_order=der_order)
+
+
+        if show_plots:
+            # plot shapefunctions
+            c_map = create_colormap(len(funcs))
+            pw = pg.plot(title="{}-Order-Test".format(order))
+            pw.addLegend()
+            pw.showGrid(x=True, y=True, alpha=0.5)
+
+            # [pw.addItem(pg.PlotDataItem(np.array(dz),
+            #                             func.derive(der_order)(dz),
+            #                             pen=pg.mkPen(color=c_map[idx]),
+            #                             name="{}.{}".format(order, idx)))
+            [pw.addItem(pg.PlotDataItem(np.array(dz),
+                                        weights[idx] * func.derive(der_order)(dz),
+                                        pen=pg.mkPen(color=c_map[idx]),
+                                        name="{}.{}".format(order, idx)))
              for idx, func in enumerate(funcs)]
 
             # plot hull curve

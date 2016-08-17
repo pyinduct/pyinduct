@@ -5,8 +5,130 @@ functions.
 """
 
 import numpy as np
+import numpy.polynomial.polynomial as npoly
 from .core import Function
 from .simulation import Domain
+from numbers import Number
+
+
+class LagrangeNthOrder(Function):
+    def __init__(self, order, nodes, left=False, right=False, mid_num=None):
+
+        if order <= 0:
+            raise ValueError("Order must be greater 0.")
+
+        if not all(nodes == sorted(nodes)):
+            raise ValueError("Nodes must be sorted.")
+
+        if mid_num is not None and mid_num <= 0:
+            raise ValueError
+
+        kwargs = np.array([left, right, mid_num])
+        if np.sum(kwargs.astype(bool)) > 1:
+            raise ValueError("Only one kwarg can be set.")
+        if any(kwargs) and order + 1 != len(nodes):
+            raise ValueError
+        if not any(kwargs):
+            if order * 2 + 1 != len(nodes):
+                raise ValueError
+            else:
+                is_peak_element = True
+        else:
+            is_peak_element = False
+
+        if left:
+            poly = self._poly_factory(nodes[1:], nodes[0])
+        elif right:
+            poly = self._poly_factory(nodes[:-1], nodes[-1])
+        elif mid_num:
+            poly = self._poly_factory(np.hstack((nodes[:mid_num], nodes[mid_num + 1:])), nodes[mid_num])
+        elif is_peak_element:
+            left_poly = self._poly_factory(nodes[:order], nodes[order])
+            right_poly = self._poly_factory(nodes[order + 1:], nodes[order])
+        else:
+            raise NotImplementedError
+
+        if any([left, right, mid_num]):
+            Function.__init__(self,
+                              self._func_factory(0, order, nodes, poly=poly),
+                              nonzero=(nodes[0], nodes[-1]),
+                              derivative_handles=[self._func_factory(d_ord, order, nodes, poly=poly)
+                                                  for d_ord in range(1, order + 1)],
+                              vectorial=True)
+        elif is_peak_element:
+            Function.__init__(
+                self,
+                self._func_factory(0, order, nodes, l_poly=left_poly, r_poly=right_poly),
+                nonzero=(nodes[0], nodes[-1]),
+                derivative_handles=[
+                    self._func_factory(d_ord, order, nodes, l_poly=left_poly, r_poly=right_poly)
+                    for d_ord in range(1, order + 1)],
+                vectorial=True)
+
+    def _poly_factory(self, zero_nodes, one_node):
+        poly = npoly.Polynomial(npoly.polyfromroots(zero_nodes))
+        return npoly.Polynomial(poly.coef / poly(one_node))
+
+    @staticmethod
+    def _func_factory(der_order, order, nodes, poly=None, r_poly=None, l_poly=None):
+
+        def clear_up_piecewise(z, res):
+            if isinstance(z, Number):
+                return float(res)
+            else:
+                return res
+
+        if poly:
+            def function(zz):
+                z = np.array(zz).flatten()
+                cond_list = [np.bitwise_and(nodes[0] <= z, z <= nodes[-1]).flatten()]
+                func_list = [poly.deriv(der_order)]
+                res = np.piecewise(z, cond_list, func_list)
+                return clear_up_piecewise(zz, res)
+
+        else:
+            def function(zz):
+                z = np.array(zz).flatten()
+                if der_order == 0:
+                    cond_list = [np.bitwise_and(nodes[0] <= z, z <= nodes[order]).flatten(),
+                                np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
+                    func_list = [l_poly, r_poly]
+                    res = np.piecewise(z, cond_list, func_list)
+                else:
+                    cond_list = [np.bitwise_and(nodes[0] <= z, z < nodes[order]).flatten(),
+                                np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
+                    func_list = [l_poly.deriv(der_order), r_poly.deriv(der_order)]
+                    res = np.piecewise(z, cond_list, func_list)
+                return clear_up_piecewise(zz, res)
+
+        return function
+
+    @staticmethod
+    def cure_hint(domain, **kwargs):
+        """
+        Hint function that will cure the given interval with LagrangeFirstOrder.
+
+        Args:
+            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+
+        Return:
+            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
+        """
+        order = kwargs["order"]
+        nodes = np.array(domain)
+        funcs = np.empty((len(nodes),), dtype=LagrangeNthOrder)
+        funcs[0] = LagrangeNthOrder(order, nodes[: order + 1], left=True)
+        funcs[-1] = LagrangeNthOrder(order, nodes[-(order + 1):], right=True)
+
+        for node in nodes[1:-1]:
+            index = np.where(nodes == node)[0][0]
+            if index % order == 0:
+                funcs[index] = LagrangeNthOrder(order, nodes[index - order:index + order + 1])
+            else:
+                mid_num = index % order
+                funcs[index] = LagrangeNthOrder(order, nodes[index - mid_num: index - mid_num + order], mid_num)
+
+        return domain, funcs
 
 
 class LagrangeFirstOrder(Function):
@@ -81,7 +203,7 @@ class LagrangeFirstOrder(Function):
         return [_lag1st_half, _lag1st_half_dz]
 
     @staticmethod
-    def cure_hint(domain):
+    def cure_hint(domain, **kwargs):
         """
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
@@ -214,7 +336,7 @@ class LagrangeSecondOrder(Function):
         return lag2nd, lag2nd_dz, lag2nd_ddz
 
     @staticmethod
-    def cure_hint(domain):
+    def cure_hint(domain, **kwargs):
         """
         Hint function that will cure the given interval with LagrangeSecondOrder.
 
@@ -367,7 +489,7 @@ class LagrangeSecondOrder(Function):
     '''
 
 
-def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None):
+def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None, **kwargs):
     """
     Use test functions to cure an interval with either node_count nodes or nodes with node_distance.
 
@@ -386,12 +508,12 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
         raise TypeError("test_function_class must be a SubClass of Function.")
 
     # TODO move these into "cure_hint" method of core.Function
-    if shapefunction_class not in {LagrangeFirstOrder, LagrangeSecondOrder}:
-        raise TypeError("LagrangeFirstOrder and LagrangeSecondOrder supported as test_function_class for now.")
+    if shapefunction_class not in {LagrangeFirstOrder, LagrangeSecondOrder, LagrangeNthOrder}:
+        raise TypeError("Only LagrangeNthOrder supported as test_function_class for now.")
 
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
     if not hasattr(shapefunction_class, "cure_hint"):
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return shapefunction_class.cure_hint(domain)
+    return shapefunction_class.cure_hint(domain, **kwargs)

@@ -18,7 +18,7 @@ def is_registered(label):
         bool: True if registered, False if not.
     """
     if not isinstance(label, (str, bytes)):
-        raise TypeError("only strings allowed as labels!")
+        raise TypeError("Only strings allowed as labels!")
 
     return label in list(_registry.keys())
 
@@ -33,7 +33,7 @@ def register_base(label, functions, overwrite=False):
         overwrite: Force overwrite if label is already present.
     """
     if not isinstance(label, (str, bytes)):
-        raise TypeError("only strings allowed as labels!")
+        raise TypeError("Only strings allowed as labels!")
 
     funcs = np.atleast_1d(functions)
     derivatives = _registry.get(label, {})
@@ -68,7 +68,7 @@ def deregister_base(label):
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as label!")
     if not is_registered(label):
-        raise ValueError("label {0} not found in registry!".format(label))
+        raise ValueError("Label '{0}' not found in registry!".format(label))
 
     del _registry[label]
 
@@ -87,7 +87,7 @@ def get_base(label, order):
     if is_registered(label):
         base = _registry[label].get(order, None)
         if base is None:
-            raise ValueError("base {} not available in order {}!".format(label, order))
+            raise ValueError("Base with label '{}' not available in order {}!".format(label, order))
         return base
     else:
-        raise ValueError("no base registered under label '{0}'!".format(label))
+        raise ValueError("No base registered under label '{0}'!".format(label))
