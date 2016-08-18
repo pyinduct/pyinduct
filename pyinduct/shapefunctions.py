@@ -12,7 +12,21 @@ from numbers import Number
 
 
 class LagrangeNthOrder(Function):
-    def __init__(self, order, nodes, left=False, right=False, mid_num=None):
+    """
+    Lagrangian shape function of order :math:`n`.
+
+    Args:
+        order (int): Order of the lagrangian polynom.
+        nodes (numpy.array): Nodes on which the polynom has to be one/zero.
+        left (bool): Set this True if nodes[0] is the left boundary of the cure-interval.
+        right (bool): Set this True if nodes[-1] is the right boundary of the cure-interval.
+        mid_num (int): The polynomials between the boundary-polynomials and the peak-polynomials respectively
+            between peak-polynomials and peak-polynomials are called mid-polynomials. That is the count which
+            mid-polynomial is to be set.
+        boundary (str): Set this one to "left"/"right" in order to get the left/right boundary-polynom.
+    """
+
+    def __init__(self, order, nodes, left=False, right=False, mid_num=None, boundary=None):
 
         if order <= 0:
             raise ValueError("Order must be greater 0.")
@@ -20,25 +34,25 @@ class LagrangeNthOrder(Function):
         if not all(nodes == sorted(nodes)):
             raise ValueError("Nodes must be sorted.")
 
-        if mid_num is not None and mid_num <= 0:
-            raise ValueError
+        if not all([isinstance(item, bool) for item in (left, right)]):
+            raise TypeError("Arguments left and right must be from type bool.")
 
-        kwargs = np.array([left, right, mid_num])
-        if np.sum(kwargs.astype(bool)) > 1:
-            raise ValueError("Only one kwarg can be set.")
-        if any(kwargs) and order + 1 != len(nodes):
-            raise ValueError
-        if not any(kwargs):
-            if order * 2 + 1 != len(nodes):
-                raise ValueError
-            else:
-                is_peak_element = True
-        else:
+        if mid_num is not None and (mid_num <= 0 or mid_num >= order):
+            raise ValueError("There are no elements of this kind at this position (mid_num).")
+
+        if boundary is not None and boundary not in ("left", "right"):
+            raise ValueError("Kwarg 'boundary' can only set to 'left' or 'right'")
+
+        if order * 2 + 1 == len(nodes):
+            is_peak_element = True
+        elif  order + 1 == len(nodes):
             is_peak_element = False
+        else:
+            raise ValueError
 
-        if left:
+        if (left and not is_peak_element and mid_num is None and boundary is None) or boundary == "left":
             poly = self._poly_factory(nodes[1:], nodes[0])
-        elif right:
+        elif (right and not is_peak_element and mid_num is None) or boundary == "right":
             poly = self._poly_factory(nodes[:-1], nodes[-1])
         elif mid_num:
             poly = self._poly_factory(np.hstack((nodes[:mid_num], nodes[mid_num + 1:])), nodes[mid_num])
@@ -48,85 +62,133 @@ class LagrangeNthOrder(Function):
         else:
             raise NotImplementedError
 
-        if any([left, right, mid_num]):
-            Function.__init__(self,
-                              self._func_factory(0, order, nodes, poly=poly),
-                              nonzero=(nodes[0], nodes[-1]),
-                              derivative_handles=[self._func_factory(d_ord, order, nodes, poly=poly)
-                                                  for d_ord in range(1, order + 1)],
-                              vectorial=True)
-        elif is_peak_element:
-            Function.__init__(
-                self,
-                self._func_factory(0, order, nodes, l_poly=left_poly, r_poly=right_poly),
-                nonzero=(nodes[0], nodes[-1]),
-                derivative_handles=[
-                    self._func_factory(d_ord, order, nodes, l_poly=left_poly, r_poly=right_poly)
-                    for d_ord in range(1, order + 1)],
-                vectorial=True)
+        if is_peak_element:
+            funcs = [self._func_factory(d_ord, order, nodes, left, right, l_poly=left_poly, r_poly=right_poly)
+                     for d_ord in range(order + 1)]
+        else:
+            funcs = [self._func_factory(d_ord, order, nodes, left, right, poly=poly) for d_ord in range(order + 1)]
+
+        Function.__init__(self, funcs[0], nonzero=(nodes[0], nodes[-1]), derivative_handles=funcs[1:], vectorial=True)
 
     def _poly_factory(self, zero_nodes, one_node):
         poly = npoly.Polynomial(npoly.polyfromroots(zero_nodes))
         return npoly.Polynomial(poly.coef / poly(one_node))
 
     @staticmethod
-    def _func_factory(der_order, order, nodes, poly=None, r_poly=None, l_poly=None):
+    def _func_factory(der_order, order, nodes, left, right, poly=None, r_poly=None, l_poly=None):
 
-        def clear_up_piecewise(z, res):
-            if isinstance(z, Number):
+        if poly:
+            if der_order == 0 or (left and right):
+                cond_list = lambda z: [np.bitwise_and(nodes[0] <= z, z <= nodes[-1]).flatten()]
+                func_list = [poly.deriv(der_order)]
+            else:
+                if left:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] <= z, z < nodes[-1]).flatten(),
+                                           np.array(z == nodes[-1]).flatten()]
+                elif right:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] < z, z <= nodes[-1]).flatten(),
+                                           np.array(z == nodes[0]).flatten()]
+                else:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] < z, z < nodes[-1]).flatten(),
+                                           np.bitwise_or(nodes[0] == z, z == nodes[-1]).flatten()]
+                func_list = [poly.deriv(der_order), .5 * poly.deriv(der_order)]
+
+        else:
+            if der_order == 0:
+                cond_list = lambda z: [np.bitwise_and(nodes[0] <= z, z <= nodes[order]).flatten(),
+                                       np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
+                func_list = [l_poly, r_poly]
+
+            else:
+                def weighted_comb(z):
+                    return .5 * (l_poly.deriv(der_order)(z) + r_poly.deriv(der_order)(z))
+
+                if left and right:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] <= z, z < nodes[order]).flatten(),
+                                           np.array(nodes[order] == z).flatten(),
+                                           np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
+                    func_list = [l_poly.deriv(der_order), weighted_comb, r_poly.deriv(der_order)]
+
+                elif left:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] <= z, z < nodes[order]).flatten(),
+                                           np.array(nodes[order] == z).flatten(),
+                                           np.bitwise_and(nodes[order] < z, z < nodes[-1]).flatten(),
+                                           np.array(z == nodes[-1]).flatten()]
+                    func_list = [l_poly.deriv(der_order), weighted_comb, r_poly.deriv(der_order),
+                                 .5 * r_poly.deriv(der_order)]
+
+                elif right:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] < z, z < nodes[order]).flatten(),
+                                           np.array(nodes[order] == z).flatten(),
+                                           np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten(),
+                                           np.array(z == nodes[0]).flatten()]
+                    func_list = [l_poly.deriv(der_order), weighted_comb, r_poly.deriv(der_order),
+                                 .5 * l_poly.deriv(der_order)]
+
+                else:
+                    cond_list = lambda z: [np.bitwise_and(nodes[0] < z, z < nodes[order]).flatten(),
+                                           np.array(nodes[order] == z).flatten(),
+                                           np.bitwise_and(nodes[order] < z, z < nodes[-1]).flatten(),
+                                           np.array(z == nodes[0]).flatten(),
+                                           np.array(z == nodes[-1]).flatten()]
+                    func_list = [l_poly.deriv(der_order), weighted_comb, r_poly.deriv(der_order),
+                                 .5 * l_poly.deriv(der_order), .5 * r_poly.deriv(der_order)]
+
+        def function(zz):
+            z = np.array(zz)
+            res = np.piecewise(z, cond_list(z), func_list)
+            if isinstance(zz, Number):
                 return float(res)
             else:
                 return res
-
-        if poly:
-            def function(zz):
-                z = np.array(zz).flatten()
-                cond_list = [np.bitwise_and(nodes[0] <= z, z <= nodes[-1]).flatten()]
-                func_list = [poly.deriv(der_order)]
-                res = np.piecewise(z, cond_list, func_list)
-                return clear_up_piecewise(zz, res)
-
-        else:
-            def function(zz):
-                z = np.array(zz).flatten()
-                if der_order == 0:
-                    cond_list = [np.bitwise_and(nodes[0] <= z, z <= nodes[order]).flatten(),
-                                np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
-                    func_list = [l_poly, r_poly]
-                    res = np.piecewise(z, cond_list, func_list)
-                else:
-                    cond_list = [np.bitwise_and(nodes[0] <= z, z < nodes[order]).flatten(),
-                                np.bitwise_and(nodes[order] < z, z <= nodes[-1]).flatten()]
-                    func_list = [l_poly.deriv(der_order), r_poly.deriv(der_order)]
-                    res = np.piecewise(z, cond_list, func_list)
-                return clear_up_piecewise(zz, res)
 
         return function
 
     @staticmethod
     def cure_hint(domain, **kwargs):
         """
-        Hint function that will cure the given interval with LagrangeFirstOrder.
+        Hint function that will cure the given interval with :py:class:`LagrangeNthOrder`.
+        Length of the domain argument :math:`L` must satisfy the condition
+
+        .. math:: L = 1 + (1 + n) order \\quad \\forall n \\in \\mathbb N.
+
+        E.g.
+        - order = 1: :math:`L \\in \\{2, 3, 4, 5, ...\\}
+        - order = 2: :math:`L \\in \\{3, 5, 7, 9, ...\\}
+        - order = 3: :math:`L \\in \\{4, 7, 10, 13, ...\\}
+        - and so on.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`pyinduct.simulation.Domain`): Domain to be cured.
+            order (int): Order of the lagrange polynomials.
 
         Return:
-            tupel: (domain, funcs), where funcs is set of LagrangeFirstOrder shapefunctions.
+            tupel: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
         """
         order = kwargs["order"]
         nodes = np.array(domain)
-        funcs = np.empty((len(nodes),), dtype=LagrangeNthOrder)
-        funcs[0] = LagrangeNthOrder(order, nodes[: order + 1], left=True)
-        funcs[-1] = LagrangeNthOrder(order, nodes[-(order + 1):], right=True)
+        if not len(nodes) in [(order + 1) + n * order for n in range(len(nodes))]:
+            raise ValueError("See LagrangeNthOrder.cure_hint docstring. "
+                             "There are some restrictions to the length of nodes/domain.")
 
-        for node in nodes[1:-1]:
-            index = np.where(nodes == node)[0][0]
+        funcs = np.empty((len(nodes),), dtype=LagrangeNthOrder)
+        no_peaks = True
+
+        for index in range(1, len(domain) - 1):
             if index % order == 0:
-                funcs[index] = LagrangeNthOrder(order, nodes[index - order:index + order + 1])
+                no_peaks = False
+                left = True if index == order else False
+                right = True if len(nodes) - 1 - index == order else False
+                funcs[index] = LagrangeNthOrder(order, nodes[index - order:index + order + 1], left=left, right=right)
             else:
                 mid_num = index % order
-                funcs[index] = LagrangeNthOrder(order, nodes[index - mid_num: index - mid_num + order], mid_num)
+                left = True if index == mid_num else False
+                right = True if nodes[index] in nodes[-1 - order:-1] else False
+                funcs[index] = LagrangeNthOrder(order, nodes[index - mid_num: index - mid_num + order + 1],
+                                                mid_num=mid_num, left=left, right=right)
+
+        funcs[0] = LagrangeNthOrder(order, nodes[: order + 1], left=True, right=no_peaks, boundary="left")
+        funcs[-1] = LagrangeNthOrder(order, nodes[-(order + 1):], left=no_peaks, right=True, boundary="right")
 
         return domain, funcs
 
