@@ -17,12 +17,18 @@ class LagrangeNthOrder(Function):
 
     Args:
         order (int): Order of the lagrangian polynom.
-        nodes (numpy.array): Nodes on which the polynom has to be one/zero.
+        nodes (numpy.array): Nodes on which the polynom has to be one/zero. Length of nodes must
+            be either :math:`order * 2 + 1` (for peak-polynomials) or 'order +1' (for boundary- and
+            mid-polynomials).
         left (bool): Set this True if nodes[0] is the left boundary of the cure-interval.
         right (bool): Set this True if nodes[-1] is the right boundary of the cure-interval.
-        mid_num (int): The polynomials between the boundary-polynomials and the peak-polynomials respectively
-            between peak-polynomials and peak-polynomials are called mid-polynomials. That is the count which
-            mid-polynomial is to be set.
+        mid_num (int): Only for order >= 2.
+
+            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}
+
+            The polynomials between the boundary-polynomials and the peak-polynomials, respectively
+            between peak-polynomials and peak-polynomials, are called mid-polynomials. That is the (local)
+            count which mid-polynomial is to be set.
         boundary (str): Set this one to "left"/"right" in order to get the left/right boundary-polynom.
     """
 
@@ -45,10 +51,10 @@ class LagrangeNthOrder(Function):
 
         if order * 2 + 1 == len(nodes):
             is_peak_element = True
-        elif  order + 1 == len(nodes):
+        elif order + 1 == len(nodes):
             is_peak_element = False
         else:
-            raise ValueError
+            raise ValueError("Length of nodes must be either 'order * 2 + 1' or 'order +1'.")
 
         if (left and not is_peak_element and mid_num is None and boundary is None) or boundary == "left":
             poly = self._poly_factory(nodes[1:], nodes[0])
@@ -433,122 +439,6 @@ class LagrangeSecondOrder(Function):
                                                  )
 
         return domain, funcs
-
-    '''
-    def __init__(self, start, top, end, max_element_length):
-        self._element_length = end - start
-        if not start <= top <= end or start == end or (
-            not np.isclose(self._element_length, max_element_length) and not np.isclose(self._element_length,
-                                                                                        max_element_length / 2)):
-            raise ValueError("Input data is nonsense, see Definition.")
-
-        self._start = start
-        self.top = top
-        self._end = end
-        self._e_2 = max_element_length / 4
-
-        if start == top:
-            self._gen_left_top_poly()
-            Function.__init__(self, self._lagrange2nd_border_left, nonzero=(start, end),
-                              derivative_handles=[self._der_lagrange2nd_border_left,
-                                                  self._dder_lagrange2nd_border_left])
-        elif top == end:
-            self._gen_right_top_poly()
-            Function.__init__(self, self._lagrange2nd_border_right, nonzero=(start, end),
-                              derivative_handles=[self._der_lagrange2nd_border_right,
-                                                  self._dder_lagrange2nd_border_right])
-        elif np.isclose(end - start, max_element_length):
-            self._gen_left_top_poly()
-            self._gen_right_top_poly()
-            Function.__init__(self, self._lagrange2nd_interior, nonzero=(start, end),
-                              derivative_handles=[self._der_lagrange2nd_interior,
-                                                  self._dder_lagrange2nd_interior])
-        elif np.isclose(end - start, max_element_length / 2):
-            self._gen_mid_top_poly()
-            Function.__init__(self, self._lagrange2nd_interior_half, nonzero=(start, end),
-                              derivative_handles=[self._der_lagrange2nd_interior_half,
-                                                  self._dder_lagrange2nd_interior_half])
-        else:
-            raise ValueError("Following arguments do not meet the specs from LagrangeSecondOrder: start, end")
-
-
-
-    def _gen_left_top_poly(self):
-        left_top_poly = npoly.Polynomial(npoly.polyfromroots((self._e_2, 2 * self._e_2)))
-        self._left_top_poly = npoly.Polynomial(left_top_poly.coef / left_top_poly(0))
-
-    def _gen_right_top_poly(self):
-        right_top_poly = npoly.Polynomial(npoly.polyfromroots((0, self._e_2)))
-        self._right_top_poly = npoly.Polynomial(right_top_poly.coef / right_top_poly(2 * self._e_2))
-
-    def _gen_mid_top_poly(self):
-        mid_top_poly = npoly.Polynomial(npoly.polyfromroots((0, 2 * self._e_2)))
-        self._mid_top_poly = npoly.Polynomial(mid_top_poly.coef / mid_top_poly(self._e_2))
-
-    def _lagrange2nd_border_left(self, z, der_order=0):
-        """
-        left border equation for lagrange 2nd order
-        """
-        if z < self.top or z > self._end:
-            return 0
-        else:
-            return self._left_top_poly.deriv(der_order)(z)
-
-    def _lagrange2nd_border_right(self, z, der_order=0):
-        """
-        right border equation for lagrange 2nd order
-        """
-        if z < self._start or z > self._end:
-            return 0
-        else:
-            return self._right_top_poly.deriv(der_order)(z - self._start)
-
-    def _lagrange2nd_interior(self, z, der_order=0):
-        """
-        wide (d) interior equations for lagrange 2nd order
-        """
-        if z < self._start or z > self._end:
-            return 0
-        elif z == self.top and der_order > 0:
-            return 0
-        elif self._start <= z <= self.top:
-            return self._right_top_poly.deriv(der_order)(z - self._start)
-        else:
-            return self._left_top_poly.deriv(der_order)(z - self.top)
-
-    def _lagrange2nd_interior_half(self, z, der_order=0):
-        """
-        small (d/2) interior equations for lagrange 2nd order
-        """
-        if z < self._start or z > self._end:
-            return 0
-        else:
-            return self._mid_top_poly.deriv(der_order)(z - self._start)
-
-    def _der_lagrange2nd_border_left(self, z):
-        return self._lagrange2nd_border_left(z, der_order=1)
-
-    def _der_lagrange2nd_border_right(self, z):
-        return self._lagrange2nd_border_right(z, der_order=1)
-
-    def _der_lagrange2nd_interior(self, z):
-        return self._lagrange2nd_interior(z, der_order=1)
-
-    def _der_lagrange2nd_interior_half(self, z):
-        return self._lagrange2nd_interior_half(z, der_order=1)
-
-    def _dder_lagrange2nd_border_left(self, z):
-        return self._lagrange2nd_border_left(z, der_order=2)
-
-    def _dder_lagrange2nd_border_right(self, z):
-        return self._lagrange2nd_border_right(z, der_order=2)
-
-    def _dder_lagrange2nd_interior(self, z):
-        return self._lagrange2nd_interior(z, der_order=2)
-
-    def _dder_lagrange2nd_interior_half(self, z):
-        return self._lagrange2nd_interior_half(z, der_order=2)
-    '''
 
 
 def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None, **kwargs):
