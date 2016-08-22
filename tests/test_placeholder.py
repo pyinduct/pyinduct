@@ -80,6 +80,52 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual(7, b.location)
         self.assertEqual(10, b.data["exponent"])
 
+    def test_call_factory(self):
+        a = ph.FieldVariable("test_funcs")
+        b = a(1)
+        self.assertEqual("test_funcs", b.data["weight_lbl"])  # default weight label is function label
+        self.assertEqual(1, b.location)
+        self.assertTrue(isinstance(b, ph.FieldVariable))
+        self.assertTrue(a != b)
+
+    def test_derive_factory(self):
+        a = ph.FieldVariable("test_funcs")
+        b = a(1).derive_spat(1)
+        self.assertEqual("test_funcs", b.data["weight_lbl"])  # default weight label is function label
+        self.assertEqual(1, b.location)
+        self.assertEqual(1, b.order[1])
+        c = b.derive_spat(1)
+        self.assertEqual(2, c.order[1])
+        self.assertTrue(isinstance(b, ph.FieldVariable))
+        self.assertTrue(a != b)
+        self.assertTrue(a.order[0] == b.order[0] == c.order[0])
+        self.assertTrue(a.order[1] != b.order[1] != c.order[1])
+
+class TestFunctionTest(unittest.TestCase):
+    def setUp(self):
+        nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
+        register_base("test_funcs", ini_funcs, overwrite=True)
+
+    def test_call_factory(self):
+        a = ph.TestFunction("test_funcs")
+        b = a(1)
+        self.assertEqual("test_funcs", b.data["func_lbl"])
+        self.assertEqual(1, b.location)
+        self.assertTrue(isinstance(b, ph.TestFunction))
+        self.assertTrue(a != b)
+
+    def test_derive_factory(self):
+        a = ph.TestFunction("test_funcs")
+        b = a(1).derive(1)
+        self.assertEqual("test_funcs", b.data["func_lbl"])
+        self.assertEqual(1, b.location)
+        self.assertEqual(1, b.order[1])
+        c = b.derive(1)
+        self.assertEqual(2, c.order[1])
+        self.assertTrue(isinstance(b, ph.TestFunction))
+        self.assertTrue(a != b)
+        self.assertTrue(a.order[1] != b.order[1] != c.order[1])
+
 
 class ProductTest(unittest.TestCase):
     def scale(self, z):
@@ -149,6 +195,7 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p1.get_arg_by_class(ph.TestFunction), [self.test_funcs])
         self.assertEqual(p2.get_arg_by_class(ph.TestFunction), [self.test_funcs])
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
+
 
 
 class EquationTermsTest(unittest.TestCase):

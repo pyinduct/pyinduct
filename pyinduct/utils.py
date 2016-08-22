@@ -332,9 +332,9 @@ def scale_equation_term_list(eqt_list, factor):
     Return a scaled copy of eqt_list.
 
     Args:
-        eqt_list (:py:class:`pyinduct.placeholder.EquationTerm`):
-            List of EquationTerm's: [scalar_term_1, integral_term_1, ....]
-        factor (scalar): Scale factor.
+        eqt_list (list):
+            List  of :py:class:`pyinduct.placeholder.EquationTerm`'s
+        factor (numbers.Number): Scale factor.
 
     Return:
         Scaled list of :py:class:`pyinduct.placeholder.EquationTerm`'s (eqt_list).

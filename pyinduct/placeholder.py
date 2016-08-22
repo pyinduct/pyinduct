@@ -108,6 +108,33 @@ class TestFunction(Placeholder):
 
         Placeholder.__init__(self, {"func_lbl": function_label}, order=(0, order), location=location)
 
+    def __call__(self, location):
+        """
+        Factory method which provide an instance with the same properties at the desired :code:`location`.
+
+        Args:
+            location: Location to be set.
+
+        Returns:
+            New :py:class:`TestFunction` instance at the desired location.
+        """
+        return TestFunction(self.data["func_lbl"], order=self.order[1], location=location)
+
+    def derive(self, order):
+        """
+        Factory method which provide an instance with the same properties and the desired derivative order.
+
+        Note:
+            The desired derivative order :code:`order` is added to the original order.
+
+        Args:
+            order: Derivative order to be set.
+
+        Returns:
+            New :py:class:`TestFunction` instance with the desired derivative order.
+        """
+        return TestFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
+
 
 class FieldVariable(Placeholder):
     """
@@ -165,6 +192,53 @@ class FieldVariable(Placeholder):
 
         Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
                              order=order, location=location)
+
+    def __call__(self, location):
+        """
+        Factory method which provide an instance with the same properties at the desired :code:`location`.
+
+        Args:
+            location: Location to be set.
+
+        Returns:
+            New :py:class:`FieldVariable` instance at the desired location.
+        """
+        return FieldVariable(self.data["func_lbl"], order=self.order, weight_label=self.data["weight_lbl"],
+                             location=location, exponent=self.data["exponent"])
+
+    def derive_spat(self, spat_order):
+        """
+        Factory method which provide an instance with the same properties and the desired spatial derivative.
+
+        Note:
+            The desired derivative order :code:`spat_order` is added to the original spatial order.
+
+        Args:
+            spat_order: Spatial derivative order to be set.
+
+        Returns:
+            New :py:class:`FieldVariable` instance with the desired spatial derivative order.
+        """
+        return FieldVariable(self.data["func_lbl"], order=(self.order[0], self.order[1] + spat_order),
+                             weight_label=self.data["weight_lbl"],
+                             location=self.location, exponent=self.data["exponent"])
+
+    def derive_temp(self, temp_order):
+        """
+        Factory method which provide an instance with the same properties and the desired temporal derivative.
+
+        Note:
+            The desired derivative order :code:`temp_order` is added to the original temporal order.
+
+        Args:
+            temp_order: Temporal derivative order to be set.
+
+        Returns:
+            New :py:class:`FieldVariable` instance with the desired temporal derivative order.
+        """
+        return FieldVariable(self.data["func_lbl"], order=(self.order[0] + temp_order, self.order[1]),
+                             weight_label=self.data["weight_lbl"],
+                             location=self.location, exponent=self.data["exponent"])
 
 
 class TemporalDerivedFieldVariable(FieldVariable):
@@ -338,7 +412,7 @@ class IntegralTerm(EquationTerm):
 
     Args:
         integrand:
-        limits:
+        limits (tuple):
         scale:
     """
 
