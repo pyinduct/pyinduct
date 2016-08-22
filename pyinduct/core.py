@@ -74,7 +74,7 @@ class BaseFraction(object, metaclass=ABCMeta):
 
         Overwrite this Method in your implementation to support conversion between bases that differ from yours.
 
-        This implementation will cover the most basic case, where to two :py:class:`BaseFraction`'s are of same type.
+        This implementation will cover the most basic case, where to two :py:class:`BaseFraction`s are of same type.
         For any other case it will raise an exception.
 
         Args:

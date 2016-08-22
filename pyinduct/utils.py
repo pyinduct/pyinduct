@@ -333,7 +333,7 @@ def scale_equation_term_list(eqt_list, factor):
 
     Args:
         eqt_list (list):
-            List  of :py:class:`pyinduct.placeholder.EquationTerm`'s
+            List  of :py:class:`pyinduct.placeholder.EquationTerm`s
         factor (numbers.Number): Scale factor.
 
     Return:

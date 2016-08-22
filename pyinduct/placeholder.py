@@ -74,7 +74,7 @@ class ScalarFunction(Placeholder):
 
     def __call__(self, location):
         """
-        Factory method which provide an instance with the same properties at the desired :code:`location`.
+        Factory method which provides an instance with the same properties at the desired :code:`location`.
 
         Args:
             location: Location to be set.
@@ -86,7 +86,7 @@ class ScalarFunction(Placeholder):
 
     def derive(self, order):
         """
-        Factory method which provide an instance with the same properties and the desired derivative order.
+        Factory method which provides an instance with the same properties and the desired derivative order.
 
         Note:
             The desired derivative order :code:`order` is added to the original order.
@@ -137,7 +137,7 @@ class TestFunction(Placeholder):
 
     def __call__(self, location):
         """
-        Factory method which provide an instance with the same properties at the desired :code:`location`.
+        Factory method which provides an instance with the same properties at the desired :code:`location`.
 
         Args:
             location: Location to be set.
@@ -149,7 +149,7 @@ class TestFunction(Placeholder):
 
     def derive(self, order):
         """
-        Factory method which provide an instance with the same properties and the desired derivative order.
+        Factory method which provides an instance with the same properties and the desired derivative order.
 
         Note:
             The desired derivative order :code:`order` is added to the original order.
@@ -222,7 +222,7 @@ class FieldVariable(Placeholder):
 
     def __call__(self, location):
         """
-        Factory method which provide an instance with the same properties at the desired :code:`location`.
+        Factory method which provides an instance with the same properties at the desired :code:`location`.
 
         Args:
             location: Location to be set.
@@ -235,7 +235,7 @@ class FieldVariable(Placeholder):
 
     def derive_spat(self, spat_order):
         """
-        Factory method which provide an instance with the same properties and the desired spatial derivative.
+        Factory method which provides an instance with the same properties and the desired spatial derivative.
 
         Note:
             The desired derivative order :code:`spat_order` is added to the original spatial order.
@@ -252,7 +252,7 @@ class FieldVariable(Placeholder):
 
     def derive_temp(self, temp_order):
         """
-        Factory method which provide an instance with the same properties and the desired temporal derivative.
+        Factory method which provides an instance with the same properties and the desired temporal derivative.
 
         Note:
             The desired derivative order :code:`temp_order` is added to the original temporal order.
