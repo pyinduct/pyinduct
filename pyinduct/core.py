@@ -167,7 +167,8 @@ class Function(BaseFraction):
             domain: Domain on which the eval_handle is defined.
             nonzero: Region in which the eval_handle will give nonzero output.
             derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
-            vectorial: indicates whether eval_handle take vectorial or scalar input
+            vectorial: Indicates whether eval_handle take vectorial or scalar input. Attention: The eval_handle and ALL
+                derivative_handles must be callable by vectorial input.
         """
         BaseFraction.__init__(self, self)
 
@@ -276,14 +277,17 @@ class Function(BaseFraction):
             return _raised_func
 
         return Function(raise_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                        derivative_handles=[])
+                        derivative_handles=[], vectorial=self.vectorial)
 
-    def scale(self, factor):
+    def scale(self, factor, vectorial=False):
         """
         Factory method to scale this function.
 
         Args:
-            factor : Number or a callable.
+            factor: Number or a callable.
+            vectorial: If factor is a callable and it can called by numpy.array's set it True (to gain speed). If factor
+                is a scalar it will ignored. The "vectorial" propertie of the resulting :py:class:`Function` will be
+                derived from the original  :py:class:`Function`.
         """
         if factor == 1:
             return self
@@ -298,10 +302,12 @@ class Function(BaseFraction):
             return _scaled_func
 
         if isinstance(factor, collections.Callable):
-            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero)
+            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
+                              vectorial=vectorial)
         else:
             scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                              derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
+                              derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles],
+                              vectorial=self.vectorial)
         return scaled
 
     def _check_domain(self, value):
@@ -359,7 +365,7 @@ class Function(BaseFraction):
             raise ValueError("function cannot be differentiated that often.")
 
         derivative = Function(self._derivative_handles[order - 1], domain=self.domain, nonzero=self.nonzero,
-                              derivative_handles=self._derivative_handles[order:])
+                              derivative_handles=self._derivative_handles[order:], vectorial=self.vectorial)
         return derivative
 
 
