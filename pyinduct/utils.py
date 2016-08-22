@@ -328,16 +328,16 @@ def get_inn_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
 
 def scale_equation_term_list(eqt_list, factor):
     """
-    Temporary function, as long pyinduct.placeholder.EquationTerm can only be scaled individually.
+    Temporary function, as long :py:class:`pyinduct.placeholder.EquationTerm` can only be scaled individually.
     Return a scaled copy of eqt_list.
 
     Args:
         eqt_list (list):
-            List  of :py:class:`pyinduct.placeholder.EquationTerm`s
+            List  of :py:class:`pyinduct.placeholder.EquationTerm` s
         factor (numbers.Number): Scale factor.
 
     Return:
-        Scaled list of :py:class:`pyinduct.placeholder.EquationTerm`'s (eqt_list).
+        Scaled copy of :py:class:`pyinduct.placeholder.EquationTerm` s (eqt_list).
     """
     if not isinstance(eqt_list, list):
         raise TypeError
