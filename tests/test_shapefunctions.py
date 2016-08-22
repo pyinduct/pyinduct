@@ -203,10 +203,10 @@ class SpeedTest(unittest.TestCase):
                 for idx, func in enumerate(impl[headline]["funcs"]):
                     dummy = func.derive(der_order)(z)
                 impl[headline]["f_time"].append(time.time() - _t)
-                print("derivative {}: {} s".format(der_order, impl[headline]["f_time"][der_order]))
+                print("\tderivative {}: {} s".format(der_order, impl[headline]["f_time"][der_order]))
         print("\nDifference")
         for der_order, _ in enumerate(impl[headlines[0]]["f_time"]):
-            print("derivative {}: {} s".format(der_order, impl[headlines[1]]["f_time"][der_order] -
+            print("\tderivative {}: {} s".format(der_order, impl[headlines[1]]["f_time"][der_order] -
                                                   impl[headlines[0]]["f_time"][der_order]))
 
     def t_implementation(self, headline):

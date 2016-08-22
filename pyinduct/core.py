@@ -256,16 +256,16 @@ class Function(BaseFraction):
 
     def raise_to(self, power):
         """
-        Raises the function to the power given by *power*
+        Raises the function to the power given by *power*.
 
         Note:
             Derivatives are lost after this action is performed.
 
         Args:
-            power (numbers.Number): power to raise the function to
+            power (numbers.Number): Power to raise the function to.
 
         Return:
-            raised function
+            Raised :py:class:`Function`.
         """
         if power == 1:
             return self
