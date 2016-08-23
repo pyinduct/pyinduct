@@ -8,7 +8,6 @@ import numpy as np
 import numpy.polynomial.polynomial as npoly
 from .core import Function
 from .simulation import Domain
-from numbers import Number
 
 
 class LagrangeNthOrder(Function):
@@ -141,12 +140,12 @@ class LagrangeNthOrder(Function):
                                  .5 * l_poly.deriv(der_order), .5 * r_poly.deriv(der_order)]
 
         def function(zz):
-            z = np.array(zz)
+            z = np.array(zz, dtype=np.float_)
             res = np.piecewise(z, cond_list(z), func_list)
-            if isinstance(zz, Number):
-                return float(res)
+            if np.ndim(zz) == 0:
+                return np.float_(res)
             else:
-                return res
+                return res.flatten()
 
         return function
 
