@@ -66,20 +66,56 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(TypeError, core.Function, wrong_handle)
 
     def test_derivation(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin], vectorial=True)
+
+        # be robust to meaningless input
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
         self.assertRaises(ValueError, f.derive, 3)  # unknown derivative
+        self.assertRaises(ValueError, f.derive, 100)  # unknown derivative
 
+        # zeroth derivative should return the function itself
         d0 = f.derive(0)
         self.assertEqual(f, d0)
 
-        d1 = f.derive()  # default arg should be one
-        self.assertTrue(np.array_equal(d1._function_handle(list(range(10))), np.cos(list(range(10)))))
+        d_default = f.derive()
 
-        d2 = f.derive(2)
-        self.assertTrue(np.array_equal(d2._function_handle(list(range(10))), np.sin(list(range(10)))))
+        # default arg should be one
+        d1 = f.derive()
+        d_default.__dict__.pop("members")
+        d1.__dict__.pop("members")
+        self.assertEqual(d_default.__dict__, d1.__dict__)
 
-        self.assertRaises(ValueError, d2.derive, 1)  # unknown derivative
+        # derivatives should change
+        p_func = d1.__dict__.pop("_function_handle")
+        self.assertEqual(p_func, np.cos)
+
+        # list of handles should get shorter
+        p_deriv = d1.__dict__.pop("_derivative_handles")
+        self.assertEqual(p_deriv, [np.sin])
+
+        # rest should stay the same
+        f.__dict__.pop("_function_handle")
+        f.__dict__.pop("_derivative_handles")
+        f.__dict__.pop("members")
+        self.assertEqual(d1.__dict__, f.__dict__)
+
+        f_2 = core.Function(np.sin, derivative_handles=[np.cos, np.sin], vectorial=True)
+        d2 = f_2.derive(2)
+
+        # derivatives should change
+        p_func = d2.__dict__.pop("_function_handle")
+        self.assertEqual(p_func, np.sin)
+
+        # list of handles should get shorter
+        p_deriv = d2.__dict__.pop("_derivative_handles")
+        self.assertEqual(p_deriv, [])
+
+        # rest should stay the same
+        f_2.__dict__.pop("_function_handle")
+        f_2.__dict__.pop("_derivative_handles")
+        f_2.__dict__.pop("members")
+        d2.__dict__.pop("members")
+        self.assertEqual(d2.__dict__, f_2.__dict__)
 
     def test_scale(self):
         f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])

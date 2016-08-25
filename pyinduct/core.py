@@ -3,7 +3,7 @@ In the Core module you can find all basic classes and functions which form the b
 """
 
 from abc import ABCMeta, abstractmethod
-from copy import copy
+from copy import copy, deepcopy
 from numbers import Number
 import numpy as np
 from scipy import integrate
@@ -164,13 +164,14 @@ class Function(BaseFraction):
             domain: Domain on which the eval_handle is defined.
             nonzero: Region in which the eval_handle will give nonzero output.
             derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
-            vectorial: indicates whether eval_handle takes vectorial or scalar input
+            vectorial: indicates whether eval_handle takes vectorial or scalar input TODO remove this
         """
-        BaseFraction.__init__(self, self)
+        super().__init__(self)
+        self._vectorial = False
+        self._function_handle = None
+        self._derivative_handles = None
 
         # domain and nonzero area
-        if derivative_handles is None:
-            derivative_handles = []
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
             if not isinstance(val, list):
                 if isinstance(val, tuple):
@@ -179,29 +180,207 @@ class Function(BaseFraction):
                     raise TypeError("List of tuples has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
+        self.function_handle = eval_handle
+        self.derivative_handles = derivative_handles
+
+    @property
+    def derivative_handles(self):
+        return self._derivative_handles
+
+    @derivative_handles.setter
+    def derivative_handles(self, eval_handle_derivatives):
+        if eval_handle_derivatives is None:
+            eval_handle_derivatives = []
+        if not isinstance(eval_handle_derivatives, collections.Iterable):
+            eval_handle_derivatives = [eval_handle_derivatives]
+        for der_handle in eval_handle_derivatives:
+            if not isinstance(der_handle, collections.Callable):
+                raise TypeError("derivative_handles must be callable")
+        self._derivative_handles = eval_handle_derivatives
+
+    @property
+    def function_handle(self):
+        return self._function_handle
+
+    @function_handle.setter
+    def function_handle(self, eval_handle):
         # handle must be callable
         if not isinstance(eval_handle, collections.Callable):
             raise TypeError("callable has to be provided as function_handle")
-        # if isinstance(eval_handle, Function):
-        #     raise TypeError("Function cannot be initialized with Function!")
 
         # handle must return scalar when called with scalar
-        testval = self.domain[0][1]
-        if testval is np.inf:
-            testval = 1
-        if not isinstance(eval_handle(testval), Number):
+        test_value = self.domain[0][1]
+        if test_value is np.inf:
+            test_value = 1
+        if not isinstance(eval_handle(test_value), Number):
             raise TypeError("callable must return number when called with scalar")
-        if vectorial:
-            if not isinstance(eval_handle(np.array([testval] * 10)), np.ndarray):
-                raise TypeError("callable must return np.ndarray when called with vector")
-        self._function_handle = eval_handle
-        self.vectorial = vectorial
 
-        # derivatives
-        for der_handle in derivative_handles:
-            if not isinstance(der_handle, collections.Callable):
-                raise TypeError("callable has to be provided as member of derivative_handles")
-        self._derivative_handles = derivative_handles
+        # test vectorial input
+        test_data = np.array([test_value] * 10)
+        try:
+            res = eval_handle(test_data)
+        except BaseException as e:
+            # looks like the function does _not_ handle vectorial input
+            self._function_handle = eval_handle
+            self._vectorial = False
+            return
+
+        if not isinstance(res, np.ndarray):
+            raise TypeError("callable must return np.ndarray when called with vector")
+        if res.shape != test_data.shape:
+            raise TypeError("result of call with vector must be of same shape")
+
+        self._vectorial = True
+        self._function_handle = eval_handle
+
+    def _check_domain(self, values):
+        """
+        Checks if values fit into domain.
+
+        Args:
+            values (array_like): Point(s) where function shall be evaluated.
+
+        Raises:
+            ValueError: If values exceed the domain.
+        """
+        # in_domain = False
+        values = np.atleast_1d(values)
+        for interval in self.domain:
+            if any(values < interval[0]) or any(values > interval[1]):
+                raise ValueError("Function evaluated outside it's domain with {}".format(values))
+
+            # if all(value >= interval[0]) and all(value <= interval[1]):
+            #     in_domain = True
+            #     break
+
+        # if not in_domain:
+        #     raise ValueError("Function evaluated outside its domain!")
+
+    def __call__(self, argument):
+        """
+        Handle that is used to evaluate the function on a given point.
+
+        Args:
+            argument: Function parameter
+
+        Return:
+            function value
+        """
+        self._check_domain(argument)
+        if self._vectorial:
+            return self._function_handle(argument)
+        else:
+            try:
+                ret_val = []
+                for arg in argument:
+                    ret_val.append(self._function_handle(arg))
+
+                return np.array(ret_val)
+            except TypeError as e:
+                return self._function_handle(argument)
+
+    def get_member(self, idx):
+        """
+        Implementation of the abstract parent method.
+
+        Since the :py:class:`Function` has only one member (itself) the parameter *idx* is ingored and *self* is
+        returned.
+
+        Args:
+            idx: ignored.
+
+        Return:
+            self
+        """
+        return self
+
+    def raise_to(self, power):
+        """
+        Raises the function to the given *power*.
+
+        Warning:
+            Derivatives are lost after this action is performed.
+
+        Args:
+            power (:obj:`numbers.Number`): power to raise the function to
+
+        Return:
+            raised function
+        """
+        if power == 1:
+            return self
+
+        def raise_factory(func):
+            def _raised_func(z):
+                return np.power(func(z), power)
+
+            return _raised_func
+
+        new_obj = deepcopy(self)
+        new_obj.derivative_handles = None
+        new_obj.function_handle = raise_factory(self.function_handle)
+        return new_obj
+
+    def scale(self, factor):
+        """
+        Factory method to scale a :py:class:`pyinduct.core.Function`.
+
+        Args:
+            factor : :obj:`numbers.Number` or a callable.
+        """
+        if factor == 1:
+            return self
+
+        def scale_factory(func):
+            def _scaled_func(z):
+                if isinstance(factor, collections.Callable):
+                    return factor(z) * func(z)
+                else:
+                    return factor * func(z)
+
+            return _scaled_func
+
+        new_obj = deepcopy(self)
+        if isinstance(factor, collections.Callable):
+            # derivatives are lost
+            new_obj.derivative_handles = None
+            new_obj.function_handle = scale_factory(self._function_handle)
+        else:
+            # derivatives can be scaled
+            new_obj.derivative_handles = [scale_factory(der_handle) for der_handle in self.derivative_handles]
+            new_obj.function_handle = scale_factory(self._function_handle)
+
+        return new_obj
+
+    def derive(self, order=1):
+        """
+        Spatially derive this :py:class:`Function`.
+
+        This is done by neglecting *order* derivative handles and to select handle :math:`\\text{order} - 1` as the new
+        evaluation_handle.
+
+        Args:
+            order (int): the amount of derivations to perform
+
+        Raises:
+            TypeError: If *order* is not of type int.
+            ValueError: If the requested derivative order is higher than the provided one.
+
+        Returns:
+            :py:class:`Function` the derived function.
+
+        """
+        if not isinstance(order, int):
+            raise TypeError("only integer allowed as derivation order")
+        if order == 0:
+            return self
+        if order < 0 or order > len(self.derivative_handles):
+            raise ValueError("function cannot be differentiated that often.")
+
+        new_obj = deepcopy(self)
+        new_obj.derivative_handles = self.derivative_handles[order-1:]
+        new_obj.function_handle = new_obj.derivative_handles.pop(0)
+        return new_obj
 
     def evaluation_hint(self, values):
         """
@@ -250,130 +429,6 @@ class Function(BaseFraction):
         Return the hint that the :py:func:`pyinduct.core.dot_product_l2` has to calculated to gain the scalar product.
         """
         return [dot_product_l2]
-
-    def get_member(self, idx):
-        """
-        Implementation of the abstract parent method.
-
-        Since the :py:class:`Function` has only one member (itself) the parameter *idx* is ingored and *self* is
-        returned.
-
-        Args:
-            idx: ignored.
-
-        Return:
-            self
-        """
-        return self
-
-    def raise_to(self, power):
-        """
-        Raises the function to the given *power*.
-
-        Warning:
-            Derivatives are lost after this action is performed.
-
-        Args:
-            power (:obj:`numbers.Number`): power to raise the function to
-
-        Return:
-            raised function
-        """
-        if power == 1:
-            return self
-
-        def raise_factory(func):
-            def _raised_func(z):
-                return np.power(func(z), power)
-
-            return _raised_func
-
-        return Function(raise_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                        derivative_handles=[])
-
-    def scale(self, factor):
-        """
-        Factory method to scale a :py:class:`pyinduct.core.Function`.
-
-        Args:
-            factor : :obj:`numbers.Number` or a callable.
-        """
-        if factor == 1:
-            return self
-
-        def scale_factory(func):
-            def _scaled_func(z):
-                if isinstance(factor, collections.Callable):
-                    return factor(z) * func(z)
-                else:
-                    return factor * func(z)
-
-            return _scaled_func
-
-        if isinstance(factor, collections.Callable):
-            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero)
-        else:
-            scaled = Function(scale_factory(self._function_handle), domain=self.domain, nonzero=self.nonzero,
-                              derivative_handles=[scale_factory(der_handle) for der_handle in self._derivative_handles])
-        return scaled
-
-    def _check_domain(self, value):
-        """
-        Checks if value fits into domain.
-
-        Args:
-            value (array_like): Point(s) where function shall be evaluated.
-
-        Raises:
-            ValueError: If value not in domain.
-        """
-        in_domain = False
-        value = np.atleast_1d(value)
-        for interval in self.domain:
-            if all(value >= interval[0]) and all(value <= interval[1]):
-                in_domain = True
-                break
-
-        if not in_domain:
-            raise ValueError("Function evaluated outside its domain!")
-
-    def __call__(self, argument):
-        """
-        Handle that is used to evaluate the function on a given point.
-
-        Args:
-            argument: function parameter
-
-        Return:
-            function value
-        """
-        self._check_domain(argument)
-        if self.vectorial:
-            return self._function_handle(argument)
-        else:
-            try:
-                ret_val = []
-                for arg in argument:
-                    ret_val.append(self._function_handle(arg))
-
-                return np.array(ret_val)
-            except TypeError as e:
-                return self._function_handle(argument)
-
-    def derive(self, order=1):
-        """
-        Factory method that is used to evaluate the spatial derivative of this function.
-        """
-        if not isinstance(order, int):
-            raise TypeError("only integer allowed as derivation order")
-        if order == 0:
-            return self
-        if order < 0 or order > len(self._derivative_handles):
-            raise ValueError("function cannot be differentiated that often.")
-
-        derivative = Function(self._derivative_handles[order - 1], domain=self.domain, nonzero=self.nonzero,
-                              derivative_handles=self._derivative_handles[order:])
-        return derivative
 
 
 class ComposedFunctionVector(BaseFraction):
