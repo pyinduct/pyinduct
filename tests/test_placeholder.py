@@ -52,6 +52,17 @@ class TestPlaceHolder(unittest.TestCase):
         self.assertEquals(o2, (2, 2))
         self.assertEquals(p.__dict__, p_dt.__dict__)
 
+    def locate_test(self):
+        p = ph.Placeholder(self.data, (1, 2), location=None)
+        p_at_10 = p(10)
+
+        # location p_at_10 should be changed, rest should stay as is
+        o1 = p.__dict__.pop("location")
+        o2 = p_at_10.__dict__.pop("location")
+        self.assertEquals(o1, None)
+        self.assertEquals(o2, 10)
+        self.assertEquals(p.__dict__, p_at_10.__dict__)
+
 
 class TestCommonTarget(unittest.TestCase):
     def test_call(self):

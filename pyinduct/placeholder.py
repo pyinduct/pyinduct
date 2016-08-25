@@ -21,6 +21,10 @@ class Placeholder(object):
         data (arbitrary): data to store in the placeholder.
         order (tuple): (temporal_order, spatial_order) derivative orders  that are to be applied before evaluation.
         location (numbers.Number): Location to evaluate at before further computation.
+
+    Todo:
+        convert order and location into attributes with setter and getter methods. This will close the gap of unchecked
+        values for order and location that can be sneaked in by the copy constructors by circumventing code doubling.
     """
 
     def __init__(self, data, order=(0, 0), location=None):
@@ -47,10 +51,24 @@ class Placeholder(object):
             spat_order: Spatial derivative order to be added.
 
         Returns:
-            New :py:class:`TestFunction` instance with the desired derivative order.
+            New :py:class:`Placeholder` instance with the desired derivative order.
         """
         new_obj = copy.deepcopy(self)
         new_obj.order = tuple(der + a for der, a in zip(self.order, (temp_order, spat_order)))
+        return new_obj
+
+    def __call__(self, location):
+        """
+        Mimics a copy constructor and adds the given location for spatial evaluation.
+
+        Args:
+            location: Spatial Location to be set.
+
+        Returns:
+            New :py:class:`Placeholder` instance with the desired location.
+        """
+        new_obj = copy.deepcopy(self)
+        new_obj.location = location
         return new_obj
 
 
@@ -103,18 +121,6 @@ class ScalarFunction(SpatialPlaceholder):
 
         super().__init__({"func_lbl": function_label}, order=order, location=location)
 
-    def __call__(self, location):
-        """
-        Factory method which provides an instance with the same properties at the desired :code:`location`.
-
-        Args:
-            location: Location to be set.
-
-        Returns:
-            New :py:class:`ScalarFunction` instance at the desired location.
-        """
-        return ScalarFunction(self.data["func_lbl"], order=self.order[1], location=location)
-
 
 class Input(Placeholder):
     """
@@ -150,18 +156,6 @@ class TestFunction(SpatialPlaceholder):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
         super().__init__({"func_lbl": function_label}, order, location=location)
-
-    def __call__(self, location):
-        """
-        Factory method which provides an instance with the same properties at the desired :code:`location`.
-
-        Args:
-            location: Location to be set.
-
-        Returns:
-            New :py:class:`TestFunction` instance at the desired location.
-        """
-        return TestFunction(self.data["func_lbl"], order=self.order[1], location=location)
 
 
 class FieldVariable(Placeholder):
@@ -220,19 +214,6 @@ class FieldVariable(Placeholder):
 
         super().__init__({"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
                          order=order, location=location)
-
-    def __call__(self, location):
-        """
-        Factory method which provides an instance with the same properties at the desired :code:`location`.
-
-        Args:
-            location: Location to be set.
-
-        Returns:
-            New :py:class:`FieldVariable` instance at the desired location.
-        """
-        return FieldVariable(self.data["func_lbl"], order=self.order, weight_label=self.data["weight_lbl"],
-                             location=location, exponent=self.data["exponent"])
 
 
 # TODO: remove
