@@ -19,6 +19,40 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
+class TestPlaceHolder(unittest.TestCase):
+    """
+    Test cases for the Placeholder base class
+    """
+    def setUp(self):
+        self.data = dict(a=10, b="hallo")
+
+    def init_test(self):
+        # wrong derivative orders
+        self.assertRaises(ValueError, ph.Placeholder, self.data, [1, 2])  # wrong type
+        self.assertRaises(ValueError, ph.Placeholder, self.data, (-1, 2))  # negative order
+        self.assertRaises(ValueError, ph.Placeholder, self.data, (1.3, 2))  # non integer order
+
+        # location
+        self.assertRaises(TypeError, ph.Placeholder, self.data, (1, 2), location="here")  # wrong type
+
+        # positive tests
+        p = ph.Placeholder(self.data, (1, 2), location=-3.7)
+        self.assertEquals(p.data, self.data)
+        self.assertEquals(p.order, (1, 2))
+        self.assertEquals(p.location, -3.7)
+
+    def derive_test(self):
+        p = ph.Placeholder(self.data, (1, 2), location=-3.7)
+        p_dt = p.derive(temp_order=1)
+
+        # derivative order of p_dt should be changed, rest should stay as is
+        o1 = p.__dict__.pop("order")
+        o2 = p_dt.__dict__.pop("order")
+        self.assertEquals(o1, (1, 2))
+        self.assertEquals(o2, (2, 2))
+        self.assertEquals(p.__dict__, p_dt.__dict__)
+
+
 class TestCommonTarget(unittest.TestCase):
     def test_call(self):
         t1 = ph.Scalars(np.zeros(2), target_term=dict(name="E", order=1, exponent=1))
@@ -90,16 +124,17 @@ class FieldVariableTest(unittest.TestCase):
 
     def test_derive_factory(self):
         a = ph.FieldVariable("test_funcs")
-        b = a(1).derive_spat(1)
+        b = a(1).derive(spat_order=1)
         self.assertEqual("test_funcs", b.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(1, b.location)
         self.assertEqual(1, b.order[1])
-        c = b.derive_spat(1)
+        c = b.derive(spat_order=1)
         self.assertEqual(2, c.order[1])
         self.assertTrue(isinstance(b, ph.FieldVariable))
         self.assertTrue(a != b)
         self.assertTrue(a.order[0] == b.order[0] == c.order[0])
         self.assertTrue(a.order[1] != b.order[1] != c.order[1])
+
 
 class TestFunctionTest(unittest.TestCase):
     def setUp(self):
@@ -195,7 +230,6 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p1.get_arg_by_class(ph.TestFunction), [self.test_funcs])
         self.assertEqual(p2.get_arg_by_class(ph.TestFunction), [self.test_funcs])
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
-
 
 
 class EquationTermsTest(unittest.TestCase):

@@ -36,9 +36,9 @@ phi = ph.TestFunction("sim")
 act_phi = ph.ScalarFunction("act_func")
 not_acuated_weak_form = sim.WeakFormulation([
     # ... of the homogeneous part of the system
-    ph.IntegralTerm(ph.Product(x.derive_temp(1), phi), limits=spat_domain.bounds),
-    ph.IntegralTerm(ph.Product(x.derive_spat(1), phi.derive(1)), limits=spat_domain.bounds, scale=a2),
-    ph.IntegralTerm(ph.Product(x.derive_spat(1), phi), limits=spat_domain.bounds, scale=-a1),
+    ph.IntegralTerm(ph.Product(x.derive(temp_order=1), phi), limits=spat_domain.bounds),
+    ph.IntegralTerm(ph.Product(x.derive(spat_order=1), phi.derive(1)), limits=spat_domain.bounds, scale=a2),
+    ph.IntegralTerm(ph.Product(x.derive(spat_order=1), phi), limits=spat_domain.bounds, scale=-a1),
     ph.IntegralTerm(ph.Product(x, phi), limits=spat_domain.bounds, scale=-a0),
     # ... of the inhomogeneous part of the system
     ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u, order=1)), limits=spat_domain.bounds),

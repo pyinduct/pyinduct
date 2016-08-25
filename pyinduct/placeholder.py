@@ -3,6 +3,7 @@ In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term defini
 """
 
 from abc import ABCMeta
+import copy
 from numbers import Number
 
 import numpy as np
@@ -14,12 +15,12 @@ import collections
 
 class Placeholder(object):
     """
-    Class that works as an placeholder for terms that are later substituted.
+    Base class that works as a placeholder for terms that are later parsed into a canonical form.
 
     Args:
-        data:
-        order: How many derivations are to be applied before evaluation (t, z).
-        location: Location to evaluate at before further computation.
+        data (arbitrary): data to store in the placeholder.
+        order (tuple): (temporal_order, spatial_order) derivative orders  that are to be applied before evaluation.
+        location (numbers.Number): Location to evaluate at before further computation.
     """
 
     def __init__(self, data, order=(0, 0), location=None):
@@ -33,6 +34,36 @@ class Placeholder(object):
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
         self.location = location
+
+    def derive(self, temp_order=0, spat_order=0):
+        """
+        Mimics a copy constructor and adds the given derivative orders.
+
+        Note:
+            The desired derivative order :code:`order` is added to the original order.
+
+        Args:
+            temp_order: Temporal derivative order to be added.
+            spat_order: Spatial derivative order to be added.
+
+        Returns:
+            New :py:class:`TestFunction` instance with the desired derivative order.
+        """
+        new_obj = copy.deepcopy(self)
+        new_obj.order = tuple(der + a for der, a in zip(self.order, (temp_order, spat_order)))
+        return new_obj
+
+
+class SpatialPlaceholder(Placeholder):
+    """
+    Base class for all spatially-only dependent placeholders.
+    The deeper meaning of this abstraction layer is to offer an easier to use interface.
+    """
+    def __init__(self, data, order=0, location=None):
+        Placeholder.__init__(self, data, order=(0, order), location=location)
+
+    def derive(self, order=0):
+        return super().derive(spat_order=order)
 
 
 class Scalars(Placeholder):
@@ -50,12 +81,12 @@ class Scalars(Placeholder):
             target_term = dict(name="f")
         values = np.atleast_2d(values)
 
-        Placeholder.__init__(self, sanitize_input(values, Number))
+        super().__init__(sanitize_input(values, Number))
         self.target_term = target_term
         self.target_form = target_form
 
 
-class ScalarFunction(Placeholder):
+class ScalarFunction(SpatialPlaceholder):
     """
     Class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients.
 
@@ -70,7 +101,7 @@ class ScalarFunction(Placeholder):
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
-        Placeholder.__init__(self, {"func_lbl": function_label}, (0, order), location)
+        super().__init__({"func_lbl": function_label}, order=order, location=location)
 
     def __call__(self, location):
         """
@@ -83,21 +114,6 @@ class ScalarFunction(Placeholder):
             New :py:class:`ScalarFunction` instance at the desired location.
         """
         return ScalarFunction(self.data["func_lbl"], order=self.order[1], location=location)
-
-    def derive(self, order):
-        """
-        Factory method which provides an instance with the same properties and the desired derivative order.
-
-        Note:
-            The desired derivative order :code:`order` is added to the original order.
-
-        Args:
-            order: Derivative order to be set.
-
-        Returns:
-            New :py:class:`ScalarFunction` instance with the desired derivative order.
-        """
-        return ScalarFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
 
 
 class Input(Placeholder):
@@ -116,10 +132,10 @@ class Input(Placeholder):
             raise TypeError("callable object has to be provided.")
         if not isinstance(index, int) or index < 0:
             raise TypeError("index must be a positive integer.")
-        Placeholder.__init__(self, dict(input=function_handle, index=index, exponent=exponent), order=(order, 0))
+        super().__init__(dict(input=function_handle, index=index, exponent=exponent), order=(order, 0))
 
 
-class TestFunction(Placeholder):
+class TestFunction(SpatialPlaceholder):
     """
     Class that works as a placeholder for test-functions in an equation.
 
@@ -133,7 +149,7 @@ class TestFunction(Placeholder):
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
-        Placeholder.__init__(self, {"func_lbl": function_label}, order=(0, order), location=location)
+        super().__init__({"func_lbl": function_label}, order, location=location)
 
     def __call__(self, location):
         """
@@ -146,21 +162,6 @@ class TestFunction(Placeholder):
             New :py:class:`TestFunction` instance at the desired location.
         """
         return TestFunction(self.data["func_lbl"], order=self.order[1], location=location)
-
-    def derive(self, order):
-        """
-        Factory method which provides an instance with the same properties and the desired derivative order.
-
-        Note:
-            The desired derivative order :code:`order` is added to the original order.
-
-        Args:
-            order: Derivative order to be set.
-
-        Returns:
-            New :py:class:`TestFunction` instance with the desired derivative order.
-        """
-        return TestFunction(self.data["func_lbl"], order=self.order[1] + order, location=self.location)
 
 
 class FieldVariable(Placeholder):
@@ -217,8 +218,8 @@ class FieldVariable(Placeholder):
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
 
-        Placeholder.__init__(self, {"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
-                             order=order, location=location)
+        super().__init__({"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
+                         order=order, location=location)
 
     def __call__(self, location):
         """
@@ -233,41 +234,8 @@ class FieldVariable(Placeholder):
         return FieldVariable(self.data["func_lbl"], order=self.order, weight_label=self.data["weight_lbl"],
                              location=location, exponent=self.data["exponent"])
 
-    def derive_spat(self, spat_order):
-        """
-        Factory method which provides an instance with the same properties and the desired spatial derivative.
 
-        Note:
-            The desired derivative order :code:`spat_order` is added to the original spatial order.
-
-        Args:
-            spat_order: Spatial derivative order to be set.
-
-        Returns:
-            New :py:class:`FieldVariable` instance with the desired spatial derivative order.
-        """
-        return FieldVariable(self.data["func_lbl"], order=(self.order[0], self.order[1] + spat_order),
-                             weight_label=self.data["weight_lbl"],
-                             location=self.location, exponent=self.data["exponent"])
-
-    def derive_temp(self, temp_order):
-        """
-        Factory method which provides an instance with the same properties and the desired temporal derivative.
-
-        Note:
-            The desired derivative order :code:`temp_order` is added to the original temporal order.
-
-        Args:
-            temp_order: Temporal derivative order to be set.
-
-        Returns:
-            New :py:class:`FieldVariable` instance with the desired temporal derivative order.
-        """
-        return FieldVariable(self.data["func_lbl"], order=(self.order[0] + temp_order, self.order[1]),
-                             weight_label=self.data["weight_lbl"],
-                             location=self.location, exponent=self.data["exponent"])
-
-
+# TODO: remove
 class TemporalDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
         FieldVariable.__init__(self, function_label, (order, 0), weight_label, location)
@@ -276,12 +244,6 @@ class TemporalDerivedFieldVariable(FieldVariable):
 class SpatialDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
         FieldVariable.__init__(self, function_label, (0, order), weight_label, location)
-
-
-# TODO: remove
-class MixedDerivedFieldVariable(FieldVariable):
-    def __init__(self, function_label, weight_label=None, location=None):
-        FieldVariable.__init__(self, function_label, (1, 1), weight_label, location)
 
 
 class Product(object):

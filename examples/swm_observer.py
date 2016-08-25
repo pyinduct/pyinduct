@@ -14,9 +14,9 @@ from pyqtgraph.Qt import QtGui
 def build_weak_form(approx_label, spatial_interval, u, params):
     x = ph.FieldVariable(approx_label)
     psi = ph.TestFunction(approx_label)
-    term1 = ph.IntegralTerm(ph.Product(x.derive_temp(2), psi), limits=spatial_interval)
-    term2 = ph.IntegralTerm(ph.Product(x.derive_spat(1), psi.derive(1)), limits=spatial_interval)
-    term3 = ph.ScalarTerm(ph.Product(x(0).derive_temp(2), psi(0)), scale=params.m)
+    term1 = ph.IntegralTerm(ph.Product(x.derive(temp_order=2), psi), limits=spatial_interval)
+    term2 = ph.IntegralTerm(ph.Product(x.derive(spat_order=1), psi.derive(1)), limits=spatial_interval)
+    term3 = ph.ScalarTerm(ph.Product(x(0).derive(temp_order=2), psi(0)), scale=params.m)
     term4 = ph.ScalarTerm(ph.Product(ph.Input(u), psi(1)), scale=-1)
 
     return sim.WeakFormulation([term1, term2, term3, term4], name="swm_system")
@@ -24,10 +24,10 @@ def build_weak_form(approx_label, spatial_interval, u, params):
 
 def build_control_law(approx_label, params):
     x = ph.FieldVariable(approx_label)
-    dz_x1 = x.derive_spat(1)
-    x2 = x.derive_temp(1)
+    dz_x1 = x.derive(spat_order=1)
+    x2 = x.derive(temp_order=1)
     xi1 = x(0)
-    xi2 = x(0).derive_temp(1)
+    xi2 = x(0).derive(temp_order=1)
 
     scalar_scale_funcs = [cr.Function(lambda theta: params.m * (1 - np.exp(-theta / params.m))),
                           cr.Function(lambda theta: params.m * (-1 + np.exp(theta / params.m))),
