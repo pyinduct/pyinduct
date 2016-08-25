@@ -215,23 +215,27 @@ class Function(BaseFraction):
         if not isinstance(eval_handle(test_value), Number):
             raise TypeError("callable must return number when called with scalar")
 
+        self._function_handle = eval_handle
+
         # test vectorial input
         test_data = np.array([test_value] * 10)
         try:
             res = eval_handle(test_data)
         except BaseException as e:
             # looks like the function does _not_ handle vectorial input
-            self._function_handle = eval_handle
             self._vectorial = False
             return
 
         if not isinstance(res, np.ndarray):
-            raise TypeError("callable must return np.ndarray when called with vector")
+            # raise TypeError("callable must return np.ndarray when called with vector")
+            self._vectorial = False
+            return
         if res.shape != test_data.shape:
-            raise TypeError("result of call with vector must be of same shape")
+            # raise TypeError("result of call with vector must be of same shape")
+            self._vectorial = False
+            return
 
         self._vectorial = True
-        self._function_handle = eval_handle
 
     def _check_domain(self, values):
         """
@@ -268,6 +272,9 @@ class Function(BaseFraction):
         """
         self._check_domain(argument)
         if self._vectorial:
+            if not isinstance(argument, np.ndarray):
+                # a little convenience helper here
+                argument = np.ndarray(argument)
             return self._function_handle(argument)
         else:
             try:

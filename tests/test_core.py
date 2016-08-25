@@ -1,4 +1,5 @@
 import sys
+import collections
 import unittest
 from numbers import Number
 
@@ -159,18 +160,40 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
+
         def func(x):
-            return 2 * x
+            if isinstance(x, collections.Iterable):
+                raise TypeError("no vectorial stuff allowed!")
+            return 2 ** x
+
+        f = core.Function(func, domain=(0, 10))
+        self.assertEqual(f._vectorial, False)  # function handle should be recognized as non-vectorial
 
         # call with scalar should return scalar with correct value
-        f = core.Function(func)
         self.assertIsInstance(f(10), Number)
         self.assertNotIsInstance(f(10), np.ndarray)
         self.assertEqual(f(10), func(10))
 
         # vectorial arguments should be understood and an np.ndarray shall be returned
-        self.assertIsInstance(f(list(range(10))), np.ndarray)
-        self.assertTrue(np.array_equal(f(list(range(10))), [func(val) for val in range(10)]))
+        self.assertIsInstance(f(np.array(range(10))), np.ndarray)
+        self.assertTrue(np.array_equal(f(np.array(range(10))), [func(val) for val in range(10)]))
+
+    def test_vector_call(self):
+
+        def vector_func(x):
+            return 2 * x
+
+        f = core.Function(vector_func, domain=(0, 10))
+        self.assertEqual(f._vectorial, True)  # function handle should be recognized as vectorial
+
+        # call with scalar should return scalar with correct value
+        self.assertIsInstance(f(10), Number)
+        self.assertNotIsInstance(f(10), np.ndarray)
+        self.assertEqual(f(10), vector_func(10))
+
+        # vectorial arguments should be understood and an np.ndarray shall be returned
+        self.assertIsInstance(f(np.array(range(10))), np.ndarray)
+        self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
 
 
 # class MatrixFunctionTestCase(unittest.TestCase):
