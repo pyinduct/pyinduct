@@ -166,6 +166,8 @@ class Function(BaseFraction):
 
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None):
         """
+        Constructor.
+
         Args:
             eval_handle: Callable object that can be evaluated.
             domain: Domain on which the eval_handle is defined.
