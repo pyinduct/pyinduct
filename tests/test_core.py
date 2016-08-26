@@ -196,45 +196,6 @@ class FunctionTestCase(unittest.TestCase):
         self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
 
 
-# class MatrixFunctionTestCase(unittest.TestCase):
-#
-#     def setUp(self):
-#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder,
-#                                                                    (0, 1), node_count=2)
-#
-#     def test_functional_call(self):
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 0)
-#         real_result = np.array([[1/3, 1/6], [1/6, 1/3]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 0)
-#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 1)
-#         real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-#         real_result = np.array([[1, -1], [-1, 1]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
-#                                                                    node_count=3)
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-#         real_result = np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#     def test_scalar_call(self):
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0,  0, locations=(0.5, 0.5))
-#         real_result = np.array([[1/4, 1/4], [1/4, 1/4]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
-#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
-
-
 class IntersectionTestCase(unittest.TestCase):
     def test_wrong_arguments(self):
         # interval bounds not sorted
@@ -261,7 +222,7 @@ class IntersectionTestCase(unittest.TestCase):
                          [(-10, -5), (3, 5)], (10, 17))
 
 
-class DotProductL2TestCase(unittest.TestCase):
+class ScalarDotProductL2TestCase(unittest.TestCase):
     def setUp(self):
         self.f1 = core.Function(lambda x: 1, domain=(0, 10))
         self.f2 = core.Function(lambda x: 2, domain=(0, 5))
@@ -273,17 +234,68 @@ class DotProductL2TestCase(unittest.TestCase):
         self.f7 = shapefunctions.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f3), 2)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
 
     def test_nonzero(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
+
+# TODO tests for dot_product_l2 (vectorial case)
+
+
+class CalculateScalarProductMatrixTestCase(unittest.TestCase):
+
+    def setUp(self):
+        interval = (0, 10)
+        nodes = 5
+        self.nodes1, self.initial_functions1 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
+                                                                            node_count=nodes)
+        self.nodes2, self.initial_functions2 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
+                                                                            node_count=2*nodes-1)
+        self.optimization = None
+        print(np.array(self.nodes1), np.array(self.nodes2))
+
+    def run_benchmark(self):
+        """
+        # run the non optimized code
+        """
+        # symmetrical
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions1, self.initial_functions1,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+        # rect1
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions2, self.initial_functions1,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+        # rect2
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions1, self.initial_functions2,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+    @unittest.skip
+    def test_optimized(self):
+        # run the non optimized code
+        self.optimization = True
+        self.run_benchmark()
+
+    def test_unoptimized(self):
+        # run the non optimized code
+        self.optimization = False
+        self.run_benchmark()
 
 
 class ProjectionTest(unittest.TestCase):
@@ -301,6 +313,7 @@ class ProjectionTest(unittest.TestCase):
                       core.Function(lambda x: x ** 2),
                       core.Function(lambda x: np.sin(x))
                       ]
+        self.funcs[1](10)
         self.real_values = [func(self.z_values) for func in self.funcs]
 
     def test_types_projection(self):
@@ -422,23 +435,23 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.g = core.Function(np.cos, domain=(0, np.pi * 2))
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
-    def test_self_scale(self):
-        f = core.normalize_function(self.f)
-        prod = core.dot_product_l2(f, f)
-        self.assertAlmostEqual(prod, 1)
+        self.base_f = np.array([self.f])
+        self.base_g = np.array([self.g])
+        self.base_l = np.array([self.l])
 
-        p = core.normalize_function(self.f)
-        prod = core.dot_product_l2(p.members, p.members)
+    def test_self_scale(self):
+        f = core.normalize_base(self.base_f)
+        prod = core.dot_product_l2(f, f)[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
-        f, l = core.normalize_function(self.f, self.l)
-        prod = core.dot_product_l2(f, l)
+        f, l = core.normalize_base(self.base_f, self.base_l)
+        prod = core.dot_product_l2(f, l)[0]
         self.assertAlmostEqual(prod, 1)
 
-        p, q = core.normalize_function(self.f, self.l)
-        prod = core.dot_product_l2(p.members, q.members)
-        self.assertAlmostEqual(prod, 1)
+    def test_culprits(self):
+        # not possible
+        self.assertRaises(ValueError, core.normalize_base, self.base_g, self.base_l)
 
-    def test_orthogonal(self):
-        self.assertRaises(ValueError, core.normalize_function, self.f, self.g)
+        # orthogonal
+        self.assertRaises(ValueError, core.normalize_base, self.base_f, self.base_g)

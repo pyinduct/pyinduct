@@ -94,8 +94,8 @@ class BaseFraction(metaclass=ABCMeta):
                   "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
                   "furthermore the source derivative order is {4} and the target one is {4}. \n" \
                   "But this is a dumb method so implement your own hint to make things work!".format(
-                info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
-                info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
+                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
     @staticmethod
@@ -164,7 +164,8 @@ class Function(BaseFraction):
             domain: Domain on which the eval_handle is defined.
             nonzero: Region in which the eval_handle will give nonzero output.
             derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
-            vectorial: indicates whether eval_handle takes vectorial or scalar input TODO remove this
+            vectorial: indicates whether eval_handle takes vectorial or scalar input
+                TODO: remove this parameter since the decision should only be made by this object.
         """
         super().__init__(self)
         self._vectorial = False
@@ -253,12 +254,12 @@ class Function(BaseFraction):
             if any(values < interval[0]) or any(values > interval[1]):
                 raise ValueError("Function evaluated outside it's domain with {}".format(values))
 
-            # if all(value >= interval[0]) and all(value <= interval[1]):
-            #     in_domain = True
-            #     break
+                # if all(value >= interval[0]) and all(value <= interval[1]):
+                #     in_domain = True
+                #     break
 
-        # if not in_domain:
-        #     raise ValueError("Function evaluated outside its domain!")
+                # if not in_domain:
+                #     raise ValueError("Function evaluated outside its domain!")
 
     def __call__(self, argument):
         """
@@ -274,7 +275,7 @@ class Function(BaseFraction):
         if self._vectorial:
             if not isinstance(argument, np.ndarray):
                 # a little convenience helper here
-                argument = np.ndarray(argument)
+                argument = np.array(argument)
             return self._function_handle(argument)
         else:
             try:
@@ -290,7 +291,7 @@ class Function(BaseFraction):
         """
         Implementation of the abstract parent method.
 
-        Since the :py:class:`Function` has only one member (itself) the parameter *idx* is ingored and *self* is
+        Since the :py:class:`Function` has only one member (itself) the parameter *idx* is ignored and *self* is
         returned.
 
         Args:
@@ -385,7 +386,7 @@ class Function(BaseFraction):
             raise ValueError("function cannot be differentiated that often.")
 
         new_obj = deepcopy(self)
-        new_obj.derivative_handles = self.derivative_handles[order-1:]
+        new_obj.derivative_handles = self.derivative_handles[order - 1:]
         new_obj.function_handle = new_obj.derivative_handles.pop(0)
         return new_obj
 
@@ -555,6 +556,9 @@ def _dot_product_l2(first, second):
         first (:py:class:`pyinduct.core.Function`): first function
         second (:py:class:`pyinduct.core.Function`): second function
 
+    Todo:
+        rename to scalar_dot_product and make therefore non private
+
     Return:
         inner product
     """
@@ -576,8 +580,8 @@ def _dot_product_l2(first, second):
             pass
 
     # standard case
-    func = lambda z: first(z) * second(z)
-    result, error = integrate_function(func, areas)
+    function = lambda z: first(z) * second(z)
+    result, error = integrate_function(function, areas)
 
     return result
 
@@ -597,7 +601,6 @@ def integrate_function(function, interval):
     result = 0
     err = 0
     for area in interval:
-        # res = integrate.quad(function, area[0], area[1])
         res = complex_quadrature(function, area[0], area[1])
         result += res[0]
         err += res[1]
@@ -650,35 +653,29 @@ def dot_product_l2(first, second):
     Vectorized version of dot_product.
 
     Args:
-        first (:obj:`numpy.ndarray`):  array of functions
-        second (:obj:`numpy.ndarray`):  array of functions
+        first (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
+        second (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
 
     Return:
-        numpy.ndarray:  inner product
+        numpy.ndarray:  array of inner products
     """
-    # TODO seems like for now vectorize is the better alternative here
-    # frst = sanitize_input(first, Function)
-    # scnd = sanitize_input(second, Function)
-    #
-    # res = np.zeros_like(frst)
-    #
-    # first_iter = frst.flat
-    # second_iter = scnd.flat
-    # res_iter = res.flat
-    #
-    # while True:
-    #     try:
-    #         f = first_iter.next()
-    #         s = second_iter.next()
-    #         r = res_iter.next()
-    #         r[...] = _dot_product_l2(f, s)
-    #     except StopIteration:
-    #         break
-    #
-    # return res
-    if "handle" not in dot_product_l2.__dict__:
-        dot_product_l2.handle = np.vectorize(_dot_product_l2, otypes=[np.complex])
-    return np.real_if_close(dot_product_l2.handle(first, second))
+    # sanitize input
+    first = np.atleast_1d(first)
+    second = np.atleast_1d(second)
+
+    # if len(first.shape) == 2 or len(second.shape) == 2:
+    #     if first.shape[1] > 1 or second.shape[1] > 1:
+    #         raise NotImplementedError("input dimension not understood.")
+
+    # calculate output size and allocate output
+    out = np.ones(first.shape) * np.nan
+
+    # TODO propagate vectorization into _dot_product_l2 to save this loop
+    # loop over entries
+    for idx, (f, s) in enumerate(zip(first, second)):
+        out[idx] = _dot_product_l2(f, s)
+
+    return out
 
 
 def calculate_scalar_matrix(values_a, values_b):
@@ -687,9 +684,8 @@ def calculate_scalar_matrix(values_a, values_b):
     *scalar_product_handle*.
 
     Args:
-        values_a (:obj:`numpy.ndarray`): Vector a
-        values_b (:obj:`numpy.ndarray`): Vector b
-
+        values_a (numbers.Number or numpy.ndarray): (array of) value(s) for rows
+        values_b (numbers.Number or numpy.ndarray): (array of) value(s) for columns
 
     Return:
         numpy.ndarray: Matrix containing the pairwise products of the elements from *values_a* and *values_b*.
@@ -698,30 +694,98 @@ def calculate_scalar_matrix(values_a, values_b):
                                            sanitize_input(values_a, Number),
                                            sanitize_input(values_b, Number))
 
-    # i, j = np.mgrid[0:values_a.shape[0], 0:values_b.shape[0]]
-    # vals_i = values_a[i]
-    # vals_j = values_b[j]
-    # return np.multiply(vals_i, vals_j)
 
-
-def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b):
+def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optimize=False):
     """
     Calculates a matrix :math:`A` , whose elements are the scalar products of each element from *base_a* and *base_b*,
     so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
 
     Args:
+        scalar_product_handle (callable): function handle that is called to calculate the scalar product.
+            This function has to be able to cope with (1d) vectorial input.
         base_a (numpy.ndarray): array of :py:class:`BaseFraction`
         base_b (numpy.ndarray): array of :py:class:`BaseFraction`
+
+    TODO:
+        making use of the commutable scalar product could save time, run some test on this
 
     Return:
         numpy.ndarray: matrix :math:`A`
     """
-    # TODO make use of symmetry to save some operations
-    i, j = np.mgrid[0:base_a.shape[0], 0:base_b.shape[0]]
-    funcs_i = base_a[i]
-    funcs_j = base_b[j]
+    if optimize:
+        raise NotImplementedError("this approach leads to wrong results atm.")
+        # There are certain conditions that hvae to be satisfied to make use of a symmetrical procut matrix
+        # not all of these conditions are checked here and the implementation itself is not yet free from errros.
 
-    return scalar_product_handle(funcs_i, funcs_j)
+        # if scalar_product handle commutes whe can save some operations
+        if base_a.size > base_b.size:
+            base_1 = base_a
+            base_2 = base_b
+            transposed = False
+        else:
+            base_1 = base_b
+            base_2 = base_a
+            transposed = True
+
+        # if 0:
+        #     # one way
+        #     idx_1 = []
+        #     idx_2 = []
+        #     for n in range(base_1.shape[0]):
+        #         for m in range(min(n + 1, base_2.shape[0])):
+        #             idx_1.append(n)
+        #             idx_2.append(m)
+        #
+        #     fractions_1 = base_1[np.array(idx_1)]
+        #     fractions_2 = base_2[np.array(idx_2)]
+        # else:
+        #     # another way not really working yet
+
+        i, j = np.mgrid[0:base_1.shape[0], 0:base_2.shape[0]]
+
+        end_shape = (base_1.shape[0], base_2.shape[0])
+        lower_mask = np.tril(np.ones(end_shape))
+        lower_idx = np.flatnonzero(lower_mask)
+
+        i_lower = i.flatten()[lower_idx]
+        j_lower = j.flatten()[lower_idx]
+        fractions_1 = base_1[i_lower]
+        fractions_2 = base_2[j_lower]
+
+        # compute
+        res = scalar_product_handle(fractions_1, fractions_2)
+
+        # reconstruct
+        end_shape = (base_1.shape[0], base_2.shape[0])
+        lower_part = np.zeros(end_shape).flatten()
+
+        # reconstruct lower half
+        lower_part[lower_idx] = res
+        lower_part = lower_part.reshape(end_shape)
+        # print(lower_part)
+
+        # mirror symmetrical half
+        upper_part = np.zeros(end_shape).flatten()
+        temp_out = copy(lower_part[:base_2.shape[0], :].T)
+        upper_mask = np.triu(np.ones_like(temp_out), k=1)
+        upper_idx = np.flatnonzero(upper_mask)
+        # print(upper_mask)
+        # print(upper_idx)
+
+        upper_part[upper_idx] = temp_out.flatten()[upper_idx]
+        upper_part = upper_part.reshape(end_shape)
+        # print(upper_part)
+
+        out = lower_part + upper_part
+        return out if not transposed else out.T
+
+    else:
+        i, j = np.mgrid[0:base_a.shape[0], 0:base_b.shape[0]]
+        fractions_i = base_a[i]
+        fractions_j = base_b[j]
+
+        res = scalar_product_handle(fractions_i.flatten(), fractions_j.flatten())
+        return res.reshape(fractions_i.shape)
 
 
 def project_on_base(function, base):
@@ -741,10 +805,10 @@ def project_on_base(function, base):
     if not isinstance(base, np.ndarray):
         raise TypeError("Only numpy.ndarray accepted as 'initial_functions'")
 
-    # compute <x(z, t), phi_i(z)>
-    projections = np.array([dot_product_l2(function, frac) for frac in base])
+    # compute <x(z, t), phi_i(z)> (vector)
+    projections = calculate_scalar_product_matrix(dot_product_l2, np.array([function]), base).flatten()
 
-    # compute <phi_i(z), phi_j(z)> for 0 < i, j < n
+    # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
@@ -1001,42 +1065,52 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     return v_mat
 
 
-# TODO rename to something that emphasizes the general application a little more e.g. normalize_base_fraction
-def normalize_function(x1, x2=None):
+def normalize_base(b1, b2=None):
     """
-    Takes two the two :py:class:`BaseFraction` s :math:`\\boldsymbol{x}_1` and  :math:`\\boldsymbol{x}_2` and normalizes them so
-    that :math:`\\langle\\boldsymbol{x}_1\\,,\:\\boldsymbol{x}_2\\rangle = 1`.
-    If only one function is given, :math:`\\boldsymbol{x}_2` is set to :math:`\\boldsymbol{x}_1`.
+    Takes two arrays of :py:class:`BaseFraction` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and normalizes them so
+    that :math:`\\langle\\boldsymbol{b}_{1i}\\,,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
+    If only one base is given, :math:`\\boldsymbol{b}_2` is set to :math:`\\boldsymbol{b}_1`.
 
     Args:
-        x1 (:py:class:`BaseFraction`): :math:`\\boldsymbol{x}_1`
-        x2 (:py:class:`BaseFraction`): :math:`\\boldsymbol{x}_2`
+        b1 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_1`
+        b2 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_2`
 
     Raises:
-        ValueError: If :math:`\\boldsymbol{x}_1` and :math:`\\boldsymbol{x}_2` are orthogonal.
+        ValueError: If :math:`\\boldsymbol{b}_1` and :math:`\\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        :py:class:`BaseFraction` if *x2* is None, Tuple of 2 :py:class:`BaseFraction` s otherwise:
-        Normalized Base(s).
+        np.array of :py:class:`BaseFraction` : if *b2* is None,
+           otherwise: Tuple of 2 :py:class:`BaseFraction` arrays.
     """
-    if x2 is None:
-        x2 = x1
-    if type(x1) != type(x2):
+    auto_normalization = False
+    if b2 is None:
+        b2 = b1
+        auto_normalization = True
+
+    if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    if not hasattr(x1, "scalar_product_hint"):
+    if not hasattr(b1[0], "scalar_product_hint"):
         raise TypeError("Input type not supported.")
 
-    hints = x1.scalar_product_hint()
-    res = 0
+    hints = b1[0].scalar_product_hint()
+    res = np.zeros(b1.shape)
     for idx, hint in enumerate(hints):
-        res += hint(x1.get_member(idx), x2.get_member(idx))
+        members_1 = np.array([fraction.get_member(idx) for fraction in b1])
+        members_2 = np.array([fraction.get_member(idx) for fraction in b2])
+        res += hint(members_1, members_2)
 
-    if abs(res) < np.finfo(float).eps:
-        raise ValueError("given base fractions are orthogonal. no normalization possible.")
+    if any(res < np.finfo(float).eps):
+        if any(np.isclose(res, 0)):
+            raise ValueError("given base fractions are orthogonal. no normalization possible.")
+        else:
+            raise ValueError("imaginary scale required. no normalization possible.")
 
-    scale_factor = np.sqrt(1 / res)
-    if x1 == x2:
-        return x1.scale(scale_factor)
+    scale_factors = np.sqrt(1 / res)
+    b1_scaled = np.array([frac.scale(factor) for frac, factor in zip(b1, scale_factors)])
+
+    if auto_normalization:
+        return b1_scaled
     else:
-        return x1.scale(scale_factor), x2.scale(scale_factor)
+        b2_scaled = np.array([frac.scale(factor) for frac, factor in zip(b2, scale_factors)])
+        return b1_scaled, b2_scaled

@@ -232,9 +232,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
                                            for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
-        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
@@ -344,10 +342,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
                                            for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i])
-                                 for i in range(self.n)]
-        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        self.adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - self.eig_val) / a2)
@@ -512,10 +507,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
                                              for om in eig_freq_t])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs_t = [cr.normalize_function(init_eig_funcs_t[i], init_adjoint_eig_funcs_t[i])
-                                   for i in range(self.n)]
-        eig_funcs_t = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs_t])
-        self.adjoint_eig_funcs_t = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs_t])
+        eig_funcs_t, self.adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjoint_eig_funcs_t)
 
         # # transformed original eigenfunctions
         self.eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
@@ -525,7 +517,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
                                                                           np.linspace(0, self.l, 1e4))
                                    for i in range(self.n)])
 
-        # create testfunctions
+        # create test-functions
         nodes, self.fem_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                  self.dz.bounds,
                                                  node_count=self.n)
@@ -652,10 +644,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
             [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.dz.bounds) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in
-                                 range(self.n)]
-        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        self.adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
         eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)

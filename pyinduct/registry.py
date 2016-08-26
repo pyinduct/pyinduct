@@ -28,9 +28,9 @@ def register_base(label, functions, overwrite=False):
     Register a set of initial functions to make them accessible all over the :py:mod:`pyinduct` framework.
 
     Args:
-        functions: Array , list or single instance of :py:class:`pyinduct.core.Function`.
+        functions (iterable): Array , list or single instance of :py:class:`pyinduct.core.BaseFraction` s.
         label (str): String that will be used as label.
-        overwrite: Force overwrite if label is already present.
+        overwrite: Force overwrite if a basis is already registered under this label.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("only strings allowed as labels!")

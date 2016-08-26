@@ -207,10 +207,7 @@ class IntermediateTransformationTest(unittest.TestCase):
             [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in self.eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in
-                                 range(self.n)]
-        self.eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        self.adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        self.eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenvalues and -frequencies test
         eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)

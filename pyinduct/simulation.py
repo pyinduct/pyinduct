@@ -24,7 +24,7 @@ class Domain(object):
     Helper class that manages ranges for data evaluation, containing parameters.
 
     Args:
-        bounds (tupel): Interval bounds.
+        bounds (tuple): Interval bounds.
         num (int): Number of points in interval.
         step (numbers.Number): Distance between points (if homogeneous).
         points (array_like): Points themselves.

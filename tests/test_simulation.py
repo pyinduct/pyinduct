@@ -557,18 +557,17 @@ class StringMassTest(unittest.TestCase):
             def scalar(self):
                 return self.members["scalars"][0]
 
-        eig_vectors = []
-        for n in range(order):
-            eig_vectors.append(SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]),
-                                                             derivative_handles=[
-                                                                 phi_k_factory(eig_frequencies[n], der_order)
-                                                                 for der_order in range(1, 3)],
-                                                             domain=self.dz.bounds,
-                                                             nonzero=self.dz.bounds),
-                                                 phi_k_factory(eig_frequencies[n])(0)))
+        eig_vectors = np.array([SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]),
+                                                              derivative_handles=[
+                                                                  phi_k_factory(eig_frequencies[n], der_order)
+                                                                  for der_order in range(1, 3)],
+                                                              domain=self.dz.bounds,
+                                                              nonzero=self.dz.bounds),
+                                                  phi_k_factory(eig_frequencies[n])(0))
+                                for n in range(order)])
 
         # normalize eigen vectors
-        norm_eig_vectors = [cr.normalize_function(vec) for vec in eig_vectors]
+        norm_eig_vectors = cr.normalize_base(eig_vectors)
         norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
         register_base("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
@@ -640,7 +639,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_it(self):
+    def test_complex(self):
         param = [2., -1.5, -3., 2., .5]
         a2, a1, a0, alpha, beta = param
 
@@ -890,9 +889,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
                                            for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
-        eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # register eigenfunctions
         register_base("eig_funcs", eig_funcs, overwrite=True)

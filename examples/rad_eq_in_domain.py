@@ -126,10 +126,7 @@ init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om,
                                    for om in eig_freq])
 
 # normalize eigenfunctions and adjoint eigenfunctions
-adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i])
-                         for i in range(n)]
-eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
 eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)

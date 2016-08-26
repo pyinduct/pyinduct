@@ -52,9 +52,7 @@ init_adjoint_eig_funcs_t = np.array(
     [ef.SecondOrderRobinEigenfunction(om, adjoint_param_t, spatial_domain.bounds) for om in eig_freq_t])
 
 # normalize eigenfunctions and adjoint eigenfunctions
-adjoint_and_eig_funcs_t = [cr.normalize_function(init_eig_funcs_t[i], init_adjoint_eig_funcs_t[i]) for i in range(n)]
-eig_funcs_t = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs_t])
-adjoint_eig_funcs_t = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs_t])
+eig_funcs_t, adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjoint_eig_funcs_t)
 
 # transformed original eigenfunctions
 eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(eig_val_t[i],

@@ -60,9 +60,7 @@ init_adjoint_eig_funcs = np.array(
     [ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds) for om in eig_freq])
 
 # normalize eigenfunctions and adjoint eigenfunctions
-adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in range(n)]
-eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions from target system ("_t")
 eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
