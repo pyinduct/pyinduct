@@ -67,7 +67,7 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(TypeError, core.Function, wrong_handle)
 
     def test_derivation(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin], vectorial=True)
+        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
 
         # be robust to meaningless input
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
@@ -100,7 +100,7 @@ class FunctionTestCase(unittest.TestCase):
         f.__dict__.pop("members")
         self.assertEqual(d1.__dict__, f.__dict__)
 
-        f_2 = core.Function(np.sin, derivative_handles=[np.cos, np.sin], vectorial=True)
+        f_2 = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
         d2 = f_2.derive(2)
 
         # derivatives should change

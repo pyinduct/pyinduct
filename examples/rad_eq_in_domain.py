@@ -116,13 +116,9 @@ else:
 
 # create (not normalized) eigenfunctions
 eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
-init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om,
-                                                            param,
-                                                            spatial_domain.bounds)
+init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds)
                            for om in eig_freq])
-init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om,
-                                                                    adjoint_param,
-                                                                    spatial_domain.bounds)
+init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds)
                                    for om in eig_freq])
 
 # normalize eigenfunctions and adjoint eigenfunctions
@@ -130,22 +126,16 @@ eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_ei
 
 # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
 eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)
-eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
-                                                          param_i,
-                                                          spatial_domain.bounds,
+eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
                                                           eig_funcs[i](0))
                          for i in range(n)])
-eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
-                                                         param_i,
-                                                         spatial_domain.bounds,
+eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
                                                          eig_funcs[i](0) * eig_funcs_id[i](l) / eig_funcs_id[i](b))
                         for i in range(n)])
 
 # eigenfunctions from target intermediate system ("_ti")
 eig_freq_ti = np.sqrt((a0_ti - eig_val) / a2)
-eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i],
-                                                          param_ti,
-                                                          spatial_domain.bounds,
+eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i], param_ti, spatial_domain.bounds,
                                                           eig_funcs_i[i](0))
                          for i in range(n)])
 

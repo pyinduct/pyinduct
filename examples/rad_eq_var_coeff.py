@@ -24,8 +24,7 @@ n = 10
 
 # original system parameters
 a2 = .5
-a1_z = cr.Function(lambda z: 0.1 * np.exp(4 * z),
-                   derivative_handles=[lambda z: 0.4 * np.exp(4 * z)])
+a1_z = cr.Function(lambda z: 0.1 * np.exp(4 * z), derivative_handles=[lambda z: 0.4 * np.exp(4 * z)])
 a0_z = lambda z: 1 + 10 * z + 2 * np.sin(4 * np.pi / l * z)
 alpha = -1
 beta = -1
@@ -57,8 +56,7 @@ eig_funcs_t, adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjo
 # transformed original eigenfunctions
 eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(eig_val_t[i],
                                                              [eig_funcs_t[i](0), alpha * eig_funcs_t[i](0), 0, 0],
-                                                             [a2, a1_z, a0_z],
-                                                             np.linspace(0, l, 1e4))
+                                                             [a2, a1_z, a0_z], np.linspace(0, l, 1e4))
                       for i in range(n)])
 
 # create testfunctions

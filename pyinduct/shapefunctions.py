@@ -163,9 +163,7 @@ class LagrangeSecondOrder(Function):
         else:
             funcs = self._function_factory(start, mid, end, **kwargs)
 
-        Function.__init__(self, funcs[0],
-                          nonzero=(start, end),
-                          derivative_handles=funcs[1:])
+        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
 
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):

@@ -131,10 +131,7 @@ class FiniteTransformFunction(Function):
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
-            Function.__init__(self,
-                              self._call_transformed_func_vec,
-                              nonzero=(0, l),
-                              derivative_handles=[])
+            Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
         i = int(z / self.l0)

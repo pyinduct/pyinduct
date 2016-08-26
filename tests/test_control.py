@@ -236,8 +236,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
-        eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_t[i],
-                                                                 param_t, dz.bounds).scale(eig_funcs[i](0))
+        eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, dz.bounds).scale(eig_funcs[i](0))
                                 for i in range(n)])
 
         # register eigenfunctions
@@ -346,8 +345,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
 
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - self.eig_val) / a2)
-        eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_t[i],
-                                                                 self.param_t, self.dz.bounds).scale(eig_funcs[i](0))
+        eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, self.dz.bounds).scale(eig_funcs[i](0))
                                 for i in range(self.n)])
 
         # create testfunctions
@@ -512,8 +510,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         # # transformed original eigenfunctions
         self.eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
                                                                           [eig_funcs_t[i](0), alpha * eig_funcs_t[i](0),
-                                                                           0, 0],
-                                                                          [a2, a1_z, a0_z],
+                                                                           0, 0], [a2, a1_z, a0_z],
                                                                           np.linspace(0, self.l, 1e4))
                                    for i in range(self.n)])
 
@@ -649,23 +646,17 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
         eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
         self.assertTrue(all(np.isclose(eig_val_i, self.eig_val)))
-        eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
-                                                                  self.param_i,
-                                                                  self.dz.bounds,
+        eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.dz.bounds,
                                                                   eig_funcs[i](0))
                                  for i in range(self.n)])
-        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
-                                                                 self.param_i,
-                                                                 self.dz.bounds,
+        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.dz.bounds,
                                                                  eig_funcs[i](0) * eig_funcs_id[i](self.l) /
                                                                  eig_funcs_id[i](self.b))
                                 for i in range(self.n)])
 
         # eigenfunctions from target system ("_ti")
         eig_freq_ti = np.sqrt((a0_ti - self.eig_val) / a2)
-        eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i],
-                                                                  self.param_ti,
-                                                                  self.dz.bounds,
+        eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i], self.param_ti, self.dz.bounds,
                                                                   eig_funcs_i[i](0))
                                  for i in range(self.n)])
 

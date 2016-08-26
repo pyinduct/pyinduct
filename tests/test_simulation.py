@@ -820,9 +820,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
                               for i in range(spatial_disc)])
         register_base("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i],
-                                                                           adjoint_param,
-                                                                           dz.bounds,
+        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, dz.bounds,
                                                                            norm_fak[i]) for i in range(spatial_disc)])
         register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 

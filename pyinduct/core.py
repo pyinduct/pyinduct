@@ -149,23 +149,28 @@ class BaseFraction(metaclass=ABCMeta):
 class Function(BaseFraction):
     """
     Most common instance of a :py:class:`BaseFraction`.
-    This class handles all tasks concerning derivation and evaluation of functions.
+    This class handles all tasks concerning derivation and evaluation of functions. It is used broad across the toolbox
+    and therefore incorporates some very specific attributes.
+    For example, to ensure the accurateness of numerical handling functions may only evaluated in areas where they
+    provide nonzero return values. Also their domain has to be taken into account. Therefore the attributes *domain*
+    and *nonzero* are provided.
 
-    To ensure the accurateness of numerical handling, areas where nonzero is given have to be provided.
+    To save implementation time, ready to go version like :py:class:`pyinduct.shapefunctions.LagrangeFirstOrder`
+    are provided in the :py:mod:`pyinduct.simulation` module.
+
+    For the implementation of new shape functions subclass this implementation or directly provide a callable
+    *eval_handle* and callable *derivative_handles* if spatial derivatives are required for the application.
     """
 
     # TODO: overload add and mul operators
 
-    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None,
-                 vectorial=False):
+    def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None):
         """
         Args:
             eval_handle: Callable object that can be evaluated.
             domain: Domain on which the eval_handle is defined.
             nonzero: Region in which the eval_handle will give nonzero output.
             derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
-            vectorial: indicates whether eval_handle takes vectorial or scalar input
-                TODO: remove this parameter since the decision should only be made by this object.
         """
         super().__init__(self)
         self._vectorial = False
@@ -580,7 +585,9 @@ def _dot_product_l2(first, second):
             pass
 
     # standard case
-    function = lambda z: first(z) * second(z)
+    def function(z):
+        return first(z) * second(z)
+
     result, error = integrate_function(function, areas)
 
     return result
@@ -705,6 +712,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
             This function has to be able to cope with (1d) vectorial input.
         base_a (numpy.ndarray): array of :py:class:`BaseFraction`
         base_b (numpy.ndarray): array of :py:class:`BaseFraction`
+        optimize (bool): switch to turn on the symmetry based speed up. For development purposes only.
 
     TODO:
         making use of the commutable scalar product could save time, run some test on this
