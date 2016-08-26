@@ -12,8 +12,9 @@ import pyqtgraph as pg
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    show_plots = True
-    # show_plots = False
+    # show_plots = True
+    show_plots = False
+
 app = pg.QtGui.QApplication([])
 
 

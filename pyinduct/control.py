@@ -1,6 +1,6 @@
 """
-This module contains all classes and functions related to the creation of controllers as well as the implementation
-for simulation purposes.
+This module contains all classes and functions related to the approximation of distributed control laws
+as well as their implementation for simulation purposes.
 """
 
 from itertools import chain

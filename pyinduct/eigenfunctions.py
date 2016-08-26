@@ -1,6 +1,6 @@
 """
-This modules provides  for some (as general as possible) eigenvalue problems a ready to go eigenfunction
-implementation and functions which compute the corresponding eigenvalues.
+This modules provides eigenfunctions for a certain set of parabolic problems. Therefore functions for the computation
+of the corresponding eigenvalues are included.
 The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
 order to handle transformations and reduce effort by the controller implementation.
 """
