@@ -320,8 +320,10 @@ class StateSpace(object):
             # if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
             #     raise ValueError("Input vector has more elements than (at least) one of the B matrices has rows.")
         elif isinstance(self.input, SimulationInput):
-            if not all([1 in np.atleast_2d(bi).shape for bi in self.B.values()]):
-                raise ValueError("All B matrices must be column vectors.")
+            pass
+            # TODO: uncomment this check when StateSpace input derivative transformation is ready to go
+            # if not all([1 in np.atleast_2d(bi).shape for bi in self.B.values()]):
+            #     raise ValueError("All B matrices must be column vectors.")
         elif not callable(self.input):
             raise TypeError("Input must be callable!")
 

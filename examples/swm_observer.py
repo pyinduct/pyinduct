@@ -113,26 +113,12 @@ def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
     d_eta2 = sim.WeakFormulation(
         [
             ph.ScalarTerm(eta2(0).derive_temp(1), scale=-1),
-            ph.ScalarTerm(eta2(0)),
+            ph.ScalarTerm(eta1(0)),
             ph.ScalarTerm(ph.Input(u_vec, index=0), scale=2 / params.m),
             ph.ScalarTerm(ph.Input(u_vec, index=1), scale=-(1 + params.alpha_ob) * params.k1_ob - 2 * params.k0_ob)
         ],
         dynamic_weights="eta2"
     )
-    # d_eta3 = sim.WeakFormulation(
-    #     [
-    #         ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
-    #         ph.IntegralTerm(ph.Product(eta3.derive_spat(1), psi), limits=limits, scale=-1),
-    #         ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
-    #         ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
-    #         # \hat y(t)
-    #         ph.IntegralTerm(ph.Product(eta2, psi), limits=limits, scale=-1 / params.m),
-    #         ph.IntegralTerm(ph.Product(eta3(-1), psi), limits=limits, scale=1 / params.m),
-    #         ph.IntegralTerm(ph.Product(psi, ph.Input(u_vec, index=1)),
-    #                         limits=limits, scale=1 / params.m * (params.alpha_ob - 1)),
-    #     ],
-    #     dynamic_weights=obs_approx_label
-    # )
     d_eta3 = sim.WeakFormulation(
         [
             ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
@@ -203,14 +189,14 @@ params.k1_ct = 10
 params.alpha_ct = 0
 
 # controller parameters
-params.k0_ob = 100
-params.k1_ob = 100
+params.k0_ob = 10
+params.k1_ob = 10
 params.alpha_ob = 0
 
 # initial function
 sys_nodes, sys_funcs = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=10, order=1)
 ctrl_nodes, ctrl_funcs = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=20, order=1)
-obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeNthOrder, (-1, 1), node_count=21, order=2)
+obs_nodes, obs_funcs = sh.cure_interval(sh.LagrangeNthOrder, (-1, 1), node_count=25, order=4)
 register_base("sim", sys_funcs)
 register_base("ctrl", ctrl_funcs)
 register_base("obs", obs_funcs)
@@ -254,6 +240,6 @@ x_obs_data = vis.EvalData(eta1_data.input_data, -params.m / 2 * (
 
 # animation
 plot1 = vis.PgAnimatedPlot([x_data, x_obs_data])
-# plot2 = vis.PgSurfacePlot(x_data)
-# plot3 = vis.PgSurfacePlot(x_obs_data)
+plot2 = vis.PgSurfacePlot(x_data)
+plot3 = vis.PgSurfacePlot(x_obs_data)
 pg.QtGui.QApplication.instance().exec_()

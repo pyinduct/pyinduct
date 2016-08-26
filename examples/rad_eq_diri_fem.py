@@ -50,7 +50,7 @@ not_acuated_weak_form = sim.WeakFormulation([
 
 # system matrices \dot x = A x + b0 u + b1 \dot u
 cf = sim.parse_weak_formulation(not_acuated_weak_form)
-E1_inv = np.linalg.inv(cf._matrices["E"][1][1])
+E1_inv = cf.inverse_e_n
 ss = cf.convert_to_state_space()
 A = ss.A[1]
 b0 = np.array(np.matrix(ss.B[1][:, 0]).T)
