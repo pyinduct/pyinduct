@@ -73,7 +73,7 @@ def deregister_base(label):
     del _registry[label]
 
 
-def get_base(label, order):
+def get_base(label, order=None):
     """
     Retrieve registered set of initial functions by their label.
 
@@ -85,6 +85,8 @@ def get_base(label, order):
         initial_functions
     """
     if is_registered(label):
+        if order is None:
+            order = 0
         base = _registry[label].get(order, None)
         if base is None:
             raise ValueError("Base with label '{}' not available in order {}!".format(label, order))

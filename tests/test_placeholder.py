@@ -84,6 +84,36 @@ class TestCommonTarget(unittest.TestCase):
         self.assertRaises(ValueError, ph.get_common_target, [t1, t2])
 
 
+class ScalarFunctionTest(unittest.TestCase):
+    def setUp(self):
+        self.funcs = np.array([cr.Function(np.sin), cr.Function(np.cos)])
+
+    def test_init(self):
+        # label must be registered before
+        self.assertRaises(ValueError, ph.ScalarFunction, "this one")
+
+        register_base("this", self.funcs)
+        f = ph.ScalarFunction("this")
+        self.assertEqual(f.order, (0, 0))  # default arg for order is 0
+
+        f_dz = ph.ScalarFunction("this", order=1)
+        self.assertEqual(f_dz.order, (0, 1))
+
+
+class InputTestCase(unittest.TestCase):
+    def setUp(self):
+        self.handle = np.cos
+
+    def test_init(self):
+        # handle must be callable
+        self.assertRaises(TypeError, ph.Input, 10)
+
+        # index must be positive (-1 would be the antiderivative)
+        self.assertRaises(TypeError, ph.Input, self.handle, -1)
+
+        i = ph.Input(function_handle=self.handle, index=1, order=0)
+
+
 class ScalarsTest(unittest.TestCase):
     def setUp(self):
         self.vector = np.array(range(10))
@@ -151,6 +181,12 @@ class TestFunctionTest(unittest.TestCase):
     def setUp(self):
         nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
         register_base("test_funcs", ini_funcs, overwrite=True)
+
+    def test_init(self):
+        # init with invalid base
+        self.assertRaises(ValueError, ph.TestFunction, "test_funcs")
+
+        tf = ph.TestFunction(function_label="test_funcs", order=1)
 
     def test_call_factory(self):
         a = ph.TestFunction("test_funcs")

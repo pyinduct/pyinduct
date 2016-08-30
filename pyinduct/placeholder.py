@@ -124,13 +124,16 @@ class ScalarFunction(SpatialPlaceholder):
 
 class Input(Placeholder):
     """
-    Class that works as a placeholder for the input of a system.
+    Class that works as a placeholder for an input of the system.
 
     Args:
-        function_handle (callable):
-        index: If input is a vector, which element shall be used.
-        order: See :py:class:`Placeholder`.
-        exponent: See :py:class:`FieldVariable`.
+        function_handle (callable): handle that will be called by the simulation unit
+        index (int): If the system's input is vectorial, specify the element to be used.
+        order (int): temporal derivative order of this term (See :py:class:`Placeholder`).
+        exponent (numbers.Number): See :py:class:`FieldVariable`.
+
+    Note:
+        if *order* is nonzero, the callable has to provide the temporal derivatives.
     """
 
     def __init__(self, function_handle, index=0, order=0, exponent=1):

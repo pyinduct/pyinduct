@@ -39,21 +39,15 @@ class BaseFraction(metaclass=ABCMeta):
     def __init__(self, members):
         self.members = members
 
-    def derive(self, order):
-        """
-        Basic implementation of derive function.
-        Empty implementation, overwrite to add more functionality.
+    @staticmethod
+    def _transformation_factory(info):
+        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
+                                                            info.dst_order)
 
-        Args:
-            order (:class:`numbers.Number`): derivative order
-        Return:
-            :py:class:`BaseFraction`: derived object
-        """
-        if order == 0:
-            return self
-        else:
-            raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
-                             "own!")
+        def handle(weights):
+            return np.dot(mat, weights)
+
+        return handle
 
     def transformation_hint(self, info, target):
         """
@@ -98,16 +92,6 @@ class BaseFraction(metaclass=ABCMeta):
                   info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
-    @staticmethod
-    def _transformation_factory(info):
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
-                                                            info.dst_order)
-
-        def handle(weights):
-            return np.dot(mat, weights)
-
-        return handle
-
     @abstractmethod
     def scalar_product_hint(self):
         """
@@ -120,6 +104,23 @@ class BaseFraction(metaclass=ABCMeta):
             Overwrite to implement custom functionality.
         """
         pass
+
+    @abstractmethod
+    def derive(self, order):
+        """
+        Basic implementation of derive function.
+        Empty implementation, overwrite to add more functionality.
+
+        Args:
+            order (:class:`numbers.Number`): derivative order
+        Return:
+            :py:class:`BaseFraction`: derived object
+        """
+        if order == 0:
+            return self
+        else:
+            raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
+                             "own!")
 
     @abstractmethod
     def scale(self, factor):
