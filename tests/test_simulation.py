@@ -213,7 +213,7 @@ class CanonicalFormsTest(unittest.TestCase):
         )
         weak_form1 = sim.WeakFormulation(
             [
-                ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1.derive(temp_order=1), self.test_func1), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.field_var2, self.test_func1), limits=(0, 1)),
             ],
             dynamic_weights="field1"
@@ -221,7 +221,7 @@ class CanonicalFormsTest(unittest.TestCase):
         weak_form2 = sim.WeakFormulation(
             [
                 ph.IntegralTerm(ph.Product(self.field_var1, self.test_func2), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2.derive(temp_order=1), self.test_func2), limits=(0, 1)),
             ],
             dynamic_weights="field2"
         )
@@ -251,16 +251,16 @@ class CanonicalFormsTest(unittest.TestCase):
 
         u1_wf = sim.WeakFormulation(
             [
-                ph.ScalarTerm(self.scalar_var1.derive_temp(2)(0)),
-                ph.ScalarTerm(self.scalar_var2.derive_temp(0)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=2)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=0)(0)),
                 ph.ScalarTerm(ph.Input(u2))
             ],
             dynamic_weights="scalar1"
         )
         u2_wf = sim.WeakFormulation(
             [
-                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
-                ph.ScalarTerm(self.scalar_var1.derive_temp(0)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=0)(0)),
                 ph.ScalarTerm(ph.Input(u1))
             ],
             dynamic_weights="scalar2"
@@ -268,7 +268,7 @@ class CanonicalFormsTest(unittest.TestCase):
         pow_wf = sim.WeakFormulation(
             [
                 ph.ScalarTerm(ph.FieldVariable("scalar2", location=1, exponent=2)),
-                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=1)(0)),
                 ph.ScalarTerm(ph.Input(u1))
             ],
             dynamic_weights="scalar1"
@@ -276,23 +276,22 @@ class CanonicalFormsTest(unittest.TestCase):
 
         u1_cfs, u2_cfs, pow_cfs = [sim.parse_weak_formulation(wf) for wf in [u1_wf, u2_wf, pow_wf]]
 
-
         bad_wf11 = sim.WeakFormulation(
             [
-                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=2)(0)),
             ],
             dynamic_weights="scalar1"
         )
         bad_wf12 = sim.WeakFormulation(
             [
-                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
-                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=1)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=2)(0)),
             ],
             dynamic_weights="scalar1"
         )
         bad_wf13 = sim.WeakFormulation(
             [
-                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=1)(0)),
                 ph.ScalarTerm(ph.FieldVariable("scalar2", location=0, exponent=2)),
             ],
             dynamic_weights="scalar1"
@@ -306,10 +305,10 @@ class CanonicalFormsTest(unittest.TestCase):
         wf1 = sim.WeakFormulation(
             [
                 ph.ScalarTerm(self.scalar_var1(0)),
-                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
-                ph.ScalarTerm(self.scalar_var1.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=2)(0)),
                 ph.ScalarTerm(self.scalar_var2(0)),
-                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=1)(0)),
                 ph.ScalarTerm(self.field_var1(0.25)),
                 ph.ScalarTerm(self.field_var2(0.75))
             ],
@@ -318,10 +317,10 @@ class CanonicalFormsTest(unittest.TestCase):
         wf2 = sim.WeakFormulation(
             [
                 ph.ScalarTerm(self.scalar_var1(0)),
-                ph.ScalarTerm(self.scalar_var1.derive_temp(1)(0)),
+                ph.ScalarTerm(self.scalar_var1.derive(temp_order=1)(0)),
                 ph.ScalarTerm(self.scalar_var2(0)),
-                ph.ScalarTerm(self.scalar_var2.derive_temp(1)(0)),
-                ph.ScalarTerm(self.scalar_var2.derive_temp(2)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=1)(0)),
+                ph.ScalarTerm(self.scalar_var2.derive(temp_order=2)(0)),
                 ph.ScalarTerm(self.field_var1(0)),
                 ph.ScalarTerm(self.field_var2(1)),
             ],
@@ -330,11 +329,11 @@ class CanonicalFormsTest(unittest.TestCase):
         wf3 = sim.WeakFormulation(
             [
                 ph.IntegralTerm(ph.Product(self.scalar_var1, self.test_func1), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.scalar_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.scalar_var2.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.scalar_var1.derive(temp_order=1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.scalar_var2.derive(temp_order=1), self.test_func1), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.scalar_var1, self.test_func1), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.field_var1, self.test_func1), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.field_var1.derive_temp(1), self.test_func1), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var1.derive(temp_order=1), self.test_func1), limits=(0, 1)),
                 ph.IntegralTerm(ph.Product(self.field_var2, self.test_func1), limits=(0, 1)),
             ],
             dynamic_weights="field1"
@@ -342,7 +341,7 @@ class CanonicalFormsTest(unittest.TestCase):
         wf4 = sim.WeakFormulation(
             [
                 ph.IntegralTerm(ph.Product(self.field_var1, self.test_func2), limits=(0, 1)),
-                ph.IntegralTerm(ph.Product(self.field_var2.derive_temp(1), self.test_func2), limits=(0, 1)),
+                ph.IntegralTerm(ph.Product(self.field_var2.derive(temp_order=1), self.test_func2), limits=(0, 1)),
             ],
             dynamic_weights="field2"
         )
@@ -1148,5 +1147,3 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
-
-

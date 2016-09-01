@@ -5,10 +5,9 @@ import pyinduct.simulation as sim
 import pyinduct.visualization as vis
 import pyinduct.placeholder as ph
 import pyinduct.utils as ut
-import pyinduct.control as ct
 from pyinduct import register_base
 import numpy as np
-from pyqtgraph.Qt import QtGui
+import pyqtgraph as pg
 
 
 def build_system_state_space(approx_label, spatial_interval, u, params):
@@ -17,9 +16,9 @@ def build_system_state_space(approx_label, spatial_interval, u, params):
 
     wf = sim.WeakFormulation(
         [
-            ph.IntegralTerm(ph.Product(x.derive_temp(2), psi), limits=spatial_interval),
-            ph.IntegralTerm(ph.Product(x.derive_spat(1), psi.derive(1)), limits=spatial_interval),
-            ph.ScalarTerm(ph.Product(x(0).derive_temp(2), psi(0)), scale=params.m),
+            ph.IntegralTerm(ph.Product(x.derive(temp_order=2), psi), limits=spatial_interval),
+            ph.IntegralTerm(ph.Product(x.derive(spat_order=1), psi.derive(1)), limits=spatial_interval),
+            ph.ScalarTerm(ph.Product(x(0).derive(temp_order=2), psi(0)), scale=params.m),
             ph.ScalarTerm(ph.Product(ph.Input(u), psi(1)), scale=-1),
         ],
         name="swm_system"
@@ -97,15 +96,15 @@ def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
     obs_err = sim.ObserverError(sim.FeedbackLaw([
         ph.ScalarTerm(ph.FieldVariable(sys_approx_label, location=0), scale=-1)
     ]), sim.FeedbackLaw([
-        ph.ScalarTerm(eta3(-1).derive_spat(1), scale=-params.m / 2),
-        ph.ScalarTerm(eta3(1).derive_spat(1), scale=-params.m / 2),
+        ph.ScalarTerm(eta3(-1).derive(spat_order=1), scale=-params.m / 2),
+        ph.ScalarTerm(eta3(1).derive(spat_order=1), scale=-params.m / 2),
         ph.ScalarTerm(eta1(0), scale=-params.m / 2),
     ]))
     u_vec = sim.SimulationInputVector([sys_input, obs_err])
 
     d_eta1 = sim.WeakFormulation(
         [
-            ph.ScalarTerm(eta1(0).derive_temp(1), scale=-1),
+            ph.ScalarTerm(eta1(0).derive(temp_order=1), scale=-1),
             ph.ScalarTerm(ph.Input(u_vec, index=0), scale=2 / params.m),
             ph.ScalarTerm(ph.Input(u_vec, index=1), scale=-(1 + params.alpha_ob) * params.k0_ob)
         ],
@@ -113,7 +112,7 @@ def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
     )
     d_eta2 = sim.WeakFormulation(
         [
-            ph.ScalarTerm(eta2(0).derive_temp(1), scale=-1),
+            ph.ScalarTerm(eta2(0).derive(temp_order=1), scale=-1),
             ph.ScalarTerm(eta1(0)),
             ph.ScalarTerm(ph.Input(u_vec, index=0), scale=2 / params.m),
             ph.ScalarTerm(ph.Input(u_vec, index=1), scale=-(1 + params.alpha_ob) * params.k1_ob - 2 * params.k0_ob)
@@ -122,23 +121,23 @@ def build_observer(sys_approx_label, obs_approx_label, sys_input, params):
     )
     d_eta3 = sim.WeakFormulation(
         [
-            ph.IntegralTerm(ph.Product(eta3.derive_temp(1), psi), limits=limits, scale=-1),
+            ph.IntegralTerm(ph.Product(eta3.derive(temp_order=1), psi), limits=limits, scale=-1),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
             # \hat y
-            ph.IntegralTerm(ph.Product(eta3(-1).derive_spat(1), psi), limits=limits, scale=1/2),
-            ph.IntegralTerm(ph.Product(eta3(1).derive_spat(1), psi), limits=limits, scale=1/2),
-            ph.IntegralTerm(ph.Product(eta1, psi), limits=limits, scale=1/2),
+            ph.IntegralTerm(ph.Product(eta3(-1).derive(spat_order=1), psi), limits=limits, scale=1 / 2),
+            ph.IntegralTerm(ph.Product(eta3(1).derive(spat_order=1), psi), limits=limits, scale=1 / 2),
+            ph.IntegralTerm(ph.Product(eta1, psi), limits=limits, scale=1 / 2),
             # shift
             ph.IntegralTerm(ph.Product(eta3, psi.derive(1)), limits=limits),
             ph.ScalarTerm(ph.Product(eta3(1), psi(1)), scale=-1),
             # bc
             ph.ScalarTerm(ph.Product(psi(-1), eta2(0))),
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi(-1)), scale=1-params.alpha_ob),
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi(-1)), scale=1 - params.alpha_ob),
             # bc \hat y
-            ph.ScalarTerm(ph.Product(eta3(-1).derive_spat(1), psi(-1)), params.m/2),
-            ph.ScalarTerm(ph.Product(eta3(1).derive_spat(1), psi(-1)), params.m/2),
-            ph.ScalarTerm(ph.Product(eta1(1), psi(-1)), params.m/2),
+            ph.ScalarTerm(ph.Product(eta3(-1).derive(spat_order=1), psi(-1)), params.m / 2),
+            ph.ScalarTerm(ph.Product(eta3(1).derive(spat_order=1), psi(-1)), params.m / 2),
+            ph.ScalarTerm(ph.Product(eta1(1), psi(-1)), params.m / 2),
         ],
         dynamic_weights=obs_approx_label
     )
@@ -171,8 +170,6 @@ class Parameters:
     def __init__(self):
         pass
 
-
-app = QtGui.QApplication([])
 
 # temporal and spatial domain specification
 t_end = 30

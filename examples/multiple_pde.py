@@ -34,7 +34,7 @@ psi2 = ph.TestFunction("x2_funcs")
 
 weak_form1 = sim.WeakFormulation(
     [
-        ph.IntegralTerm(ph.Product(x1.derive_temp(1), psi1), limits=spat_domain.bounds),
+        ph.IntegralTerm(ph.Product(x1.derive(temp_order=1), psi1), limits=spat_domain.bounds),
         ph.IntegralTerm(ph.Product(x1, psi1.derive(1)), limits=spat_domain.bounds, scale=-v),
         ph.ScalarTerm(ph.Product(x1(l), psi1(l)), scale=v),
         ph.ScalarTerm(ph.Product(ph.Input(u), psi1(0)), scale=-v),
@@ -45,7 +45,7 @@ weak_form1 = sim.WeakFormulation(
 )
 weak_form2 = sim.WeakFormulation(
     [
-        ph.IntegralTerm(ph.Product(x2.derive_temp(1), psi2), limits=spat_domain.bounds),
+        ph.IntegralTerm(ph.Product(x2.derive(temp_order=1), psi2), limits=spat_domain.bounds),
         ph.IntegralTerm(ph.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
         ph.IntegralTerm(ph.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c3),
     ],
