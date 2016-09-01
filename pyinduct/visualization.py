@@ -481,10 +481,12 @@ def mpl_activate_latex():
 def mpl_3d_remove_margins():
     """
     Remove thin margins in matplotlib 3d plots.
-    Code is from here :html:`http://stackoverflow.com/questions/16488182/`
+    The Solution is from `Stackoverflow`_.
+
+    .. _Stackoverflow:
+        http://stackoverflow.com/questions/16488182/
     """
 
-    ### source code patch start ###
     from mpl_toolkits.mplot3d.axis3d import Axis
 
     if not hasattr(Axis, "_get_coord_info_old"):
@@ -496,7 +498,6 @@ def mpl_3d_remove_margins():
 
         Axis._get_coord_info_old = Axis._get_coord_info
         Axis._get_coord_info = _get_coord_info_new
-        ### source code patch end ###
 
 
 def save_2d_pg_plot(plot, filename):

@@ -4,7 +4,7 @@ from .trajectory import SmoothTransition, gevrey_tanh
 # noinspection PyUnresolvedReferences
 from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
-from .core import Function, normalize_function
+from .core import Function, normalize_base
 # noinspection PyUnresolvedReferences
 from pyinduct.simulation import FeedbackLaw, Feedback
 # noinspection PyUnresolvedReferences

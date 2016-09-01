@@ -130,11 +130,10 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         self.a2_z = lambda z: a2
         self.a1_z = a1
         self.a0_z = lambda z: a0
-        self.transformed_eig_funcs = [ef.TransformedSecondOrderEigenfunction(self.eig_val[i],
-                                                                             [self.eig_funcs[i](0),
-                                                                              self.eig_funcs[i].derive(1)(0), 0, 0],
-                                                                             [self.a2_z, self.a1_z, self.a0_z],
-                                                                             self.z)
+        self.transformed_eig_funcs = [ef.TransformedSecondOrderEigenfunction(self.eig_val[i], [self.eig_funcs[i](0),
+                                                                                               self.eig_funcs[i].derive(
+                                                                                                   1)(0), 0, 0],
+                                                                             [self.a2_z, self.a1_z, self.a0_z], self.z)
                                       for i in range(len(self.eig_funcs))]
 
     def test_constant_coefficient(self):
@@ -207,10 +206,7 @@ class IntermediateTransformationTest(unittest.TestCase):
             [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in self.eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        adjoint_and_eig_funcs = [cr.normalize_function(init_eig_funcs[i], init_adjoint_eig_funcs[i]) for i in
-                                 range(self.n)]
-        self.eig_funcs = np.array([f_tuple[0] for f_tuple in adjoint_and_eig_funcs])
-        self.adjoint_eig_funcs = np.array([f_tuple[1] for f_tuple in adjoint_and_eig_funcs])
+        self.eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenvalues and -frequencies test
         eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
@@ -219,9 +215,7 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.assertTrue(all(np.isclose(calc_eig_freq, eig_freq_i)))
 
         # intermediate (_i) eigenfunction test
-        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i],
-                                                                 self.param_i,
-                                                                 self.spatial_domain,
+        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.spatial_domain,
                                                                  self.eig_funcs[i](0))
                                 for i in range(self.n)])
         self.assertTrue(all(np.isclose([func(0) for func in eig_funcs_i],

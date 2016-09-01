@@ -5,9 +5,10 @@ import pyinduct.simulation as sim
 import pyinduct.visualization as vis
 import pyinduct.placeholder as ph
 import pyinduct.utils as ut
+import pyinduct.control as ct
 from pyinduct import register_base
 import numpy as np
-import pyqtgraph as pg
+from pyqtgraph.Qt import QtGui
 
 
 def build_system_state_space(approx_label, spatial_interval, u, params):
@@ -29,10 +30,10 @@ def build_system_state_space(approx_label, spatial_interval, u, params):
 
 def build_control_law(approx_label, params):
     x = ph.FieldVariable(approx_label)
-    dz_x1 = x.derive_spat(1)
-    x2 = x.derive_temp(1)
+    dz_x1 = x.derive(spat_order=1)
+    x2 = x.derive(temp_order=1)
     xi1 = x(0)
-    xi2 = x(0).derive_temp(1)
+    xi2 = x(0).derive(temp_order=1)
 
     scalar_scale_funcs = [cr.Function(lambda theta: params.m * (1 - np.exp(-theta / params.m))),
                           cr.Function(lambda theta: params.m * (-1 + np.exp(theta / params.m))),
@@ -170,6 +171,8 @@ class Parameters:
     def __init__(self):
         pass
 
+
+app = QtGui.QApplication([])
 
 # temporal and spatial domain specification
 t_end = 30

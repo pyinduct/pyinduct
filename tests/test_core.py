@@ -1,4 +1,5 @@
 import sys
+import collections
 import unittest
 from numbers import Number
 
@@ -67,19 +68,55 @@ class FunctionTestCase(unittest.TestCase):
 
     def test_derivation(self):
         f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+
+        # be robust to meaningless input
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
         self.assertRaises(ValueError, f.derive, 3)  # unknown derivative
+        self.assertRaises(ValueError, f.derive, 100)  # unknown derivative
 
+        # zeroth derivative should return the function itself
         d0 = f.derive(0)
         self.assertEqual(f, d0)
 
-        d1 = f.derive()  # default arg should be one
-        self.assertTrue(np.array_equal(d1._function_handle(list(range(10))), np.cos(list(range(10)))))
+        d_default = f.derive()
 
-        d2 = f.derive(2)
-        self.assertTrue(np.array_equal(d2._function_handle(list(range(10))), np.sin(list(range(10)))))
+        # default arg should be one
+        d1 = f.derive()
+        d_default.__dict__.pop("members")
+        d1.__dict__.pop("members")
+        self.assertEqual(d_default.__dict__, d1.__dict__)
 
-        self.assertRaises(ValueError, d2.derive, 1)  # unknown derivative
+        # derivatives should change
+        p_func = d1.__dict__.pop("_function_handle")
+        self.assertEqual(p_func, np.cos)
+
+        # list of handles should get shorter
+        p_deriv = d1.__dict__.pop("_derivative_handles")
+        self.assertEqual(p_deriv, [np.sin])
+
+        # rest should stay the same
+        f.__dict__.pop("_function_handle")
+        f.__dict__.pop("_derivative_handles")
+        f.__dict__.pop("members")
+        self.assertEqual(d1.__dict__, f.__dict__)
+
+        f_2 = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        d2 = f_2.derive(2)
+
+        # derivatives should change
+        p_func = d2.__dict__.pop("_function_handle")
+        self.assertEqual(p_func, np.sin)
+
+        # list of handles should get shorter
+        p_deriv = d2.__dict__.pop("_derivative_handles")
+        self.assertEqual(p_deriv, [])
+
+        # rest should stay the same
+        f_2.__dict__.pop("_function_handle")
+        f_2.__dict__.pop("_derivative_handles")
+        f_2.__dict__.pop("members")
+        d2.__dict__.pop("members")
+        self.assertEqual(d2.__dict__, f_2.__dict__)
 
     def test_scale(self):
         f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
@@ -123,57 +160,40 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
+
         def func(x):
-            return 2 * x
+            if isinstance(x, collections.Iterable):
+                raise TypeError("no vectorial stuff allowed!")
+            return 2 ** x
+
+        f = core.Function(func, domain=(0, 10))
+        self.assertEqual(f._vectorial, False)  # function handle should be recognized as non-vectorial
 
         # call with scalar should return scalar with correct value
-        f = core.Function(func)
         self.assertIsInstance(f(10), Number)
         self.assertNotIsInstance(f(10), np.ndarray)
         self.assertEqual(f(10), func(10))
 
         # vectorial arguments should be understood and an np.ndarray shall be returned
-        self.assertIsInstance(f(list(range(10))), np.ndarray)
-        self.assertTrue(np.array_equal(f(list(range(10))), [func(val) for val in range(10)]))
+        self.assertIsInstance(f(np.array(range(10))), np.ndarray)
+        self.assertTrue(np.array_equal(f(np.array(range(10))), [func(val) for val in range(10)]))
 
+    def test_vector_call(self):
 
-# class MatrixFunctionTestCase(unittest.TestCase):
-#
-#     def setUp(self):
-#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder,
-#                                                                    (0, 1), node_count=2)
-#
-#     def test_functional_call(self):
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 0)
-#         real_result = np.array([[1/3, 1/6], [1/6, 1/3]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 0)
-#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0, 1)
-#         real_result = np.array([[-1/2, 1/2], [-1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-#         real_result = np.array([[1, -1], [-1, 1]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         self.nodes, self.init_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
-#                                                                    node_count=3)
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1, 1)
-#         real_result = np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#     def test_scalar_call(self):
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 0,  0, locations=(0.5, 0.5))
-#         real_result = np.array([[1/4, 1/4], [1/4, 1/4]])
-#         self.assertTrue(np.allclose(res, real_result))
-#
-#         res = core.calculate_function_matrix_differential(self.init_funcs, self.init_funcs, 1,  0, locations=(0.5, 0.5))
-#         real_result = np.array([[-1/2, -1/2], [1/2, 1/2]])
-#         self.assertTrue(np.allclose(res, real_result))
+        def vector_func(x):
+            return 2 * x
+
+        f = core.Function(vector_func, domain=(0, 10))
+        self.assertEqual(f._vectorial, True)  # function handle should be recognized as vectorial
+
+        # call with scalar should return scalar with correct value
+        self.assertIsInstance(f(10), Number)
+        self.assertNotIsInstance(f(10), np.ndarray)
+        self.assertEqual(f(10), vector_func(10))
+
+        # vectorial arguments should be understood and an np.ndarray shall be returned
+        self.assertIsInstance(f(np.array(range(10))), np.ndarray)
+        self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
 
 
 class IntersectionTestCase(unittest.TestCase):
@@ -202,7 +222,7 @@ class IntersectionTestCase(unittest.TestCase):
                          [(-10, -5), (3, 5)], (10, 17))
 
 
-class DotProductL2TestCase(unittest.TestCase):
+class ScalarDotProductL2TestCase(unittest.TestCase):
     def setUp(self):
         self.f1 = core.Function(lambda x: 1, domain=(0, 10))
         self.f2 = core.Function(lambda x: 2, domain=(0, 5))
@@ -214,17 +234,68 @@ class DotProductL2TestCase(unittest.TestCase):
         self.f7 = shapefunctions.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f3), 2)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
 
     def test_nonzero(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
+
+# TODO tests for dot_product_l2 (vectorial case)
+
+
+class CalculateScalarProductMatrixTestCase(unittest.TestCase):
+
+    def setUp(self):
+        interval = (0, 10)
+        nodes = 5
+        self.nodes1, self.initial_functions1 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
+                                                                            node_count=nodes)
+        self.nodes2, self.initial_functions2 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
+                                                                            node_count=2*nodes-1)
+        self.optimization = None
+        print(np.array(self.nodes1), np.array(self.nodes2))
+
+    def run_benchmark(self):
+        """
+        # run the non optimized code
+        """
+        # symmetrical
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions1, self.initial_functions1,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+        # rect1
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions2, self.initial_functions1,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+        # rect2
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
+                                                   self.initial_functions1, self.initial_functions2,
+                                                   optimize=self.optimization)
+        # print(mat)
+        # print()
+
+    @unittest.skip
+    def test_optimized(self):
+        # run the non optimized code
+        self.optimization = True
+        self.run_benchmark()
+
+    def test_unoptimized(self):
+        # run the non optimized code
+        self.optimization = False
+        self.run_benchmark()
 
 
 class ProjectionTest(unittest.TestCase):
@@ -242,6 +313,7 @@ class ProjectionTest(unittest.TestCase):
                       core.Function(lambda x: x ** 2),
                       core.Function(lambda x: np.sin(x))
                       ]
+        self.funcs[1](10)
         self.real_values = [func(self.z_values) for func in self.funcs]
 
     def test_types_projection(self):
@@ -363,23 +435,23 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.g = core.Function(np.cos, domain=(0, np.pi * 2))
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
-    def test_self_scale(self):
-        f = core.normalize_function(self.f)
-        prod = core.dot_product_l2(f, f)
-        self.assertAlmostEqual(prod, 1)
+        self.base_f = np.array([self.f])
+        self.base_g = np.array([self.g])
+        self.base_l = np.array([self.l])
 
-        p = core.normalize_function(self.f)
-        prod = core.dot_product_l2(p.members, p.members)
+    def test_self_scale(self):
+        f = core.normalize_base(self.base_f)
+        prod = core.dot_product_l2(f, f)[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
-        f, l = core.normalize_function(self.f, self.l)
-        prod = core.dot_product_l2(f, l)
+        f, l = core.normalize_base(self.base_f, self.base_l)
+        prod = core.dot_product_l2(f, l)[0]
         self.assertAlmostEqual(prod, 1)
 
-        p, q = core.normalize_function(self.f, self.l)
-        prod = core.dot_product_l2(p.members, q.members)
-        self.assertAlmostEqual(prod, 1)
+    def test_culprits(self):
+        # not possible
+        self.assertRaises(ValueError, core.normalize_base, self.base_g, self.base_l)
 
-    def test_orthogonal(self):
-        self.assertRaises(ValueError, core.normalize_function, self.f, self.g)
+        # orthogonal
+        self.assertRaises(ValueError, core.normalize_base, self.base_f, self.base_g)

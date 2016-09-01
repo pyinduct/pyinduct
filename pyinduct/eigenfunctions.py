@@ -1,6 +1,6 @@
 """
-This modules provides  for some (as general as possible) eigenvalue problems a ready to go eigenfunction
-implementation and functions which compute the corresponding eigenvalues.
+This modules provides eigenfunctions for a certain set of parabolic problems. Therefore functions for the computation
+of the corresponding eigenvalues are included.
 The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
 order to handle transformations and reduce effort by the controller implementation.
 """
@@ -123,10 +123,7 @@ class FiniteTransformFunction(Function):
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
-            Function.__init__(self,
-                              self._call_transformed_func_vec,
-                              nonzero=(0, l),
-                              derivative_handles=[])
+            Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
         i = int(z / self.l0)

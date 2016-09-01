@@ -7,6 +7,8 @@ import time
 
 import pyinduct as pi
 import pyinduct.shapefunctions as sh
+import sympy as sp
+import tests.test_data.test_shapefunctions_data as shape_data
 from pyinduct.visualization import create_colormap
 import test_data.test_shapefunctions_data
 
@@ -24,10 +26,7 @@ if show_plots:
 
 class CureTestCase(unittest.TestCase):
     def test_init(self):
-        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3])
-        self.assertRaises(TypeError, sh.cure_interval, np.sin, (2, 3))
-        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
-                          (0, 2))
+        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3], 2)
         self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
                           (0, 2), 2, 1)
 
@@ -97,21 +96,13 @@ class NthOrderCureTestCase(unittest.TestCase):
         self.assertRaises(ValueError, sh.LagrangeNthOrder, 3, nodes, mid_num=3)
         self.assertRaises(ValueError, sh.LagrangeNthOrder, 3, nodes)
 
-    def test_cure(self):
-        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3])
-        self.assertRaises(TypeError, sh.cure_interval, np.sin, (2, 3))
-        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeNthOrder,
-                          (0, 2))
-        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeNthOrder,
-                          (0, 2), 2, 1)
-
     def test_smoothness(self):
-        self.tolerances = test_data.test_shapefunctions_data.tolerances
+        self.tolerances = shape_data.tolerances
         for conf in range(5):
             orders = range(1, 5)
-            self.t_smoothness(orders, conf)
+            self.shape_benchmark(orders, conf)
 
-    def t_smoothness(self, orders, conf):
+    def shape_benchmark(self, orders, conf):
         derivatives = dict([(order, range(0, order + 1)) for order in orders])
 
         # approximation function
@@ -162,147 +153,9 @@ class NthOrderCureTestCase(unittest.TestCase):
 
                     # plot hull curve
                     pw1.addItem(pg.PlotDataItem(np.array(hull_show.input_data[1]), hull_show.output_data[0, :],
-                                                pen=pg.mkPen(width=2), name="hull-curve"))
+                                                pen=pg.mkPen(color="b", width=3), name="hull-curve"))
                     # plot original function
                     pw1.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                                 pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine),
                                                 name="original"))
                     pg.QtCore.QCoreApplication.instance().exec_()
-
-
-class SpeedTest(unittest.TestCase):
-    """
-    Compare LagrangeNthOrder with LagrangeSecondOrder (have a look at terminal output).
-
-    When it succeeds to get positive values (at least a few) under the "Difference" headline
-    by the transport system example, too, you can delete:
-    - this test case
-    - LagrangeFirstOrder
-    - LagrangeSecondOrder
-    """
-
-    def test_implementation(self):
-
-        impl = dict()
-        headlines = ("New implementation", "Old implementation")
-
-        print(">>> PyInduct transport system example speed test: \n")
-        for headline in headlines:
-            impl[headline] = dict()
-            impl[headline]["pi_time"], impl[headline]["funcs"] = self.t_implementation(headline)
-            self.print_time(headline, impl[headline]["pi_time"])
-        self.print_time("Difference", np.array(impl[headlines[1]]["pi_time"]) - np.array(impl[headlines[0]]["pi_time"]))
-
-        print(">>> pyinduct.core.Function speed test:")
-        z = np.linspace(0, 1, 1e4)
-        for headline in headlines:
-            impl[headline]["f_time"] = list()
-            print("\n" + headline)
-            for der_order in range(len(impl[headline]["funcs"][0]._derivative_handles) + 1):
-                _t = time.time()
-                for idx, func in enumerate(impl[headline]["funcs"]):
-                    dummy = func.derive(der_order)(z)
-                impl[headline]["f_time"].append(time.time() - _t)
-                print("\tderivative {}: {} s".format(der_order, impl[headline]["f_time"][der_order]))
-        print("\nDifference")
-        for der_order, _ in enumerate(impl[headlines[0]]["f_time"]):
-            print("\tderivative {}: {} s".format(der_order, impl[headlines[1]]["f_time"][der_order] -
-                                                  impl[headlines[0]]["f_time"][der_order]))
-
-    def t_implementation(self, headline):
-        import pyinduct.core as cr
-        import pyinduct.placeholder as ph
-        import pyinduct.registry as reg
-        import pyinduct.shapefunctions as sh
-        import pyinduct.simulation as sim
-        import pyinduct.trajectory as tr
-        import pyinduct.visualization as vis
-        import numpy as np
-        import pyqtgraph as pg
-
-        sys_name = 'transport system'
-        v = 10
-        l = 5
-        T = 5
-        spat_domain = sim.Domain(bounds=(0, l), num=51)
-        temp_domain = sim.Domain(bounds=(0, T), num=1e2)
-
-        init_x = cr.Function(lambda z: 0)
-
-        _a = time.time()
-        if headline.startswith("New"):
-            nodes, init_funcs = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=len(spat_domain),
-                                                 order=2)
-        else:
-            nodes, init_funcs = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds,
-                                                 node_count=len(spat_domain))
-        _b = time.time()
-
-        func_label = 'init_funcs'
-        reg.register_base(func_label, init_funcs, overwrite=True)
-
-        u = sim.SimulationInputSum([
-            tr.SignalGenerator('square', np.array(temp_domain), frequency=0.3, scale=2, offset=4, phase_shift=1),
-            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[15]),
-            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[25], scale=-4),
-            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[35]),
-            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[60], scale=-2),
-        ])
-
-        _c = time.time()
-        weak_form = sim.WeakFormulation([
-            ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(func_label, 1), ph.TestFunction(func_label)),
-                            spat_domain.bounds),
-            ph.IntegralTerm(ph.Product(ph.FieldVariable(func_label), ph.TestFunction(func_label, order=1)),
-                            spat_domain.bounds,
-                            scale=-v),
-            ph.ScalarTerm(ph.Product(ph.FieldVariable(func_label, location=l), ph.TestFunction(func_label, location=l)),
-                          scale=v),
-            ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction(func_label, location=0)),
-                          scale=-v),
-        ], name=sys_name)
-        _d = time.time()
-
-        initial_states = np.atleast_1d(init_x)
-
-        _e = time.time()
-        canonical_form = sim.parse_weak_formulation(weak_form)
-        _f = time.time()
-
-        state_space_form = canonical_form.convert_to_state_space()
-
-        _g = time.time()
-        q0 = np.array([sim.project_on_base(initial_state, reg.get_base(
-            canonical_form.weights, 0)) for initial_state in
-                       initial_states]).flatten()
-        _h = time.time()
-
-        sim_domain, q = sim.simulate_state_space(state_space_form, q0, temp_domain)
-
-        temporal_order = min(initial_states.size - 1, 0)
-        _i = time.time()
-        eval_data = sim.process_sim_data(canonical_form.weights, q, sim_domain, spat_domain, temporal_order, 0,
-                                         name=canonical_form.name)
-        _j = time.time()
-
-        if show_plots:
-            win0 = pg.plot(np.array(eval_data[0].input_data[0]), u.get_results(eval_data[0].input_data[0]),
-                           labels=dict(left='u(t)', bottom='t'), pen='b')
-            win0.showGrid(x=False, y=True, alpha=0.5)
-            vis.save_2d_pg_plot(win0, 'transport_system')
-            win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name,
-                                      save_pics=False, labels=dict(left='x(z,t)', bottom='z'))
-            pg.QtGui.QApplication.instance().exec_()
-
-        return (_a, _b, _c, _d, _e, _f, _g, _h, _i, _j), init_funcs
-
-    def print_time(self, headline, time):
-        a, b, c, d, e, f, g, h, i, j = tuple(time)
-
-        print(headline + "\n" +
-              "\t cure interval: {} s \n"
-              "\t create weak form: {} s \n"
-              "\t parse weak form: {} s \n"
-              "\t initial weights: {} s \n"
-              "\t process data: {} s \n"
-              "".format(-a + b, -c + d, -e + f, -g + h, -i + j))
