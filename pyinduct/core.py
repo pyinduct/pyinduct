@@ -31,7 +31,7 @@ def sanitize_input(input_object, allowed_type):
     return input_object
 
 
-class BaseFraction(metaclass=ABCMeta):
+class BaseFraction:
     """
     Abstract base class representing a basis that can be used to describe functions of several variables.
     """
@@ -92,7 +92,6 @@ class BaseFraction(metaclass=ABCMeta):
                   info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
-    @abstractmethod
     def scalar_product_hint(self):
         """
         Empty Hint that can return steps for scalar product calculation.
@@ -102,14 +101,15 @@ class BaseFraction(metaclass=ABCMeta):
 
         Note:
             Overwrite to implement custom functionality.
+            For an example implementation see :py:class:`Function`
         """
         pass
 
-    @abstractmethod
     def derive(self, order):
         """
         Basic implementation of derive function.
-        Empty implementation, overwrite to add more functionality.
+        Empty implementation, overwrite to use this functionality.
+        For an example implementation see :py:class:`Function`
 
         Args:
             order (:class:`numbers.Number`): derivative order
@@ -119,24 +119,26 @@ class BaseFraction(metaclass=ABCMeta):
         if order == 0:
             return self
         else:
-            raise ValueError("No derivatives implemented in BaseFraction. Overwrite derive method to implement your "
-                             "own!")
+            raise NotImplementedError("This is an empty function."
+                                      " Overwrite it in your implementation to use this functionality.")
 
-    @abstractmethod
     def scale(self, factor):
         """
         Factory method to obtain instances of this base fraction, scaled by the given factor.
         Empty function, overwrite to implement custom functionality.
+        For an example implementation see :py:class:`Function`
 
         Args:
             factor: Factor to scale the vector.
         """
-        pass
+        raise NotImplementedError("This is an empty function."
+                                  " Overwrite it in your implementation to use this functionality.")
 
-    @abstractmethod
     def get_member(self, idx):
         """
         Getter function to access members.
+        Empty function, overwrite to implement custom functionality.
+        For an example implementation see :py:class:`Function`
 
         Note:
             Empty function, overwrite to implement custom functionality.
@@ -144,7 +146,8 @@ class BaseFraction(metaclass=ABCMeta):
         Args:
             idx: member index
         """
-        pass
+        raise NotImplementedError("This is an empty function."
+                                  " Overwrite it in your implementation to use this functionality.")
 
 
 class Function(BaseFraction):
