@@ -23,6 +23,15 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
+class ParamsTestCase(unittest.TestCase):
+
+    def test_init(self):
+        p = ut.Parameters(a=10, b=12, c="high")
+        self.assertTrue(p.a == 10)
+        self.assertTrue(p.b == 12)
+        self.assertTrue(p.c == "high")
+
+
 class FindRootsTestCase(unittest.TestCase):
     def setUp(self):
         def _char_equation(omega):
@@ -41,6 +50,7 @@ class FindRootsTestCase(unittest.TestCase):
         self.cmplx_eq = _cmplx_equation
 
         self.n_roots = 10
+        self.small_grid = np.arange(0, 1, 1)
         self.grid = np.arange(0, 50, 1)
         self.rtol = -1
 
@@ -50,6 +60,9 @@ class FindRootsTestCase(unittest.TestCase):
             self.assertAlmostEqual(self.char_eq(root), 0)
 
     def test_enough_roots(self):
+        # small area -> not enough roots -> Exception
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.small_grid, self.rtol)
+
         roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
 
@@ -109,12 +122,18 @@ class FindRootsTestCase(unittest.TestCase):
 
 class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
     def setUp(self):
+        self.f = np.cos
         self.psi = cr.Function(np.sin)
         register_base("funcs", self.psi, overwrite=True)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
         eval_values = np.array(list(range(10)))
+
+        # supply a non-placeholder
+        self.assertRaises(TypeError, ut.evaluate_placeholder_function, self.f, eval_values)
+
+        # check for correct results
         res = ut.evaluate_placeholder_function(self.funcs, eval_values)
         self.assertTrue(np.allclose(self.psi(eval_values), res))
 
@@ -147,6 +166,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
 
 class CreateDirTestCase(unittest.TestCase):
+    existing_file = "already_a_file_there"
     existing_dir = "already_there"
     new_dir = "not_yet_there"
 
@@ -156,6 +176,15 @@ class CreateDirTestCase(unittest.TestCase):
             dir_name = os.sep.join([os.getcwd(), name])
             if os.path.exists(dir_name):
                 self.fail("test directory already exists, tests cannot be run.")
+
+    def test_existing_file(self):
+        # create a file with directory name
+        dir_name = os.sep.join([os.getcwd(), self.existing_dir])
+        with open(dir_name, "w") as f:
+            pass
+
+        self.assertRaises(FileExistsError, ut.create_dir, self.existing_dir)
+        os.remove(dir_name)
 
     def test_existing_dir(self):
         dir_name = os.sep.join([os.getcwd(), self.existing_dir])

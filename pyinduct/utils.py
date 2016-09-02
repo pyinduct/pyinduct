@@ -19,11 +19,16 @@ import pyqtgraph as pg
 
 class Parameters:
     """
-    Empty class to pass system parameters.
+    Handy class to collect system parameters.
+    This class can be instantiated with a dict, whose keys will the become attributes of the object.
+    (Bunch approach)
+
+    Args:
+        kwargs: parameters
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 
 def complex_wrapper(func):
@@ -480,8 +485,8 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
 
 
 # TODO: think about interp
-def find_nearest_idx(array, value):
-    return (np.abs(array - value)).argmin()
+# def find_nearest_idx(array, value):
+#     return (np.abs(array - value)).argmin()
 
 
 def create_dir(dir_name):

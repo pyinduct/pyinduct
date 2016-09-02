@@ -206,8 +206,8 @@ class PgAnimatedPlot(PgDataPlot):
         """
         new_indexes = []
         for idx, data_set in enumerate(self._data):
-            # find nearest time index
-            t_idx = ut.find_nearest_idx(self.time_data[idx], self._t)
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
             new_indexes.append(t_idx)
 
             # TODO draw grey line if value is outdated
