@@ -95,6 +95,8 @@ def simulation_benchmark(spat_domain, settings):
                                      name=canonical_form.name)
     _j = time.clock()
 
+    reg.deregister_base("init_funcs")
+
     return _b - _a, _d - _c, _f - _e, _h - _g, _j - _i
 
 

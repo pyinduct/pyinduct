@@ -8,7 +8,7 @@ from pyinduct import control as ct
 from pyinduct import core as cr
 from pyinduct import eigenfunctions as ef
 from pyinduct import placeholder as ph
-from pyinduct import register_base
+from pyinduct import register_base, deregister_base
 from pyinduct import shapefunctions as sf
 from pyinduct import simulation as sim
 from pyinduct import trajectory as tr
@@ -66,6 +66,10 @@ class CollocatedTestCase(unittest.TestCase):
         res = law(self.weights, self.weight_label)["output"]
         self.assertAlmostEqual(res, 1 * np.exp(1))
 
+    def tearDown(self):
+        deregister_base("funcs")
+        deregister_base("exp_func")
+
 
 class ContinuousTestCase(unittest.TestCase):
     def setUp(self):
@@ -101,6 +105,10 @@ class ContinuousTestCase(unittest.TestCase):
         res = law(self.weights, self.weight_label)["output"]
         # TODO calculate expected result
         # self.assertAlmostEqual(res, 1*np.exp(1))
+
+    def tearDown(self):
+        deregister_base("funcs")
+        deregister_base("scal_func")
 
 
 class RadDirichletControlApproxTest(unittest.TestCase):
@@ -182,6 +190,10 @@ class RadDirichletControlApproxTest(unittest.TestCase):
             eval_d = sim.evaluate_approximation("eig_funcs", q, t, dz)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
+
+    def tearDown(self):
+        deregister_base("eig_funcs")
+        deregister_base("eig_funcs_t")
 
 
 class RadRobinControlApproxTest(unittest.TestCase):
@@ -293,6 +305,10 @@ class RadRobinControlApproxTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
+    def tearDown(self):
+        deregister_base("eig_funcs")
+        deregister_base("adjoint_eig_funcs")
+        deregister_base("eig_funcs_t")
 
 class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
     """
@@ -455,6 +471,12 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
+    def tearDown(self):
+        deregister_base("eig_funcs")
+        deregister_base("adjoint_eig_funcs")
+        deregister_base("eig_funcs_t")
+        deregister_base("fem_funcs")
+
 
 class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
     """
@@ -585,6 +607,12 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
             win1 = vis.PgAnimatedPlot([eval_d], title="Test")
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
+
+    def tearDown(self):
+        deregister_base("eig_funcs")
+        deregister_base("adjoint_eig_funcs")
+        deregister_base("eig_funcs_t")
+        deregister_base("fem_funcs")
 
 
 class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
@@ -719,7 +747,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
                                                                     trajectory=self.traj,
                                                                     scale=np.exp(-a1 / 2 / a2 * self.b))
 
-        # determine (A,B) with modal-transfomation
+        # determine (A,B) with modal transformation
         rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.dz.bounds,
                                                    self.b)
         cf = sim.parse_weak_formulation(rad_pde)
@@ -746,3 +774,11 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
             win1 = vis.PgSurfacePlot(eval_i)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
+
+    def tearDown(self):
+        deregister_base("eig_funcs")
+        deregister_base("eig_funcs_i")
+        deregister_base("eig_funcs_ti")
+        deregister_base("fem_funcs")
+        deregister_base("sh_fem_funcs_i")
+        deregister_base("sh_eig_funcs_id")

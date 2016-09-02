@@ -5,7 +5,7 @@ from numbers import Number
 
 import numpy as np
 
-from pyinduct import register_base, get_base, core, shapefunctions
+from pyinduct import register_base, deregister_base, get_base, core, shapefunctions
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -366,7 +366,7 @@ class ProjectionTest(unittest.TestCase):
             app.exec_()
 
     def tearDown(self):
-        pass
+        deregister_base("ini_funcs")
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
@@ -426,7 +426,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.assertLess(error, 1e-2)
 
     def tearDown(self):
-        pass
+        deregister_base("test_funcs")
 
 
 class NormalizeFunctionsTestCase(unittest.TestCase):

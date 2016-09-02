@@ -79,6 +79,7 @@ class CureTestCase(unittest.TestCase):
                                        pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
             pg.QtCore.QCoreApplication.instance().exec_()
 
+        pi.deregister_base("test")
         return np.sum(np.abs(hull.output_data[0, :] - approx_func.derive(der_order)(dz)))
 
 
@@ -155,3 +156,5 @@ class NthOrderCureTestCase(unittest.TestCase):
                                                 pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine),
                                                 name="original"))
                     pg.QtCore.QCoreApplication.instance().exec_()
+
+            pi.deregister_base("test")
