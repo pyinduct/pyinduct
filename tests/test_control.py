@@ -171,7 +171,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # input with feedback
         control_law = sim.SimulationInputSum([traj, controller])
 
-        # determine (A,B) with modal-transfomation
+        # determine (A,B) with modal transformation
         A = np.diag(eig_values)
         B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
         ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
@@ -191,7 +191,6 @@ class RadDirichletControlApproxTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
-    def tearDown(self):
         deregister_base("eig_funcs")
         deregister_base("eig_funcs_t")
 
@@ -221,7 +220,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
-        # original intermediate ("_i") and traget intermediate ("_ti") system parameters
+        # original intermediate ("_i") and target intermediate ("_ti") system parameters
         _, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param)
         _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 
@@ -305,10 +304,10 @@ class RadRobinControlApproxTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
-    def tearDown(self):
         deregister_base("eig_funcs")
         deregister_base("adjoint_eig_funcs")
         deregister_base("eig_funcs_t")
+
 
 class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
     """
@@ -450,7 +449,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
                                                                     trajectory=self.traj,
                                                                     scale=self.transform_i(-self.l))
 
-        # determine (A,B) with modal-transfomation
+        # determine (A,B) with modal transformation
         A = np.diag(np.real(self.eig_val))
         B = a2 * np.array([self.adjoint_eig_funcs[i](self.l) for i in range(self.n)])
         ss_modal = sim.StateSpace(self.act_funcs, A, B, input_handle=controller)
@@ -608,7 +607,6 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
-    def tearDown(self):
         deregister_base("eig_funcs")
         deregister_base("adjoint_eig_funcs")
         deregister_base("eig_funcs_t")
@@ -775,7 +773,6 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 
-    def tearDown(self):
         deregister_base("eig_funcs")
         deregister_base("eig_funcs_i")
         deregister_base("eig_funcs_ti")

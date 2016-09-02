@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import os
 
-from pyinduct import register_base, \
+from pyinduct import register_base, deregister_base, \
     core as cr, \
     simulation as sim, \
     shapefunctions as sh, \
@@ -75,8 +75,8 @@ class FindRootsTestCase(unittest.TestCase):
         for root in roots:
             self.assertTrue(root >= 0.)
 
+    @unittest.skip  # doesn't match the new signature
     def test_error_raiser(self):
-        return
         float_num = -1.
         int_num = 0
         to_small_area_end = 1e-3
@@ -136,6 +136,9 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
         # check for correct results
         res = ut.evaluate_placeholder_function(self.funcs, eval_values)
         self.assertTrue(np.allclose(self.psi(eval_values), res))
+
+    def tearDown(self):
+        deregister_base("funcs")
 
 
 class EvaluateApproximationTestCase(unittest.TestCase):
