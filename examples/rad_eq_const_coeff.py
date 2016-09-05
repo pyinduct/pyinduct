@@ -100,6 +100,7 @@ def transform_ti(z):
     """
     return np.exp(a1_t / 2 / a2 * z)  # x_ti = x_t * transform_ti
 
+
 # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
 x_fem_i_at_l = [ph.ScalarTerm(fem_field_variable, transform_i(l))]
 x_i_at_l = [ph.ScalarTerm(field_variable, transform_i(l))]
@@ -113,6 +114,7 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, transform_ti(l)),
 # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
 def int_kernel_zz(z):
     return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
+
 
 # init trajectory
 traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)

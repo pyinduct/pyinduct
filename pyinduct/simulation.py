@@ -364,14 +364,16 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     Args:
         weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
-        initial_states (numpy.ndarray): Array of core.Functions for :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
+        initial_states (callable or numpy.ndarray): Array of core.Functions for
+            :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
         temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
         spatial_domain (:py:class:`Domain`): Domain object holding information for spatial evaluation.
         der_orders (tuple): Tuple of derivative orders (time, spat) that shall be evaluated additionally.
         settings: Integrator settings, see :py:func:`simulate_state_space`.
 
     Return:
-        list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable and asked derivatives.
+        list: List of :py:class:`pyinduct.visualization.EvalData` objects,holding the results for the
+            FieldVariable and asked derivatives.
     """
     print(("simulating system: {0}".format(weak_form.name)))
     if not isinstance(weak_form, WeakFormulation):

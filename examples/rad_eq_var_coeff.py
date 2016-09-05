@@ -12,7 +12,6 @@ import pyqtgraph as pg
 import scipy.integrate as si
 import matplotlib.pyplot as plt
 
-
 # system/simulation parameters
 actuation_type = 'robin'
 bound_cond_type = 'robin'

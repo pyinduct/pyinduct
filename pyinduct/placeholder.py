@@ -18,12 +18,12 @@ class Placeholder(object):
     Base class that works as a placeholder for terms that are later parsed into a canonical form.
 
     Args:
-        data (arbitrary): data to store in the placeholder.
+        data (arbitrary): Data to store in the placeholder.
         order (tuple): (temporal_order, spatial_order) derivative orders  that are to be applied before evaluation.
         location (numbers.Number): Location to evaluate at before further computation.
 
     Todo:
-        convert order and location into attributes with setter and getter methods. This will close the gap of unchecked
+        Convert order and location into attributes with setter and getter methods. This will close the gap of unchecked
         values for order and location that can be sneaked in by the copy constructors by circumventing code doubling.
     """
 
@@ -44,7 +44,7 @@ class Placeholder(object):
         Mimics a copy constructor and adds the given derivative orders.
 
         Note:
-            The desired derivative order :code:`order` is added to the original order.
+            The desired derivative orders *temp_order* and *spat_order* are added to the original orders.
 
         Args:
             temp_order: Temporal derivative order to be added.

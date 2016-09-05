@@ -30,16 +30,15 @@ u = sim.SimulationInputSum([
     tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[60], scale=-2),
 ])
 
-weak_form = sim.WeakFormulation([
-    ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(func_label, 1), ph.TestFunction(func_label)),
-                    spat_domain.bounds),
-    ph.IntegralTerm(ph.Product(ph.FieldVariable(func_label), ph.TestFunction(func_label, order=1)), spat_domain.bounds,
-                    scale=-v),
-    ph.ScalarTerm(ph.Product(ph.FieldVariable(func_label, location=l), ph.TestFunction(func_label, location=l)),
-                  scale=v),
-    ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction(func_label, location=0)),
-                  scale=-v),
-], name=sys_name)
+x = ph.FieldVariable(func_label)
+psi = ph.TestFunction(func_label)
+weak_form = sim.WeakFormulation(
+    [
+        ph.IntegralTerm(ph.Product(x.derive(temp_order=1), psi), spat_domain.bounds),
+        ph.IntegralTerm(ph.Product(x, psi.derive(1)), spat_domain.bounds, scale=-v),
+        ph.ScalarTerm(ph.Product(x(l), psi(l)), scale=v),
+        ph.ScalarTerm(ph.Product(ph.Input(u), psi(0)), scale=-v)
+    ], name=sys_name)
 
 eval_data = sim.simulate_system(weak_form, init_x, temp_domain, spat_domain)
 
@@ -52,6 +51,3 @@ win1 = vis.PgAnimatedPlot(eval_data, title=eval_data[0].name,
 win2 = vis.MplSlicePlot(eval_data, spatial_point=0, ylabel="x(0,t)")
 plt.show()
 pg.QtGui.QApplication.instance().exec_()
-
-
-
