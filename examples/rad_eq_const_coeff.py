@@ -54,7 +54,7 @@ temporal_domain = sim.Domain(bounds=(0, 1), num=1e2)
 n = n_modal
 
 # create (not normalized) eigenfunctions
-eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=True)
 init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds) for om in eig_freq])
 init_adjoint_eig_funcs = np.array(
     [ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds) for om in eig_freq])

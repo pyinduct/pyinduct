@@ -21,6 +21,7 @@ import warnings
 import copy as cp
 import collections
 import pyqtgraph as pg
+import matplotlib.pyplot as plt
 
 
 class AddMulFunction(object):
@@ -113,10 +114,7 @@ class FiniteTransformFunction(Function):
 
         if not nested_lambda:
             # iteration mode
-            Function.__init__(self,
-                              self._call_transformed_func,
-                              nonzero=(0, l),
-                              derivative_handles=[])
+            Function.__init__(self, self._call_transformed_func, nonzero=(0, l), derivative_handles=[])
         else:
             # nested lambda mode
             self.x_func_vec = list()
@@ -125,9 +123,9 @@ class FiniteTransformFunction(Function):
                 self.x_func_vec.append(AddMulFunction(
                     partial(lambda z, k: self.scale_func(k * self.l0 + z) * self.function(k * self.l0 + z), k=i)))
             for i in range(self.n):
-                self.x_func_vec.append(AddMulFunction(
-                    partial(lambda z, k: self.scale_func(self.l - k * self.l0 - z) * self.function(
-                        self.l - k * self.l0 - z), k=i)))
+                self.x_func_vec.append(AddMulFunction(partial(
+                    lambda z, k: self.scale_func(self.l - k * self.l0 - z) * self.function(self.l - k * self.l0 - z),
+                    k=i)))
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
@@ -182,15 +180,13 @@ class TransformedSecondOrderEigenfunction(Function):
 
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
-        if not all([isinstance(state, (int, float)) for state in init_state_vect]) \
-            and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
+        if not all([isinstance(state, (int, float)) for state in init_state_vect]) and len(
+            init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
-        if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) \
-            and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in
-                     dgl_coefficients]):
+        if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) and all(
+            [isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
             raise TypeError
-        if not isinstance(domain, (np.ndarray, list)) \
-            or not all([isinstance(num, (int, float)) for num in domain]):
+        if not isinstance(domain, (np.ndarray, list)) or not all([isinstance(num, (int, float)) for num in domain]):
             raise TypeError
 
         if isinstance(target_eigenvalue, complex):
@@ -216,11 +212,8 @@ class TransformedSecondOrderEigenfunction(Function):
         a2, a1, a0 = [self._a2, self._a1, self._a0]
         wr = self._eig_val_real
         wi = self._eig_val_imag
-        d_y = np.array([y[1],
-                        -(a0(z) - wr) / a2(z) * y[0] - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2],
-                        y[3],
-                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2] - a1(z) / a2(z) * y[3]
-                        ])
+        d_y = np.array([y[1], -(a0(z) - wr) / a2(z) * y[0] - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2], y[3],
+                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2] - a1(z) / a2(z) * y[3]])
         return d_y
 
     def _transform_eigenfunction(self):
@@ -396,50 +389,64 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     eta = -a1 / 2. / a2
 
     def characteristic_equation(om):
-        if np.round(om, 200) != 0.:
-            zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+        if np.isclose(om.real, 0) and np.isclose(om.imag, 0):
+            res = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
         else:
-            zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
-        return zero
+            res = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+        return res
 
-    def complex_characteristic_equation(om):
-        if np.round(om, 200) != 0.:
-            zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
-        else:
-            zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
-        return zero
+    if show_plot:
+        z_real = np.linspace(-15, 15)
+        z_imag = np.linspace(-5, 5)
+        vec_function = np.vectorize(characteristic_equation)
+        plt.plot(z_real, vec_function(z_real))
+        plt.plot(z_imag, vec_function(z_imag * 1j))
+        plt.show()
 
     # assume 1 root per pi/l (safety factor = 3)
-    om_end = 3 * n_roots * np.pi / l
-    start_values = np.arange(0, om_end, .1)
-    om = ut.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
-                       show_plot=show_plot).tolist()
+    search_begin = np.pi / l / 2e1
+    search_end = 3 * n_roots * np.pi / l
+    start_values = np.linspace(search_begin, search_end, search_end / np.pi * l * 100)
+
+    # search imaginary roots
+    try:
+        om = (ut.find_roots(characteristic_equation, 1, [np.array([0]), np.array([search_begin, search_end])],
+                            rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot) * 1j).tolist()
+    except ValueError:
+        om = list()
+
+    # search real roots
+    om += ut.find_roots(characteristic_equation, 2 * n_roots, [start_values, np.array([0])], rtol=int(np.log10(l) - 3),
+                        complex=True, show_plot=show_plot).tolist()
+
+    # only "real" roots and complex roots with imaginary part != 0 and real part == 0 considered
+    if any([not np.isclose(root.real, 0) and not np.isclose(root.imag, 0) for root in om]):
+        raise NotImplementedError("This case is currently not considered.")
+
+    # read out complex roots
+    complex_roots = [root for root in om if np.isclose(root.real, 0) and not np.isclose(root.imag, 0)]
+    if len(complex_roots) not in range(3):
+        raise NotImplementedError("This case is currently not considered.")
+
+    # sort out all complex roots and roots with negative real part
+    om = [root.real + 0j for root in om if root.real >= 0 and np.isclose(root.imag, 0)]
 
     # delete all around om = 0
-    om.reverse()
-    for i in range(np.sum(np.array(om) < np.pi / l / 2e1)):
-        om.pop()
-    om.reverse()
+    for _ in range(np.sum(np.abs(np.array(om)) < search_begin)):
+        om.pop(0)
 
     # if om = 0 is a root then add 0 to the list
-    zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
-    if np.round(zero_limit, 6 + int(np.log10(l))) == 0.:
-        om.insert(0, 0.)
-
-    # regard complex roots
-    om_squared = np.power(om, 2).tolist()
-    complex_root = fsolve(complex_characteristic_equation, om_end)
-    if np.round(complex_root, 6 + int(np.log10(l))) != 0.:
-        om_squared.insert(0, -complex_root[0] ** 2)
-
-    # basically complex eigenfrequencies
-    om = np.sqrt(np.array(om_squared).astype(complex))
+    if np.isclose(np.abs(characteristic_equation(0)), 0):
+        om.insert(0, 0)
+    # squash the both imaginary roots (if available) to one root
+    elif len(complex_roots) != 0:
+        om.insert(0, complex_roots[0].imag * 1j)
 
     if len(om) < n_roots:
         raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
                          "can not find enough roots")
 
-    eig_frequencies = om[:n_roots]
+    eig_frequencies = np.array(om[:n_roots])
     eig_values = a0 - a2 * eig_frequencies ** 2 - a1 ** 2 / 4. / a2
     return eig_frequencies, eig_values
 

@@ -20,7 +20,7 @@ l = 1.
 T = 1
 spatial_domain = sim.Domain(bounds=(0, l), num=30)
 temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
-n = 10
+n = 10 # <<<< increase this one for a better approximation
 
 # original system parameters
 a2 = .5
@@ -45,8 +45,14 @@ _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # create (not normalized) target (_t) eigenfunctions
-eig_freq_t, eig_val_t = ef.compute_rad_robin_eigenfrequencies(param_t, l, n)
+eig_freq_t, eig_val_t = ef.compute_rad_robin_eigenfrequencies(param_t, l, n, show_plot=True)
+if True:
+    eig_freq_t = np.hstack((np.array([0j]), eig_freq_t[:-1]))
+    eig_val_t = np.hstack((np.array([a0_t - a2 * eig_freq_t[0] ** 2 - a1_t ** 2 / 4. / a2]), eig_val_t[:-1]))
 init_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, param_t, spatial_domain.bounds) for om in eig_freq_t])
+for i in range(2):
+    [plt.plot(spatial_domain, func.derive(i)(spatial_domain)) for func in init_eig_funcs_t]
+    plt.show()
 init_adjoint_eig_funcs_t = np.array(
     [ef.SecondOrderRobinEigenfunction(om, adjoint_param_t, spatial_domain.bounds) for om in eig_freq_t])
 
