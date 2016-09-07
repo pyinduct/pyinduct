@@ -299,8 +299,8 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
         alpha = 1.
         is_robin = 0.
     else:
-        raise ValueError("Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(
-            bound_cond_type))
+        raise ValueError(
+            "Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(bound_cond_type))
 
     # TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
     for i in range(len(t)):

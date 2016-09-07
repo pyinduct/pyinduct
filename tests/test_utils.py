@@ -14,8 +14,8 @@ from pyinduct import register_base, \
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -32,9 +32,18 @@ class FindRootsTestCase(unittest.TestCase):
             return [np.cos(x[0]), np.cos(4 * x[1])]
 
         def _cmplx_equation(lamda):
-            if lamda == 0:
-                return 0
-            return lamda ** 2 + 9
+            alpha = 0
+            beta = 0
+            om = lamda
+            eta = -.5
+            l = 1
+
+            # watch singularity at om=0
+            if np.round(om, 200) != 0.:
+                zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+            else:
+                zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
+            return zero
 
         self.char_eq = _char_equation
         self.univar_eq = _univar_equation
@@ -82,25 +91,22 @@ class FindRootsTestCase(unittest.TestCase):
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           points_per_root=int_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          atol=float_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol, atol=float_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
 
     def test_debug_plot(self):
         if show_plots:
-            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
-                                       show_plot=show_plots)
+            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol, show_plot=show_plots)
 
     def test_cmplx_func(self):
-        grid = [np.arange(-10, 10), np.arange(-5, 5)]
-        roots = ut.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
+        grid = [np.linspace(-10, 10, 1e2), np.linspace(-10, 10, 1e2)]
+        roots = ut.find_roots(self.cmplx_eq, 8, grid, rtol=-1, show_plot=show_plots, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
         print(roots)
 
     def test_n_dim_func(self):
         grid = np.array([list(range(10)), list(range(10))])
-        roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
-                              show_plot=show_plots)
+        roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol, show_plot=show_plots)
         print(roots)
 
     def tearDown(self):
@@ -175,7 +181,6 @@ class CreateDirTestCase(unittest.TestCase):
 
 
 class CreateVideoTestCase(unittest.TestCase):
-
     @unittest.skip("unfinished test case that requires ffmpeg")
     def test_creation(self):
         # TODO generate test data first!

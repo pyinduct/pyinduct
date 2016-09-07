@@ -77,6 +77,7 @@ class SpatialPlaceholder(Placeholder):
     Base class for all spatially-only dependent placeholders.
     The deeper meaning of this abstraction layer is to offer an easier to use interface.
     """
+
     def __init__(self, data, order=0, location=None):
         Placeholder.__init__(self, data, order=(0, order), location=location)
 
@@ -212,8 +213,8 @@ class FieldVariable(Placeholder):
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
 
-        super().__init__({"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent},
-                         order=order, location=location)
+        super().__init__({"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent}, order=order,
+                         location=location)
 
 
 # TODO: remove
@@ -419,8 +420,8 @@ def _evaluate_placeholder(placeholder):
     values = np.atleast_2d([func.raise_to(exponent)(location) for func in functions])
 
     if isinstance(placeholder, FieldVariable):
-        return Scalars(values, target_term=dict(name="E", order=placeholder.order[0],
-                                                exponent=placeholder.data["exponent"]),
+        return Scalars(values,
+                       target_term=dict(name="E", order=placeholder.order[0], exponent=placeholder.data["exponent"]),
                        target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
         # target form doesn't matter, since the f vector is added independently

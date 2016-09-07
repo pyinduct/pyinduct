@@ -7,8 +7,7 @@ from itertools import chain
 import numpy as np
 
 from .registry import get_base
-from .core import domain_intersection, integrate_function, \
-    TransformationInfo, get_weight_transformation
+from .core import domain_intersection, integrate_function, TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
 from .simulation import SimulationInput, CanonicalForms
 
@@ -119,8 +118,8 @@ def _parse_control_law(law):
             weight_lbl = field_var.data["weight_lbl"]
             init_funcs = get_base(func_lbl, field_var.order[1])
 
-            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
-                                     for func in init_funcs])
+            factors = np.atleast_2d(
+                [integrate_function(func, domain_intersection(term.limits, func.nonzero))[0] for func in init_funcs])
 
             if placeholders["scalars"]:
                 scales = placeholders["scalars"][0]

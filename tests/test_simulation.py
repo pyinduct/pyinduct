@@ -166,8 +166,7 @@ class ParseTest(unittest.TestCase):
         # scale function
         register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
 
-        nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                 (0, 1), node_count=3)
+        nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
 
         # TestFunctions
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
@@ -487,8 +486,8 @@ class StringMassTest(unittest.TestCase):
             eval_data.append(
                 sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
                                            t, self.dz))
-            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(["d" for x in range(der_idx)])
-                                                               + "t" if der_idx > 0 else "")
+            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(
+                ["d" for x in range(der_idx)]) + "t" if der_idx > 0 else "")
 
         # display results
         if show_plots:
@@ -652,13 +651,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
         # create test functions
-        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                dz.bounds,
-                                                node_count=spatial_disc)
+        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder, dz.bounds, node_count=spatial_disc)
         register_base("init_funcs_1", ini_funcs_1, overwrite=True)
-        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder,
-                                                dz.bounds,
-                                                node_count=spatial_disc)
+        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder, dz.bounds, node_count=spatial_disc)
         register_base("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
@@ -699,8 +694,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
                                           ph.TestFunction("init_funcs_2", order=0, location=0)), a2 * alpha)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
                                           ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
 
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
@@ -733,8 +727,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
                                           ph.TestFunction("init_funcs_1", order=0, location=l)), a2 * beta)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
                                           ph.TestFunction("init_funcs_1", order=0, location=0)), a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
             cf = sim.parse_weak_formulation(rad_pde)
@@ -803,7 +796,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'dirichlet'
         bound_cond_type = 'dirichlet'
         param = [1., -2., -1., None, None]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, _, _ = param
 
         l = 1.
@@ -817,11 +810,12 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
         eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
-        eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
-                              for i in range(spatial_disc)])
+        eig_funcs = np.array(
+            [ef.SecondOrderDirichletEigenfunction(omega[i], param, l, norm_fak[i]) for i in range(spatial_disc)])
         register_base("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, dz.bounds,
-                                                                           norm_fak[i]) for i in range(spatial_disc)])
+        adjoint_eig_funcs = np.array(
+            [ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, l, norm_fak[i]) for i in
+             range(spatial_disc)])
         register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -845,8 +839,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=3e-1, atol=0.))
+        self.assertTrue(
+            np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])), rtol=3e-1,
+                        atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results
@@ -868,7 +863,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'robin'
         bound_cond_type = 'robin'
         param = [2., 1.5, -3., -1., -.5]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, alpha, beta = param
 
         l = 1.
@@ -880,11 +875,10 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
 
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
-                                           for om in eig_freq])
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -911,8 +905,9 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=1e-05, atol=0.))
+        self.assertTrue(
+            np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])), rtol=1e-05,
+                        atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results

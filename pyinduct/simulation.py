@@ -13,8 +13,7 @@ from scipy.interpolate import interp1d
 from scipy.integrate import ode
 
 from .registry import get_base, is_registered
-from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2)
+from .core import (Function, integrate_function, calculate_scalar_product_matrix, project_on_base, dot_product_l2)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .visualization import EvalData
 
@@ -133,8 +132,8 @@ class SimulationInput(object, metaclass=ABCMeta):
         Return:
             Corresponding function values to the given time steps.
         """
-        func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
-                        kind=interpolation, assume_sorted=True, axis=0)
+        func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]), kind=interpolation,
+                        assume_sorted=True, axis=0)
         values = func(time_steps)
 
         if as_eval_data:
@@ -301,8 +300,7 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     # calculate initial state
     print(">>> deriving initial conditions")
-    q0 = np.array([project_on_base(initial_state, get_base(
-        canonical_form.weights, 0)) for initial_state in
+    q0 = np.array([project_on_base(initial_state, get_base(canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
 
     # simulate
@@ -423,8 +421,8 @@ class CanonicalForm(object):
 
         if target_matrix.shape != value.shape and column is None:
             raise ValueError("{0}{1}{2} was already initialized with dimensions {3} but value to add has "
-                             "dimension {4}".format(term["name"], term["order"], term["exponent"],
-                                                    target_matrix.shape, value.shape))
+                             "dimension {4}".format(term["name"], term["order"], term["exponent"], target_matrix.shape,
+                                                    value.shape))
 
         if column is not None:
             # check whether the dimensions fit or if the matrix has to be extended
@@ -661,8 +659,7 @@ def parse_weak_formulation(weak_form):
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
-                                       for func in test_funcs]))
+                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
                 cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
                 continue
@@ -780,12 +777,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
         r.set_integrator(settings.pop("name"), **settings)
     else:
         # use some sane defaults
-        r.set_integrator(
-            "vode",
-            max_step=temp_domain.step,
-            method="adams",
-            nsteps=1e3
-        )
+        r.set_integrator("vode", max_step=temp_domain.step, method="adams", nsteps=1e3)
 
     r.set_f_params(state_space)
     r.set_initial_value(q[0], t[0])
@@ -822,8 +814,8 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     """
     funcs = get_base(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:
-        raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
-                                                                                              funcs.size))
+        raise ValueError(
+            "weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1], funcs.size))
 
     # evaluate shape functions at given points
     shape_vals = np.array([func.evaluation_hint(spat_domain) for func in funcs])
