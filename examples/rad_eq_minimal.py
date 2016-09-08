@@ -20,27 +20,26 @@ init_profile = 1
 
 # original system parameters
 a2 = 1
-a1 = 0  # attention: only a2 = 1., a1 =0 supported in this test case
+a1 = 0  # attention: only a2 = 1., a1 =0 supported in this example
 a0 = param_a0
 param = [a2, a1, a0, None, None]
 
 # target system parameters (controller parameters)
 a1_t = 0
-a0_t = 0  # attention: only a1_t =0 and a0_0 =0 supported in this test case
+a0_t = 0  # attention: only a1_t =0 and a0_0 =0 supported in this example
 param_t = [a2, a1_t, a0_t, None, None]
 
 # system/simulation parameters
 actuation_type = 'dirichlet'
 bound_cond_type = 'dirichlet'
-l = 1  # attention: only l=1. supported in this test case
+l = 1  # attention: only l=1 supported in this example
 T = 1
 spatial_domain = sim.Domain(bounds=(0, l), num=30)
 temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
 n = n_modal
 
 # eigenvalues /-functions original system
-eig_freq = np.array([(i + 1) * np.pi / l for i in range(n)])
-eig_values = a0 - a2 * eig_freq ** 2 - a1 ** 2 / 4. / a2
+eig_freq, eig_values = ef.second_order_dirichlet_eigenfrequencies(param, l, n)
 norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
 eig_funcs = np.asarray(
     [ef.SecondOrderDirichletEigenfunction(eig_freq[i], param, spatial_domain.bounds, norm_fac[i]) for i in range(n)])

@@ -880,7 +880,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = ef.second_order_robin_eigenfrequencies(param, l, n)
 
         init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
         init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)

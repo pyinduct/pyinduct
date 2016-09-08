@@ -16,11 +16,11 @@ import matplotlib.pyplot as plt
 # system/simulation parameters
 actuation_type = 'robin'
 bound_cond_type = 'robin'
-l = 1.
+l = 1
 T = 1
 spatial_domain = sim.Domain(bounds=(0, l), num=30)
 temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
-n = 10 # <<<< increase this one for a better approximation
+n = 10
 
 # original system parameters
 a2 = .5
@@ -31,10 +31,10 @@ beta = -1
 param = [a2, a1_z, a0_z, alpha, beta]
 
 # target system parameters (controller parameters)
-a1_t = -0
-a0_t = -6
-alpha_t = 3
-beta_t = 3
+a1_t = 0
+a0_t = -1
+alpha_t = 1
+beta_t = 1
 param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 adjoint_param_t = ef.get_adjoint_rad_evp_param(param_t)
 
@@ -45,10 +45,7 @@ _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # create (not normalized) target (_t) eigenfunctions
-eig_freq_t, eig_val_t = ef.compute_rad_robin_eigenfrequencies(param_t, l, n, show_plot=True)
-if True:
-    eig_freq_t = np.hstack((np.array([0j]), eig_freq_t[:-1]))
-    eig_val_t = np.hstack((np.array([a0_t - a2 * eig_freq_t[0] ** 2 - a1_t ** 2 / 4. / a2]), eig_val_t[:-1]))
+eig_freq_t, eig_val_t = ef.second_order_robin_eigenfrequencies(param_t, l, n, show_plot=True)
 init_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, param_t, spatial_domain.bounds) for om in eig_freq_t])
 for i in range(2):
     [plt.plot(spatial_domain, func.derive(i)(spatial_domain)) for func in init_eig_funcs_t]

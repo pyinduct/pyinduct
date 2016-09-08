@@ -115,7 +115,7 @@ else:
 # traj.scale /= x1_id_desired[-1, 0]
 
 # create (not normalized) eigenfunctions
-eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
+eig_freq, eig_val = ef.second_order_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
 init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds)
                            for om in eig_freq])
 init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds)
@@ -125,7 +125,7 @@ init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_
 eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)
+eig_freq_i, eig_val_i = ef.second_order_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)
 eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
                                                           eig_funcs[i](0))
                          for i in range(n)])

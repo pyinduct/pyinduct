@@ -6,6 +6,8 @@ order to handle transformations and reduce effort by the controller implementati
 """
 
 import numpy as np
+import sympy as sp
+from sympy.utilities.lambdify import lambdify
 import scipy.integrate as si
 from scipy.interpolate import interp1d
 from scipy.optimize import fsolve
@@ -229,6 +231,32 @@ class TransformedSecondOrderEigenfunction(Function):
         return np.interp(z, self._domain, self._transf_d_eig_func_real)
 
 
+class LambdifiedSympyExpression(Function):
+    """
+    Provide a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based of a lambdified sympy expression.
+    The sympy expression must be provided as first element of the list *sympy_funcs*. In the subsequent elements
+    of the list, the sympy expressions for the derivatives of the function take place (with increasing order).
+
+    Args:
+        sympy_funcs (array_like): Sympy expressions for the function and the derivatives: :math:`\\varphi(z), \\varphi'(z), ...`.
+        z: Sympy symbol for :math:`z`.
+        spatial_domain (tuple): Domain on which :math:`\\varphi(z)` is defined (e.g.: :code:`spatial_domain=(0, 1)`).
+    """
+
+    def __init__(self, sympy_funcs, z, spatial_domain):
+        self._funcs = [lambdify(z, sp_func, 'numpy') for sp_func in sympy_funcs]
+        funcs = [self._func_factory(der_ord) for der_ord in range(sympy_funcs.size)]
+        Function.__init__(self, funcs[0], nonzero=spatial_domain, derivative_handles=funcs[1:])
+
+    def _func_factory(self, der_order):
+        func = self._funcs[der_order]
+
+        def function(z):
+            return return_real_part(func(z))
+
+        return function
+
+
 class SecondOrderRobinEigenfunction(Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
@@ -242,69 +270,69 @@ class SecondOrderRobinEigenfunction(Function):
 
     .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
 
-    must be provided (with :py:class:`compute_rad_robin_eigenfrequencies`).
+    must be provided (with :py:class:`second_order_robin_eigenfrequencies`).
 
     Args:
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
         spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
             the spatial domain :math:`[z_0,z_1]\\ni z`.
-        phi_0 (numbers.Number): Factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`).
+        scale (numbers.Number): Factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`).
+        max_der_order (int): Number of derivative handles that are needed.
     """
 
-    def __init__(self, om, param, spatial_domain, phi_0=1):
+    def __init__(self, om, param, spatial_domain, scale=1, max_der_order=2):
         self._om = om
         self._param = param
-        self.phi_0 = phi_0
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        self._norm_fac = scale
+        self._max_der_order = max_der_order
 
-    def _phi(self, z):
-        a2, a1, a0, alpha, beta = self._param
-        om = self._om
-        eta = -a1 / 2. / a2
+        self._om_is_close = np.isclose(self._om, 0)
+        a2_, a1_, a0_, alpha_, beta_ = self._param
+        eta_ = - a1_ / a2_ / 2
+        l_ = spatial_domain[1]
 
-        cosX_term = np.cos(om * z)
-        if not np.isclose(0, np.abs(om), atol=1e-100):
-            sinX_term = (alpha - eta) / om * np.sin(om * z)
+        alpha, beta, eta, omega, varphi_0, z, c1, c2, c3, c4, l = sp.symbols(
+            "alpha beta eta omega varphi_0 z c1 c2 c3 c4 l")
+        subs_list = [(varphi_0, scale), (eta, eta_), (omega, om), (alpha, alpha_), (beta, beta_), (l, l_)]
+
+        if om == 0:
+            phi = c2 * sp.exp(eta * z) + c1 * z * sp.exp(eta * z)
+
         else:
-            sinX_term = (alpha - eta) * z
+            phi = sp.exp(eta * z) * (c1 * sp.sin(omega * z) + c2 * sp.cos(omega * z))
 
-        phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+        eq = phi.diff(z).subs(z, 0) - alpha * varphi_0
+        c1_ = list(sp.linsolve([eq.subs(c2, varphi_0)], (c1)))[0][0]
+        c2_ = varphi_0
+        sp_funcs = [phi.subs([(c1, c1_), (c2, c2_)]).subs(subs_list)]
 
-        return return_real_part(phi_i * self.phi_0)
+        for _ in np.arange(max_der_order):
+            sp_funcs.append(sp_funcs[-1].diff(z))
+        self._funcs = LambdifiedSympyExpression(sp_funcs, z, spatial_domain, max_der_order)
 
-    def _d_phi(self, z):
-        a2, a1, a0, alpha, beta = self._param
-        om = self._om
-        eta = -a1 / 2. / a2
+        zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0) for sp_func in sp_funcs]
+        self._zero_limit_funcs = LambdifiedSympyExpression(zero_limit_sp_funcs, z, spatial_domain, max_der_order)
 
-        cosX_term = alpha * np.cos(om * z)
-        if not np.isclose(0, np.abs(om), atol=1e-100):
-            sinX_term = (eta * (alpha - eta) / om - om) * np.sin(om * z)
-        else:
-            sinX_term = eta * (alpha - eta) * z - om * np.sin(om * z)
+        funcs = [self._eig_func_factory(der_ord) for der_ord in range(max_der_order + 1)]
+        Function.__init__(self, funcs[0], nonzero=spatial_domain, derivative_handles=funcs[1:])
 
-        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
+    def _eig_func_factory(self, der_order):
+        om_is_close = self._om_is_close
+        func = self._funcs.derive(der_order)
+        zero_limit_func = self._zero_limit_funcs.derive(der_order)
 
-        return return_real_part(d_phi_i * self.phi_0)
+        def eigenfunction(z):
+            if om_is_close:
+                res = zero_limit_func(z)
+            else:
+                res = func(z)
+            return return_real_part(res)
 
-    def _dd_phi(self, z):
-        a2, a1, a0, alpha, beta = self._param
-        om = self._om
-        eta = -a1 / 2. / a2
-
-        cosX_term = (eta * (2 * alpha - eta) - om ** 2) * np.cos(om * z)
-        if not np.isclose(0, np.abs(om), atol=1e-100):
-            sinX_term = ((eta ** 2 * (alpha - eta) / om - (eta + alpha) * om)) * np.sin(om * z)
-        else:
-            sinX_term = eta ** 2 * (alpha - eta) * z - (eta + alpha) * om * np.sin(om * z)
-
-        d_phi_i = np.exp(eta * z) * (cosX_term + sinX_term)
-
-        return return_real_part(d_phi_i * self.phi_0)
+        return eigenfunction
 
 
-class SecondOrderDirichletEigenfunction(Function):
+class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -324,48 +352,33 @@ class SecondOrderDirichletEigenfunction(Function):
         param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
         spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
             the spatial domain :math:`[z_0,z_1]\\ni z`.
-        norm_fac (numbers.Number): Factor to scale the eigenfunctions.
+        scale (numbers.Number): Factor to scale the eigenfunctions.
+        max_der_order (int): Number of derivative handles that are needed.
     """
 
-    def __init__(self, omega, param, spatial_domain, norm_fac=1.):
-        self._omega = omega
+    def __init__(self, om, param, spatial_domain, scale=1, max_der_order=2):
+        self._om = om
         self._param = param
-        self.norm_fac = norm_fac
+        self._norm_fac = scale
+        self._max_der_order = max_der_order
 
-        a2, a1, a0, _, _ = self._param
-        self._eta = -a1 / 2. / a2
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        a2_, a1_, a0_, _, _ = self._param
+        eta_ = -a1_ / 2. / a2_
 
-    def _phi(self, z):
-        eta = self._eta
-        om = self._omega
+        eta, omega, scale_, z = sp.symbols("eta omega scale_ z")
+        subs_list = [(scale_, scale), (eta, eta_), (omega, om)]
+        sp_funcs = [(scale * sp.exp(eta * z) * sp.sin(omega * z)).subs(subs_list)]
+        for _ in np.arange(max_der_order):
+            sp_funcs.append(sp_funcs[-1].diff(z))
 
-        phi_i = np.exp(eta * z) * np.sin(om * z)
-
-        return return_real_part(phi_i * self.norm_fac)
-
-    def _d_phi(self, z):
-        eta = self._eta
-        om = self._omega
-
-        d_phi_i = np.exp(eta * z) * (om * np.cos(om * z) + eta * np.sin(om * z))
-
-        return return_real_part(d_phi_i * self.norm_fac)
-
-    def _dd_phi(self, z):
-        eta = self._eta
-        om = self._omega
-
-        d_phi_i = np.exp(eta * z) * (om * (eta + 1) * np.cos(om * z) + (eta - om ** 2) * np.sin(om * z))
-
-        return return_real_part(d_phi_i * self.norm_fac)
+        LambdifiedSympyExpression.__init__(self, sp_funcs, z, spatial_domain, max_der_order)
 
 
-def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
+def second_order_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     """
-    Return the first :code:`n_roots` eigenfrequencies :math:`\\omega` (and eigenvalues :math:`\\lambda`)
+    Return the first *n_roots* eigenfrequencies :math:`\\omega` (and eigenvalues :math:`\\lambda`).
 
-    .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
+    .. math:: \\omega_i = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda_i}{a_2}} \\quad i = 1,...,\\text{n\\_roots}
 
     to the eigenvalue problem
 
@@ -381,19 +394,22 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
         show_plot (bool): A plot window of the characteristic equation appears if it is :code:`True`.
 
     Return:
-        tuple --> booth tuple elements are numpy.ndarrays of length :code:`nroots`:
+        tuple --> booth tuple elements are numpy.ndarrays of length *nroots*:
             :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
     """
 
     a2, a1, a0, alpha, beta = param
     eta = -a1 / 2. / a2
 
+    # characteristic equations for eigenvectors: phi = c1 e^(eta z) + c2 z e^(eta z)
+    char_eq = np.polynomial.Polynomial([alpha * beta * l + alpha + beta, alpha * l - beta * l, -l])
+
+    # characteristic equations for eigenvectors: phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
     def characteristic_equation(om):
-        if np.isclose(om.real, 0) and np.isclose(om.imag, 0):
-            res = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
+        if np.isclose(om, 0):
+            return (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
         else:
-            res = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
-        return res
+            return (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
 
     if show_plot:
         z_real = np.linspace(-15, 15)
@@ -401,46 +417,51 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
         vec_function = np.vectorize(characteristic_equation)
         plt.plot(z_real, vec_function(z_real))
         plt.plot(z_imag, vec_function(z_imag * 1j))
+        plt.plot(z_real, char_eq(z_real))
         plt.show()
 
     # assume 1 root per pi/l (safety factor = 3)
-    search_begin = np.pi / l / 2e1
+    search_begin = np.pi / l * .1
     search_end = 3 * n_roots * np.pi / l
-    start_values = np.linspace(search_begin, search_end, search_end / np.pi * l * 100)
+    start_values_real = np.linspace(search_begin, search_end, search_end / np.pi * l * 100)
+    start_values_imag = np.linspace(search_begin, search_end, search_end / np.pi * l * 20)
 
     # search imaginary roots
     try:
-        om = (ut.find_roots(characteristic_equation, 1, [np.array([0]), np.array([search_begin, search_end])],
-                            rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot) * 1j).tolist()
+        om = (ut.find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag], rtol=int(np.log10(l) - 3),
+                            complex=True, show_plot=show_plot, get_all=True)).tolist()
     except ValueError:
         om = list()
 
     # search real roots
-    om += ut.find_roots(characteristic_equation, 2 * n_roots, [start_values, np.array([0])], rtol=int(np.log10(l) - 3),
-                        complex=True, show_plot=show_plot).tolist()
+    om += ut.find_roots(characteristic_equation, 2 * n_roots, [start_values_real, np.array([0])],
+                        rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot).tolist()
 
     # only "real" roots and complex roots with imaginary part != 0 and real part == 0 considered
     if any([not np.isclose(root.real, 0) and not np.isclose(root.imag, 0) for root in om]):
         raise NotImplementedError("This case is currently not considered.")
 
     # read out complex roots
-    complex_roots = [root for root in om if np.isclose(root.real, 0) and not np.isclose(root.imag, 0)]
-    if len(complex_roots) not in range(3):
-        raise NotImplementedError("This case is currently not considered.")
+    _complex_roots = [root for root in om if np.isclose(root.real, 0) and not np.isclose(root.imag, 0)]
+    complex_roots = list()
+    for complex_root in _complex_roots:
+        if not any([np.isclose(np.abs(complex_root), _complex_root) for _complex_root in complex_roots]):
+            complex_roots.append(complex_root)
 
     # sort out all complex roots and roots with negative real part
     om = [root.real + 0j for root in om if root.real >= 0 and np.isclose(root.imag, 0)]
 
     # delete all around om = 0
-    for _ in range(np.sum(np.abs(np.array(om)) < search_begin)):
-        om.pop(0)
+    for i in [ind for ind, val in enumerate(np.isclose(np.array(om), 0, atol=1e-4)) if val]:
+        om.pop(i)
 
-    # if om = 0 is a root then add 0 to the list
-    if np.isclose(np.abs(characteristic_equation(0)), 0):
+    # if om = 0 is a root and the corresponding characteristic equation is satisfied then add 0 to the list
+    if np.isclose(np.abs(characteristic_equation(0)), 0) and any(np.isclose(char_eq.roots(), 0)):
         om.insert(0, 0)
-    # squash the both imaginary roots (if available) to one root
-    elif len(complex_roots) != 0:
-        om.insert(0, complex_roots[0].imag * 1j)
+
+    # add complex root
+    for complex_root in complex_roots:
+        om.insert(0, complex_root)
 
     if len(om) < n_roots:
         raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
@@ -448,6 +469,35 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
 
     eig_frequencies = np.array(om[:n_roots])
     eig_values = a0 - a2 * eig_frequencies ** 2 - a1 ** 2 / 4. / a2
+    return eig_frequencies, eig_values
+
+
+def second_order_dirichlet_eigenfrequencies(param, l, n_roots=10):
+    """
+    Return the first *n_roots* eigenfrequencies :math:`\\omega` (and eigenvalues :math:`\\lambda`).
+
+    .. math:: \\omega_i = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda_i}{a_2}} \\quad i = 1,...,\\text{n\\_roots}
+
+    to the eigenvalue problem
+
+    .. math::
+        param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
+        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
+        \\varphi(0) &= 0 \\\\
+        \\varphi(l) &= 0.
+
+    Args:
+        l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
+        n_roots (int): Amount of eigenfrequencies to be compute.
+
+    Return:
+        tuple --> booth tuple elements are numpy.ndarrays of length *n_roots*:
+            :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
+    """
+    a2, a1, a0, _, _ = param
+    eig_frequencies = np.array([i * np.pi / l for i in np.arange(1, n_roots + 1)])
+    eig_values = a0 - a2 * eig_frequencies ** 2 - a1 ** 2 / 4. / a2
+
     return eig_frequencies, eig_values
 
 
