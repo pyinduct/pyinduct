@@ -36,7 +36,7 @@ a0_t = -1
 alpha_t = 1
 beta_t = 1
 param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
-adjoint_param_t = ef.get_adjoint_rad_evp_param(param_t)
+adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(param_t)
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
 _, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param, d_end=l)
@@ -45,13 +45,8 @@ _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # create (not normalized) target (_t) eigenfunctions
-eig_freq_t, eig_val_t = ef.second_order_robin_eigenfrequencies(param_t, l, n, show_plot=True)
-init_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, param_t, spatial_domain.bounds) for om in eig_freq_t])
-for i in range(2):
-    [plt.plot(spatial_domain, func.derive(i)(spatial_domain)) for func in init_eig_funcs_t]
-    plt.show()
-init_adjoint_eig_funcs_t = np.array(
-    [ef.SecondOrderRobinEigenfunction(om, adjoint_param_t, spatial_domain.bounds) for om in eig_freq_t])
+eig_val_t, init_eig_funcs_t = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_t, l, n=n)
+_, init_adjoint_eig_funcs_t = ef.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param_t, l, eig_val=eig_val_t)
 
 # normalize eigenfunctions and adjoint eigenfunctions
 eig_funcs_t, adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjoint_eig_funcs_t)
