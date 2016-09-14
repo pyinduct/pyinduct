@@ -197,21 +197,32 @@ class FieldVariable(Placeholder):
                  raised_spatially=False):
         """
         """
+        # derivative orders
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
         if any([True for n in order if n < 0]):
             raise ValueError("derivative orders must be positive")
+        # TODO: Is this restriction still needed?
         if sum(order) > 2:
             raise ValueError("only derivatives of order one and two supported")
+
         if location is not None:
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
+
+        # basis
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
         if weight_label is None:
             weight_label = function_label
         elif not isinstance(weight_label, str):
             raise TypeError("only strings allowed as 'weight_label'")
+        if function_label == weight_label:
+            self.simulation_compliant = True
+        else:
+            self.simulation_compliant = False
+
+        # exponent
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
 
@@ -442,7 +453,7 @@ def get_common_target(scalars):
     Return:
         dict: Common target.
     """
-    e_targets = [scal.target_term for scal in scalars if scal.target_term["name"] == "E"]
+    e_targets = [scalar.target_term for scalar in scalars if scalar.target_term["name"] == "E"]
     if e_targets:
         if len(e_targets) == 1:
             return e_targets[0]

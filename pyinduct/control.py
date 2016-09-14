@@ -10,7 +10,7 @@ from .registry import get_base
 from .core import domain_intersection, integrate_function, \
     TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
-from .simulation import SimulationInput, CanonicalForms
+from .simulation import SimulationInput, CanonicalEquation
 
 
 class ControlLaw(object):
@@ -80,7 +80,7 @@ def approximate_control_law(control_law):
         control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
             correct weights.
     Return:
-        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
+        :py:class:`pyinduct.simulation.CanonicalEquation`: evaluation handle
     """
     print("approximating control law {}".format(control_law.name))
     if not isinstance(control_law, ControlLaw):
@@ -97,7 +97,7 @@ def _parse_control_law(law):
         law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
 
     Return:
-        :py:class:`pyinduct.simulation.CanonicalForms`: evaluation handle
+        :py:class:`pyinduct.simulation.CanonicalEquation`: evaluation handle
     """
 
     # check terms
@@ -105,7 +105,7 @@ def _parse_control_law(law):
         if not isinstance(term, EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-    cfs = CanonicalForms(law.name)
+    ce = CanonicalEquation(law.name)
 
     for term in law.terms:
         placeholders = dict([
@@ -129,7 +129,7 @@ def _parse_control_law(law):
                 res = factors
 
             # HACK! hardcoded exponent
-            cfs.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
+            ce.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
 
         elif placeholders["scalars"]:
             # TODO make sure that all have the same target form!
@@ -140,12 +140,12 @@ def _parse_control_law(law):
             else:
                 res = scalars[0].data
 
-            cfs.add_to(scalars[0].target_form, get_common_target(scalars), res * term.scale)
+            ce.add_to(scalars[0].target_form, get_common_target(scalars), res * term.scale)
 
         else:
             raise NotImplementedError
 
-    return cfs
+    return ce
 
 
 class LawEvaluator(object):
@@ -154,7 +154,7 @@ class LawEvaluator(object):
     object.
 
     Args:
-        cfs (:py:class:`pyinduct.simulation.CanonicalForms`): evaluation handle
+        cfs (:py:class:`pyinduct.simulation.CanonicalEquation`): evaluation handle
     """
 
     def __init__(self, cfs, storage=None):

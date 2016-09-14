@@ -150,12 +150,14 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(None, a.location)
         self.assertEqual(1, a.data["exponent"])  # default exponent is 1
+        self.assertTrue(a.simulation_compliant)
 
         b = ph.FieldVariable("test_funcs", order=(1, 1), location=7, weight_label="test_lbl", exponent=10)
         self.assertEqual((1, 1), b.order)
         self.assertEqual("test_lbl", b.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(7, b.location)
         self.assertEqual(10, b.data["exponent"])
+        self.assertFalse(b.simulation_compliant)
 
     def test_call_factory(self):
         a = ph.FieldVariable("test_funcs")
@@ -164,6 +166,7 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual(1, b.location)
         self.assertTrue(isinstance(b, ph.FieldVariable))
         self.assertTrue(a != b)
+        self.assertFalse(a.simulation_compliant)
 
     def test_derive_factory(self):
         a = ph.FieldVariable("test_funcs")

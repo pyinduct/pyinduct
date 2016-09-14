@@ -72,7 +72,7 @@ control_law = sim.SimulationInputSum([traj, controller])
 # determine (A,B) with modal-transfomation
 A = np.diag(eig_values)
 B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
-ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
+ss = sim.StateSpace(A, B, input_handle=control_law)
 
 # evaluate desired output data
 z_d = np.linspace(0, l, len(spatial_domain))

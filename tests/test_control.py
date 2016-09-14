@@ -174,7 +174,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # determine (A,B) with modal transformation
         A = np.diag(eig_values)
         B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
-        ss = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
+        ss = sim.StateSpace(A, B, input_handle=control_law)
 
         # simulate
         t, q = sim.simulate_state_space(ss, initial_weights, dt)
@@ -287,7 +287,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # determine (A,B) with modal-transformation
         A = np.diag(np.real(eig_val))
         B = a2 * np.array([adjoint_eig_funcs[i](self.l) for i in range(len(eig_freq))])
-        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=control_law)
+        ss_modal = sim.StateSpace(A, B, input_handle=control_law)
 
         # simulate
         t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
@@ -452,7 +452,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         # determine (A,B) with modal transformation
         A = np.diag(np.real(self.eig_val))
         B = a2 * np.array([self.adjoint_eig_funcs[i](self.l) for i in range(self.n)])
-        ss_modal = sim.StateSpace(self.act_funcs, A, B, input_handle=controller)
+        ss_modal = sim.StateSpace(A, B, input_handle=controller)
 
         # simulate
         self.t, self.q = sim.simulate_state_space(ss_modal, np.zeros((len(self.adjoint_eig_funcs))),

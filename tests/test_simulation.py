@@ -81,7 +81,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace("test", {1: a}, {1: b}, input_handle=u)
+        ss = sim.StateSpace({1: a}, {1: b}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
@@ -91,7 +91,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = MonotonousInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace("test", a, b, input_handle=u)
+        ss = sim.StateSpace(a, b, input_handle=u)
 
         # run simulation to fill the internal storage
         domain = sim.Domain((0, 10), step=.1)
@@ -122,35 +122,35 @@ class CanonicalFormTest(unittest.TestCase):
     def test_add_to(self):
         a = np.eye(5)
         self.cf.add_to(dict(name="E", order=0, exponent=1), a)
-        self.assertTrue(np.array_equal(self.cf._matrices["E"][0][1], a))
+        self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], a))
         self.cf.add_to(dict(name="E", order=0, exponent=1), 5 * a)
-        self.assertTrue(np.array_equal(self.cf._matrices["E"][0][1], 6 * a))
+        self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], 6 * a))
 
         b = np.eye(10)
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), b)
         self.cf.add_to(dict(name="E", order=2, exponent=1), b)
-        self.assertTrue(np.array_equal(self.cf._matrices["E"][2][1], b))
+        self.assertTrue(np.array_equal(self.cf.matrices["E"][2][1], b))
 
         f = np.atleast_2d(np.array(range(5))).T
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), f)
         self.cf.add_to(dict(name="f", order=None, exponent=None), f)
-        self.assertTrue(np.array_equal(self.cf._matrices["f"], f))
+        self.assertTrue(np.array_equal(self.cf.matrices["f"], f))
         # try to add something with derivative or exponent to f: value should end up in f
         self.cf.add_to(dict(name="f", order=None, exponent=None), f)
-        self.assertTrue(np.array_equal(self.cf._matrices["f"], 2 * f))
+        self.assertTrue(np.array_equal(self.cf.matrices["f"], 2 * f))
 
         c = np.atleast_2d(np.array(range(5))).T
         # that one should be easy
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=0)
-        self.assertTrue(np.array_equal(self.cf._matrices["G"][0][1], c))
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1], c))
 
         # here G01 as to be expanded
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=1)
-        self.assertTrue(np.array_equal(self.cf._matrices["G"][0][1], np.hstack((c, c))))
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1], np.hstack((c, c))))
 
         # here G01 as to be expanded again
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=3)
-        self.assertTrue(np.array_equal(self.cf._matrices["G"][0][1], np.hstack((c, c, np.zeros_like(c), c))))
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1], np.hstack((c, c, np.zeros_like(c), c))))
 
 
 class ParseTest(unittest.TestCase):
@@ -621,7 +621,7 @@ class StringMassTest(unittest.TestCase):
                                             ph.TestFunction("norm_eig_funcs", order=2)),
                                  self.dz.bounds)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
-        eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, der_orders=(2, 0))
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, derivative_orders=(2, 0))
 
         # display results
         if show_plots:
@@ -849,7 +849,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
         B = -a2 * np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
-        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
+        ss_modal = sim.StateSpace(A, B, input_handle=u)
 
         deregister_base("eig_funcs")
         deregister_base("adjoint_eig_funcs")
@@ -919,7 +919,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
         B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
-        ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
+        ss_modal = sim.StateSpace(A, B, input_handle=u)
 
         deregister_base("eig_funcs")
         deregister_base("adjoint_eig_funcs")
