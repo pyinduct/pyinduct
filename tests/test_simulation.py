@@ -811,7 +811,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'dirichlet'
         bound_cond_type = 'dirichlet'
         param = [1., -2., -1., None, None]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, _, _ = param
 
         l = 1.
@@ -879,7 +879,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'robin'
         bound_cond_type = 'robin'
         param = [2., 1.5, -3., -1., -.5]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, alpha, beta = param
 
         l = 1.
@@ -891,7 +891,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
 
         init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
         init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)

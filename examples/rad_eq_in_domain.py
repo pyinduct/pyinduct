@@ -38,7 +38,7 @@ a0 = 2
 alpha = -0.5
 beta = -1
 param = [a2, a1, a0, alpha, beta]
-adjoint_param = ef.get_adjoint_rad_evp_param(param)
+adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
 
 # target system parameters (controller parameters)
 a1_t = -1
@@ -115,34 +115,24 @@ else:
 # traj.scale /= x1_id_desired[-1, 0]
 
 # create (not normalized) eigenfunctions
-eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
-init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds)
-                           for om in eig_freq])
-init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds)
-                                   for om in eig_freq])
+eig_val, init_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param, l, n=n)
+_, init_adjoint_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param, l, eig_val=eig_val)
 
 # normalize eigenfunctions and adjoint eigenfunctions
 eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)
-eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
-                                                          eig_funcs[i](0))
-                         for i in range(n)])
-eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
-                                                         eig_funcs[i](0) * eig_funcs_id[i](l) / eig_funcs_id[i](b))
-                        for i in range(n)])
+scale_id = [f(0) for f in eig_funcs]
+eig_val_i, eig_funcs_id = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_i, l, eig_val=eig_val, scale=scale_id)
+scale_i = [e_f(0) * e_f_id(l) / e_f_id(b) for e_f, e_f_id in zip(eig_funcs, eig_funcs_id)]
+_, eig_funcs_i = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_i, l, eig_val=eig_val, scale=scale_i)
 
 # eigenfunctions from target intermediate system ("_ti")
-eig_freq_ti = np.sqrt((a0_ti - eig_val) / a2)
-eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i], param_ti, spatial_domain.bounds,
-                                                          eig_funcs_i[i](0))
-                         for i in range(n)])
+scale_ti = [f(0) for f in eig_funcs_i]
+_, eig_funcs_ti = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_ti, l, eig_val=eig_val, scale=scale_ti)
 
 # create test-functions
-nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
-                                    spatial_domain.bounds,
-                                    node_count=len(spatial_domain))
+nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spatial_domain.bounds, node_count=len(spatial_domain))
 
 # register functions
 re.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
@@ -233,3 +223,4 @@ vis.MplSlicePlot([evald_xd, evald_fem_x], spatial_point=0, legend_label=[evald_x
 # show pyqtgraph and matplotlib plots/visualizations
 pg.QtGui.QApplication.instance().exec_()
 plt.show()
+

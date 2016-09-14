@@ -210,7 +210,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         alpha = -2
         beta = -3
         param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -237,7 +237,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         n = 10
 
         # create (not normalized) eigenfunctions
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, self.l, n)
+        eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, self.l, n)
         init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
         init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
                                            for om in eig_freq])
@@ -321,7 +321,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.get_adjoint_rad_evp_param(self.param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -340,17 +340,17 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         # system/simulation parameters
         actuation_type = 'robin'
         bound_cond_type = 'robin'
-        self.l = 1.
+        self.l = 1
         spatial_disc = 10
         self.dz = sim.Domain(bounds=(0, self.l), num=spatial_disc)
 
-        self.T = 1.
+        self.T = 1
         temporal_disc = 1e2
         self.dt = sim.Domain(bounds=(0, self.T), num=temporal_disc)
         self.n = 10
 
         # create (not normalized) eigenfunctions
-        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
+        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
         init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.dz.bounds) for om in eig_freq])
         init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.dz.bounds)
                                            for om in eig_freq])
@@ -505,12 +505,12 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         self.param = [a2, a1_z, a0_z, alpha, beta]
 
         # target system parameters (controller parameters)
-        a1_t = -5
-        a0_t = -25
-        alpha_t = 3
-        beta_t = 2
+        a1_t = -0
+        a0_t = -1
+        alpha_t = 1
+        beta_t = 1
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
-        adjoint_param_t = ef.get_adjoint_rad_evp_param(self.param_t)
+        adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param_t)
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
         _, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(self.param, d_end=self.l)
@@ -519,7 +519,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         self.param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
         # create (not normalized) target (_t) eigenfunctions
-        eig_freq_t, self.eig_val_t = ef.compute_rad_robin_eigenfrequencies(self.param_t, self.l, self.n)
+        eig_freq_t, self.eig_val_t = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_t, self.l, self.n)
         init_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, self.param_t, self.dz.bounds)
                                      for om in eig_freq_t])
         init_adjoint_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param_t, self.dz.bounds)
@@ -639,7 +639,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.get_adjoint_rad_evp_param(self.param)
+        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -661,7 +661,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # create (not normalized) eigenfunctions
-        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
+        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
         init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.dz.bounds) for om in eig_freq])
         init_adjoint_eig_funcs = np.array(
             [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.dz.bounds) for om in eig_freq])
@@ -670,7 +670,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-        eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
+        eig_freq_i, eig_val_i = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_i, self.l, self.n)
         self.assertTrue(all(np.isclose(eig_val_i, self.eig_val)))
         eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.dz.bounds,
                                                                   eig_funcs[i](0))

@@ -49,17 +49,17 @@ def complex_wrapper(func):
     return wrapper
 
 
-def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
+def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False, get_all=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
     It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
 
-    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
-    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
-    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
-    supersedes the present entry.
+    In Detail the function scipy.optimize.root is used to find initial candidates for roots of f(x). If a root
+    satisfies the criteria given by atol and rtol it is added. If it is already in the list, a comprehension between
+    the already present entries error and the current error is performed. If the newly calculated root comes with a
+    smaller error it supersedes the present entry.
 
     Args:
         function: Function handle for f(x) whose roots shall be found.
@@ -69,6 +69,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
         rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
         atol: Absolute tolerance to zero  f(root) < atol.
         show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
+        get_all: You get all N found roots (if True) even if N < n_roots.
     Return:
         numpy.ndarray of roots.
     """
@@ -112,6 +113,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
             continue
 
         calculated_root = np.atleast_1d(res.x)
+
         error = np.linalg.norm(res.fun)
 
         # check for absolute tolerance
@@ -144,16 +146,17 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         found_roots += 1
 
-    # sort roots
     valid_roots = roots[:found_roots]
-    good_roots = np.sort(valid_roots, 0)
+
+    # sort roots
+    idx = np.argsort(valid_roots[:, 0])
+    good_roots = valid_roots[idx, :]
 
     if show_plot:
         pw = pg.plot(title="function + roots")
         if complex:
             pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
             # results = np.linalg.norm(function(values), axis=0)
-            # results = vec_function(grids)
             # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
             # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
             # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
@@ -168,7 +171,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         pg.QtGui.QApplication.instance().exec_()
 
-    if found_roots < n_roots:
+    if not get_all and found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(found_roots, n_roots))
 
