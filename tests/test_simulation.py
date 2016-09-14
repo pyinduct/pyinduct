@@ -5,15 +5,8 @@ from pickle import dump
 
 import numpy as np
 
-from pyinduct import register_base, \
-    eigenfunctions as ef, \
-    core as cr, \
-    simulation as sim, \
-    utils as ut, \
-    visualization as vis, \
-    trajectory as tr, \
-    placeholder as ph, \
-    shapefunctions as sf
+from pyinduct import register_base, eigenfunctions as ef, core as cr, simulation as sim, utils as ut, \
+    visualization as vis, trajectory as tr, placeholder as ph, shapefunctions as sf
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -166,8 +159,7 @@ class ParseTest(unittest.TestCase):
         # scale function
         register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
 
-        nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                 (0, 1), node_count=3)
+        nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
 
         # TestFunctions
         register_base("ini_funcs", self.ini_funcs, overwrite=True)
@@ -216,40 +208,29 @@ class ParseTest(unittest.TestCase):
         self.field_dz_int = ph.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = ph.IntegralTerm(self.field_var_ddt, (0, 1))
 
-        self.prod_term_fs_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.scalars))
+        self.prod_term_fs_at1 = ph.ScalarTerm(ph.Product(self.field_var_at1, self.scalars))
         self.prod_int_fs = ph.IntegralTerm(ph.Product(self.field_var, self.scalars), (0, 1))
         self.prod_int_f_f = ph.IntegralTerm(ph.Product(self.field_var, self.phi), (0, 1))
         self.prod_int_f_squared_f = ph.IntegralTerm(ph.Product(self.field_var_squared, self.phi), (0, 1))
         self.prod_int_f_f_swapped = ph.IntegralTerm(ph.Product(self.phi, self.field_var), (0, 1))
 
-        self.prod_int_f_at1_f = ph.IntegralTerm(
-            ph.Product(self.field_var_at1, self.phi), (0, 1))
-        self.prod_int_f_at1_squared_f = ph.IntegralTerm(
-            ph.Product(self.field_var_at1_squared, self.phi), (0, 1))
+        self.prod_int_f_at1_f = ph.IntegralTerm(ph.Product(self.field_var_at1, self.phi), (0, 1))
+        self.prod_int_f_at1_squared_f = ph.IntegralTerm(ph.Product(self.field_var_at1_squared, self.phi), (0, 1))
 
-        self.prod_int_f_f_at1 = ph.IntegralTerm(
-            ph.Product(self.field_var, self.phi_at1), (0, 1))
-        self.prod_int_f_squared_f_at1 = ph.IntegralTerm(
-            ph.Product(self.field_var_squared, self.phi_at1), (0, 1))
+        self.prod_int_f_f_at1 = ph.IntegralTerm(ph.Product(self.field_var, self.phi_at1), (0, 1))
+        self.prod_int_f_squared_f_at1 = ph.IntegralTerm(ph.Product(self.field_var_squared, self.phi_at1), (0, 1))
 
-        self.prod_term_f_at1_f_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.phi_at1))
-        self.prod_term_f_at1_squared_f_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1_squared, self.phi_at1))
+        self.prod_term_f_at1_f_at1 = ph.ScalarTerm(ph.Product(self.field_var_at1, self.phi_at1))
+        self.prod_term_f_at1_squared_f_at1 = ph.ScalarTerm(ph.Product(self.field_var_at1_squared, self.phi_at1))
 
-        self.prod_int_fddt_f = ph.IntegralTerm(
-            ph.Product(self.field_var_ddt, self.phi), (0, 1))
-        self.prod_term_fddt_at0_f_at0 = ph.ScalarTerm(
-            ph.Product(self.field_var_ddt_at0, self.phi_at0))
+        self.prod_int_fddt_f = ph.IntegralTerm(ph.Product(self.field_var_ddt, self.phi), (0, 1))
+        self.prod_term_fddt_at0_f_at0 = ph.ScalarTerm(ph.Product(self.field_var_ddt_at0, self.phi_at0))
 
-        self.prod_term_f_at1_dphi_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.dphi_at1))
+        self.prod_term_f_at1_dphi_at1 = ph.ScalarTerm(ph.Product(self.field_var_at1, self.dphi_at1))
 
         self.temp_int = ph.IntegralTerm(ph.Product(self.field_var_ddt, self.phi), (0, 1))
         self.spat_int = ph.IntegralTerm(ph.Product(self.field_var_dz, self.dphi), (0, 1))
-        self.spat_int_asymmetric = ph.IntegralTerm(
-            ph.Product(self.field_var_dz, self.phi), (0, 1))
+        self.spat_int_asymmetric = ph.IntegralTerm(ph.Product(self.field_var_dz, self.phi), (0, 1))
 
         self.alternating_weights_term = ph.IntegralTerm(self.odd_weight_field_var, (0, 1))
 
@@ -377,16 +358,14 @@ class StateSpaceTests(unittest.TestCase):
 
         # enter string with mass equations for testing
         int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), spat_domain.bounds)
-        s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
-                       ph.TestFunction("init_funcs", location=0)))
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2), ph.TestFunction("init_funcs")),
+            spat_domain.bounds)
+        s1 = ph.ScalarTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
+                                      ph.TestFunction("init_funcs", location=0)))
         int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), spat_domain.bounds)
-        s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
+            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1), ph.TestFunction("init_funcs", order=1)),
+            spat_domain.bounds)
+        s2 = ph.ScalarTerm(ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
 
         string_pde = sim.WeakFormulation([int1, s1, int2, s2])
         self.cf = sim.parse_weak_formulation(string_pde)
@@ -395,12 +374,9 @@ class StateSpaceTests(unittest.TestCase):
     def test_convert_to_state_space(self):
         ss = self.cf.convert_to_state_space()
         self.assertEqual(ss.A[1].shape, (6, 6))
-        self.assertTrue(np.allclose(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
-                                                       [0, 0, 0, 0, 1, 0],
-                                                       [0, 0, 0, 0, 0, 1],
-                                                       [-2.25, 3, -.75, 0, 0, 0],
-                                                       [7.5, -18, 10.5, 0, 0, 0],
-                                                       [-3.75, 21, -17.25, 0, 0, 0]])))
+        self.assertTrue(np.allclose(ss.A[1], np.array(
+            [[0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1], [-2.25, 3, -.75, 0, 0, 0],
+             [7.5, -18, 10.5, 0, 0, 0], [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertEqual(ss.B[1].shape, (6, 1))
         self.assertTrue(np.allclose(ss.B[1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.cf.input_function, self.u)
@@ -443,10 +419,7 @@ class StringMassTest(unittest.TestCase):
             return 0
 
         # initial conditions
-        self.ic = np.array([
-            cr.Function(lambda z: x(z, 0)),  # x(z, 0)
-            cr.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
-        ])
+        self.ic = np.array([cr.Function(lambda z: x(z, 0)), cr.Function(lambda z: x_dt(z, 0)), ])
 
     def test_fem(self):
         """
@@ -455,20 +428,17 @@ class StringMassTest(unittest.TestCase):
 
         # enter string with mass equations
         # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
-                                            self.dz.bounds, node_count=11)
+        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder, self.dz.bounds, node_count=11)
         register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma * self.params.tau ** 2)
-        s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
-                       ph.TestFunction("init_funcs", location=0)), scale=self.params.m)
+            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2), ph.TestFunction("init_funcs")), self.dz.bounds,
+            scale=self.params.sigma * self.params.tau ** 2)
+        s1 = ph.ScalarTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
+                                      ph.TestFunction("init_funcs", location=0)), scale=self.params.m)
         int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), self.dz.bounds, scale=self.params.sigma)
-        s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -self.params.sigma)
+            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1), ph.TestFunction("init_funcs", order=1)),
+            self.dz.bounds, scale=self.params.sigma)
+        s2 = ph.ScalarTerm(ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -self.params.sigma)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
@@ -487,8 +457,8 @@ class StringMassTest(unittest.TestCase):
             eval_data.append(
                 sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
                                            t, self.dz))
-            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(["d" for x in range(der_idx)])
-                                                               + "t" if der_idx > 0 else "")
+            eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(
+                ["d" for x in range(der_idx)]) + "t" if der_idx > 0 else "")
 
         # display results
         if show_plots:
@@ -557,14 +527,10 @@ class StringMassTest(unittest.TestCase):
             def scalar(self):
                 return self.members["scalars"][0]
 
-        eig_vectors = np.array([SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]),
-                                                              derivative_handles=[
-                                                                  phi_k_factory(eig_frequencies[n], der_order)
-                                                                  for der_order in range(1, 3)],
-                                                              domain=self.dz.bounds,
+        eig_vectors = np.array([SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]), derivative_handles=[
+            phi_k_factory(eig_frequencies[n], der_order) for der_order in range(1, 3)], domain=self.dz.bounds,
                                                               nonzero=self.dz.bounds),
-                                                  phi_k_factory(eig_frequencies[n])(0))
-                                for n in range(order)])
+                                                  phi_k_factory(eig_frequencies[n])(0)) for n in range(order)])
 
         # normalize eigen vectors
         norm_eig_vectors = cr.normalize_base(eig_vectors)
@@ -594,25 +560,18 @@ class StringMassTest(unittest.TestCase):
             app.exec_()
 
         # create terms of weak formulation
-        terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
-                                            ph.TestFunction("norm_eig_funcs")),
-                                 self.dz.bounds, scale=-1),
-                 ph.ScalarTerm(ph.Product(
-                     ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
-                     ph.TestFunction("norm_eig_funcs", location=0)),
-                     scale=-1),
-                 ph.ScalarTerm(ph.Product(ph.Input(self.u),
-                                          ph.TestFunction("norm_eig_funcs", location=1))),
-                 ph.ScalarTerm(
-                     ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
-                                ph.TestFunction("norm_eig_funcs", order=1, location=1)),
-                     scale=-1),
-                 ph.ScalarTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
-                                          ph.TestFunction("norm_eig_funcs", order=1,
-                                                          location=0))),
-                 ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs"),
-                                            ph.TestFunction("norm_eig_funcs", order=2)),
-                                 self.dz.bounds)]
+        terms = [ph.IntegralTerm(
+            ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)), ph.TestFunction("norm_eig_funcs")),
+            self.dz.bounds, scale=-1), ph.ScalarTerm(
+            ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
+                       ph.TestFunction("norm_eig_funcs", location=0)), scale=-1),
+            ph.ScalarTerm(ph.Product(ph.Input(self.u), ph.TestFunction("norm_eig_funcs", location=1))), ph.ScalarTerm(
+                ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
+                           ph.TestFunction("norm_eig_funcs", order=1, location=1)), scale=-1), ph.ScalarTerm(
+                ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
+                           ph.TestFunction("norm_eig_funcs", order=1, location=0))),
+            ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs"), ph.TestFunction("norm_eig_funcs", order=2)),
+                            self.dz.bounds)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
         eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, der_orders=(2, 0))
 
@@ -652,13 +611,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
         # create test functions
-        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                dz.bounds,
-                                                node_count=spatial_disc)
+        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder, dz.bounds, node_count=spatial_disc)
         register_base("init_funcs_1", ini_funcs_1, overwrite=True)
-        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder,
-                                                dz.bounds,
-                                                node_count=spatial_disc)
+        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder, dz.bounds, node_count=spatial_disc)
         register_base("init_funcs_2", ini_funcs_2, overwrite=True)
 
         def test_dd():
@@ -699,8 +654,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
                                           ph.TestFunction("init_funcs_2", order=0, location=0)), a2 * alpha)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
                                           ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
 
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
@@ -733,8 +687,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
                                           ph.TestFunction("init_funcs_1", order=0, location=l)), a2 * beta)
             s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
                                           ph.TestFunction("init_funcs_1", order=0, location=0)), a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
+            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
             # derive state-space system
             rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
             cf = sim.parse_weak_formulation(rad_pde)
@@ -817,11 +770,12 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
         eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
-        eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
-                              for i in range(spatial_disc)])
+        eig_funcs = np.array(
+            [ef.SecondOrderDirichletEigenfunction(omega[i], param, l, norm_fak[i]) for i in range(spatial_disc)])
         register_base("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, dz.bounds,
-                                                                           norm_fak[i]) for i in range(spatial_disc)])
+        adjoint_eig_funcs = np.array(
+            [ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, l, norm_fak[i]) for i in
+             range(spatial_disc)])
         register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -845,8 +799,9 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=3e-1, atol=0.))
+        self.assertTrue(
+            np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])), rtol=3e-1,
+                        atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results
@@ -882,9 +837,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
 
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
-                                           for om in eig_freq])
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -911,8 +865,9 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=1e-05, atol=0.))
+        self.assertTrue(
+            np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])), rtol=1e-05,
+                        atol=0.))
         self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
 
         # display results

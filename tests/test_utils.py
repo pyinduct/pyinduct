@@ -3,13 +3,8 @@ import unittest
 import numpy as np
 import os
 
-from pyinduct import register_base, \
-    core as cr, \
-    simulation as sim, \
-    shapefunctions as sh, \
-    utils as ut, \
-    visualization as vt, \
-    placeholder as ph
+from pyinduct import register_base, core as cr, simulation as sim, shapefunctions as sh, utils as ut, \
+    visualization as vt, placeholder as ph
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -91,14 +86,12 @@ class FindRootsTestCase(unittest.TestCase):
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
                           points_per_root=int_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
-        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          atol=float_num)
+        self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol, atol=float_num)
         self.assertRaises(ValueError, ut.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
 
     def test_debug_plot(self):
         if show_plots:
-            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
-                                       show_plot=show_plots)
+            self.roots = ut.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol, show_plot=show_plots)
 
     def test_cmplx_func(self):
         grid = [np.linspace(-10, 10, 1e2), np.linspace(-10, 10, 1e2)]
@@ -108,8 +101,7 @@ class FindRootsTestCase(unittest.TestCase):
 
     def test_n_dim_func(self):
         grid = np.array([list(range(10)), list(range(10))])
-        roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
-                              show_plot=show_plots)
+        roots = ut.find_roots(self.univar_eq, self.n_roots, grid, self.rtol, show_plot=show_plots)
         print(roots)
 
     def tearDown(self):
@@ -184,7 +176,6 @@ class CreateDirTestCase(unittest.TestCase):
 
 
 class CreateVideoTestCase(unittest.TestCase):
-
     @unittest.skip("unfinished test case that requires ffmpeg")
     def test_creation(self):
         # TODO generate test data first!

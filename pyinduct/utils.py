@@ -38,8 +38,7 @@ def complex_wrapper(func):
     """
 
     def wrapper(x):
-        return np.array([np.real(func(np.complex(x[0], x[1]))),
-                         np.imag(func(np.complex(x[0], x[1])))])
+        return np.array([np.real(func(np.complex(x[0], x[1]))), np.imag(func(np.complex(x[0], x[1])))])
 
     return wrapper
 
@@ -264,8 +263,8 @@ def split_domain(n, a_desired, l, mode='coprime'):
                 cand.append(get_candidate_tuple(n, k2_prime_num))
     elif mode == 'coprime':
         for k2_coprime_to_k1 in range(3, n):
-            if all(not (k2_coprime_to_k1 % i == 0 and (n - k2_coprime_to_k1) % i == 0)
-                   for i in range(3, min(k2_coprime_to_k1, n - k2_coprime_to_k1) + 1, 2)):
+            if all(not (k2_coprime_to_k1 % i == 0 and (n - k2_coprime_to_k1) % i == 0) for i in
+                   range(3, min(k2_coprime_to_k1, n - k2_coprime_to_k1) + 1, 2)):
                 cand.append(get_candidate_tuple(n, k2_coprime_to_k1))
     elif mode == 'one_even_one_odd':
         for k2_num in range(1, n):
@@ -357,8 +356,8 @@ def scale_equation_term_list(eqt_list, factor):
 
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz, original_beta,
-                                                target_beta, trajectory=None, scale=None):
+                                                d_approx_target_state, integral_kernel_zz, original_beta, target_beta,
+                                                trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     from . import control as ct
     from . import simulation as sim
@@ -384,8 +383,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
     second_sum_3rd_term = scale_equation_term_list(approx_state, integral_kernel_zz)
 
-    control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + \
-                  second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
+    control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
 
     if scale is not None:
         scaled_control_law = scale_equation_term_list(control_law, scale)
@@ -427,17 +425,18 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=2)), spatial_domain, -a2)
-    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a1)
-    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+    int2 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=2)),
+        spatial_domain, -a2)
+    int3 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=1)),
+        spatial_domain, a1)
+    int4 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=0)),
+        spatial_domain, -a0)
     # scalar terms
-    s1 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=1, location=l)), a2)
-    s2 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), -a1)
+    s1 = ph.ScalarTerm(ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=1, location=l)), a2)
+    s2 = ph.ScalarTerm(ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=0, location=l)), -a1)
     s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), -a2)
     s4 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=0),
@@ -464,8 +463,9 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a2)
+    int2 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), ph.TestFunction(test_func_label, order=1)),
+        spatial_domain, a2)
     int3 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), a1_z),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
     int4 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), a0_z),
@@ -476,8 +476,8 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
                                   ph.TestFunction(test_func_label, order=0, location=0)), a2 * alpha)
     s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), a2 * beta)
-    s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
+    s3 = ph.ScalarTerm(
+        ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 
@@ -523,11 +523,8 @@ def create_animation(input_file_mask="", input_file_names=None, target_format=".
     # TODO process user input on frame rate file format and so on
     if input_file_mask is not "":
         output_name = "_".join(input_file_mask.split("_")[:-2]) + target_format
-        args = ["-i", input_file_mask,
-                "-c:v", "libx264",
-                "-pix_fmt",  "yuv420p",
-                output_name]
+        args = ["-i", input_file_mask, "-c:v", "libx264", "-pix_fmt", "yuv420p", output_name]
         call(["ffmpeg"] + args)
 
-    # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
-    # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif
+        # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
+        # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif

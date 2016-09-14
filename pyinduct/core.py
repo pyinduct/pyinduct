@@ -93,9 +93,9 @@ class BaseFraction(metaclass=ABCMeta):
             msg = "This is {1} speaking, \n" \
                   "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
                   "furthermore the source derivative order is {4} and the target one is {4}. \n" \
-                  "But this is a dumb method so implement your own hint to make things work!".format(
-                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
-                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
+                  "But this is a dumb method so implement your own hint to make things work!".format(info.dst_lbl,
+                self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
     @staticmethod
@@ -466,8 +466,7 @@ class ComposedFunctionVector(BaseFraction):
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
     def scalar_product_hint(self):
-        return [dot_product_l2 for funcs in self.members["funcs"]] \
-               + [np.multiply for scals in self.members["scalars"]]
+        return [dot_product_l2 for funcs in self.members["funcs"]] + [np.multiply for scals in self.members["scalars"]]
 
     def get_member(self, idx):
         if idx < len(self.members["funcs"]):
@@ -697,8 +696,7 @@ def calculate_scalar_matrix(values_a, values_b):
     Return:
         numpy.ndarray: Matrix containing the pairwise products of the elements from *values_a* and *values_b*.
     """
-    return calculate_scalar_product_matrix(np.multiply,
-                                           sanitize_input(values_a, Number),
+    return calculate_scalar_product_matrix(np.multiply, sanitize_input(values_a, Number),
                                            sanitize_input(values_b, Number))
 
 
@@ -920,8 +918,8 @@ class TransformationInfo:
         return hash((self.src_lbl, self.dst_lbl, self.src_order, self.dst_order))
 
     def __eq__(self, other):
-        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == \
-               (other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
+        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == (
+        other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
 
 
 def get_weight_transformation(info):
@@ -1018,8 +1016,9 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
 
     # build block matrix
     part_transformation = block_diag(*[core_transformation for i in range(dst_order + 1)])
-    complete_transformation = np.hstack([part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size))
-                                                                 for i in range(src_order - dst_order)])
+    complete_transformation = np.hstack(
+        [part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size)) for i in
+                                 range(src_order - dst_order)])
     return complete_transformation
 
 

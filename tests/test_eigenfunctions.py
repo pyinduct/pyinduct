@@ -76,7 +76,7 @@ class FiniteTransformTest(unittest.TestCase):
         k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
         M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
         eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n, show_plot=show_plots)
-        eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+        eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
         shifted_eig_funcs = np.array(
             [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
         z = np.linspace(0, l, 1e3)
@@ -101,7 +101,7 @@ class FiniteTransformTest(unittest.TestCase):
                 k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
                 M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
                 eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
-                eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
+                eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
                 shifted_eig_funcs = np.array(
                     [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
                 z = np.linspace(0, l, 1e3)
@@ -139,8 +139,9 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         self.z = np.linspace(0, l, 1e2)
         self.n = 10
 
-        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, l, self.n, show_plot=show_plots)
-        self.eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, spatial_domain) for om in eig_freq])
+        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, l, self.n,
+                                                                                      show_plot=show_plots)
+        self.eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, l) for om in eig_freq])
         self.a2_z = lambda z: a2
         self.a1_z = a1
         self.a0_z = lambda z: a0
@@ -216,10 +217,9 @@ class IntermediateTransformationTest(unittest.TestCase):
 
         # create (not normalized) eigenfunctions
         self.eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
-        init_eig_funcs = np.array(
-            [ef.SecondOrderRobinEigenfunction(om, self.param, self.spatial_domain) for om in self.eig_freq])
+        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in self.eig_freq])
         init_adjoint_eig_funcs = np.array(
-            [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.spatial_domain) for om in self.eig_freq])
+            [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in self.eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         self.eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -232,8 +232,8 @@ class IntermediateTransformationTest(unittest.TestCase):
 
         # intermediate (_i) eigenfunction test
         eig_funcs_i = np.array(
-            [ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.spatial_domain, self.eig_funcs[i](0))
-             for i in range(self.n)])
+            [ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l, self.eig_funcs[i](0)) for i in
+             range(self.n)])
         self.assertTrue(all(np.isclose([func(0) for func in eig_funcs_i], [func(0) for func in self.eig_funcs])))
         test_vec = np.linspace(0, self.l, 100)
         for i in range(self.n):

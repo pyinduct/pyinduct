@@ -7,8 +7,7 @@ from itertools import chain
 import numpy as np
 
 from .registry import get_base
-from .core import domain_intersection, integrate_function, \
-    TransformationInfo, get_weight_transformation
+from .core import domain_intersection, integrate_function, TransformationInfo, get_weight_transformation
 from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
 from .simulation import SimulationInput, CanonicalForms
 
@@ -108,10 +107,8 @@ def _parse_control_law(law):
     cfs = CanonicalForms(law.name)
 
     for term in law.terms:
-        placeholders = dict([
-            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
-            ("scalars", term.arg.get_arg_by_class(Scalars)),
-        ])
+        placeholders = dict([("field_variables", term.arg.get_arg_by_class(FieldVariable)),
+            ("scalars", term.arg.get_arg_by_class(Scalars)), ])
         if placeholders["field_variables"]:
             field_var = placeholders["field_variables"][0]
             temp_order = field_var.order[0]
@@ -119,8 +116,8 @@ def _parse_control_law(law):
             weight_lbl = field_var.data["weight_lbl"]
             init_funcs = get_base(func_lbl, field_var.order[1])
 
-            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
-                                     for func in init_funcs])
+            factors = np.atleast_2d(
+                [integrate_function(func, domain_intersection(term.limits, func.nonzero))[0] for func in init_funcs])
 
             if placeholders["scalars"]:
                 scales = placeholders["scalars"][0]

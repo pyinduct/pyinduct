@@ -156,15 +156,13 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_ti)]
 
 # shift transformation
 shifted_fem_funcs_i = np.array(
-    [ef.FiniteTransformFunction(func, M, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
-     for func in fem_funcs])
+    [ef.FiniteTransformFunction(func, M, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z)) for func in fem_funcs])
 shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, l) for func in eig_funcs_id])
 re.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
 re.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
 sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=l)
 sh_field_variable_id = ph.FieldVariable("sh_eig_funcs_id", weight_label="eig_funcs", location=l)
-sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i),
-                   ph.ScalarTerm(field_variable_i),
+sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i), ph.ScalarTerm(field_variable_i),
                    ph.ScalarTerm(sh_field_variable_id, -1)]
 
 
@@ -173,15 +171,11 @@ def int_kernel_zz(z):
     return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
 
 
-controller = ut.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l,
-                                                            approx_state=x_i_at_l,
-                                                            d_approx_state=xd_i_at_l,
-                                                            approx_target_state=x_ti_at_l,
+controller = ut.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l, approx_state=x_i_at_l,
+                                                            d_approx_state=xd_i_at_l, approx_target_state=x_ti_at_l,
                                                             d_approx_target_state=xd_ti_at_l,
-                                                            integral_kernel_zz=int_kernel_zz(l),
-                                                            original_beta=beta_i,
-                                                            target_beta=beta_ti,
-                                                            trajectory=traj,
+                                                            integral_kernel_zz=int_kernel_zz(l), original_beta=beta_i,
+                                                            target_beta=beta_ti, trajectory=traj,
                                                             scale=np.exp(-a1 / 2 / a2 * b))
 
 # determine (A,B) with modal transformation
@@ -223,4 +217,3 @@ vis.MplSlicePlot([evald_xd, evald_fem_x], spatial_point=0, legend_label=[evald_x
 # show pyqtgraph and matplotlib plots/visualizations
 pg.QtGui.QApplication.instance().exec_()
 plt.show()
-

@@ -12,7 +12,6 @@ import pyqtgraph as pg
 import scipy.integrate as si
 import matplotlib.pyplot as plt
 
-
 # system/simulation parameters
 actuation_type = 'robin'
 bound_cond_type = 'robin'
@@ -39,7 +38,7 @@ param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(param_t)
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
-_, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param, d_end=l)
+_, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param, l=l)
 param_i = a2, 0, a0_i, alpha_i, beta_i
 _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
@@ -54,13 +53,11 @@ eig_funcs_t, adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjo
 # transformed original eigenfunctions
 eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(eig_val_t[i],
                                                              [eig_funcs_t[i](0), alpha * eig_funcs_t[i](0), 0, 0],
-                                                             [a2, a1_z, a0_z], np.linspace(0, l, 1e4))
-                      for i in range(n)])
+                                                             [a2, a1_z, a0_z], np.linspace(0, l, 1e4)) for i in
+                      range(n)])
 
 # create testfunctions
-nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
-                                    spatial_domain.bounds,
-                                    node_count=len(spatial_domain))
+nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spatial_domain.bounds, node_count=len(spatial_domain))
 
 # register functions
 register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
@@ -96,15 +93,11 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, transform_ti_at_l),
 int_kernel_zz = alpha_ti - alpha_i + si.quad(lambda z: (a0_i(z) - a0_ti) / 2 / a2, 0, l)[0]
 
 # init controller
-controller = ut.get_parabolic_robin_backstepping_controller(state=x_fem_i_at_l,
-                                                            approx_state=x_i_at_l,
-                                                            d_approx_state=xd_i_at_l,
-                                                            approx_target_state=x_ti_at_l,
+controller = ut.get_parabolic_robin_backstepping_controller(state=x_fem_i_at_l, approx_state=x_i_at_l,
+                                                            d_approx_state=xd_i_at_l, approx_target_state=x_ti_at_l,
                                                             d_approx_target_state=xd_ti_at_l,
-                                                            integral_kernel_zz=int_kernel_zz,
-                                                            original_beta=beta_i,
-                                                            target_beta=beta_ti,
-                                                            trajectory=traj,
+                                                            integral_kernel_zz=int_kernel_zz, original_beta=beta_i,
+                                                            target_beta=beta_ti, trajectory=traj,
                                                             scale=inv_transform_i_at_l)
 
 rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)

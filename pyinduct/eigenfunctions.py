@@ -15,7 +15,7 @@ from numbers import Number
 from functools import partial
 import collections
 import matplotlib.pyplot as plt
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractstaticmethod
 
 
 class LambdifiedSympyExpression(Function):
@@ -60,11 +60,17 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     In the following the variable :math:`\\omega` is called as eigenfrequency.
     """
 
-    @abstractmethod
-    def eigfreq_eigval_hint(self):
+    @abstractstaticmethod
+    def eigfreq_eigval_hint(param, l, n_roots):
         """
+        Args:
+            param: Needed parameters.
+            l: End of the domain :math:`z\\in[0, 1]`.
+            n_roots (int): Number of eigenfrequencies/eigenvalues to be compute.
+
         Returns:
-            tuple: Booth tuple elements are numpy.ndarrays of the same length, one for eigenfrequencies and one for eigenvalues:
+            tuple: Booth tuple elements are numpy.ndarrays of the same length, one for eigenfrequencies and one for eigenvalues.
+
                 :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
         """
 
@@ -114,7 +120,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         the parameters for the adjoint problem (with the same structure).
 
         Args:
-            param (array_like): Set alpha/beta to None if you have a dirichlet boundary condition on this point. Possible:
+            param (array_like): Set alpha/beta to None if you have a dirichlet boundary condition on this point. Possible: \n
                 - :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`,
                 - :math:`\\Big( a_2, a_1, a_0, None, \\beta \\Big)^T`,
                 - :math:`\\Big( a_2, a_1, a_0, \\alpha, None \\Big)^T` or
@@ -122,13 +128,17 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
 
         Return:
             tuple:
-                Parameters :math:`\\big(a_2, \\tilde a_1=-a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
+                Parameters :math:`\\big(a_2, \\tilde a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
                 the adjoint problem
 
                 .. math::
-                    a_2\\psi''(z) + a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
+                    a_2\\psi''(z) + \\tilde a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
                     \\psi(0) = 0 \\quad &\\text{or} \\quad \\psi'(0) = \\tilde\\alpha\\psi(0) \\\\
-                    \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l).
+                    \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l)
+
+                with
+
+                .. math:: \\tilde a_1 = -a_1, \\quad \\tilde\\alpha = \\frac{a_1}{a_2}\\alpha, \\quad \\tilde\\beta = -\\frac{a_1}{a_2}\\beta.
         """
         a2, a1, a0, alpha, beta = param
 
@@ -152,12 +162,18 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         the considered eigenvalue problem, have a look at the docstring from the eigenfunction
         class from which you will call this method.
 
+        You must call this *classmethod* with one and only one of the kwargs: \n
+            - *n* (*eig_val* and *eig_freq* will be computed with the :py:func:`eigfreq_eigval_hint`)
+            - *eig_val* (*eig_freq* will be calculated with :py:func:`eigval_tf_eigfreq`)
+            - *eig_freq* (*eig_val* will be calculated with :py:func:`eigval_tf_eigfreq`).\n
+        The kwargs *eig_val* and *eig_freq* are preferable, in the sense of performance.
+
         Args:
             param: Parameters :math:`(a_2, a_1, a_0, ...)` see *evp_class.__doc__*.
             l: End of the domain from the eigenfunctions (start is 0).
             n: Number of eigenvalues/eigenfunctions to be compute.
-            eig_freq (array_like): Pass you own choice of eigenfrequencies here.
-            eig_val (array_like): Pass you own choice of eigenvalues here.
+            eig_freq (array_like): Pass your own choice of eigenfrequencies here.
+            eig_val (array_like): Pass your own choice of eigenvalues here.
             max_order: Maximum derivative order which must provided from the eigenfunctions.
             scale (array_like): Here you can pass a list of values to scale the eigenfunctions.
 
@@ -180,7 +196,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         if scale is None:
             scale = np.ones(eig_freq.shape)
 
-        eig_func = np.array([evp_class(om, param, (0, l), scale=sc, max_der_order=max_order) for om, sc in
+        eig_func = np.array([evp_class(om, param, l, scale=sc, max_der_order=max_order) for om, sc in
                              zip(np.array(eig_freq, dtype=complex), scale)])
 
         return np.array(eig_val, dtype=complex), eig_func
@@ -199,18 +215,17 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
 
     .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
 
-    must be provided.
+    must be provided (for example with the :py:func:`eigfreq_eigval_hint` of this class).
 
     Args:
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
-        spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
-            the spatial domain :math:`[z_0,z_1]\\ni z`.
+        l (numbers.Number): End of the domain :math:`z\\in [0,l]`.
         scale (numbers.Number): Factor to scale the eigenfunctions.
         max_der_order (int): Number of derivative handles that are needed.
     """
 
-    def __init__(self, om, param, spatial_domain, scale=1, max_der_order=2):
+    def __init__(self, om, param, l, scale=1, max_der_order=2):
         self._om = om
         self._param = param
         self._norm_fac = scale
@@ -225,7 +240,7 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
         for _ in np.arange(max_der_order):
             sp_funcs.append(sp_funcs[-1].diff(z))
 
-        LambdifiedSympyExpression.__init__(self, sp_funcs, z, spatial_domain)
+        LambdifiedSympyExpression.__init__(self, sp_funcs, z, (0, l))
 
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots):
@@ -237,6 +252,7 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
         to the considered eigenvalue problem.
 
         Args:
+            param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
             l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
             n_roots (int): Amount of eigenfrequencies to be compute.
 
@@ -269,13 +285,12 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
     Args:
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-        spatial_domain (tuple): Start point :math:`z_0` and end point :math:`z_1` of
-            the spatial domain :math:`[z_0,z_1]\\ni z`.
+        l (numbers.Number): End of the domain :math:`z\\in [0,l]`.
         scale (numbers.Number): Factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`).
         max_der_order (int): Number of derivative handles that are needed.
     """
 
-    def __init__(self, om, param, spatial_domain, scale=1, max_der_order=2):
+    def __init__(self, om, param, l, scale=1, max_der_order=2):
         self._om = om
         self._param = param
         self._norm_fac = scale
@@ -284,11 +299,10 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         self._om_is_close = np.isclose(self._om, 0)
         a2_, a1_, a0_, alpha_, beta_ = self._param
         eta_ = - a1_ / a2_ / 2
-        l_ = spatial_domain[1]
 
-        alpha, beta, eta, omega, varphi_0, z, c1, c2, c3, c4, l = sp.symbols(
+        alpha, beta, eta, omega, varphi_0, z, c1, c2, c3, c4, ll = sp.symbols(
             "alpha beta eta omega varphi_0 z c1 c2 c3 c4 l")
-        subs_list = [(varphi_0, scale), (eta, eta_), (omega, om), (alpha, alpha_), (beta, beta_), (l, l_)]
+        subs_list = [(varphi_0, scale), (eta, eta_), (omega, om), (alpha, alpha_), (beta, beta_), (ll, l)]
 
         if om == 0:
             phi = c2 * sp.exp(eta * z) + c1 * z * sp.exp(eta * z)
@@ -303,13 +317,13 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
         for _ in np.arange(max_der_order):
             sp_funcs.append(sp_funcs[-1].diff(z))
-        self._funcs = LambdifiedSympyExpression(sp_funcs, z, spatial_domain)
+        self._funcs = LambdifiedSympyExpression(sp_funcs, z, (0, l))
 
         zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0) for sp_func in sp_funcs]
-        self._zero_limit_funcs = LambdifiedSympyExpression(zero_limit_sp_funcs, z, spatial_domain)
+        self._zero_limit_funcs = LambdifiedSympyExpression(zero_limit_sp_funcs, z, (0, 1))
 
         funcs = [self._eig_func_factory(der_ord) for der_ord in range(max_der_order + 1)]
-        Function.__init__(self, funcs[0], nonzero=spatial_domain, derivative_handles=funcs[1:])
+        Function.__init__(self, funcs[0], nonzero=(0, l), derivative_handles=funcs[1:])
 
     def _eig_func_factory(self, der_order):
         om_is_close = self._om_is_close
@@ -553,7 +567,7 @@ class FiniteTransformFunction(Function):
             .. math:: \\boldsymbol\\xi = (\\xi_{1,0},...,\\xi_{1,n-1},\\xi_{2,0},...,\\xi_{2,n-1})^T) .
 
         M (numpy.ndarray): Matrix :math:`T\\in\\mathbb R^{2n\\times 2n}` of scalars.
-        l (numbers.Number): Length of the domain (:math:`z\in[0,l]`).
+        l (numbers.Number): Length of the domain (:math:`z\\in [0,l]`).
     """
 
     def __init__(self, function, M, l, scale_func=None, nested_lambda=False):
@@ -655,7 +669,7 @@ def return_real_part(to_return):
         return maybe_real
 
 
-def transform2intermediate(param: object, d_end: object = None) -> object:
+def transform2intermediate(param, l=None):
     """
     Transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
     which eliminate the advection term :math:`a_1 x(z,t)` from the
@@ -675,6 +689,7 @@ def transform2intermediate(param: object, d_end: object = None) -> object:
 
     Args:
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
+        l (numbers.Number): End of the domain (start is 0).
 
     Raises:
         TypeError: If :math:`a_1(z)` is callable but no derivative handle is defined for it.
@@ -712,7 +727,7 @@ def transform2intermediate(param: object, d_end: object = None) -> object:
     if beta is None:
         beta_n = None
     elif isinstance(a1, collections.Callable):
-        beta_n = -a1(d_end) / 2. / a2 + beta
+        beta_n = -a1(l) / 2. / a2 + beta
     else:
         beta_n = -a1 / 2. / a2 + beta
 

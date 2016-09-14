@@ -36,8 +36,7 @@ def create_colormap(cnt):
     Return:
         Colormap ...
     """
-    col_map = pg.ColorMap(np.array([0, .5, 1]),
-                          np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
+    col_map = pg.ColorMap(np.array([0, .5, 1]), np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
     return col_map.map(indexes, mode="qcolor")
 
@@ -126,8 +125,8 @@ class PgAnimatedPlot(PgDataPlot):
 
     _res_path = "animation_output"
 
-    def __init__(self, data, title="", refresh_time=40, replay_gain=1,
-                 save_pics=False, create_video=False, labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, create_video=False,
+                 labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
@@ -169,14 +168,11 @@ class PgAnimatedPlot(PgDataPlot):
             picture_path = ut.create_dir(self._res_path)
             export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
             # ffmpeg uses c-style format strings
-            ff_name = "_".join([title.replace(" ", "_"),
-                                     self._time_stamp.replace(":", "_"),
-                                     "%0{}d".format(export_digits),
-                                     ".png"])
-            file_name = "_".join([title.replace(" ", "_"),
-                                  self._time_stamp.replace(":", "_"),
-                                  "{"+":0{}d".format(export_digits)+"}",
-                                  ".png"])
+            ff_name = "_".join(
+                [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "%0{}d".format(export_digits), ".png"])
+            file_name = "_".join(
+                [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "{" + ":0{}d".format(export_digits) + "}",
+                 ".png"])
             self._ff_mask = os.sep.join([picture_path, ff_name])
             self._file_mask = os.sep.join([picture_path, file_name])
             self._file_name_counter = 0
@@ -213,8 +209,7 @@ class PgAnimatedPlot(PgDataPlot):
             # TODO draw grey line if value is outdated
 
             # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx],
-                                               y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
@@ -270,8 +265,7 @@ class PgSurfacePlot(PgDataPlot):
         for n in range(len(self._data)):
             plot_item = gl.GLSurfacePlotItem(x=np.atleast_1d(self._data[n].input_data[0]),
                                              y=np.flipud(np.atleast_1d(self._data[n].input_data[1])),
-                                             z=self._data[n].output_data,
-                                             shader='normalColor')
+                                             z=self._data[n].output_data, shader='normalColor')
             plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
             self.gl_widget.addItem(plot_item)
 
@@ -369,10 +363,8 @@ class PgLinePlot3d(PgDataPlot):
         for t_idx, t_val in enumerate(t_subsets):
             t_vals = np.array([res.input_data[0][t_val]] * len(z_vals))
             pts = np.vstack([t_vals, z_vals, res.output_data[t_val, :]]).transpose()
-            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n * 1.3)),
-                                    # width=(t_idx + 1) / 10.,
-                                    width=2,
-                                    antialias=True)
+            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n * 1.3)), # width=(t_idx + 1) / 10.,
+                                    width=2, antialias=True)
             self.w.addItem(plt)
 
 
@@ -422,11 +414,11 @@ class MplSlicePlot(PgDataPlot):
     For now: only ut.EvalData objects with len(input_data) == 2 supported
     """
 
-    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
-                 legend_label=None, legend_location=1, figure_size=(10, 6)):
+    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="", legend_label=None,
+                 legend_location=1, figure_size=(10, 6)):
 
-        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
-                    (isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
+        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and (
+            isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 
@@ -438,8 +430,8 @@ class MplSlicePlot(PgDataPlot):
 
         # TODO: move to ut.EvalData
         len_data = len(self._data)
-        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data)
-                        for eval_data in eval_data_list]
+        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data) for
+                        eval_data in eval_data_list]
 
         if time_point is None:
             slice_input = [data_set.input_data[0] for data_set in self._data]
@@ -470,11 +462,7 @@ def mpl_activate_latex():
     Activate full (label, ticks, ...) latex printing in matplotlib plots.
     """
     plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
-    params = {'text.usetex': True,
-              'font.size': 15,
-              'font.family': 'lmodern',
-              'text.latex.unicode': True,
-              }
+    params = {'text.usetex': True, 'font.size': 15, 'font.family': 'lmodern', 'text.latex.unicode': True,}
     plt.rcParams.update(params)
 
 
