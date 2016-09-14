@@ -546,7 +546,7 @@ class CanonicalForms(object):
     def __init__(self, name):
         self.name = name
         self._dynamic_forms = {}
-        self._static_form = CanonicalForm(self.name + "static")
+        self._static_form = CanonicalForm(self.name + "_static")
 
     def add_to(self, weight_label, term, val):
         """
@@ -743,8 +743,8 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
         state_space (:py:class:`StateSpace`): State space formulation of the system.
         initial_state: Initial state vector of the system.
         temp_domain (:py:class:`Domain`): Temporal domain object.
-        settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
-            name included under the key :obj:`name`.
+        settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with
+            the integrator name included under the key :obj:`name`.
 
     Return:
         tuple: Time :py:class:`Domain` object and weights matrix.
@@ -764,7 +764,6 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     def _rhs(_t, _q, ss):
         q_t = ss.f
         for p, a_mat in ss.A.items():
-            # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
             q_t = q_t + np.dot(a_mat, np.power(_q, p))
 
         u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)

@@ -621,13 +621,13 @@ def integrate_function(function, interval):
 
 def complex_quadrature(func, a, b, **kwargs):
     """
-    Wraps the scipy qaudpack routines to handle complex valued functions.
+    Wraps the scipy.qaudpack routines to handle complex valued functions.
 
     Args:
         func (callable): function
         a (:obj:`numbers.Number`): lower limit
         b (:obj:`numbers.Number`): upper limit
-        **kwargs: Arbitrary keyword arguments for desired scipy qaudpack routine.
+        **kwargs: Arbitrary keyword arguments for desired scipy.qaudpack routine.
 
     Return:
         tuple: (real part, imaginary part)
