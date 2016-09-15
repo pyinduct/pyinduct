@@ -3,14 +3,13 @@ This module contains all classes and functions related to the approximation of d
 as well as their implementation for simulation purposes.
 """
 
-from itertools import chain
 import numpy as np
+from itertools import chain
 
-from .registry import get_base
-from .core import domain_intersection, integrate_function, \
-    TransformationInfo, get_weight_transformation
-from .placeholder import EquationTerm, ScalarTerm, IntegralTerm, Scalars, FieldVariable, get_common_target
-from .simulation import SimulationInput, CanonicalEquation
+from . import registry as rg
+from . import core as cr
+from . import placeholder as ph
+from . import simulation as sim
 
 
 class ControlLaw(object):
@@ -29,20 +28,20 @@ class ControlLaw(object):
     """
 
     def __init__(self, terms, name=""):
-        if isinstance(terms, EquationTerm):
+        if isinstance(terms, ph.EquationTerm):
             terms = [terms]
         if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
+            raise TypeError("only (list of) {0} allowed".format(ph.EquationTerm))
 
         for term in terms:
-            if not isinstance(term, EquationTerm):
+            if not isinstance(term, ph.EquationTerm):
                 raise TypeError("Only EquationTerm(s) are accepted.")
 
         self.terms = terms
         self.name = name
 
 
-class Controller(SimulationInput):
+class Controller(sim.SimulationInput):
     """
     Wrapper class for all controllers that have to interact with the simulation environment.
 
@@ -52,7 +51,7 @@ class Controller(SimulationInput):
     """
 
     def __init__(self, control_law):
-        SimulationInput.__init__(self, name=control_law.name)
+        sim.SimulationInput.__init__(self, name=control_law.name)
         c_forms = approximate_control_law(control_law)
         self._evaluator = LawEvaluator(c_forms, self._value_storage)
 
@@ -102,24 +101,24 @@ def _parse_control_law(law):
 
     # check terms
     for term in law.terms:
-        if not isinstance(term, EquationTerm):
+        if not isinstance(term, ph.EquationTerm):
             raise TypeError("only EquationTerm(s) accepted.")
 
-    ce = CanonicalEquation(law.name)
+    ce = sim.CanonicalEquation(law.name)
 
     for term in law.terms:
         placeholders = dict([
-            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
-            ("scalars", term.arg.get_arg_by_class(Scalars)),
+            ("field_variables", term.arg.get_arg_by_class(ph.FieldVariable)),
+            ("scalars", term.arg.get_arg_by_class(ph.Scalars)),
         ])
         if placeholders["field_variables"]:
             field_var = placeholders["field_variables"][0]
             temp_order = field_var.order[0]
             func_lbl = field_var.data["func_lbl"]
             weight_lbl = field_var.data["weight_lbl"]
-            init_funcs = get_base(func_lbl, field_var.order[1])
+            init_funcs = rg.get_base(func_lbl, field_var.order[1])
 
-            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
+            factors = np.atleast_2d([cr.integrate_function(func, cr.domain_intersection(term.limits, func.nonzero))[0]
                                      for func in init_funcs])
 
             if placeholders["scalars"]:
@@ -140,7 +139,7 @@ def _parse_control_law(law):
             else:
                 res = scalars[0].data
 
-            ce.add_to(scalars[0].target_form, get_common_target(scalars), res * term.scale)
+            ce.add_to(scalars[0].target_form, ph.get_common_target(scalars), res * term.scale)
 
         else:
             raise NotImplementedError
@@ -208,18 +207,18 @@ class LawEvaluator(object):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
-                info = TransformationInfo()
+                info = cr.TransformationInfo()
                 info.src_lbl = weight_label
                 info.dst_lbl = lbl
-                info.src_base = get_base(weight_label, 0)
-                info.dst_base = get_base(lbl, 0)
+                info.src_base = rg.get_base(weight_label, 0)
+                info.dst_base = rg.get_base(lbl, 0)
                 info.src_order = int(weights.size / info.src_base.size) - 1
                 info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
 
                 # look up transformation
                 if info not in self._transformations.keys():
                     # fetch handle
-                    handle = get_weight_transformation(info)
+                    handle = cr.get_weight_transformation(info)
                     self._transformations[info] = handle
 
                 # transform weights

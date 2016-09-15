@@ -7,20 +7,21 @@ hyperbolic and parabolic systems.
 
 import sympy as sp
 import warnings
-from .simulation import SimulationInput
-from numbers import Number
-from . import eigenfunctions as ef
 import scipy.misc as sm
 import scipy.signal as sig
 import numpy as np
 import pyqtgraph as pg
+from numbers import Number
+
+from . import simulation as sim
+from . import eigenfunctions as ef
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
 K_tanh = 2.
 
 
-class ConstantTrajectory(SimulationInput):
+class ConstantTrajectory(sim.SimulationInput):
     """
     Trivial trajectory generator for a constant value as simulation input signal.
 
@@ -29,7 +30,7 @@ class ConstantTrajectory(SimulationInput):
     """
 
     def __init__(self, const=0):
-        SimulationInput.__init__(self)
+        sim.SimulationInput.__init__(self)
         self._const = const
 
     def _calc_output(self, **kwargs):
@@ -121,14 +122,14 @@ class SmoothTransition:
         return y
 
 
-class FlatString(SimulationInput):
+class FlatString(sim.SimulationInput):
     """
     Class that implements a flatness based control approach
     for the "string with mass" model.
     """
 
     def __init__(self, y0, y1, z0, z1, t0, dt, params):
-        SimulationInput.__init__(self)
+        sim.SimulationInput.__init__(self)
 
         # store params
         self._tA = t0
@@ -459,7 +460,7 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
     return x
 
 
-class InterpTrajectory(SimulationInput):
+class InterpTrajectory(sim.SimulationInput):
     """
     Provides a system input through one-dimensional linear interpolation between
     the given vectors :math:`u` and :math:`t`.
@@ -471,7 +472,7 @@ class InterpTrajectory(SimulationInput):
     """
 
     def __init__(self, t, u, show_plot=False):
-        SimulationInput.__init__(self)
+        sim.SimulationInput.__init__(self)
 
         self._t = t
         self._T = t[-1]

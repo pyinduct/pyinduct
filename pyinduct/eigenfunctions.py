@@ -4,23 +4,24 @@ of the corresponding eigenvalues are included.
 The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
 order to handle transformations and reduce effort by the controller implementation.
 """
-
 import numpy as np
-import scipy.integrate as si
-from scipy.interpolate import interp1d
-from scipy.optimize import fsolve
-from . import utils as ut
-from . import placeholder as ph
-from .core import Function, back_project_from_base
-from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
-from .placeholder import FieldVariable, TestFunction
-from .visualization import EvalData
-from numbers import Number
-from functools import partial
 import warnings
 import copy as cp
 import collections
 import pyqtgraph as pg
+import scipy.integrate as si
+from scipy.interpolate import interp1d
+from scipy.optimize import fsolve
+from numbers import Number
+from functools import partial
+
+from . import utils as ut
+from . import core as cr
+
+# from . import placeholder as ph
+# from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
+# from .placeholder import FieldVariable, TestFunction
+# from .visualization import EvalData
 
 
 class AddMulFunction(object):
@@ -47,7 +48,7 @@ class AddMulFunction(object):
         return AddMulFunction(lambda z: self.function(z) + other(z))
 
 
-class FiniteTransformFunction(Function):
+class FiniteTransformFunction(cr.Function):
     """
     Provide a transformed :py:class:`pyinduct.core.Function` :math:`\\bar x(z)` through the transformation
     :math:`\\bar{\\boldsymbol{\\xi}} = T * \\boldsymbol \\xi`,
@@ -113,10 +114,10 @@ class FiniteTransformFunction(Function):
 
         if not nested_lambda:
             # iteration mode
-            Function.__init__(self,
-                              self._call_transformed_func,
-                              nonzero=(0, l),
-                              derivative_handles=[])
+            cr.Function.__init__(self,
+                                 self._call_transformed_func,
+                                 nonzero=(0, l),
+                                 derivative_handles=[])
         else:
             # nested lambda mode
             self.x_func_vec = list()
@@ -131,7 +132,7 @@ class FiniteTransformFunction(Function):
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
-            Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
+            cr.Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
         i = int(z / self.l0)
@@ -162,7 +163,7 @@ class FiniteTransformFunction(Function):
         return to_return
 
 
-class TransformedSecondOrderEigenfunction(Function):
+class TransformedSecondOrderEigenfunction(cr.Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -210,7 +211,7 @@ class TransformedSecondOrderEigenfunction(Function):
         self._transf_eig_func_real, self._transf_d_eig_func_real = state_vect[0:2]
         self._transf_eig_func_imag, self._transf_d_eig_func_imag = state_vect[2:4]
 
-        Function.__init__(self, self._phi, nonzero=(domain[0], domain[-1]), derivative_handles=[self._d_phi])
+        cr.Function.__init__(self, self._phi, nonzero=(domain[0], domain[-1]), derivative_handles=[self._d_phi])
 
     def _ff(self, y, z):
         a2, a1, a0 = [self._a2, self._a1, self._a0]
@@ -236,7 +237,7 @@ class TransformedSecondOrderEigenfunction(Function):
         return np.interp(z, self._domain, self._transf_d_eig_func_real)
 
 
-class SecondOrderRobinEigenfunction(Function):
+class SecondOrderRobinEigenfunction(cr.Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -263,7 +264,7 @@ class SecondOrderRobinEigenfunction(Function):
         self._om = om
         self._param = param
         self.phi_0 = phi_0
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        cr.Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -311,7 +312,7 @@ class SecondOrderRobinEigenfunction(Function):
         return return_real_part(d_phi_i * self.phi_0)
 
 
-class SecondOrderDirichletEigenfunction(Function):
+class SecondOrderDirichletEigenfunction(cr.Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -341,7 +342,7 @@ class SecondOrderDirichletEigenfunction(Function):
 
         a2, a1, a0, _, _ = self._param
         self._eta = -a1 / 2. / a2
-        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        cr.Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         eta = self._eta
@@ -412,7 +413,7 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     # assume 1 root per pi/l (safety factor = 3)
     om_end = 3 * n_roots * np.pi / l
     start_values = np.arange(0, om_end, .1)
-    om = ut.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
+    om = cr.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
                        show_plot=show_plot).tolist()
 
     # delete all around om = 0

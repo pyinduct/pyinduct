@@ -3,22 +3,21 @@ Simulation infrastructure with helpers and data structures for preprocessing of 
 and functions for postprocessing of simulation data.
 """
 
+import warnings
+import numpy as np
 from abc import ABCMeta, abstractmethod
 from collections import Iterable, OrderedDict
 from copy import copy
-import warnings
-import numpy as np
 from itertools import chain
 from scipy.linalg import block_diag
 from scipy.interpolate import interp1d
 from scipy.integrate import ode
 
-from .registry import get_base, is_registered, register_base
-from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2, sanitize_input, StackedFunctionVector)
-from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
-from .utils import Parameters
-from .visualization import EvalData
+from . import registry as rg
+from . import core as cr
+from . import placeholder as ph
+from . import utils as ut
+from . import visualization as vis
 
 
 class Domain(object):
@@ -140,7 +139,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         values = func(time_steps)
 
         if as_eval_data:
-            return EvalData([time_steps], values, name=".".join([self.name, result_key]))
+            return vis.EvalData([time_steps], values, name=".".join([self.name, result_key]))
 
         return values
 
@@ -181,13 +180,13 @@ class WeakFormulation(object):
     """
 
     def __init__(self, terms, name=None):
-        if isinstance(terms, EquationTerm):
+        if isinstance(terms, ph.EquationTerm):
             terms = [terms]
         if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
+            raise TypeError("only (list of) {0} allowed".format(ph.EquationTerm))
 
         for term in terms:
-            if not isinstance(term, EquationTerm):
+            if not isinstance(term, ph.EquationTerm):
                 raise TypeError("Only EquationTerm(s) are accepted.")
 
         self.terms = terms
@@ -249,7 +248,7 @@ class StateSpace(object):
             raise TypeError("input must be callable!")
 
     # TODO export cython code?
-    def _rhs(self, _t, _q):
+    def rhs(self, _t, _q):
         q_t = self.f
         for p, a_mat in self.A.items():
             q_t = q_t + np.dot(a_mat, np.power(_q, p))
@@ -301,14 +300,14 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     # compatibility (when simulating a single system, no extra dicts with initial conditions and so on are required)
     if isinstance(weak_forms, WeakFormulation):
         scalar_mode = True
-        ics = sanitize_input(initial_states, Function)
+        ics = cr.sanitize_input(initial_states, cr.Function)
         initial_states = {weak_forms.name: ics}
         spatial_domains = {weak_forms.name: spatial_domains}
         derivative_orders = {weak_forms.name: derivative_orders}
     else:
         scalar_mode = False
 
-    weak_forms = sanitize_input(weak_forms, WeakFormulation)
+    weak_forms = cr.sanitize_input(weak_forms, WeakFormulation)
     print("simulating systems: {}".format([f.name for f in weak_forms]))
 
     # parse input and create state space system
@@ -327,7 +326,7 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     q0 = []
     for form in weak_forms:
         lbl = form.dominant_lbl
-        q0.append([project_on_base(initial_state, get_base(lbl)) for initial_state in
+        q0.append([cr.project_on_base(initial_state, rg.get_base(lbl)) for initial_state in
                    initial_states[form.name]])
     q0 = np.array(q0).flatten()
 
@@ -366,7 +365,7 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
     data = []
 
     # temporal
-    ini_funcs = get_base(weight_lbl, 0)
+    ini_funcs = rg.get_base(weight_lbl, 0)
     for der_idx in range(temp_order + 1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
         data.append(evaluate_approximation(weight_lbl, q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
@@ -776,7 +775,7 @@ def create_state_space(canonical_equations):
 
     # transform dominant forms into state-space representation and collect information
     dominant_state_spaces = {}
-    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set())
+    state_space_props = ut.Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set())
     for name, eq in canonical_equations.items():
         dom_lbl = eq.dominant_lbl
         dom_form = eq.dominant_form
@@ -800,12 +799,12 @@ def create_state_space(canonical_equations):
     # build new basis by concatenating the dominant bases of every equation
     members = {}
     for lbl, info in state_space_props.parts.items():
-        base_part = get_base(lbl)
+        base_part = rg.get_base(lbl)
         members.update({lbl: base_part})
 
     new_name = "_".join(members.keys())
-    new_base = StackedFunctionVector(members, state_space_props)
-    register_base(new_name, new_base)
+    new_base = cr.StackedFunctionVector(members, state_space_props)
+    rg.register_base(new_name, new_base)
 
     # build new state transition matrices A_p where p is the power
     a_matrices = {}
@@ -888,10 +887,10 @@ def parse_weak_formulation(weak_form):
     # handle each term
     for term in weak_form.terms:
         # extract Placeholders
-        placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
-                            functions=term.arg.get_arg_by_class(TestFunction),
-                            field_variables=term.arg.get_arg_by_class(FieldVariable),
-                            inputs=term.arg.get_arg_by_class(Input))
+        placeholders = dict(scalars=term.arg.get_arg_by_class(ph.Scalars),
+                            functions=term.arg.get_arg_by_class(ph.TestFunction),
+                            field_variables=term.arg.get_arg_by_class(ph.FieldVariable),
+                            inputs=term.arg.get_arg_by_class(ph.Input))
 
         # field variable terms: sort into E_np, E_n-1p, ..., E_0p
         if placeholders["field_variables"]:
@@ -905,7 +904,7 @@ def parse_weak_formulation(weak_form):
             temp_order = field_var.order[0]
             exponent = field_var.data["exponent"]
             term_info = dict(name="E", order=temp_order, exponent=exponent)
-            init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
+            init_funcs = rg.get_base(field_var.data["func_lbl"], field_var.order[1])
             shape_funcs = np.array([func.raise_to(exponent) for func in init_funcs])
 
             if placeholders["inputs"]:
@@ -918,16 +917,16 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_base(func.data["func_lbl"], func.order[1])
-                result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
+                test_funcs = rg.get_base(func.data["func_lbl"], func.order[1])
+                result = cr.calculate_scalar_product_matrix(cr.dot_product_l2, test_funcs, shape_funcs)
             else:
                 # extract constant term and compute integral
-                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in shape_funcs]))
+                a = ph.Scalars(np.atleast_2d([cr.integrate_function(func, func.nonzero)[0] for func in shape_funcs]))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
                 else:
-                    b = Scalars(np.ones_like(a.data.T))
+                    b = ph.Scalars(np.ones_like(a.data.T))
 
                 result = _compute_product_of_scalars([a, b])
 
@@ -941,26 +940,26 @@ def parse_weak_formulation(weak_form):
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
             func = placeholders["functions"][0]
-            test_funcs = get_base(func.data["func_lbl"], func.order[1])
+            test_funcs = rg.get_base(func.data["func_lbl"], func.order[1])
 
             if len(placeholders["functions"]) == 2:
                 # TODO this computation is nonsense. Result must be a vector containing int(tf1*tf2)
                 raise NotImplementedError
                 #
                 # func2 = placeholders["functions"][1]
-                # test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
+                # test_funcs2 = rg.get_base(func2.data["func_lbl"], func2.order[2])
                 # result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
                 # cf.add_to(("f", 0), result * term.scale)
                 # continue
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
+                b = ph.Scalars(np.vstack([cr.integrate_function(func, func.nonzero)[0]
                                        for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
 
                 # cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
-                ce.add_to(weight_label=None, term=get_common_target(placeholders["scalars"]), val=result * term.scale)
+                ce.add_to(weight_label=None, term=ph.get_common_target(placeholders["scalars"]), val=result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -973,7 +972,7 @@ def parse_weak_formulation(weak_form):
                 input_order = input_var.order[0]
                 term_info = dict(name="G", order=input_order, exponent=input_exp)
 
-                result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
+                result = np.array([[cr.integrate_function(func, func.nonzero)[0]] for func in test_funcs])
 
                 # cf.add_to(term_info, result * term.scale,
                 #           column=input_index)
@@ -985,7 +984,7 @@ def parse_weak_formulation(weak_form):
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
             result = _compute_product_of_scalars(placeholders["scalars"])
-            target = get_common_target(placeholders["scalars"])
+            target = ph.get_common_target(placeholders["scalars"])
             target_form = placeholders["scalars"][0].target_form
 
             if placeholders["inputs"]:
@@ -1067,8 +1066,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     q = [initial_state]
     t = [temp_domain[0]]
 
-
-    r = ode(_rhs)
+    r = ode(state_space.rhs)
 
     # TODO check for complex-valued matrices and use 'zvode'
     if settings:
@@ -1115,7 +1113,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     Return:
         :py:class:`pyinduct.visualization.EvalData`
     """
-    funcs = get_base(base_label, spat_order)
+    funcs = rg.get_base(base_label, spat_order)
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
                                                                                               funcs.size))
@@ -1127,4 +1125,4 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
         return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temp_domain, spat_domain], data, name=name)
+    return vis.EvalData([temp_domain, spat_domain], data, name=name)

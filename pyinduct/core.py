@@ -2,14 +2,17 @@
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
 
+import numpy as np
+import collections
 from collections import OrderedDict
 from copy import copy, deepcopy
 from numbers import Number
-import numpy as np
+
 from scipy import integrate
 from scipy.linalg import block_diag
-from .registry import get_base
-import collections
+from scipy.optimize import root
+
+from . import registry as rg
 
 
 def sanitize_input(input_object, allowed_type):
@@ -39,58 +42,7 @@ class BaseFraction:
     def __init__(self, members):
         self.members = members
 
-    @staticmethod
-    def _transformation_factory(info):
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
-                                                            info.dst_order)
 
-        def handle(weights):
-            return np.dot(mat, weights)
-
-        return handle
-
-    def transformation_hint(self, info, target):
-        """
-        Method that provides a information about how to transform weights from one :py:class:`BaseFraction` into
-        another.
-
-        In Detail this function has to return a callable, which will take the weights of the source- and return the
-        weights of the target system. It may have keyword arguments for other data which is required to perform the
-        transformation.
-        Information about these extra keyword arguments should be provided in form of a dictionary whose keys are
-        keyword arguments of the returned transformation handle.
-
-        Note:
-            This implementation covers the most basic case, where the two :py:class:`BaseFraction` s are of same type.
-            For any other case it will raise an exception.
-            Overwrite this Method in your implementation to support conversion between bases that differ from yours.
-
-        Args:
-            info: :py:class:`TransformationInfo`
-            target: :py:class:`TransformationInfo`
-
-        Raises:
-            NotImplementedError:
-
-        Returns:
-            Transformation handle
-        """
-        # TODO handle target option!
-        if target is False:
-            raise NotImplementedError
-
-        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
-        if cls == self.__class__:
-            return self._transformation_factory(info), None
-        else:
-            # No Idea what to do.
-            msg = "This is {1} speaking, \n" \
-                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
-                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
-                  "But this is a dumb method so implement your own hint to make things work!".format(
-                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
-                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
-            raise NotImplementedError(msg)
 
     def scalar_product_hint(self):
         """
@@ -161,7 +113,77 @@ class Base:
         fractions (iterable of :py:class:`BaseFraction`): List, Array or Dict of :py:class:`BaseFraction` instances
     """
     def __init__(self, fractions):
-        self.fractions = fractions
+        self.fractions = sanitize_input(fractions, BaseFraction)
+
+    @staticmethod
+    def _transformation_factory(info):
+        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
+                                                            info.dst_order)
+
+        def handle(weights):
+            return np.dot(mat, weights)
+
+        return handle
+
+    def transformation_hint(self, info, target):
+        """
+        Method that provides a information about how to transform weights from one :py:class:`BaseFraction` into
+        another.
+
+        In Detail this function has to return a callable, which will take the weights of the source- and return the
+        weights of the target system. It may have keyword arguments for other data which is required to perform the
+        transformation.
+        Information about these extra keyword arguments should be provided in form of a dictionary whose keys are
+        keyword arguments of the returned transformation handle.
+
+        Note:
+            This implementation covers the most basic case, where the two :py:class:`BaseFraction` s are of same type.
+            For any other case it will raise an exception.
+            Overwrite this Method in your implementation to support conversion between bases that differ from yours.
+
+        Args:
+            info: :py:class:`TransformationInfo`
+            target: :py:class:`TransformationInfo`
+
+        Raises:
+            NotImplementedError:
+
+        Returns:
+            Transformation handle
+        """
+        # TODO handle target option!
+        if target is False:
+            raise NotImplementedError
+
+        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
+        if cls == self.__class__:
+            return self._transformation_factory(info), None
+        else:
+            # No Idea what to do.
+            msg = "This is {1} speaking, \n" \
+                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
+                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
+                  "But this is a dumb method so implement your own hint to make things work!".format(
+                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
+            raise NotImplementedError(msg)
+
+    def derive(self, order):
+        """
+        Basic implementation of derive function.
+        Empty implementation, overwrite to use this functionality.
+        For an example implementation see :py:class:`Function`
+
+        Args:
+            order (:class:`numbers.Number`): derivative order
+        Return:
+            :py:class:`Base`: derived object
+        """
+        if order == 0:
+            return self
+        else:
+            raise NotImplementedError("This is an empty function."
+                                      " Overwrite it in your implementation to use this functionality.")
 
 
 class Function(BaseFraction):
@@ -1038,7 +1060,7 @@ def get_weight_transformation(info):
         for dep_lbl, dep_order in hint.extras.items():
             new_info = copy(info)
             new_info.dst_lbl = dep_lbl
-            new_info.dst_base = get_base(dep_lbl, 0)
+            new_info.dst_base = rg.get_base(dep_lbl, 0)
             new_info.dst_order = dep_order
             dep_handle = get_weight_transformation(new_info)
             kwargs[dep_lbl] = dep_handle
@@ -1192,3 +1214,153 @@ def normalize_base(b1, b2=None):
     else:
         b2_scaled = np.array([frac.scale(factor) for frac, factor in zip(b2, scale_factors)])
         return b1_scaled, b2_scaled
+
+
+def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
+    """
+    Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
+    It will return the exact amount of roots given by n_roots or raise ValueError.
+    It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
+    increase the keyword-argument points_per_root.
+
+    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
+    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
+    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
+    supersedes the present entry.
+
+    Args:
+        function: Function handle for f(x) whose roots shall be found.
+        n_roots: Number of roots to find.
+        grid: numpy.ndarray (first dimension should fit the input dimension of the provided func) of values where to
+            start searching.
+        rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
+        atol: Absolute tolerance to zero  f(root) < atol.
+        show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
+    Return:
+        numpy.ndarray of roots.
+    """
+    # positive_numbers = [n_roots, points_per_root, area, atol]
+    # integers = [n_roots, points_per_root, rtol]
+    # if not callable(function):
+    #     raise TypeError("callable handle is needed")
+    # if not all([isinstance(num, int) for num in integers]):
+    #     raise TypeError("n_roots, points_per_root and rtol must be of type int")
+    # if any([num <= 0 for num in positive_numbers]):
+    #     raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
+    # if not isinstance(show_plot, bool):
+    #     raise TypeError("show_plot must be of type bool")
+
+    if isinstance(grid[0], Number):
+        grid = [grid]
+
+    dim = len(grid)
+    if complex:
+        assert dim == 2
+        function = complex_wrapper(function)
+
+    roots = np.full((n_roots, dim), np.nan)
+    rounded_roots = np.full((n_roots, dim), np.nan)
+    errors = np.full((n_roots,), np.nan)
+    found_roots = 0
+
+    grids = np.meshgrid(*[row for row in grid])
+    values = np.vstack([arr.flatten() for arr in grids]).T
+
+    # iterate over test_values
+    val = iter(values)
+    while found_roots < n_roots:
+        try:
+            res = root(function, next(val), tol=atol)
+            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
+        except StopIteration:
+            break
+
+        if not res.success:
+            continue
+
+        calculated_root = np.atleast_1d(res.x)
+        error = np.linalg.norm(res.fun)
+
+        # check for absolute tolerance
+        if error > atol:
+            continue
+
+        # check if root lies in expected area
+        abort = False
+        for rt, ar in zip(calculated_root, grid):
+            if ar.min() > rt or ar.max() < rt:
+                abort = True
+                break
+        if abort:
+            continue
+
+        # check whether root is already present in cache
+        rounded_root = np.round(calculated_root, -rtol)
+        cmp_arr = [all(bools) for bools in rounded_root == rounded_roots[:found_roots]]
+        if any(cmp_arr):
+            idx = cmp_arr.index(True)
+            if errors[idx] > error:
+                roots[idx] = calculated_root
+                errors[idx] = error
+            # TODO check jacobian (if provided) to identify roots of higher order
+            continue
+
+        roots[found_roots] = calculated_root
+        rounded_roots[found_roots] = rounded_root
+        errors[found_roots] = error
+
+        found_roots += 1
+
+    # sort roots
+    valid_roots = roots[:found_roots]
+    good_roots = np.sort(valid_roots, 0)
+
+    # if show_plot:
+    #     pw = pg.plot(title="function + roots")
+    #     if complex:
+    #         pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+    #         # results = np.linalg.norm(function(values), axis=0)
+    #         # results = vec_function(grids)
+    #         # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
+    #         # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
+    #         # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
+    #         # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
+    #     else:
+    #         if dim == 1:
+    #             results = function(grids)
+    #             colors = vis.create_colormap(len(grids))
+    #             for idx, (intake, output) in enumerate(zip(grids, results)):
+    #                 pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
+    #                 pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
+    #
+    #     pg.QtGui.QApplication.instance().exec_()
+
+    if found_roots < n_roots:
+        raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
+                         "Try to increase the area to search in.".format(found_roots, n_roots))
+
+    if complex:
+        return good_roots[:, 0] + 1j * good_roots[:, 1]
+
+    if dim == 1:
+        return good_roots.flatten()
+
+    return good_roots
+
+
+def complex_wrapper(func):
+    """
+    Wraps complex valued function into 2 dimensional function for easier handling.
+
+    Args:
+        func (callable):
+
+    Return:
+        2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
+    """
+
+    def wrapper(x):
+        return np.array([np.real(func(np.complex(x[0], x[1]))),
+                         np.imag(func(np.complex(x[0], x[1])))])
+
+    return wrapper

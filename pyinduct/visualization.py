@@ -8,16 +8,16 @@ as EvalData object.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-from numbers import Number
 import time
 import os
 import scipy.interpolate as si
-# axes3d not explicit used but needed
-from mpl_toolkits.mplot3d import axes3d
 import pyqtgraph as pg
 import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
+import matplotlib.pyplot as plt
+from numbers import Number
+# axes3d not explicit used but needed
+from mpl_toolkits.mplot3d import axes3d
 
 from . import utils as ut
 
@@ -48,8 +48,6 @@ class EvalData:
     Contains the input data that was used for evaluation and the results.
     """
 
-    # TODO: add scipy n-D-interp function, min+max
-
     def __init__(self, input_data, output_data, name=""):
         # check type and dimensions
         assert isinstance(input_data, list)
@@ -68,14 +66,6 @@ class EvalData:
         self.min = output_data.min()
         self.max = output_data.max()
         self.name = name
-
-        # self._interpolator = si.interp2d(input_data[0], input_data[1], output_data, bounds_error=True)
-
-    def __call__(self, *args):
-        return self._interpolator(*args)
-
-    def interpolation_handle(self, desired_coordinates):
-        return si.interpn(tuple(self.input_data), self.output_data, desired_coordinates)
 
 
 class DataPlot:

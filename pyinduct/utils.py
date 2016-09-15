@@ -2,19 +2,17 @@
 A few helper functions for users and developer.
 """
 
-from subprocess import run, call
+import collections
 import copy as cp
 import os
 import warnings
 from numbers import Number
-import collections
+from subprocess import call
+
 import numpy as np
-from scipy.optimize import root
-from .registry import get_base, register_base
+
+from . import registry as rg
 from . import placeholder as ph
-from .placeholder import FieldVariable, TestFunction
-from . import visualization as vis
-import pyqtgraph as pg
 
 
 class Parameters:
@@ -31,156 +29,6 @@ class Parameters:
         self.__dict__.update(kwargs)
 
 
-def complex_wrapper(func):
-    """
-    Wraps complex valued function into 2 dimensional function for easier handling.
-
-    Args:
-        func (callable):
-
-    Return:
-        2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
-    """
-
-    def wrapper(x):
-        return np.array([np.real(func(np.complex(x[0], x[1]))),
-                         np.imag(func(np.complex(x[0], x[1])))])
-
-    return wrapper
-
-
-def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
-    """
-    Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
-    It will return the exact amount of roots given by n_roots or raise ValueError.
-    It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
-    increase the keyword-argument points_per_root.
-
-    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
-    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
-    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
-    supersedes the present entry.
-
-    Args:
-        function: Function handle for f(x) whose roots shall be found.
-        n_roots: Number of roots to find.
-        grid: numpy.ndarray (first dimension should fit the input dimension of the provided func) of values where to
-            start searching.
-        rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
-        atol: Absolute tolerance to zero  f(root) < atol.
-        show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
-    Return:
-        numpy.ndarray of roots.
-    """
-    # positive_numbers = [n_roots, points_per_root, area, atol]
-    # integers = [n_roots, points_per_root, rtol]
-    # if not callable(function):
-    #     raise TypeError("callable handle is needed")
-    # if not all([isinstance(num, int) for num in integers]):
-    #     raise TypeError("n_roots, points_per_root and rtol must be of type int")
-    # if any([num <= 0 for num in positive_numbers]):
-    #     raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
-    # if not isinstance(show_plot, bool):
-    #     raise TypeError("show_plot must be of type bool")
-
-    if isinstance(grid[0], Number):
-        grid = [grid]
-
-    dim = len(grid)
-    if complex:
-        assert dim == 2
-        function = complex_wrapper(function)
-
-    roots = np.full((n_roots, dim), np.nan)
-    rounded_roots = np.full((n_roots, dim), np.nan)
-    errors = np.full((n_roots,), np.nan)
-    found_roots = 0
-
-    grids = np.meshgrid(*[row for row in grid])
-    values = np.vstack([arr.flatten() for arr in grids]).T
-
-    # iterate over test_values
-    val = iter(values)
-    while found_roots < n_roots:
-        try:
-            res = root(function, next(val), tol=atol)
-            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
-        except StopIteration:
-            break
-
-        if not res.success:
-            continue
-
-        calculated_root = np.atleast_1d(res.x)
-        error = np.linalg.norm(res.fun)
-
-        # check for absolute tolerance
-        if error > atol:
-            continue
-
-        # check if root lies in expected area
-        abort = False
-        for rt, ar in zip(calculated_root, grid):
-            if ar.min() > rt or ar.max() < rt:
-                abort = True
-                break
-        if abort:
-            continue
-
-        # check whether root is already present in cache
-        rounded_root = np.round(calculated_root, -rtol)
-        cmp_arr = [all(bools) for bools in rounded_root == rounded_roots[:found_roots]]
-        if any(cmp_arr):
-            idx = cmp_arr.index(True)
-            if errors[idx] > error:
-                roots[idx] = calculated_root
-                errors[idx] = error
-            # TODO check jacobian (if provided) to identify roots of higher order
-            continue
-
-        roots[found_roots] = calculated_root
-        rounded_roots[found_roots] = rounded_root
-        errors[found_roots] = error
-
-        found_roots += 1
-
-    # sort roots
-    valid_roots = roots[:found_roots]
-    good_roots = np.sort(valid_roots, 0)
-
-    if show_plot:
-        pw = pg.plot(title="function + roots")
-        if complex:
-            pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
-            # results = np.linalg.norm(function(values), axis=0)
-            # results = vec_function(grids)
-            # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
-            # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
-            # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
-            # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
-        else:
-            if dim == 1:
-                results = function(grids)
-                colors = vis.create_colormap(len(grids))
-                for idx, (intake, output) in enumerate(zip(grids, results)):
-                    pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
-                    pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
-
-        pg.QtGui.QApplication.instance().exec_()
-
-    if found_roots < n_roots:
-        raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(found_roots, n_roots))
-
-    if complex:
-        return good_roots[:, 0] + 1j * good_roots[:, 1]
-
-    if dim == 1:
-        return good_roots.flatten()
-
-    return good_roots
-
-
 def evaluate_placeholder_function(placeholder, input_values):
     """
     Evaluate a given placeholder object, that contains functions.
@@ -192,10 +40,10 @@ def evaluate_placeholder_function(placeholder, input_values):
     Return:
         :py:obj:`numpy.ndarray` of results.
     """
-    if not isinstance(placeholder, (FieldVariable, TestFunction)):
+    if not isinstance(placeholder, (ph.FieldVariable, ph.TestFunction)):
         raise TypeError("Input Object not supported!")
 
-    funcs = get_base(placeholder.data["func_lbl"], placeholder.order[1])
+    funcs = rg.get_base(placeholder.data["func_lbl"], placeholder.order[1])
     return np.array([func(input_values) for func in funcs])
 
 
@@ -414,11 +262,11 @@ def _convert_to_function(coef):
 def _convert_to_scalar_function(coef, label):
     from . import core as cr
     if not isinstance(coef, collections.Callable):
-        register_base(label, cr.Function(lambda z: coef), overwrite=True)
+        rg.register_base(label, cr.Function(lambda z: coef), overwrite=True)
     elif isinstance(coef, cr.Function):
-        register_base(label, coef, overwrite=True)
+        rg.register_base(label, coef, overwrite=True)
     else:
-        register_base(label, cr.Function(coef), overwrite=True)
+        rg.register_base(label, cr.Function(coef), overwrite=True)
     return ph.ScalarFunction(label)
 
 

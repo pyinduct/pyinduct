@@ -3,6 +3,7 @@ import sys
 import unittest
 from pickle import dump
 
+import core
 import numpy as np
 
 from pyinduct import register_base, deregister_base, \
@@ -546,7 +547,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = ut.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
+        eig_frequencies = core.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
         print("eigenfrequencies:")
         print(eig_frequencies)
 
