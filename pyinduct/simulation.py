@@ -13,9 +13,9 @@ from scipy.linalg import block_diag
 from scipy.interpolate import interp1d
 from scipy.integrate import ode
 
-from .registry import get_base, is_registered
+from .registry import get_base, is_registered, register_base
 from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2, sanitize_input)
+                   project_on_base, dot_product_l2, sanitize_input, StackedFunctionVector)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .utils import Parameters
 from .visualization import EvalData
@@ -225,27 +225,40 @@ class StateSpace(object):
             self.A = a_matrices
 
         # optional
-        # TODO change order: 1 to order that is guaranteed to be in.
         if isinstance(b_matrices, np.ndarray):
             self.B = {1: b_matrices}
         else:
             self.B = b_matrices
-        if self.B is None:
-            self.B = {1: np.zeros((self.A[1].shape[0], 1))}
 
+        # TODO calculate available order
+        available_power = 1
+        if self.B is None:
+            self.B = {available_power: np.zeros((self.A[available_power].shape[0], available_power))}
         if self.f is None:
-            self.f = np.zeros((self.A[1].shape[0],))
+            self.f = np.zeros((self.A[available_power].shape[0],))
         if self.C is None:
-            self.C = np.zeros((1, self.A[1].shape[1]))
+            self.C = np.zeros((available_power, self.A[available_power].shape[1]))
         if self.D is None:
-            self.D = np.zeros((1, np.atleast_2d(self.B[1]).T.shape[1]))
+            self.D = np.zeros((available_power, np.atleast_2d(self.B[available_power]).T.shape[1]))
 
         if input_handle is None:
-            self.input = EmptyInput(self.B[1].shape[1])
+            self.input = EmptyInput(self.B[available_power].shape[1])
         else:
             self.input = input_handle
         if not callable(self.input):
             raise TypeError("input must be callable!")
+
+    # TODO export cython code?
+    def _rhs(self, _t, _q):
+        q_t = self.f
+        for p, a_mat in self.A.items():
+            q_t = q_t + np.dot(a_mat, np.power(_q, p))
+
+        u = self.input(time=_t, weights=_q, weight_lbl=self.weight_lbl)
+        for p, b_mat in self.B.items():
+            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+
+        return q_t
 
 
 # TODO update signature
@@ -730,6 +743,9 @@ def create_state_space(canonical_equations):
     Args:
         canonical_equations (dict): dict of name: py:class:`CanonicalEquation` pairs
 
+    Raises:
+        ValueError: If compatibility criteria cannot be fulfilled
+
     Return:
         :py:class:`StateSpace`: State-space representation of the approximated system
     """
@@ -739,7 +755,7 @@ def create_state_space(canonical_equations):
         for lbl, form in eq.dynamic_forms.items():
             coupling_order = form.max_temp_order
 
-            # search corresponding dominant form inn other equations
+            # search corresponding dominant form in other equations
             for _name, _eq in canonical_equations.items():
                 # check uniqueness of name - dom_lbl mappings
                 if name != _name and eq.dominant_lbl == _eq.dominant_lbl:
@@ -780,6 +796,16 @@ def create_state_space(canonical_equations):
         else:
             if state_space_props.input != dom_ss.input:
                 raise ValueError("Only one input object allowed.")
+
+    # build new basis by concatenating the dominant bases of every equation
+    members = {}
+    for lbl, info in state_space_props.parts.items():
+        base_part = get_base(lbl)
+        members.update({lbl: base_part})
+
+    new_name = "_".join(members.keys())
+    new_base = StackedFunctionVector(members, state_space_props)
+    register_base(new_name, new_base)
 
     # build new state transition matrices A_p where p is the power
     a_matrices = {}
@@ -1041,17 +1067,6 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     q = [initial_state]
     t = [temp_domain[0]]
 
-    # TODO export cython code?
-    def _rhs(_t, _q, ss):
-        q_t = ss.f
-        for p, a_mat in ss.A.items():
-            q_t = q_t + np.dot(a_mat, np.power(_q, p))
-
-        u = ss.input(time=_t, weights=_q, weight_lbl=ss.weight_lbl)
-        for p, b_mat in ss.B.items():
-            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
-
-        return q_t
 
     r = ode(_rhs)
 

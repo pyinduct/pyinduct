@@ -2,7 +2,7 @@
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
 
-from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from copy import copy, deepcopy
 from numbers import Number
 import numpy as np
@@ -148,6 +148,20 @@ class BaseFraction:
         """
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
+
+
+class Base:
+    """
+    Base class for approximation bases.
+    In general, a :py:class:`Base` is formed by a certain amount of :py:class:`BaseFractions` and therefore forms
+    finite-dimensional subspace of the distributed problem's domain. Most of the time, the user does not need to
+    interact with this class.
+
+    Args:
+        fractions (iterable of :py:class:`BaseFraction`): List, Array or Dict of :py:class:`BaseFraction` instances
+    """
+    def __init__(self, fractions):
+        self.fractions = fractions
 
 
 class Function(BaseFraction):
@@ -446,6 +460,58 @@ class Function(BaseFraction):
         Return the hint that the :py:func:`pyinduct.core.dot_product_l2` has to calculated to gain the scalar product.
         """
         return [dot_product_l2]
+
+
+class StackedBase(Base):
+    """
+    Implementation of a basis vector that is obtained by stacking different bases onto each other.
+        This typically occurs when the bases of coupled systems are joined to create a unified system.
+
+    Args:
+        fractions (dict): Dictionary with base_label and corresponding function
+    """
+
+    def __init__(self, fractions, info):
+        super().__init__(OrderedDict(**fractions))
+        self._info = info
+
+    def scalar_product_hint(self):
+        return [dot_product_l2 for k in self.members.keys()]
+
+    def get_member(self, idx):
+        return list(self.members.values())[idx]
+
+    def scale(self, factor):
+        return self.__class__({lbl: func.scale(factor) for lbl, func in self.members})
+
+    def transformation_hint(self, info, target):
+        """
+        If *info.src_lbl* is a member, just return it, using to correct derivative transformation, otherwise
+        return `None`
+
+        Args:
+            info (:py:class:`TransformationInfo`): Information about the requested transformation.
+            target (bool): Is the called object the target of the transformation?
+                If False, source and target in *info* will be swapped.
+        Return:
+            transformation handle
+
+        """
+        # TODO handle target arg
+        if target is False:
+            raise NotImplementedError()
+        if info.dst_lbl not in self.members:
+            return None, None
+
+        start_idx = self._info[info.dst_lbl]["start"]
+        sel_len = self._info[info.dst_lbl]["size"]
+        trans_mat = calculate_expanded_base_transformation_matrix(None, None, info.src_order, info.dst_order,
+                                                                  use_eye=True)
+
+        def selection_func(weights):
+            return trans_mat @ weights[start_idx: start_idx + sel_len]
+
+        return selection_func, None
 
 
 class ComposedFunctionVector(BaseFraction):
@@ -1003,7 +1069,7 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
         src_base (:py:class:`BaseFraction`): Current projection base.
         src_order: Temporal derivative order available in *src_base*.
         dst_order: Temporal derivative order needed in *dst_base*.
-        use_eye (bool): Use identity as base transformation matrix. (For selection of derivatives in the same base)
+        use_eye (bool): Use identity as base transformation matrix. (For easy selection of derivatives in the same base)
 
     Raises:
         ValueError: If destination needs a higher derivative order than source can provide.
@@ -1072,15 +1138,15 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     p_mat = np.sum(p_matrices, axis=0)
     q_mat = np.sum(q_matrices, axis=0)
 
-    # compute V matrix: inv(Q)*P
+    # compute V matrix, where V = inv(Q)*P
     v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
     return v_mat
 
 
 def normalize_base(b1, b2=None):
     """
-    Takes two arrays of :py:class:`BaseFraction` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and normalizes them so
-    that :math:`\\langle\\boldsymbol{b}_{1i}\\,,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
+    Takes two arrays of :py:class:`BaseFraction` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and
+    normalizes them so that :math:`\\langle\\boldsymbol{b}_{1i}\\,,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
     If only one base is given, :math:`\\boldsymbol{b}_2` is set to :math:`\\boldsymbol{b}_1`.
 
     Args:
