@@ -285,7 +285,7 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
         list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable
         and demanded derivatives.
     """
-    # compatibility (when simulating a single system, no extra dict with initial conditions is required)
+    # compatibility (when simulating a single system, no extra dicts with initial conditions and so on are required)
     if isinstance(weak_forms, WeakFormulation):
         scalar_mode = True
         ics = sanitize_input(initial_states, Function)
@@ -302,6 +302,8 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     canonical_equations = OrderedDict()
     for form in weak_forms:
         print(">>> parsing formulation {}".format(form.name))
+        if form.name in canonical_equations:
+            raise ValueError("Name {} for CanonicalEquation already assigned, names must be unique.".format(form.name))
         canonical_equations.update({form.name: parse_weak_formulation(form)})
 
     print(">>> creating state space system")
@@ -381,6 +383,7 @@ class CanonicalForm(object):
         self.powers = None
         self.max_power = None
         self.max_temp_order = None
+        self.dim_u = None
         self.dim_x = None
         self.dim_xb = None
         self.e_n_pb = None
@@ -513,6 +516,11 @@ class CanonicalForm(object):
         self.e_n_pb_inv = np.linalg.inv(self.e_n_pb)
 
         self.dim_xb = self.max_temp_order * self.dim_x  # dimension of the new system
+
+        # input
+        for p in self.matrices["G"].values():
+            for d in p.values():
+                self.dim_u = max(self.input_size, d.size[1])
 
     def get_terms(self):
         """
@@ -729,56 +737,106 @@ def create_state_space(canonical_equations):
     # check whether the formulations are compatible
     for name, eq in canonical_equations.items():
         for lbl, form in eq.dynamic_forms.items():
-            if lbl == eq.dominant_lbl:
-                continue
-
             coupling_order = form.max_temp_order
-            for _name, _eq in canonical_equations.items():
-                if _name == name:
-                    continue
-                dominant_order = _eq.dominant_form.max_temp_order
 
-                # dominant order has to be at least one higher than the coupling order
+            # search corresponding dominant form inn other equations
+            for _name, _eq in canonical_equations.items():
+                # check uniqueness of name - dom_lbl mappings
+                if name != _name and eq.dominant_lbl == _eq.dominant_lbl:
+                    raise ValueError("A dominant form has to be unique over all given Equations")
+
+                # identify coupling terms
+                if lbl == eq.dominant_lbl:
+                    break
+
+                # identify corresponding dominant form
+                if _eq.dominant_lbl != lbl:
+                    continue
+
+                dominant_order = _eq.dominant_form.max_temp_order
                 if dominant_order <= coupling_order:
+                    # dominant order has to be at least one higher than the coupling order
                     raise ValueError("Formulations are not compatible")
 
-    # transform dominant forms into state-space representation
+    # transform dominant forms into state-space representation and collect information
     dominant_state_spaces = {}
-    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set())
+    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set())
     for name, eq in canonical_equations.items():
-        d = eq.dominant_form
-        ss = d.to_state_space()
-        state_space_props.parts[name] = dict(start=copy(state_space_props.size),
-                                             orig_size=d.dim_x,
-                                             size=d.dim_xb,
-                                             order=d.max_temp_order)
-        state_space_props.powers.update(d.powers)
-        state_space_props.size += d.dim_xb
-        dominant_state_spaces.update({name, ss})
+        dom_lbl = eq.dominant_lbl
+        dom_form = eq.dominant_form
+        dom_ss = dom_form.to_state_space()
+        dominant_state_spaces.update({dom_lbl, dom_ss})
+
+        # collect some information
+        state_space_props.parts[dom_lbl] = dict(start=copy(state_space_props.size),
+                                                orig_size=dom_form.dim_x,
+                                                size=dom_form.dim_xb,
+                                                order=dom_form.max_temp_order)
+        state_space_props.powers.update(dom_form.powers)
+        state_space_props.size += dom_form.dim_xb
+        state_space_props.dim_u = max(state_space_props.dim_u, dom_form.dim_u)
+        if state_space_props.input is None:
+            state_space_props.input = dom_ss.input
+        else:
+            if state_space_props.input != dom_ss.input:
+                raise ValueError("Only one input object allowed.")
 
     # build new state transition matrices A_p where p is the power
     a_matrices = {}
     for p in state_space_props.powers:
         a_mat = np.zeros(state_space_props.size)
         for row_name, row_eq in canonical_equations.items():
-            dom_dim = state_space_props.parts[name]["size"]
-            dom_trans_mat = canonical_equations[row_name].dominant_form.e_n_pb_inv
-            dom_sys_mat = dominant_state_spaces[row_name].A.get(p, np.zeros(dom_dim))
-            row_idx = state_space_props.parts[row_name].start
+            row_dom_lbl = row_eq.dominant_lbl
+            row_dom_dim = state_space_props.parts[row_dom_lbl]["size"]
+            row_dom_trans_mat = row_eq.dominant_form.e_n_pb_inv
+            row_dom_sys_mat = dominant_state_spaces[row_dom_lbl].A.get(p, None)
+            row_idx = state_space_props.parts[row_dom_lbl].start
 
             col_idx = 0
             for col_name, col_eq in canonical_equations.items():
-                # main diagonal
+                col_dom_lbl = col_eq.dom_lbl
                 if col_name == row_name:
-                    a_mat[row_idx:row_idx + dom_dim, row_idx:row_idx + dom_dim] = dom_sys_mat
-                    col_idx += dom_dim
+                    # main diagonal
+                    if row_dom_sys_mat is None:
+                        # nothing to do for this power
+                        continue
+                    a_mat[row_idx:row_idx + row_dom_dim, row_idx:row_idx + row_dom_dim] = row_dom_sys_mat
+                    col_idx += row_dom_dim
                     continue
 
-                # coupling term
-                for order, mats in row_eq.dynamic_forms[col_name]["E"].items():
-                    cop_mat = dom_trans_mat @ mats[p]
-                    idx = col_idx + order * state_space_props.parts[col_name]["orig_size"]
-                    a_mat[row_idx: row_idx + cop_mat.shape[0], idx: idx + cop_mat.shape[1]] = cop_mat
+                # coupling terms
+                for order, mats in row_eq.dynamic_forms[col_dom_lbl]["E"].items():
+                    orig_mat = mats.get(p, None)
+                    if orig_mat is None:
+                        # nothing to do for this power
+                        continue
+
+                    # transform matrix with row-transformation matrix and add to last "row"
+                    cop_mat = row_dom_trans_mat @ orig_mat
+                    v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
+                    h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
+                    a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
+
+    # build new state input matrices
+    b_matrices = {}
+    for name, dom_ss in dominant_state_spaces:
+        for p, power_mats in dom_ss.B:
+            b_power_mats = b_matrices.get(p, {})
+            for dom_form, der_mat in power_mats:
+                b_der_mat = b_power_mats.get(dom_form, np.zeros(state_space_props.size, state_space_props.dim_u))
+
+                # add entry to the last "row"
+                r_idx = state_space_props.parts[name]["size"] - state_space_props.parts[name]["orig_size"]
+                b_der_mat[r_idx:, :der_mat.size[1]] += der_mat
+
+                b_power_mats.update({dom_form, b_der_mat})
+            b_matrices.update({p, b_power_mats})
+
+    # TOD0 f_vector
+    f_vector = None
+
+    dom_ss = StateSpace(a_matrices, b_matrices, input_handle=state_space_props.input, f_vector=None)
+    return dom_ss
 
 
 def parse_weak_formulation(weak_form):
