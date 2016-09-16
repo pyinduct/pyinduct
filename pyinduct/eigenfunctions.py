@@ -20,9 +20,9 @@ from abc import ABCMeta, abstractstaticmethod
 
 class LambdifiedSympyExpression(Function):
     """
-    Provide a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based of a lambdified sympy expression.
-    The sympy expression must be provided as first element of the list *sympy_funcs*. In the subsequent elements
-    of the list, the sympy expressions for the derivatives of the function take place (with increasing order).
+    Provide a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based on a lambdified sympy expression.
+    The sympy expressions for the function and it's spatial derivatives must be provided as the list *sympy_funcs*.
+    The expressions must be provided with increasing derivative order, starting with order 0.
 
     Args:
         sympy_funcs (array_like): Sympy expressions for the function and the derivatives: :math:`\\varphi(z), \\varphi'(z), ...`.
@@ -46,18 +46,18 @@ class LambdifiedSympyExpression(Function):
 
 class SecondOrderEigenfunction(metaclass=ABCMeta):
     """
-    Wrapper for all eigenvalue problems from the form
+    Wrapper for all eigenvalue problems of the form
 
     .. math:: a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z), \\qquad a_2, a_1, a_0, \\lambda \\in \\mathbb R
 
     with eigenfunctions :math:`\\varphi` and eigenvalues :math:`\\lambda`.
-    The roots of the characteristic equation (of the dgl) denoted by
+    The roots of the characteristic equation (belonging to the ode) are denoted by
 
     .. math:: p = \\eta \\pm j\\omega, \\qquad \\eta \\in \\mathbb R, \\quad \\omega \\in \\mathbb C
 
     .. math:: \\eta = -\\frac{a_1}{2a_2}, \\quad \\omega = \\sqrt{-\\frac{a_1^2}{4 a_2^2} + \\frac{a_0 - \\lambda}{a_2}}
 
-    In the following the variable :math:`\\omega` is called as eigenfrequency.
+    In the following the variable :math:`\\omega` is called an eigenfrequency.
     """
 
     @abstractstaticmethod
