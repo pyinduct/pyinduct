@@ -375,29 +375,30 @@ class StateSpaceTests(unittest.TestCase):
         self.u = CorrectInput()
 
         # setup temp and spat domain
-        spat_domain = sim.Domain((0, 1), num=3)
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=3)
-        register_base("init_funcs", ini_funcs, overwrite=True)
+        node_cnt = 3
+        spat_domain = sim.Domain((0, 1), num=node_cnt)
+        nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
+        register_base("swm_base", lag_base)
 
-        # enter string with mass equations for testing
+        # enter string with mass equations
         int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), spat_domain.bounds)
+            ph.Product(ph.TemporalDerivedFieldVariable("swm_base", 2),
+                       ph.TestFunction("swm_base")), spat_domain.bounds)
         s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
-                       ph.TestFunction("init_funcs", location=0)))
+            ph.Product(ph.TemporalDerivedFieldVariable("swm_base", 2, location=0),
+                       ph.TestFunction("swm_base", location=0)))
         int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), spat_domain.bounds)
+            ph.Product(ph.SpatialDerivedFieldVariable("swm_base", 1),
+                       ph.TestFunction("swm_base", order=1)), spat_domain.bounds)
         s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -1)
+            ph.Product(ph.Input(self.u), ph.TestFunction("swm_base", location=1)), -1)
 
-        string_pde = sim.WeakFormulation([int1, s1, int2, s2])
-        self.cf = sim.parse_weak_formulation(string_pde)
+        string_eq = sim.WeakFormulation([int1, s1, int2, s2], name="swm")
+        self.ce = sim.parse_weak_formulation(string_eq)
         self.ic = np.zeros((3, 2))
 
     def test_convert_to_state_space(self):
-        ss = self.cf.convert_to_state_space()
+        ss = sim.create_state_space(self.ce)
         self.assertEqual(ss.A[1].shape, (6, 6))
         self.assertTrue(np.allclose(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
                                                        [0, 0, 0, 0, 1, 0],
@@ -407,10 +408,10 @@ class StateSpaceTests(unittest.TestCase):
                                                        [-3.75, 21, -17.25, 0, 0, 0]])))
         self.assertEqual(ss.B[1].shape, (6, 1))
         self.assertTrue(np.allclose(ss.B[1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
-        self.assertEqual(self.cf.input_function, self.u)
+        self.assertEqual(self.ce.input_function, self.u)
 
     def tearDown(self):
-        deregister_base("init_funcs")
+        deregister_base("swm_base")
 
 
 class StringMassTest(unittest.TestCase):

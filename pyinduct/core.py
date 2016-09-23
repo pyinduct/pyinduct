@@ -39,59 +39,6 @@ class BaseFraction:
     def __init__(self, members):
         self.members = members
 
-    @staticmethod
-    def _transformation_factory(info):
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
-                                                            info.dst_order)
-
-        def handle(weights):
-            return np.dot(mat, weights)
-
-        return handle
-
-    def transformation_hint(self, info, target):
-        """
-        Method that provides a information about how to transform weights from one :py:class:`BaseFraction` into
-        another.
-
-        In Detail this function has to return a callable, which will take the weights of the source- and return the
-        weights of the target system. It may have keyword arguments for other data which is required to perform the
-        transformation.
-        Information about these extra keyword arguments should be provided in form of a dictionary whose keys are
-        keyword arguments of the returned transformation handle.
-
-        Note:
-            This implementation covers the most basic case, where the two :py:class:`BaseFraction` s are of same type.
-            For any other case it will raise an exception.
-            Overwrite this Method in your implementation to support conversion between bases that differ from yours.
-
-        Args:
-            info: :py:class:`TransformationInfo`
-            target: :py:class:`TransformationInfo`
-
-        Raises:
-            NotImplementedError:
-
-        Returns:
-            Transformation handle
-        """
-        # TODO handle target option!
-        if target is False:
-            raise NotImplementedError
-
-        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
-        if cls == self.__class__:
-            return self._transformation_factory(info), None
-        else:
-            # No Idea what to do.
-            msg = "This is {1} speaking, \n" \
-                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
-                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
-                  "But this is a dumb method so implement your own hint to make things work!".format(
-                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
-                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
-            raise NotImplementedError(msg)
-
     def scalar_product_hint(self):
         """
         Empty Hint that can return steps for scalar product calculation.
@@ -105,22 +52,6 @@ class BaseFraction:
         """
         pass
 
-    def derive(self, order):
-        """
-        Basic implementation of derive function.
-        Empty implementation, overwrite to use this functionality.
-        For an example implementation see :py:class:`Function`
-
-        Args:
-            order (:class:`numbers.Number`): derivative order
-        Return:
-            :py:class:`BaseFraction`: derived object
-        """
-        if order == 0:
-            return self
-        else:
-            raise NotImplementedError("This is an empty function."
-                                      " Overwrite it in your implementation to use this functionality.")
 
     def scale(self, factor):
         """
@@ -158,10 +89,154 @@ class Base:
     interact with this class.
 
     Args:
-        fractions (iterable of :py:class:`BaseFraction`): List, Array or Dict of :py:class:`BaseFraction` instances
+        fractions (iterable of :py:class:`BaseFraction`): List or Array of :py:class:`BaseFraction` instances
     """
     def __init__(self, fractions):
-        self.fractions = fractions
+        self.fractions = sanitize_input(fractions, BaseFraction)
+
+    @staticmethod
+    def _transformation_factory(info):
+        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base,
+                                                            info.src_order, info.dst_order)
+
+        def handle(weights):
+            return np.dot(mat, weights)
+
+        return handle
+
+    def transformation_hint(self, info, target):
+        """
+        Method that provides a information about how to transform weights from one :py:class:`Base` into
+        another.
+
+        In Detail this function has to return a callable, which will take the weights of the source- and return the
+        weights of the target system. It may have keyword arguments for other data which is required to perform the
+        transformation.
+        Information about these extra keyword arguments should be provided in form of a dictionary whose keys are
+        keyword arguments of the returned transformation handle.
+
+        Note:
+            This implementation covers the most basic case, where the two :py:class:`BaseFraction` s are of same type.
+            For any other case it will raise an exception.
+            Overwrite this Method in your implementation to support conversion between bases that differ from yours.
+
+        Args:
+            info: :py:class:`TransformationInfo`
+            target: :py:class:`TransformationInfo`
+
+        Raises:
+            NotImplementedError:
+
+        Returns:
+            Transformation handle
+        """
+        # TODO handle target option!
+        if target is False:
+            raise NotImplementedError
+
+        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
+        if cls == self.__class__:
+            # source / target is identical with us, default case
+            return self._transformation_factory(info), None
+        else:
+            # No Idea what to do.
+            msg = "This is {1} speaking, \n" \
+                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
+                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
+                  "But this is a dumb method so implement your own hint to make things work!".format(
+                info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
+            raise NotImplementedError(msg)
+
+    def derive(self, order):
+        """
+        Basic implementation of derive function.
+        Empty implementation, overwrite to use this functionality.
+        For an example implementation see :py:class:`Function`
+
+        Args:
+            order (:class:`numbers.Number`): spatial derivative order
+        Return:
+            :py:class:`Base`: derived object
+        """
+        if order == 0:
+            return self
+        else:
+            return self.__class__([f.derive(order) for f in self.fractions])
+
+    def raise_to(self, power):
+        """
+        Basic implementation of a power function.
+
+        Args:
+            power (:class:`numbers.Number`): poeer to raise to
+        Return:
+            :py:class:`Base`: raised base
+        """
+        if power == 1:
+            return self
+        else:
+            return self.__class__([f.raise_to(power) for f in self.fractions])
+
+
+class StackedBase(Base):
+    """
+    Implementation of a base that is obtained by stacking different bases onto each other.
+        This typically occurs when the bases of coupled systems are joined to create a unified system.
+
+    Args:
+        fraction_lbls (list): List of  base labels that name the bases that are o be stacked.
+    """
+
+    def __init__(self, fraction_lbls):
+        fractions = []
+        self._info = dict(size=0, parts={})
+        for lbl in fraction_lbls:
+            base = get_base(lbl)
+            fractions.append(base.fractions)
+            self._info["parts"].update({lbl: {"size": base.fractions.size, "start": self._info["size"]}})
+            self._info["size"] += base.fractions.size
+
+        super().__init__(np.hstack(*fractions))
+
+    # def scalar_product_hint(self):
+    #     return [dot_product_l2 for k in self.members.keys()]
+    #
+    # def get_member(self, idx):
+    #     return list(self.members.values())[idx]
+    #
+    # def scale(self, factor):
+    #     return self.__class__({lbl: func.scale(factor) for lbl, func in self.members})
+
+    def transformation_hint(self, info, target):
+        """
+        If *info.src_lbl* is a member, just return it, using to correct derivative transformation, otherwise
+        return `None`
+
+        Args:
+            info (:py:class:`TransformationInfo`): Information about the requested transformation.
+            target (bool): Is the called object the target of the transformation?
+                If False, source and target in *info* will be swapped.
+        Return:
+            transformation handle
+
+        """
+        # TODO handle target arg
+        if target is False:
+            raise NotImplementedError()
+        if info.dst_lbl not in self._info.keys():
+            return None, None
+
+        start_idx = self._info["parts"][info.dst_lbl]["start"]
+        sel_len = self._info["parts"][info.dst_lbl]["size"]
+        inter_base = Base(self.fractions[start_idx: start_idx + sel_len])
+        trans_mat = calculate_expanded_base_transformation_matrix(inter_base, info.dst_base,
+                                                                  info.src_order, info.dst_order, use_eye=True)
+
+        def selection_func(weights):
+            return trans_mat @ weights[start_idx: start_idx + sel_len]
+
+        return selection_func, None
 
 
 class Function(BaseFraction):
@@ -460,58 +535,6 @@ class Function(BaseFraction):
         Return the hint that the :py:func:`pyinduct.core.dot_product_l2` has to calculated to gain the scalar product.
         """
         return [dot_product_l2]
-
-
-class StackedBase(Base):
-    """
-    Implementation of a basis vector that is obtained by stacking different bases onto each other.
-        This typically occurs when the bases of coupled systems are joined to create a unified system.
-
-    Args:
-        fractions (dict): Dictionary with base_label and corresponding function
-    """
-
-    def __init__(self, fractions, info):
-        super().__init__(OrderedDict(**fractions))
-        self._info = info
-
-    def scalar_product_hint(self):
-        return [dot_product_l2 for k in self.members.keys()]
-
-    def get_member(self, idx):
-        return list(self.members.values())[idx]
-
-    def scale(self, factor):
-        return self.__class__({lbl: func.scale(factor) for lbl, func in self.members})
-
-    def transformation_hint(self, info, target):
-        """
-        If *info.src_lbl* is a member, just return it, using to correct derivative transformation, otherwise
-        return `None`
-
-        Args:
-            info (:py:class:`TransformationInfo`): Information about the requested transformation.
-            target (bool): Is the called object the target of the transformation?
-                If False, source and target in *info* will be swapped.
-        Return:
-            transformation handle
-
-        """
-        # TODO handle target arg
-        if target is False:
-            raise NotImplementedError()
-        if info.dst_lbl not in self.members:
-            return None, None
-
-        start_idx = self._info[info.dst_lbl]["start"]
-        sel_len = self._info[info.dst_lbl]["size"]
-        trans_mat = calculate_expanded_base_transformation_matrix(None, None, info.src_order, info.dst_order,
-                                                                  use_eye=True)
-
-        def selection_func(weights):
-            return trans_mat @ weights[start_idx: start_idx + sel_len]
-
-        return selection_func, None
 
 
 class ComposedFunctionVector(BaseFraction):
@@ -1065,8 +1088,8 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
         :py:func:`calculate_base_transformation_matrix` for further details.
 
     Args:
-        dst_base (:py:class:`BaseFraction`): New projection base.
-        src_base (:py:class:`BaseFraction`): Current projection base.
+        dst_base (:py:class:`Base`): New projection base.
+        src_base (:py:class:`Base`): Current projection base.
         src_order: Temporal derivative order available in *src_base*.
         dst_order: Temporal derivative order needed in *dst_base*.
         use_eye (bool): Use identity as base transformation matrix. (For easy selection of derivatives in the same base)
@@ -1082,14 +1105,15 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
 
     # build core transformation
     if use_eye:
-        core_transformation = np.eye(src_base.size)
+        core_transformation = np.eye(src_base.fractions.size[0])
     else:
         core_transformation = calculate_base_transformation_matrix(src_base, dst_base)
 
     # build block matrix
     part_transformation = block_diag(*[core_transformation for i in range(dst_order + 1)])
-    complete_transformation = np.hstack([part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size))
-                                                                 for i in range(src_order - dst_order)])
+    complete_transformation = np.hstack(
+        [part_transformation] + [np.zeros((part_transformation.shape[0], src_base.fractions.size))
+                                 for i in range(src_order - dst_order)])
     return complete_transformation
 
 
@@ -1107,27 +1131,21 @@ def calculate_base_transformation_matrix(src_base, dst_base):
         TypeError: If given bases do not provide an :py:func:`scalar_product_hint` method.
 
     Args:
-        dst_base (:py:class:`BaseFraction`): New projection base.
-        src_base (:py:class:`BaseFraction`): Current projection base.
+        src_base (:py:class:`Base`): Current projection base.
+        dst_base (:py:class:`Base`): New projection base.
 
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
     """
-    src_base = sanitize_input(src_base, BaseFraction)
-    dst_base = sanitize_input(dst_base, BaseFraction)
-
-    if not hasattr(src_base[0], "scalar_product_hint"):
-        raise TypeError("Input type not supported.")
-
     # compute P and Q matrices, where P = Sum(P_n) and Q = Sum(Q_n)
-    s_hints = src_base[0].scalar_product_hint()
-    d_hints = dst_base[0].scalar_product_hint()
+    s_hints = src_base.fractions[0].scalar_product_hint()
+    d_hints = dst_base.fractions[0].scalar_product_hint()
 
     p_matrices = []
     q_matrices = []
     for idx, (s_hint, d_hint) in enumerate(zip(s_hints, d_hints)):
-        dst_members = np.array([dst_frac.get_member(idx) for dst_frac in dst_base])
-        src_members = np.array([src_frac.get_member(idx) for src_frac in src_base])
+        dst_members = np.array([dst_frac.get_member(idx) for dst_frac in dst_base.fractions])
+        src_members = np.array([src_frac.get_member(idx) for src_frac in src_base.fractions])
 
         # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
         p_matrices.append(calculate_scalar_product_matrix(s_hint, dst_members, src_members))
@@ -1150,15 +1168,15 @@ def normalize_base(b1, b2=None):
     If only one base is given, :math:`\\boldsymbol{b}_2` is set to :math:`\\boldsymbol{b}_1`.
 
     Args:
-        b1 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_1`
-        b2 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_2`
+        b1 (:py:class:`Base`): :math:`\\boldsymbol{b}_1`
+        b2 (:py:class:`Base`): :math:`\\boldsymbol{b}_2`
 
     Raises:
         ValueError: If :math:`\\boldsymbol{b}_1` and :math:`\\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        np.array of :py:class:`BaseFraction` : if *b2* is None,
-           otherwise: Tuple of 2 :py:class:`BaseFraction` arrays.
+       :py:class:`Base` : if *b2* is None,
+           otherwise: Tuple of 2 :py:class:`Base` s arrays.
     """
     auto_normalization = False
     if b2 is None:
@@ -1168,14 +1186,15 @@ def normalize_base(b1, b2=None):
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    if not hasattr(b1[0], "scalar_product_hint"):
+    if not hasattr(b1, "scalar_product_hint"):
         raise TypeError("Input type not supported.")
 
-    hints = b1[0].scalar_product_hint()
-    res = np.zeros(b1.shape)
+    # TODO use hint of Base which should be guaranteed to work
+    hints = b1.fractions[0].scalar_product_hint()
+    res = np.zeros(b1.fractions.shape)
     for idx, hint in enumerate(hints):
-        members_1 = np.array([fraction.get_member(idx) for fraction in b1])
-        members_2 = np.array([fraction.get_member(idx) for fraction in b2])
+        members_1 = np.array([fraction.get_member(idx) for fraction in b1.fractions])
+        members_2 = np.array([fraction.get_member(idx) for fraction in b2.fractions])
         res += hint(members_1, members_2)
 
     if any(res < np.finfo(float).eps):
@@ -1185,10 +1204,10 @@ def normalize_base(b1, b2=None):
             raise ValueError("imaginary scale required. no normalization possible.")
 
     scale_factors = np.sqrt(1 / res)
-    b1_scaled = np.array([frac.scale(factor) for frac, factor in zip(b1, scale_factors)])
+    b1_scaled = b1.__class__([fraction.scale(factor) for fraction, factor in zip(b1.fractions, scale_factors)])
 
     if auto_normalization:
         return b1_scaled
     else:
-        b2_scaled = np.array([frac.scale(factor) for frac, factor in zip(b2, scale_factors)])
+        b2_scaled = b2.__class__([fraction.scale(factor) for fraction, factor in zip(b2.fractions, scale_factors)])
         return b1_scaled, b2_scaled

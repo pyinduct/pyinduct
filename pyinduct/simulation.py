@@ -15,7 +15,7 @@ from scipy.integrate import ode
 
 from .registry import get_base, is_registered, register_base
 from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2, sanitize_input, StackedFunctionVector)
+                   project_on_base, dot_product_l2, sanitize_input, StackedBase)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .utils import Parameters
 from .visualization import EvalData
@@ -178,19 +178,11 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
+        name (strign): name of this weak form
     """
 
-    def __init__(self, terms, name=None):
-        if isinstance(terms, EquationTerm):
-            terms = [terms]
-        if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
-
-        for term in terms:
-            if not isinstance(term, EquationTerm):
-                raise TypeError("Only EquationTerm(s) are accepted.")
-
-        self.terms = terms
+    def __init__(self, terms, name):
+        self.terms = sanitize_input(terms, EquationTerm)
         self.name = name
 
 
@@ -213,10 +205,12 @@ class StateSpace(object):
         d_matrix: :math:`\\boldsymbol{D}`
     """
 
-    def __init__(self, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None):
+    def __init__(self, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None,
+                 base_lbl=None):
         self.f = f_vector
         self.C = c_matrix
         self.D = d_matrix
+        self.base_lbl = base_lbl
 
         # mandatory
         if isinstance(a_matrices, np.ndarray):
@@ -254,28 +248,30 @@ class StateSpace(object):
         for p, a_mat in self.A.items():
             q_t = q_t + np.dot(a_mat, np.power(_q, p))
 
-        u = self.input(time=_t, weights=_q, weight_lbl=self.weight_lbl)
-        for p, b_mat in self.B.items():
-            q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+        # TODO make compliant with definition of temporal derived input
+        u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
+        for o, p_mats in self.B.items():
+            for p, b_mat in p_mats.items():
+                q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
 
         return q_t
 
 
 # TODO update signature
-def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
-    """
-    Convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters.
-
-    Args:
-        weak_forms (:py:class:`WeakFormulation`):
-        initial_states:
-        time_interval:
-        time_step:
-        spatial_interval:
-        spatial_step:
-    """
-    return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
-            weak_forms]
+# def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
+#     """
+#     Convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters.
+#
+#     Args:
+#         weak_forms (:py:class:`WeakFormulation`):
+#         initial_states:
+#         time_interval:
+#         time_step:
+#         spatial_interval:
+#         spatial_step:
+#     """
+#     return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
+#             weak_forms]
 
 
 def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains, settings=None, derivative_orders=(0, 0)):
@@ -531,7 +527,7 @@ class CanonicalForm(object):
         self.dim_xb = self.max_temp_order * self.dim_x  # dimension of the new system
 
         # input
-        for p in self.matrices["G"].values():
+        for p in self.matrices.get("G", {}).values():
             for d in p.values():
                 self.dim_u = max(self.input_size, d.size[1])
 
@@ -686,8 +682,8 @@ class CanonicalEquation(object):
         self.dominant_lbl = next((label for label, order in highest_dict.items() if order == max_order), None)
 
         # copy static terms to dominant form for easier transformation
-        self.dynamic_forms[self.dominant_lbl].matrices["G"] = self._static_form.matrices["G"]
-        self.dynamic_forms[self.dominant_lbl].matrices["f"] = self._static_form.matrices["f"]
+        self.dynamic_forms[self.dominant_lbl].matrices.update({"G": self._static_form.matrices.get("G", {})})
+        self.dynamic_forms[self.dominant_lbl].matrices.update({"f": self._static_form.matrices.get("f", {})})
 
         # self.dominant_state_space = self._dynamic_forms[self._dominant_lbl].convert_to_state_space()
 
@@ -798,14 +794,13 @@ def create_state_space(canonical_equations):
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
-    members = {}
-    for lbl, info in state_space_props.parts.items():
-        base_part = get_base(lbl)
-        members.update({lbl: base_part})
-
-    new_name = "_".join(members.keys())
-    new_base = StackedFunctionVector(members, state_space_props)
-    register_base(new_name, new_base)
+    if len(canonical_equations) == 1:
+        new_name = next(canonical_equations.keys())
+    else:
+        members = [state_space_props.parts.keys()]
+        new_name = "_".join(members.keys())
+        new_base = StackedBase(members)
+        register_base(new_name, new_base)
 
     # build new state transition matrices A_p where p is the power
     a_matrices = {}
@@ -846,17 +841,17 @@ def create_state_space(canonical_equations):
     # build new state input matrices
     b_matrices = {}
     for name, dom_ss in dominant_state_spaces:
-        for p, power_mats in dom_ss.B:
-            b_power_mats = b_matrices.get(p, {})
-            for dom_form, der_mat in power_mats:
-                b_der_mat = b_power_mats.get(dom_form, np.zeros(state_space_props.size, state_space_props.dim_u))
+        for order, order_mats in dom_ss.B.items():
+            b_order_mats = b_matrices.get(order, {})
+            for p, power_mat in order_mats.tems():
+                b_power_mat = b_order_mats.get(p, np.zeros(state_space_props.size, state_space_props.dim_u))
 
                 # add entry to the last "row"
                 r_idx = state_space_props.parts[name]["size"] - state_space_props.parts[name]["orig_size"]
-                b_der_mat[r_idx:, :der_mat.size[1]] += der_mat
+                b_power_mat[r_idx:, :power_mat.size[1]] += power_mat
 
-                b_power_mats.update({dom_form, b_der_mat})
-            b_matrices.update({p, b_power_mats})
+                b_order_mats.update({p, b_power_mat})
+            b_matrices.update({order, b_order_mats})
 
     # TOD0 f_vector
     f_vector = None
@@ -905,8 +900,8 @@ def parse_weak_formulation(weak_form):
             temp_order = field_var.order[0]
             exponent = field_var.data["exponent"]
             term_info = dict(name="E", order=temp_order, exponent=exponent)
-            init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
-            shape_funcs = np.array([func.raise_to(exponent) for func in init_funcs])
+            base = get_base(field_var.data["func_lbl"]).derive(field_var.order[1])
+            shape_funcs = base.raise_to(exponent).fractions
 
             if placeholders["inputs"]:
                 # TODO think about this case, is it relevant?
@@ -918,7 +913,7 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_base(func.data["func_lbl"], func.order[1])
+                test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
                 result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
             else:
                 # extract constant term and compute integral
@@ -933,7 +928,7 @@ def parse_weak_formulation(weak_form):
 
             # cf.weights = field_var.data["weight_lbl"]
             # cf.add_to(term_info, result * term.scale)
-            ce.add_to(weight_label=field_var.data["weight_label"], term=term_info, val=result * term.scale)
+            ce.add_to(weight_label=field_var.data["weight_lbl"], term=term_info, val=result * term.scale)
             continue
 
         # TestFunction or pre evaluated terms, those can end up in E, f or G
@@ -941,7 +936,7 @@ def parse_weak_formulation(weak_form):
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
             func = placeholders["functions"][0]
-            test_funcs = get_base(func.data["func_lbl"], func.order[1])
+            test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
 
             if len(placeholders["functions"]) == 2:
                 # TODO this computation is nonsense. Result must be a vector containing int(tf1*tf2)

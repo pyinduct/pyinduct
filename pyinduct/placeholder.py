@@ -425,12 +425,12 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = get_base(placeholder.data['func_lbl'], placeholder.order[1])
+    fractions = get_base(placeholder.data['func_lbl']).derive(placeholder.order[1]).fractions
     location = placeholder.location
     exponent = placeholder.data.get("exponent", 1)
     if getattr(placeholder, "raised_spatially", False):
         exponent = 1
-    values = np.atleast_2d([func.raise_to(exponent)(location) for func in functions])
+    values = np.atleast_2d([frac.raise_to(exponent)(location) for frac in fractions])
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=dict(name="E", order=placeholder.order[0],
