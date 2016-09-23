@@ -165,8 +165,11 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         You must call this *classmethod* with one and only one of the kwargs: \n
             - *n* (*eig_val* and *eig_freq* will be computed with the :py:func:`eigfreq_eigval_hint`)
             - *eig_val* (*eig_freq* will be calculated with :py:func:`eigval_tf_eigfreq`)
-            - *eig_freq* (*eig_val* will be calculated with :py:func:`eigval_tf_eigfreq`).\n
-        The kwargs *eig_val* and *eig_freq* are preferable, in the sense of performance.
+            - *eig_freq* (*eig_val* will be calculated with :py:func:`eigval_tf_eigfreq`),\n
+        or (and) pass the kwarg scale (then n is set to len(scale)).
+        If you have the kwargs *eig_val* and *eig_freq* already calculated then these are preferable,
+        in the sense of performance.
+
 
         Args:
             param: Parameters :math:`(a_2, a_1, a_0, ...)` see *evp_class.__doc__*.
@@ -180,20 +183,29 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         Returns:
             Tuple with one list for the eigenvalues and one for the eigenfunctions.
         """
-        if np.sum([1 for arg in [n, eig_val, eig_freq] if arg is not None]) != 1:
+        if np.sum([1 for arg in [n, eig_val, eig_freq] if arg is not None]) != 1 and scale is None:
             raise ValueError("You must pass one and only one of the kwargs:\n"
                              "\t - n (Number of eigenvalues/eigenfunctions to be compute)\n"
                              "\t - eig_val (Eigenvalues)\n"
-                             "\t - eig_freq (Eigenfrequencies).\n"
-                             "")
+                             "\t - eig_freq (Eigenfrequencies),\n"
+                             "or (and) pass the kwarg scale (then n is set to len(scale)).")
         elif eig_val is not None:
             eig_freq = evp_class.eigval_tf_eigfreq(param, eig_val=eig_val)
+            _n = len(eig_val)
         elif eig_freq is not None:
             eig_val = evp_class.eigval_tf_eigfreq(param, eig_freq=eig_freq)
+            _n = len(eig_freq)
         else:
-            eig_freq, eig_val = evp_class.eigfreq_eigval_hint(param, l, n)
+            if n is None:
+                __n = len(scale)
+            else:
+                __n = n
+            eig_freq, eig_val = evp_class.eigfreq_eigval_hint(param, l, __n)
+            _n = n
 
-        if scale is None:
+        if scale is not None and _n is not None and len(scale) != _n:
+            raise ValueError("Length of scale must match {n, len(eig_val), len(eig_freq}.")
+        elif scale is None:
             scale = np.ones(eig_freq.shape)
 
         eig_func = np.array([evp_class(om, param, l, scale=sc, max_der_order=max_order) for om, sc in

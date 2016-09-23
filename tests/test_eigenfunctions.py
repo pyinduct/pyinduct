@@ -28,6 +28,29 @@ class TestAddMulFunction(unittest.TestCase):
         x = np.dot(b, A)
         self.assertAlmostEqual([4, 40, 300], [x[0](4), x[1](20), x[2](100)])
 
+class TextSecondOrderEigenfunction(unittest.TestCase):
+    def test_error_raiser(self):
+        param = [1, 1, 1, 1, 1]
+        l = 1
+        n = 10
+        eig_val, eig_funcs = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, scale=np.ones(n))
+        eig_freq = ef.SecondOrderDirichletEigenfunction.eigval_tf_eigfreq(param, eig_val=eig_val)
+        _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n)
+        _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n=n, scale=np.ones(n))
+        _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, scale=np.ones(n))
+        _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_freq=eig_freq, scale=np.ones(n))
+
+        with self.assertRaises(ValueError):
+            _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, scale=np.ones(n+1))
+        with self.assertRaises(ValueError):
+            _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, scale=np.ones(n+1))
+        with self.assertRaises(ValueError):
+            _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, eig_freq=eig_freq)
+        with self.assertRaises(ValueError):
+            _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, eig_freq=eig_freq)
+        with self.assertRaises(ValueError):
+            _, _ = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, eig_val=eig_val, eig_freq=eig_freq)
+
 
 class FiniteTransformTest(unittest.TestCase):
     def setUp(self):

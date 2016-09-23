@@ -807,15 +807,10 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 1e2
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
-        omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
-        eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
-        norm_fak = np.ones(omega.shape) * np.sqrt(2)
-        eig_funcs = np.array(
-            [ef.SecondOrderDirichletEigenfunction(omega[i], param, l, norm_fak[i]) for i in range(spatial_disc)])
+        norm_fak = np.ones(spatial_disc) * np.sqrt(2)
+        eig_values, eig_funcs =  ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, scale=norm_fak)
         register_base("eig_funcs", eig_funcs, overwrite=True)
-        adjoint_eig_funcs = np.array(
-            [ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, l, norm_fak[i]) for i in
-             range(spatial_disc)])
+        _, adjoint_eig_funcs = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(adjoint_param, l, scale=norm_fak)
         register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
@@ -875,10 +870,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
-
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
+        eig_val, init_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param, l, n=n)
+        _, init_adjoint_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param, l, n=n)
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -901,7 +894,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
-        B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
+        B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_val))])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
