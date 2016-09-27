@@ -42,8 +42,6 @@ class BaseFraction:
     def __init__(self, members):
         self.members = members
 
-
-
     def scalar_product_hint(self):
         """
         Empty Hint that can return steps for scalar product calculation.
@@ -182,8 +180,31 @@ class Base:
         if order == 0:
             return self
         else:
-            raise NotImplementedError("This is an empty function."
-                                      " Overwrite it in your implementation to use this functionality.")
+            return self.__class__([f.derive(order) for f in self.fractions])
+
+    def scale(self, factor):
+        """
+        Factory method to obtain instances of this base, scaled by the given factor.
+
+        Args:
+            factor: factor or function to scale this base with.
+        """
+        if factor == 1:
+            return self
+        else:
+            return self.__class__([f.scacle(factor) for f in self.fractions])
+
+    def raise_to(self, power):
+        """
+        Factory method to obtain instances of this base, raised by the given power.
+
+        Args:
+            power: power to raise the basis onto.
+        """
+        if power == 1:
+            return self
+        else:
+            return self.__class__([f.raise_to(power) for f in self.fractions])
 
 
 class Function(BaseFraction):

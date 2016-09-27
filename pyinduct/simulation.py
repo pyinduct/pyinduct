@@ -233,10 +233,10 @@ class StateSpace(object):
         if self.C is None:
             self.C = np.zeros((available_power, self.A[available_power].shape[1]))
         if self.D is None:
-            self.D = np.zeros((available_power, np.atleast_2d(self.B[available_power]).T.shape[1]))
+            self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
         if input_handle is None:
-            self.input = EmptyInput(self.B[available_power].shape[1])
+            self.input = EmptyInput(self.B[0][available_power].shape[1])
         else:
             self.input = input_handle
         if not callable(self.input):
@@ -392,7 +392,7 @@ class CanonicalForm(object):
         self.powers = None
         self.max_power = None
         self.max_temp_order = None
-        self.dim_u = None
+        self.dim_u = 0
         self.dim_x = None
         self.dim_xb = None
         self.e_n_pb = None
@@ -496,10 +496,6 @@ class CanonicalForm(object):
         Furthermore, the coefficient matrix of the highest derivative order `e_n_pb` and it's inverse are made
         accessible.
         """
-        if "f" in self.matrices:
-            # TODO add functionality to StateSpace and allow f
-            raise NotImplementedError
-
         # get highest power
         self.powers = set(chain.from_iterable([list(mat) for mat in self.matrices["E"].values()]))
         self.max_power = max(self.powers)
@@ -527,9 +523,9 @@ class CanonicalForm(object):
         self.dim_xb = self.max_temp_order * self.dim_x  # dimension of the new system
 
         # input
-        for p in self.matrices.get("G", {}).values():
-            for d in p.values():
-                self.dim_u = max(self.input_size, d.size[1])
+        for derivatives in self.matrices.get("G", {}).values():
+            for power in derivatives.values():
+                self.dim_u = max(self.dim_u, power.shape[1])
 
     def get_terms(self):
         """
@@ -675,17 +671,17 @@ class CanonicalEquation(object):
             highest_dict[lbl] = form.max_temp_order
             highest_list.append(form.max_temp_order)
 
-        max_order = highest_list.remove(max(highest_list))
+        max_order = max(highest_list)
+        highest_list.remove(max_order)
         if max_order in highest_list:
             raise ValueError("Highest derivative order cannot be isolated.")
 
         self.dominant_lbl = next((label for label, order in highest_dict.items() if order == max_order), None)
 
-        # copy static terms to dominant form for easier transformation
-        self.dynamic_forms[self.dominant_lbl].matrices.update({"G": self._static_form.matrices.get("G", {})})
-        self.dynamic_forms[self.dominant_lbl].matrices.update({"f": self._static_form.matrices.get("f", {})})
-
-        # self.dominant_state_space = self._dynamic_forms[self._dominant_lbl].convert_to_state_space()
+        # copy static terms to dominant form to transform them correctly
+        for letter in "fG":
+            if letter in self._static_form.matrices:
+                self.dynamic_forms[self.dominant_lbl].matrices.update({letter: self._static_form.matrices[letter]})
 
         self._finalized = True
 
@@ -772,12 +768,12 @@ def create_state_space(canonical_equations):
 
     # transform dominant forms into state-space representation and collect information
     dominant_state_spaces = {}
-    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set())
+    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set(), dim_u=0, input=None)
     for name, eq in canonical_equations.items():
         dom_lbl = eq.dominant_lbl
         dom_form = eq.dominant_form
-        dom_ss = dom_form.to_state_space()
-        dominant_state_spaces.update({dom_lbl, dom_ss})
+        dom_ss = dom_form.convert_to_state_space()
+        dominant_state_spaces.update({dom_lbl: dom_ss})
 
         # collect some information
         state_space_props.parts[dom_lbl] = dict(start=copy(state_space_props.size),
@@ -795,7 +791,7 @@ def create_state_space(canonical_equations):
 
     # build new basis by concatenating the dominant bases of every equation
     if len(canonical_equations) == 1:
-        new_name = next(canonical_equations.keys())
+        new_name = next(iter(canonical_equations.keys()))
     else:
         members = [state_space_props.parts.keys()]
         new_name = "_".join(members.keys())
@@ -805,17 +801,17 @@ def create_state_space(canonical_equations):
     # build new state transition matrices A_p where p is the power
     a_matrices = {}
     for p in state_space_props.powers:
-        a_mat = np.zeros(state_space_props.size)
+        a_mat = np.zeros((state_space_props.size, state_space_props.size))
         for row_name, row_eq in canonical_equations.items():
             row_dom_lbl = row_eq.dominant_lbl
             row_dom_dim = state_space_props.parts[row_dom_lbl]["size"]
             row_dom_trans_mat = row_eq.dominant_form.e_n_pb_inv
             row_dom_sys_mat = dominant_state_spaces[row_dom_lbl].A.get(p, None)
-            row_idx = state_space_props.parts[row_dom_lbl].start
+            row_idx = state_space_props.parts[row_dom_lbl]["start"]
 
             col_idx = 0
             for col_name, col_eq in canonical_equations.items():
-                col_dom_lbl = col_eq.dom_lbl
+                col_dom_lbl = col_eq.dominant_lbl
                 if col_name == row_name:
                     # main diagonal
                     if row_dom_sys_mat is None:
@@ -837,21 +833,22 @@ def create_state_space(canonical_equations):
                     v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
                     h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
                     a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
+        a_matrices.update({p: a_mat})
 
     # build new state input matrices
     b_matrices = {}
-    for name, dom_ss in dominant_state_spaces:
+    for name, dom_ss in dominant_state_spaces.items():
         for order, order_mats in dom_ss.B.items():
             b_order_mats = b_matrices.get(order, {})
-            for p, power_mat in order_mats.tems():
-                b_power_mat = b_order_mats.get(p, np.zeros(state_space_props.size, state_space_props.dim_u))
+            for p, power_mat in order_mats.items():
+                b_power_mat = b_order_mats.get(p, np.zeros((state_space_props.size, state_space_props.dim_u)))
 
                 # add entry to the last "row"
-                r_idx = state_space_props.parts[name]["size"] - state_space_props.parts[name]["orig_size"]
-                b_power_mat[r_idx:, :power_mat.size[1]] += power_mat
+                r_idx = state_space_props.parts[name]["start"]  # - state_space_props.parts[name]["orig_size"]
+                b_power_mat[r_idx: r_idx + power_mat.shape[0], :power_mat.shape[1]] = power_mat
 
-                b_order_mats.update({p, b_power_mat})
-            b_matrices.update({order, b_order_mats})
+                b_order_mats.update({p: b_power_mat})
+            b_matrices.update({order: b_order_mats})
 
     # TOD0 f_vector
     f_vector = None

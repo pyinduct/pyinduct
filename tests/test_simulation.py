@@ -1,12 +1,11 @@
 import os
 import sys
 import unittest
+import numpy as np
 from pickle import dump
 
-import core
-import numpy as np
-
-from pyinduct import register_base, deregister_base, \
+from pyinduct import \
+    registry as reg, \
     eigenfunctions as ef, \
     core as cr, \
     simulation as sim, \
@@ -165,13 +164,13 @@ class ParseTest(unittest.TestCase):
         self.input_squared = ph.Input(self.u, exponent=2)
 
         # scale function
-        register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
+        reg.register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
 
         nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
                                                  (0, 1), node_count=3)
 
         # TestFunctions
-        register_base("ini_funcs", self.ini_funcs, overwrite=True)
+        reg.register_base("ini_funcs", self.ini_funcs, overwrite=True)
         self.phi = ph.TestFunction("ini_funcs")
         self.phi_at0 = ph.TestFunction("ini_funcs", location=0)
         self.phi_at1 = ph.TestFunction("ini_funcs", location=1)
@@ -367,8 +366,8 @@ class ParseTest(unittest.TestCase):
                           sim.WeakFormulation([self.alternating_weights_term, self.field_int]))
 
     def tearDown(self):
-        deregister_base("heavi")
-        deregister_base("ini_funcs")
+        reg.deregister_base("heavi")
+        reg.deregister_base("ini_funcs")
 
 
 class StateSpaceTests(unittest.TestCase):
@@ -379,7 +378,7 @@ class StateSpaceTests(unittest.TestCase):
         node_cnt = 3
         spat_domain = sim.Domain((0, 1), num=node_cnt)
         nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
-        register_base("swm_base", lag_base)
+        reg.register_base("swm_base", lag_base)
 
         # enter string with mass equations
         int1 = ph.IntegralTerm(
@@ -399,7 +398,7 @@ class StateSpaceTests(unittest.TestCase):
         self.ic = np.zeros((3, 2))
 
     def test_convert_to_state_space(self):
-        ss = sim.create_state_space(self.ce)
+        ss = sim.create_state_space({"test_eq": self.ce})
         self.assertEqual(ss.A[1].shape, (6, 6))
         self.assertTrue(np.allclose(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
                                                        [0, 0, 0, 0, 1, 0],
@@ -407,12 +406,12 @@ class StateSpaceTests(unittest.TestCase):
                                                        [-2.25, 3, -.75, 0, 0, 0],
                                                        [7.5, -18, 10.5, 0, 0, 0],
                                                        [-3.75, 21, -17.25, 0, 0, 0]])))
-        self.assertEqual(ss.B[1].shape, (6, 1))
-        self.assertTrue(np.allclose(ss.B[1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
+        self.assertEqual(ss.B[0][1].shape, (6, 1))
+        self.assertTrue(np.allclose(ss.B[0][1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.ce.input_function, self.u)
 
     def tearDown(self):
-        deregister_base("swm_base")
+        reg.deregister_base("swm_base")
 
 
 class StringMassTest(unittest.TestCase):
@@ -466,7 +465,7 @@ class StringMassTest(unittest.TestCase):
         # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
         nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
                                             self.dz.bounds, node_count=11)
-        register_base("init_funcs", ini_funcs, overwrite=True)
+        reg.register_base("init_funcs", ini_funcs, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma * self.params.tau ** 2)
@@ -548,7 +547,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = core.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
+        eig_frequencies = cr.find_roots(char_eq, n_roots=order, grid=np.arange(0, 1e3, 2), rtol=-2)
         print("eigenfrequencies:")
         print(eig_frequencies)
 
@@ -578,7 +577,7 @@ class StringMassTest(unittest.TestCase):
         # normalize eigen vectors
         norm_eig_vectors = cr.normalize_base(eig_vectors)
         norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
-        register_base("norm_eig_funcs", norm_eig_funcs, overwrite=True)
+        reg.register_base("norm_eig_funcs", norm_eig_funcs, overwrite=True)
 
         norm_eig_funcs[0](1)
 
@@ -631,7 +630,7 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_data[0])
             app.exec_()
 
-        deregister_base("norm_eig_funcs")
+        reg.deregister_base("norm_eig_funcs")
 
         # test for correct transition
         self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
@@ -663,11 +662,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
         self.nodes_1, self.ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder,
                                                           self.dz.bounds,
                                                           node_count=spatial_disc)
-        register_base("init_funcs_1", self.ini_funcs_1, overwrite=True)
+        reg.register_base("init_funcs_1", self.ini_funcs_1, overwrite=True)
         self.nodes_2, self.ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder,
                                                           self.dz.bounds,
                                                           node_count=spatial_disc)
-        register_base("init_funcs_2", self.ini_funcs_2, overwrite=True)
+        reg.register_base("init_funcs_2", self.ini_funcs_2, overwrite=True)
 
     @unittest.skip  # needs border homogenization to work
     def test_dd(self):
@@ -798,8 +797,8 @@ class RadFemTrajectoryTest(unittest.TestCase):
         return
 
     def tearDown(self):
-        deregister_base("init_funcs_1")
-        deregister_base("init_funcs_2")
+        reg.deregister_base("init_funcs_1")
+        reg.deregister_base("init_funcs_2")
 
 
 class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
@@ -829,10 +828,10 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
         eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
                               for i in range(spatial_disc)])
-        register_base("eig_funcs", eig_funcs, overwrite=True)
+        reg.register_base("eig_funcs", eig_funcs, overwrite=True)
         adjoint_eig_funcs = np.array([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, dz.bounds,
                                                                            norm_fak[i]) for i in range(spatial_disc)])
-        register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+        reg.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -853,8 +852,8 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         B = -a2 * np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
         ss_modal = sim.StateSpace(A, B, input_handle=u)
 
-        deregister_base("eig_funcs")
-        deregister_base("adjoint_eig_funcs")
+        reg.deregister_base("eig_funcs")
+        reg.deregister_base("adjoint_eig_funcs")
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -903,8 +902,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # register eigenfunctions
-        register_base("eig_funcs", eig_funcs, overwrite=True)
-        register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
+        reg.register_base("eig_funcs", eig_funcs, overwrite=True)
+        reg.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
@@ -923,8 +922,8 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
         ss_modal = sim.StateSpace(A, B, input_handle=u)
 
-        deregister_base("eig_funcs")
-        deregister_base("adjoint_eig_funcs")
+        reg.deregister_base("eig_funcs")
+        reg.deregister_base("adjoint_eig_funcs")
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
