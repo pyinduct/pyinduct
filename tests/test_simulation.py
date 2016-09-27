@@ -576,14 +576,12 @@ class StringMassTest(unittest.TestCase):
                                                               nonzero=self.dz.bounds),
                                                   phi_k_factory(eig_frequencies[n])(0))
                                 for n in range(order)])
-        modal_base = cr.Base(eig_vectors)
+        composed_modal_base = cr.Base(eig_vectors)
 
         # normalize base
-        norm_modal_base = cr.normalize_base(modal_base)
-        norm_eig_funcs = np.array([vec.func for vec in norm_modal_base.fractions])
-        reg.register_base("norm_modal_base", norm_modal_base, overwrite=True)
-
-        norm_eig_funcs[0](1)
+        norm_comp_mod_base = cr.normalize_base(composed_modal_base)
+        norm_mod_base = cr.Base(np.array([vec.func for vec in norm_comp_mod_base.fractions]))
+        reg.register_base("norm_modal_base", norm_mod_base, overwrite=True)
 
         # debug print eigenfunctions
         if 0:
@@ -592,7 +590,7 @@ class StringMassTest(unittest.TestCase):
                 func_vals.append(np.vectorize(vec.func)(self.dz))
 
             norm_func_vals = []
-            for func in norm_eig_funcs:
+            for func in norm_mod_base.fractions:
                 norm_func_vals.append(np.vectorize(func)(self.dz))
 
             clrs = ["r", "g", "b", "c", "m", "y", "k", "w"]

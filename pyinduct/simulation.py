@@ -178,7 +178,7 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
-        name (strign): name of this weak form
+        name (string): name of this weak form
     """
 
     def __init__(self, terms, name):
@@ -322,7 +322,7 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     print(">>> deriving initial conditions")
     q0 = []
     for form in weak_forms:
-        lbl = form.dominant_lbl
+        lbl = canonical_equations[form.name].dominant_lbl
         q0.append([project_on_base(initial_state, get_base(lbl)) for initial_state in
                    initial_states[form.name]])
     q0 = np.array(q0).flatten()
@@ -335,9 +335,9 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     print(">>> performing postprocessing")
     results = {}
     for form in weak_forms:
-        temporal_order = min(initial_states[form.name].size - 1, derivative_orders[0])
-        data = process_sim_data(form.dominant_lbl, q, sim_domain, spatial_domains, temporal_order,
-                                derivative_orders[form.name][1], name=form.name)
+        temporal_order = min(initial_states[form.name].size - 1, derivative_orders[form.name][0])
+        data = process_sim_data(canonical_equations[form.name].dominant_lbl, q, sim_domain, spatial_domains[form.name],
+                                temporal_order, derivative_orders[form.name][1], name=form.name)
         results.update({form.name: data})
 
     print("finished simulation.")
@@ -356,13 +356,13 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
         spat_order: Order or spatial derivatives to evaluate additionally.
         q: weights
         spat_domain (:py:class:`Domain`): Domain object providing values for spatial evaluation.
-        temp_domain (:py:class:`Domain`): Timesteps on which rows of q are given.
-        name (str): Name of the WeakForm, used to generate the dataset.
+        temp_domain (:py:class:`Domain`): Time steps on which rows of q are given.
+        name (str): Name of the WeakForm, used to generate the data set.
     """
     data = []
 
     # temporal
-    ini_funcs = get_base(weight_lbl, 0)
+    ini_funcs = get_base(weight_lbl).fractions
     for der_idx in range(temp_order + 1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
         data.append(evaluate_approximation(weight_lbl, q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
