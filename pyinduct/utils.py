@@ -9,12 +9,14 @@ import warnings
 from numbers import Number
 import collections
 import numpy as np
+import pyqtgraph as pg
 from scipy.optimize import root
-from .registry import get_base, register_base
+
+from . import core as cr
 from . import placeholder as ph
+from .registry import get_base, register_base
 from .placeholder import FieldVariable, TestFunction
 from . import visualization as vis
-import pyqtgraph as pg
 
 
 class Parameters:
@@ -100,7 +102,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     while found_roots < n_roots:
         try:
             res = root(function, next(val), tol=atol)
-            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
 
@@ -400,22 +401,20 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law, name=c_name))])
 
 
-# TODO: change to factory, rename: function_wrapper
-def _convert_to_function(coef):
+def function_wrapper(coef):
     if not isinstance(coef, collections.Callable):
         return lambda z: coef
     else:
         return coef
 
 
-def _convert_to_scalar_function(coef, label):
-    from . import core as cr
-    if not isinstance(coef, collections.Callable):
-        register_base(label, cr.Function(lambda z: coef), overwrite=True)
-    elif isinstance(coef, cr.Function):
-        register_base(label, coef, overwrite=True)
+def scalar_function_wrapper(coefficient, label):
+    if not isinstance(coefficient, collections.Callable):
+        register_base(label, cr.Function(lambda z: coefficient), overwrite=True)
+    elif isinstance(coefficient, cr.Function):
+        register_base(label, coefficient, overwrite=True)
     else:
-        register_base(label, cr.Function(coef), overwrite=True)
+        register_base(label, cr.Function(coefficient), overwrite=True)
     return ph.ScalarFunction(label)
 
 
@@ -458,8 +457,8 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     l = spatial_domain[1]
     # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
     # a2 = _convert_to_scalar_function(a2, "a2_z")
-    a1_z = _convert_to_scalar_function(a1, "a1_z")
-    a0_z = _convert_to_scalar_function(a0, "a0_z")
+    a1_z = scalar_function_wrapper(a1, "a1_z")
+    a0_z = scalar_function_wrapper(a0, "a0_z")
 
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),

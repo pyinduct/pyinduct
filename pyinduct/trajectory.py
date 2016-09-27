@@ -578,7 +578,7 @@ class RadTrajectory(InterpTrajectory):
         self._l = l
         self._T = T
         self._a1_original = param_original[1]
-        self._param = ef.transform2intermediate(param_original)
+        self._param = ef.transform_to_intermediate(param_original)
         self._bound_cond_type = bound_cond_type
         self._actuation_type = actuation_type
         self._n = n

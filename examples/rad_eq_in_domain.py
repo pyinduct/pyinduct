@@ -54,9 +54,9 @@ k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
 M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
-_, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param)
+_, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param)
 param_i = a2, 0, a0_i, alpha_i, beta_i
-_, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
+_, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # COMPUTE DESIRED FIELDVARIABLE

@@ -39,9 +39,9 @@ beta_t = 3
 param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
-_, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param)
+_, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param)
 param_i = a2, 0, a0_i, alpha_i, beta_i
-_, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
+_, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # system/simulation parameters

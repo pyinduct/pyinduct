@@ -38,9 +38,9 @@ param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(param_t)
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
-_, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param, l=l)
+_, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param, l=l)
 param_i = a2, 0, a0_i, alpha_i, beta_i
-_, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
+_, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # create (not normalized) target (_t) eigenfunctions

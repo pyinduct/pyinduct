@@ -229,9 +229,9 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform2intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform_to_intermediate(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform2intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters

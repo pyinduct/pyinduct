@@ -26,7 +26,7 @@ class LagrangeNthOrder(Function):
         left (bool): State the first node (*nodes[0]*) to be the left boundary of the considered domain.
         right (bool): State the last node (*nodes[-1]*) to be the right boundary of the considered domain.
         mid_num (int):  Local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
-            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}
+            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}`
         boundary (str): provide "left" or "right" to instantiate the according boundary-polynomial.
     """
 

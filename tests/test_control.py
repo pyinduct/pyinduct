@@ -210,8 +210,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(param)
-        _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(param_t)
+        _, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param)
+        _, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
 
         # system/simulation parameters
         actuation_type = 'robin'
@@ -314,9 +314,9 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform2intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform_to_intermediate(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform2intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
@@ -482,9 +482,9 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param_t)
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = ef.transform2intermediate(self.param, l=self.l)
+        _, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(self.param, l=self.l)
         self.param_i = a2, 0, a0_i, alpha_i, beta_i
-        _, _, a0_ti, alpha_ti, beta_ti = ef.transform2intermediate(self.param_t)
+        _, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
         # create (not normalized) target (_t) eigenfunctions
@@ -614,9 +614,9 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform2intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform_to_intermediate(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform2intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # create (not normalized) eigenfunctions

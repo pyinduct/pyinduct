@@ -2,7 +2,7 @@
 This modules provides eigenfunctions for a certain set of parabolic problems. Therefore functions for the computation
 of the corresponding eigenvalues are included.
 The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
-order to handle transformations and reduce effort by the controller implementation.
+order to handle transformations and reduce effort within the controller implementation.
 """
 
 import numpy as np
@@ -20,18 +20,19 @@ from abc import ABCMeta, abstractstaticmethod
 
 class LambdifiedSympyExpression(Function):
     """
-    Provide a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based on a lambdified sympy expression.
+    This class provides a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based on a lambdified sympy expression.
     The sympy expressions for the function and it's spatial derivatives must be provided as the list *sympy_funcs*.
     The expressions must be provided with increasing derivative order, starting with order 0.
 
     Args:
-        sympy_funcs (array_like): Sympy expressions for the function and the derivatives: :math:`\\varphi(z), \\varphi'(z), ...`.
-        z: Sympy symbol for :math:`z`.
+        sympy_funcs (array_like): Sympy expressions for the function and the derivatives:
+            :math:`\\varphi(z), \\varphi'(z), ...`.
+        spat_symbol: Sympy symbol for the spatial variable :math:`z`.
         spatial_domain (tuple): Domain on which :math:`\\varphi(z)` is defined (e.g.: :code:`spatial_domain=(0, 1)`).
     """
 
-    def __init__(self, sympy_funcs, z, spatial_domain):
-        self._funcs = [lambdify(z, sp_func, 'numpy') for sp_func in sympy_funcs]
+    def __init__(self, sympy_funcs, spat_symbol, spatial_domain):
+        self._funcs = [lambdify(spat_symbol, sp_func, 'numpy') for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord) for der_ord in range(len(sympy_funcs))]
         Function.__init__(self, funcs[0], nonzero=spatial_domain, derivative_handles=funcs[1:])
 
@@ -45,6 +46,7 @@ class LambdifiedSympyExpression(Function):
 
 
 class SecondOrderEigenfunction(metaclass=ABCMeta):
+    # TODO is lambda really element of R in the following docstring?
     """
     Wrapper for all eigenvalue problems of the form
 
@@ -64,7 +66,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     def eigfreq_eigval_hint(param, l, n_roots):
         """
         Args:
-            param: Needed parameters.
+            param (array_like): Parameters :math:`(a_2, a_1, a_0, None, None)`.
             l: End of the domain :math:`z\\in[0, 1]`.
             n_roots (int): Number of eigenfrequencies/eigenvalues to be compute.
 
@@ -77,7 +79,8 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     @staticmethod
     def eigval_tf_eigfreq(param, eig_val=None, eig_freq=None):
         """
-        Calculate/Provide a list of eigenvalues to/from a list of eigenfrequencies with
+        Provide corresponding of eigenvalues/eigenfrequencies for given eigenfreqeuncies/eigenvalues, depending on which
+        type is given.
 
         .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
 
@@ -109,18 +112,20 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     @staticmethod
     def get_adjoint_problem(param):
         """
-        Return to the considered eigenvalue problem with dirichlet or robin boundary condition by :math:`z=0`
+        Return the parameters of the adjoint eigenvalue problem for the given parameter set.
+        Hereby, dirichlet or robin boundary condition at :math:`z=0`
 
         .. math:: \\varphi(0) = 0 \\quad &\\text{or} \\quad \\varphi'(0) = \\alpha\\varphi(0)
 
-        and dirichlet or robin boundary condition by :math:`z=l`
+        and dirichlet or robin boundary condition at :math:`z=l`
 
         .. math:: \\varphi`(l) = 0 \\quad &\\text{or} \\quad \\varphi'(l) = -\\beta\\varphi(l)
 
-        the parameters for the adjoint problem (with the same structure).
+        can be imposed.
 
         Args:
-            param (array_like): Set alpha/beta to None if you have a dirichlet boundary condition on this point. Possible: \n
+            param (array_like): To define a homogeneous dirichlet boundary condition set alpha or beta to `None` at the
+                corresponding side. Possibilities: \n
                 - :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`,
                 - :math:`\\Big( a_2, a_1, a_0, None, \\beta \\Big)^T`,
                 - :math:`\\Big( a_2, a_1, a_0, \\alpha, None \\Big)^T` or
@@ -142,12 +147,12 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         """
         a2, a1, a0, alpha, beta = param
 
-        if alpha == None:
+        if alpha is None:
             alpha_n = None
         else:
             alpha_n = a1 / a2 + alpha
 
-        if beta == None:
+        if beta is None:
             beta_n = None
         else:
             beta_n = -a1 / a2 + beta
@@ -173,11 +178,11 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
 
         Args:
             param: Parameters :math:`(a_2, a_1, a_0, ...)` see *evp_class.__doc__*.
-            l: End of the domain from the eigenfunctions (start is 0).
-            n: Number of eigenvalues/eigenfunctions to be compute.
+            l: End of the eigenfunction domain (start is 0).
+            n: Number of eigenvalues/eigenfunctions to compute.
             eig_freq (array_like): Pass your own choice of eigenfrequencies here.
             eig_val (array_like): Pass your own choice of eigenvalues here.
-            max_order: Maximum derivative order which must provided from the eigenfunctions.
+            max_order: Maximum derivative order which must provided by the eigenfunctions.
             scale (array_like): Here you can pass a list of values to scale the eigenfunctions.
 
         Returns:
@@ -216,7 +221,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
 
 class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEigenfunction):
     """
-    Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
+    This class provides an eigenfunction :math:`\\varphi(z)` to eigenvalue problems of the form
 
     .. math::
         a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
@@ -281,7 +286,7 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
 
 class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
     """
-    Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
+    This class provides an eigenfunction :math:`\\varphi(z)` to the eigenvalue problem given by
 
     .. math::
         a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
@@ -298,7 +303,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         om (numbers.Number): eigenfrequency :math:`\\omega`
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
         l (numbers.Number): End of the domain :math:`z\\in [0,l]`.
-        scale (numbers.Number): Factor to scale the eigenfunctions (correspond :math:`\\varphi(0)=\\text{phi\\_0}`).
+        scale (numbers.Number): Factor to scale the eigenfunctions (corresponds to :math:`\\varphi(0)=\\text{phi\\_0}`).
         max_der_order (int): Number of derivative handles that are needed.
     """
 
@@ -363,8 +368,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         Args:
             param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
             l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
-            n_roots (int): Amount of eigenfrequencies to be compute.
-            show_plot (bool): A plot window of the characteristic equation appears if it is :code:`True`.
+            n_roots (int): Amount of eigenfrequencies to compute.
+            show_plot (bool): Show a plot window of the characteristic equation.
 
         Return:
             tuple --> booth tuple elements are numpy.ndarrays of length *nroots*:
@@ -448,26 +453,26 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
 class TransformedSecondOrderEigenfunction(Function):
     """
-    Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
+    This class provides an eigenfunction :math:`\\varphi(z)` to the eigenvalue problem given by
 
-    .. math:: a_2(z)\\varphi''(z) + a_1(z)\\varphi'(z) + a_0(z)\\varphi(z) = \\lambda\\varphi(z)
+    .. math:: a_2(z)\\varphi''(z) + a_1(z)\\varphi'(z) + a_0(z)\\varphi(z) = \\lambda\\varphi(z) \\quad,
 
-    where :math:`\\lambda` is a predefined (potentially complex) eigenvalue and :math:`[z_0,z_1]\\ni z` is the domain.
+    where :math:`\\lambda \\in \\mathbb{C}` denotes an eigenvalue and :math:`z \\in [z_0, \dotsc, z_n]` the domain.
 
     Args:
         target_eigenvalue (numbers.Number): :math:`\\lambda`
         init_state_vect (array_like):
             .. math:: \\Big(\\text{Re}\\{\\varphi(0)\\}, \\text{Re}\\{\\varphi'(0)\\}, \\text{Im}\\{\\varphi(0)\\}, \\text{Im}\\{\\varphi'(0)\\}\\Big)^T
-        dgl_coefficients (array_like):
-            :math:`\\Big( a2(z), a1(z), a0(z) \\Big)^T`
+        dgl_coefficients (array_like): Function handles
+            :math:`\\Big( a2(z), a1(z), a0(z) \\Big)^T` .
         domain (array_like):
-            :math:`\\Big( z_0, ..... , z_1 \\Big)`
+            :math:`\\Big( z_0, ..... , z_n \\Big)`
     """
 
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
-        if not all([isinstance(state, (int, float)) for state in init_state_vect]) and len(
-            init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
+        if not all([isinstance(state, (int, float)) for state in init_state_vect]) and len(init_state_vect) == 4 \
+            and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) and all(
             [isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
@@ -485,7 +490,7 @@ class TransformedSecondOrderEigenfunction(Function):
             raise TypeError
 
         self._init_state_vect = init_state_vect
-        self._a2, self._a1, self._a0 = [ut._convert_to_function(coef) for coef in dgl_coefficients]
+        self._a2, self._a1, self._a0 = [ut.function_wrapper(coef) for coef in dgl_coefficients]
         self._domain = domain
 
         state_vect = self._transform_eigenfunction()
@@ -517,7 +522,7 @@ class TransformedSecondOrderEigenfunction(Function):
 
 class AddMulFunction(object):
     """
-    (Temporary) Function class wich can multiplied with scalars and added with functions.
+    (Temporary) Function class which can multiplied with scalars and added with functions.
     Only needed to compute the matrix (of scalars) vector (of functions) product in
     :py:class:`FiniteTransformFunction`. Will be no longer needed when :py:class:`pyinduct.core.Function`
     is overloaded with :code:`__add__` and :code:`__mul__` operator.
@@ -541,7 +546,7 @@ class AddMulFunction(object):
 
 class FiniteTransformFunction(Function):
     """
-    Provide a transformed :py:class:`pyinduct.core.Function` :math:`\\bar x(z)` through the transformation
+    This class provides a transformed :py:class:`pyinduct.core.Function` :math:`\\bar x(z)` through the transformation
     :math:`\\bar{\\boldsymbol{\\xi}} = T * \\boldsymbol \\xi`,
     with the function vector :math:`\\boldsymbol \\xi\\in\\mathbb R^{2n}` and
     with a given matrix :math:`T\\in\\mathbb R^{2n\\times 2n}`.
@@ -568,15 +573,15 @@ class FiniteTransformFunction(Function):
 
     Args:
         function (callable):
-            Function :math:`x(z)` which will subdivided in :math:`2n` Functions
+            Function :math:`x(z)` that will act as start for the generation of :math:`2n` Functions :math:`\\xi_{i,j}`
 
             .. math::
-                &\\bar\\xi_{1,j} = x(jl_0 + z),\\qquad j=0,...,n-1, \\quad l_0=l/n, \\quad z\\in[0,l_0] \\\\
-                &\\bar\\xi_{2,j} = x(l - jl_0 + z).
+                &\\bar\\xi_{1,j} = x(z + jl_0),\\qquad j=0,...,n-1, \\quad l_0=l/n, \\quad z\\in[0,l_0] \\\\
+                &\\bar\\xi_{2,j} = x(z + l - jl_0 ).
 
-            The vector of functions :math:`\\boldsymbol\\xi` consist of these functions:
+            The vector of functions :math:`\\boldsymbol\\xi` will then be constituted as follows:
 
-            .. math:: \\boldsymbol\\xi = (\\xi_{1,0},...,\\xi_{1,n-1},\\xi_{2,0},...,\\xi_{2,n-1})^T) .
+            .. math:: \\boldsymbol\\xi = (\\xi_{1,0},...,\\xi_{1,n-1},\\xi_{2,0},...,\\xi_{2,n-1})^T .
 
         M (numpy.ndarray): Matrix :math:`T\\in\\mathbb R^{2n\\times 2n}` of scalars.
         l (numbers.Number): Length of the domain (:math:`z\\in [0,l]`).
@@ -681,23 +686,25 @@ def return_real_part(to_return):
         return maybe_real
 
 
-def transform2intermediate(param, l=None):
+def transform_to_intermediate(param, l=None):
     """
-    Transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
-    which eliminate the advection term :math:`a_1 x(z,t)` from the
-    reaction-advection-diffusion equation
+    Apply a transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
+    which eliminates the advection term :math:`a_1 x(z,t)` from the reaction-advection-diffusion equation
 
     .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t)
 
     with robin
 
-    .. math:: x'(0,t) = \\alpha x(0,t), \\quad x'(l,t) = -\\beta x(l,t)
+    .. math:: x'(0,t) = \\alpha x(0,t), \\quad x'(l,t) = -\\beta x(l,t) \\quad,
 
-    or dirichlet
+    dirichlet
 
-    .. math:: x(0,t) = 0, \\quad x(l,t) = 0
+    .. math:: x(0,t) = 0, \\quad x(l,t) = 0 \\quad
 
-    or mixed boundary condition.
+    or mixed boundary conditions.
+
+    Note:
+        To successfully transform the system, the first spatial derivative of :math`a_1(z)` is needed.
 
     Args:
         param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
@@ -713,8 +720,8 @@ def transform2intermediate(param, l=None):
 
             .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t) + \\tilde a_0(z) \\tilde x(z,t)
 
-            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None by dirichlet
-            boundary condition).
+            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None for dirichlet
+            boundary conditions).
 
     """
     if not isinstance(param, (tuple, list)) or not len(param) == 5:
@@ -724,7 +731,7 @@ def transform2intermediate(param, l=None):
     if isinstance(a1, collections.Callable) or isinstance(a0, collections.Callable):
         if not len(a1._derivative_handles) >= 1:
             raise TypeError
-        a0_z = ut._convert_to_function(a0)
+        a0_z = ut.function_wrapper(a0)
         a0_n = lambda z: a0_z(z) - a1(z) ** 2 / 4 / a2 - a1.derive(1)(z) / 2
     else:
         a0_n = a0 - a1 ** 2 / 4 / a2
