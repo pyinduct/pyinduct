@@ -100,7 +100,7 @@ class SimulationInput(object, metaclass=ABCMeta):
             entries.append(value)
             self._value_storage[key] = entries
 
-        return out["output"]
+        return np.atleast_2d(out["output"])
 
     @abstractmethod
     def _calc_output(self, **kwargs):
@@ -235,24 +235,24 @@ class StateSpace(object):
         if self.D is None:
             self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
-        if input_handle is None:
+        self.input = input_handle
+        if self.input is None:
             self.input = EmptyInput(self.B[0][available_power].shape[1])
-        else:
-            self.input = input_handle
+
         if not callable(self.input):
             raise TypeError("input must be callable!")
 
     # TODO export cython code?
-    def _rhs(self, _t, _q):
+    def rhs(self, _t, _q):
         q_t = self.f
         for p, a_mat in self.A.items():
-            q_t = q_t + np.dot(a_mat, np.power(_q, p))
+            q_t = q_t + a_mat @ np.power(_q, p)
 
         # TODO make compliant with definition of temporal derived input
         u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
         for o, p_mats in self.B.items():
             for p, b_mat in p_mats.items():
-                q_t = q_t + np.dot(b_mat, np.power(u, p)).flatten()
+                q_t = q_t + (b_mat @ np.power(u, p)).flatten()
 
         return q_t
 
@@ -783,10 +783,12 @@ def create_state_space(canonical_equations):
         state_space_props.powers.update(dom_form.powers)
         state_space_props.size += dom_form.dim_xb
         state_space_props.dim_u = max(state_space_props.dim_u, dom_form.dim_u)
+
+        # update input handles
         if state_space_props.input is None:
-            state_space_props.input = dom_ss.input
+            state_space_props.input = eq.input_function
         else:
-            if state_space_props.input != dom_ss.input:
+            if state_space_props.input != eq.input:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
@@ -1059,8 +1061,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     q = [initial_state]
     t = [temp_domain[0]]
 
-
-    r = ode(_rhs)
+    r = ode(state_space.rhs)
 
     # TODO check for complex-valued matrices and use 'zvode'
     if settings:
@@ -1074,7 +1075,6 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
             nsteps=1e3
         )
 
-    r.set_f_params(state_space)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
@@ -1107,7 +1107,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     Return:
         :py:class:`pyinduct.visualization.EvalData`
     """
-    funcs = get_base(base_label, spat_order)
+    funcs = get_base(base_label).derive(spat_order).fractions
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
                                                                                               funcs.size))

@@ -64,13 +64,12 @@ def deregister_base(label):
     del _registry[label]
 
 
-def get_base(label, order=None):
+def get_base(label):
     """
     Retrieve registered set of initial functions by their label.
 
     Args:
         label (str): String, label of functions to retrieve.
-        order (int): Desired derivative order of base.
 
     Return:
         initial_functions

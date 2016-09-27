@@ -84,6 +84,21 @@ class BaseFraction:
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
 
+    def raise_to(self, power):
+        """
+        Raises this fraction to the given *power*.
+
+        Args:
+            power (:obj:`numbers.Number`): power to raise the fraction onto
+
+        Return:
+            raised fraction
+        """
+        if power == 1:
+            return self
+        else:
+            raise NotImplementedError("Implement this functionality to make use of it.")
+
     def get_member(self, idx):
         """
         Getter function to access members.
@@ -111,6 +126,7 @@ class Base:
         fractions (iterable of :py:class:`BaseFraction`): List, Array or Dict of :py:class:`BaseFraction` instances
     """
     def __init__(self, fractions):
+        # TODO check if Fractions are consistent in Type and provided hints
         self.fractions = sanitize_input(fractions, BaseFraction)
 
     @staticmethod
@@ -165,6 +181,15 @@ class Base:
                   info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
                   info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
+
+    def scalar_product_hint(self):
+        """
+        Hint that returns steps for scalar product calculation with elements of this base.
+        Note:
+            Overwrite to implement custom functionality.
+            For an example implementation see :py:class:`Function`
+        """
+        return self.fractions[0].scalar_product_hint()
 
     def derive(self, order):
         """
@@ -915,22 +940,19 @@ def project_on_base(function, base):
 
     Args:
         function (:py:class:`Function`): Function to approximate.
-        base: Single :py:class:`Function` or :obj:`numpy.ndarray` that generates a basis.
+        base (:py:class:`Base`): basis to project onto.
 
     Return:
         numpy.ndarray: Weight vector in the given *base*
     """
-    if isinstance(base, Function):  # convenience case
-        base = np.asarray([base])
-
-    if not isinstance(base, np.ndarray):
-        raise TypeError("Only numpy.ndarray accepted as 'initial_functions'")
+    if not isinstance(base, Base):
+        raise TypeError("Only pyinduct.core.Base accepted as base")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2, np.array([function]), base).flatten()
+    projections = calculate_scalar_product_matrix(dot_product_l2, np.array([function]), base.fractions).flatten()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
+    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base.fractions, base.fractions)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
@@ -1188,20 +1210,20 @@ def calculate_base_transformation_matrix(src_base, dst_base):
 
 def normalize_base(b1, b2=None):
     """
-    Takes two arrays of :py:class:`BaseFraction` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and
+    Takes two :py:class:`Base` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and
     normalizes them so that :math:`\\langle\\boldsymbol{b}_{1i}\\,,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
     If only one base is given, :math:`\\boldsymbol{b}_2` is set to :math:`\\boldsymbol{b}_1`.
 
     Args:
-        b1 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_1`
-        b2 (np.array of :py:class:`BaseFraction`): :math:`\\boldsymbol{b}_2`
+        b1 (:py:class:`Base`): :math:`\\boldsymbol{b}_1`
+        b2 (:py:class:`Base`): :math:`\\boldsymbol{b}_2`
 
     Raises:
         ValueError: If :math:`\\boldsymbol{b}_1` and :math:`\\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        np.array of :py:class:`BaseFraction` : if *b2* is None,
-           otherwise: Tuple of 2 :py:class:`BaseFraction` arrays.
+        :py:class:`Base` : if *b2* is None,
+           otherwise: Tuple of 2 :py:class:`Base` s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1211,14 +1233,11 @@ def normalize_base(b1, b2=None):
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    if not hasattr(b1[0], "scalar_product_hint"):
-        raise TypeError("Input type not supported.")
-
-    hints = b1[0].scalar_product_hint()
-    res = np.zeros(b1.shape)
+    hints = b1.scalar_product_hint()
+    res = np.zeros(b1.fractions.shape)
     for idx, hint in enumerate(hints):
-        members_1 = np.array([fraction.get_member(idx) for fraction in b1])
-        members_2 = np.array([fraction.get_member(idx) for fraction in b2])
+        members_1 = np.array([fraction.get_member(idx) for fraction in b1.fractions])
+        members_2 = np.array([fraction.get_member(idx) for fraction in b2.fractions])
         res += hint(members_1, members_2)
 
     if any(res < np.finfo(float).eps):
@@ -1228,12 +1247,12 @@ def normalize_base(b1, b2=None):
             raise ValueError("imaginary scale required. no normalization possible.")
 
     scale_factors = np.sqrt(1 / res)
-    b1_scaled = np.array([frac.scale(factor) for frac, factor in zip(b1, scale_factors)])
+    b1_scaled = b1.__class__(np.array([frac.scale(factor) for frac, factor in zip(b1.fractions, scale_factors)]))
 
     if auto_normalization:
         return b1_scaled
     else:
-        b2_scaled = np.array([frac.scale(factor) for frac, factor in zip(b2, scale_factors)])
+        b2_scaled = b2.__class__(np.array([frac.scale(factor) for frac, factor in zip(b2.fractions, scale_factors)]))
         return b1_scaled, b2_scaled
 
 

@@ -18,8 +18,8 @@ from pyinduct import \
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -463,9 +463,9 @@ class StringMassTest(unittest.TestCase):
 
         # enter string with mass equations
         # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-        nodes, ini_funcs = sf.cure_interval(sf.LagrangeSecondOrder,
-                                            self.dz.bounds, node_count=11)
-        reg.register_base("init_funcs", ini_funcs, overwrite=True)
+        nodes, fem_base = sf.cure_interval(sf.LagrangeSecondOrder,
+                                           self.dz.bounds, node_count=11)
+        reg.register_base("init_funcs", fem_base, overwrite=True)
         int1 = ph.IntegralTerm(
             ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
                        ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma * self.params.tau ** 2)
@@ -481,10 +481,10 @@ class StringMassTest(unittest.TestCase):
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
         self.cf = sim.parse_weak_formulation(string_pde)
-        ss = self.cf.convert_to_state_space()
+        ss = sim.create_state_space({"swm": self.cf})
 
         # generate initial conditions for weights
-        q0 = np.array([cr.project_on_base(self.ic[idx], ini_funcs) for idx in range(2)]).flatten()
+        q0 = np.array([cr.project_on_base(self.ic[idx], fem_base) for idx in range(2)]).flatten()
 
         # simulate
         t, q = sim.simulate_state_space(ss, q0, self.dt)
@@ -493,7 +493,8 @@ class StringMassTest(unittest.TestCase):
         eval_data = []
         for der_idx in range(2):
             eval_data.append(
-                sim.evaluate_approximation("init_funcs", q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
+                sim.evaluate_approximation("init_funcs",
+                                           q[:, der_idx*fem_base.fractions.size:(der_idx + 1)*fem_base.fractions.size],
                                            t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(["d" for x in range(der_idx)])
                                                                + "t" if der_idx > 0 else "")
@@ -556,6 +557,8 @@ class StringMassTest(unittest.TestCase):
             """
             String With Mass Function Vector, necessary due to manipulated scalar product
             """
+            def __init__(self, function, function_at_0):
+                super().__init__(function, function_at_0)
 
             @property
             def func(self):
@@ -573,11 +576,12 @@ class StringMassTest(unittest.TestCase):
                                                               nonzero=self.dz.bounds),
                                                   phi_k_factory(eig_frequencies[n])(0))
                                 for n in range(order)])
+        modal_base = cr.Base(eig_vectors)
 
-        # normalize eigen vectors
-        norm_eig_vectors = cr.normalize_base(eig_vectors)
-        norm_eig_funcs = np.array([vec.func for vec in norm_eig_vectors])
-        reg.register_base("norm_eig_funcs", norm_eig_funcs, overwrite=True)
+        # normalize base
+        norm_modal_base = cr.normalize_base(modal_base)
+        norm_eig_funcs = np.array([vec.func for vec in norm_modal_base.fractions])
+        reg.register_base("norm_modal_base", norm_modal_base, overwrite=True)
 
         norm_eig_funcs[0](1)
 
@@ -602,26 +606,28 @@ class StringMassTest(unittest.TestCase):
             app.exec_()
 
         # create terms of weak formulation
-        terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", order=(2, 0)),
-                                            ph.TestFunction("norm_eig_funcs")),
+        terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_modal_base", order=(2, 0)),
+                                            ph.TestFunction("norm_modal_base")),
                                  self.dz.bounds, scale=-1),
                  ph.ScalarTerm(ph.Product(
-                     ph.FieldVariable("norm_eig_funcs", order=(2, 0), location=0),
-                     ph.TestFunction("norm_eig_funcs", location=0)),
+                     ph.FieldVariable("norm_modal_base", order=(2, 0), location=0),
+                     ph.TestFunction("norm_modal_base", location=0)),
                      scale=-1),
                  ph.ScalarTerm(ph.Product(ph.Input(self.u),
-                                          ph.TestFunction("norm_eig_funcs", location=1))),
+                                          ph.TestFunction("norm_modal_base", location=1))),
                  ph.ScalarTerm(
-                     ph.Product(ph.FieldVariable("norm_eig_funcs", location=1),
-                                ph.TestFunction("norm_eig_funcs", order=1, location=1)),
+                     ph.Product(ph.FieldVariable("norm_modal_base", location=1),
+                                ph.TestFunction("norm_modal_base", order=1, location=1)),
                      scale=-1),
-                 ph.ScalarTerm(ph.Product(ph.FieldVariable("norm_eig_funcs", location=0),
-                                          ph.TestFunction("norm_eig_funcs", order=1,
+                 ph.ScalarTerm(ph.Product(ph.FieldVariable("norm_modal_base", location=0),
+                                          ph.TestFunction("norm_modal_base", order=1,
                                                           location=0))),
-                 ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_eig_funcs"),
-                                            ph.TestFunction("norm_eig_funcs", order=2)),
+                 ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_modal_base"),
+                                            ph.TestFunction("norm_modal_base", order=2)),
                                  self.dz.bounds)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
+
+        # simulate
         eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, derivative_orders=(2, 0))
 
         # display results
@@ -630,7 +636,7 @@ class StringMassTest(unittest.TestCase):
             win2 = vis.PgSurfacePlot(eval_data[0])
             app.exec_()
 
-        reg.deregister_base("norm_eig_funcs")
+        reg.deregister_base("norm_modal_base")
 
         # test for correct transition
         self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
