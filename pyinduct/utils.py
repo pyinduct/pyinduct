@@ -9,12 +9,14 @@ import warnings
 from numbers import Number
 import collections
 import numpy as np
+import pyqtgraph as pg
 from scipy.optimize import root
-from .registry import get_base, register_base
+
+from . import core as cr
 from . import placeholder as ph
+from .registry import get_base, register_base
 from .placeholder import FieldVariable, TestFunction
 from . import visualization as vis
-import pyqtgraph as pg
 
 
 class Parameters:
@@ -49,17 +51,17 @@ def complex_wrapper(func):
     return wrapper
 
 
-def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
+def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False, get_all=False):
     """
     Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
     It will return the exact amount of roots given by n_roots or raise ValueError.
     It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
 
-    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
-    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
-    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
-    supersedes the present entry.
+    In Detail the function scipy.optimize.root is used to find initial candidates for roots of f(x). If a root
+    satisfies the criteria given by atol and rtol it is added. If it is already in the list, a comprehension between
+    the already present entries error and the current error is performed. If the newly calculated root comes with a
+    smaller error it supersedes the present entry.
 
     Args:
         function: Function handle for f(x) whose roots shall be found.
@@ -69,6 +71,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
         rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
         atol: Absolute tolerance to zero  f(root) < atol.
         show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
+        get_all: You get all N found roots (if True) even if N < n_roots.
     Return:
         numpy.ndarray of roots.
     """
@@ -104,7 +107,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     while found_roots < n_roots:
         try:
             res = root(function, next(val), tol=atol)
-            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
 
@@ -112,6 +114,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
             continue
 
         calculated_root = np.atleast_1d(res.x)
+
         error = np.linalg.norm(res.fun)
 
         # check for absolute tolerance
@@ -144,16 +147,17 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         found_roots += 1
 
-    # sort roots
     valid_roots = roots[:found_roots]
-    good_roots = np.sort(valid_roots, 0)
+
+    # sort roots
+    idx = np.argsort(valid_roots[:, 0])
+    good_roots = valid_roots[idx, :]
 
     if show_plot:
         pw = pg.plot(title="function + roots")
         if complex:
             pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
             # results = np.linalg.norm(function(values), axis=0)
-            # results = vec_function(grids)
             # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
             # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
             # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
@@ -168,7 +172,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         pg.QtGui.QApplication.instance().exec_()
 
-    if found_roots < n_roots:
+    if not get_all and found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(found_roots, n_roots))
 
@@ -266,8 +270,8 @@ def split_domain(n, a_desired, l, mode='coprime'):
                 cand.append(get_candidate_tuple(n, k2_prime_num))
     elif mode == 'coprime':
         for k2_coprime_to_k1 in range(3, n):
-            if all(not (k2_coprime_to_k1 % i == 0 and (n - k2_coprime_to_k1) % i == 0)
-                   for i in range(3, min(k2_coprime_to_k1, n - k2_coprime_to_k1) + 1, 2)):
+            if all(not (k2_coprime_to_k1 % i == 0 and (n - k2_coprime_to_k1) % i == 0) for i in
+                   range(3, min(k2_coprime_to_k1, n - k2_coprime_to_k1) + 1, 2)):
                 cand.append(get_candidate_tuple(n, k2_coprime_to_k1))
     elif mode == 'one_even_one_odd':
         for k2_num in range(1, n):
@@ -359,8 +363,8 @@ def scale_equation_term_list(eqt_list, factor):
 
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz, original_beta,
-                                                target_beta, trajectory=None, scale=None):
+                                                d_approx_target_state, integral_kernel_zz, original_beta, target_beta,
+                                                trajectory=None, scale=None):
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     from . import control as ct
     from . import simulation as sim
@@ -386,8 +390,7 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
     second_sum_3rd_term = scale_equation_term_list(approx_state, integral_kernel_zz)
 
-    control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + \
-                  second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
+    control_law = unsteady_term + first_sum_1st_term + first_sum_2nd_term + second_sum_1st_term + second_sum_2nd_term + second_sum_3rd_term
 
     if scale is not None:
         scaled_control_law = scale_equation_term_list(control_law, scale)
@@ -403,22 +406,20 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
         return sim.SimulationInputSum([ct.Controller(ct.ControlLaw(scaled_control_law, name=c_name))])
 
 
-# TODO: change to factory, rename: function_wrapper
-def _convert_to_function(coef):
+def function_wrapper(coef):
     if not isinstance(coef, collections.Callable):
         return lambda z: coef
     else:
         return coef
 
 
-def _convert_to_scalar_function(coef, label):
-    from . import core as cr
-    if not isinstance(coef, collections.Callable):
-        register_base(label, cr.Function(lambda z: coef), overwrite=True)
-    elif isinstance(coef, cr.Function):
-        register_base(label, coef, overwrite=True)
+def scalar_function_wrapper(coefficient, label):
+    if not isinstance(coefficient, collections.Callable):
+        register_base(label, cr.Function(lambda z: coefficient), overwrite=True)
+    elif isinstance(coefficient, cr.Function):
+        register_base(label, coefficient, overwrite=True)
     else:
-        register_base(label, cr.Function(coef), overwrite=True)
+        register_base(label, cr.Function(coefficient), overwrite=True)
     return ph.ScalarFunction(label)
 
 
@@ -429,17 +430,18 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, p
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=2)), spatial_domain, -a2)
-    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a1)
-    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+    int2 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=2)),
+        spatial_domain, -a2)
+    int3 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=1)),
+        spatial_domain, a1)
+    int4 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), ph.TestFunction(test_func_label, order=0)),
+        spatial_domain, -a0)
     # scalar terms
-    s1 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=1, location=l)), a2)
-    s2 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), -a1)
+    s1 = ph.ScalarTerm(ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=1, location=l)), a2)
+    s2 = ph.ScalarTerm(ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=0, location=l)), -a1)
     s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), -a2)
     s4 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=0),
@@ -460,14 +462,15 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
     l = spatial_domain[1]
     # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
     # a2 = _convert_to_scalar_function(a2, "a2_z")
-    a1_z = _convert_to_scalar_function(a1, "a1_z")
-    a0_z = _convert_to_scalar_function(a0, "a0_z")
+    a1_z = scalar_function_wrapper(a1, "a1_z")
+    a0_z = scalar_function_wrapper(a0, "a0_z")
 
     # integral terms
     int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a2)
+    int2 = ph.IntegralTerm(
+        ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), ph.TestFunction(test_func_label, order=1)),
+        spatial_domain, a2)
     int3 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), a1_z),
                                       ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
     int4 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), a0_z),
@@ -478,8 +481,8 @@ def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param
                                   ph.TestFunction(test_func_label, order=0, location=0)), a2 * alpha)
     s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
                                   ph.TestFunction(test_func_label, order=0, location=l)), a2 * beta)
-    s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
+    s3 = ph.ScalarTerm(
+        ph.Product(ph.Input(input), ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
     # derive state-space system
     return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
 
@@ -525,11 +528,8 @@ def create_animation(input_file_mask="", input_file_names=None, target_format=".
     # TODO process user input on frame rate file format and so on
     if input_file_mask is not "":
         output_name = "_".join(input_file_mask.split("_")[:-2]) + target_format
-        args = ["-i", input_file_mask,
-                "-c:v", "libx264",
-                "-pix_fmt",  "yuv420p",
-                output_name]
+        args = ["-i", input_file_mask, "-c:v", "libx264", "-pix_fmt", "yuv420p", output_name]
         call(["ffmpeg"] + args)
 
-    # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
-    # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif
+        # ffmpeg -i Fri_Jun_24_16:14:50_2016_%04d.png transport_system.gif
+        # convert Fri_Jun_24_16:14:50_2016_00*.png out.gif

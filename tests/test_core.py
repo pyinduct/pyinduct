@@ -246,18 +246,18 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
         self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
 
+
 # TODO tests for dot_product_l2 (vectorial case)
 
 
 class CalculateScalarProductMatrixTestCase(unittest.TestCase):
-
     def setUp(self):
         interval = (0, 10)
         nodes = 5
         self.nodes1, self.initial_functions1 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
                                                                             node_count=nodes)
         self.nodes2, self.initial_functions2 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
-                                                                            node_count=2*nodes-1)
+                                                                            node_count=2 * nodes - 1)
         self.optimization = None
         print(np.array(self.nodes1), np.array(self.nodes2))
 
@@ -404,9 +404,8 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         # standard case
         dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
         dest_approx_handle = core.back_project_from_base(dest_weights, self.trig_test_funcs)
-        error = np.sum(np.power(
-            np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)),
-            2))
+        error = np.sum(
+            np.power(np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)), 2))
 
         if show_plots:
             pw = pg.plot(title="change projection base")

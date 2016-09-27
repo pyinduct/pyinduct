@@ -145,22 +145,23 @@ class InterpSignalGeneratorTest(unittest.TestCase):
 
     def test_sawtooth(self):
         self.sig_gen = tr.SignalGenerator('sawtooth', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(all(np.isclose(np.array([0, 1, 1, 1]),
-                                       self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), atol=0.01)))
-        self.assertTrue(all(np.isclose(np.array([0, .5, .5, .5]),
-                                       self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), atol=0.01)))
+        self.assertTrue(all(
+            np.isclose(np.array([0, 1, 1, 1]), self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3),
+                       atol=0.01)))
+        self.assertTrue(all(
+            np.isclose(np.array([0, .5, .5, .5]), self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3),
+                       atol=0.01)))
 
     def test_square(self):
         self.sig_gen = tr.SignalGenerator('square', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(all(np.isclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
-                                       self.sig_gen.__call__(
-                                           time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
-                                       atol=0.01)))
+        self.assertTrue(all(np.isclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]), self.sig_gen.__call__(
+            time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])), atol=0.01)))
 
     def test_gausspulse(self):
         self.sig_gen = tr.SignalGenerator('gausspulse', self.t, phase_shift=0.5)
-        self.assertTrue(all(np.isclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
-                                       self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), atol=0.01)))
+        self.assertTrue(all(
+            np.isclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]), self.sig_gen.__call__(time=np.arange(0, 1, 0.1)),
+                       atol=0.01)))
 
     def test_kwarg(self):
         self.no_plot = True

@@ -22,6 +22,7 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
+
     app = pg.QtGui.QApplication([])
 
 
@@ -50,27 +51,22 @@ def simulation_benchmark(spat_domain, settings):
     func_label = 'init_funcs'
     reg.register_base(func_label, base, overwrite=True)
 
-    u = sim.SimulationInputSum([
-        tr.SignalGenerator('square', np.array(temp_domain), frequency=0.3, scale=2, offset=4, phase_shift=1),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[15]),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[25], scale=-4),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[35]),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[60], scale=-2),
-    ])
+    u = sim.SimulationInputSum(
+        [tr.SignalGenerator('square', np.array(temp_domain), frequency=0.3, scale=2, offset=4, phase_shift=1),
+            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[15]),
+            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[25], scale=-4),
+            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[35]),
+            tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[60], scale=-2), ])
 
     _c = time.clock()
     weak_form = sim.WeakFormulation([
         ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(func_label, 1), ph.TestFunction(func_label)),
                         spat_domain.bounds),
         ph.IntegralTerm(ph.Product(ph.FieldVariable(func_label), ph.TestFunction(func_label, order=1)),
-                        spat_domain.bounds,
-                        scale=-v),
-        ph.ScalarTerm(ph.Product(ph.FieldVariable(func_label, location=spat_domain.bounds[-1]),
-                                 ph.TestFunction(func_label, location=spat_domain.bounds[-1])),
-                      scale=v),
-        ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction(func_label, location=0)),
-                      scale=-v),
-    ], name=sys_name)
+                        spat_domain.bounds, scale=-v), ph.ScalarTerm(
+            ph.Product(ph.FieldVariable(func_label, location=spat_domain.bounds[-1]),
+                       ph.TestFunction(func_label, location=spat_domain.bounds[-1])), scale=v),
+        ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction(func_label, location=0)), scale=-v), ], name=sys_name)
     _d = time.clock()
 
     initial_states = np.atleast_1d(init_x)
@@ -82,8 +78,7 @@ def simulation_benchmark(spat_domain, settings):
     state_space_form = canonical_form.convert_to_state_space()
 
     _g = time.clock()
-    q0 = np.array([sim.project_on_base(initial_state, reg.get_base(
-        canonical_form.weights, 0)) for initial_state in
+    q0 = np.array([sim.project_on_base(initial_state, reg.get_base(canonical_form.weights, 0)) for initial_state in
                    initial_states]).flatten()
     _h = time.clock()
 
@@ -102,7 +97,7 @@ def simulation_benchmark(spat_domain, settings):
 
 def product_benchmark(base):
     def projection_func(z):
-        return np.sin(2*z) + np.exp(z)
+        return np.sin(2 * z) + np.exp(z)
 
     _t = time.clock()
     res = cr.calculate_scalar_product_matrix(cr.dot_product_l2, base, base)
@@ -125,6 +120,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
     - LagrangeFirstOrder
     - LagrangeSecondOrder
     """
+
     def setUp(self):
         self.node_cnt = 51
         self.domain = sim.Domain(bounds=(0, 1), num=1e3)
@@ -132,24 +128,14 @@ class ShapeFunctionTestBench(unittest.TestCase):
         # first one is used as reference
         if True:
             self.candidates = [
-                dict(shapefunction_class=sh.LagrangeFirstOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt),
-                dict(shapefunction_class=sh.LagrangeNthOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt,
-                     order=1),
-            ]
+                dict(shapefunction_class=sh.LagrangeFirstOrder, interval=self.domain.bounds, node_count=self.node_cnt),
+                dict(shapefunction_class=sh.LagrangeNthOrder, interval=self.domain.bounds, node_count=self.node_cnt,
+                     order=1), ]
         else:
             self.candidates = [
-                dict(shapefunction_class=sh.LagrangeSecondOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt),
-                dict(shapefunction_class=sh.LagrangeNthOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt,
-                     order=2),
-            ]
+                dict(shapefunction_class=sh.LagrangeSecondOrder, interval=self.domain.bounds, node_count=self.node_cnt),
+                dict(shapefunction_class=sh.LagrangeNthOrder, interval=self.domain.bounds, node_count=self.node_cnt,
+                     order=2), ]
         print("comparing {} against {}".format(*[candidate["shapefunction_class"] for candidate in self.candidates]))
 
     def test_simulation(self):
@@ -168,9 +154,9 @@ class ShapeFunctionTestBench(unittest.TestCase):
         res = np.array(timings)
         mean = np.mean(res, axis=0)
         for idx in range(len(self.candidates)):
-            self.print_time("means of {} rounds for {} in [s]:".format(n_iteration,
-                                                                       self.candidates[idx]["shapefunction_class"]),
-                            mean[idx])
+            self.print_time(
+                "means of {} rounds for {} in [s]:".format(n_iteration, self.candidates[idx]["shapefunction_class"]),
+                mean[idx])
 
         # process results
         diff = np.subtract(mean[1], mean[0])
@@ -203,10 +189,9 @@ class ShapeFunctionTestBench(unittest.TestCase):
         print("relative difference in [%]:\n\t {}".format(frac))
 
     def print_time(self, headline, times):
-        print(headline + "\n" +
-              "\t cure interval:    {}\n"
-              "\t create weak form: {}\n"
-              "\t parse weak form:  {}\n"
-              "\t initial weights:  {}\n"
-              "\t process data:     {}\n"
-              "".format(*times))
+        print(headline + "\n" + "\t cure interval:    {}\n"
+                                "\t create weak form: {}\n"
+                                "\t parse weak form:  {}\n"
+                                "\t initial weights:  {}\n"
+                                "\t process data:     {}\n"
+                                "".format(*times))

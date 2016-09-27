@@ -25,8 +25,8 @@ class LagrangeNthOrder(Function):
             or 'order +1' (for boundary- and mid-polynomials).
         left (bool): State the first node (*nodes[0]*) to be the left boundary of the considered domain.
         right (bool): State the last node (*nodes[-1]*) to be the right boundary of the considered domain.
-        mid_num (int):  local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
-            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}
+        mid_num (int):  Local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
+            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}`
         boundary (str): provide "left" or "right" to instantiate the according boundary-polynomial.
     """
 
@@ -156,10 +156,10 @@ class LagrangeNthOrder(Function):
 
         .. math:: L = 1 + (1 + n) order \\quad \\forall n \\in \\mathbb N.
 
-        E.g.
-        - order = 1: :math:`L \\in \\{2, 3, 4, 5, ...\\}
-        - order = 2: :math:`L \\in \\{3, 5, 7, 9, ...\\}
-        - order = 3: :math:`L \\in \\{4, 7, 10, 13, ...\\}
+        E.g. \n
+        - order = 1 -> :math:`L \\in \\{2, 3, 4, 5, ...\\}`
+        - order = 2 -> :math:`L \\in \\{3, 5, 7, 9, ...\\}`
+        - order = 3 -> :math:`L \\in \\{4, 7, 10, 13, ...\\}`
         - and so on.
 
         Args:
@@ -171,9 +171,14 @@ class LagrangeNthOrder(Function):
         """
         order = kwargs["order"]
         nodes = np.array(domain)
-        if not len(nodes) in [(order + 1) + n * order for n in range(len(nodes))]:
-            raise ValueError("See LagrangeNthOrder.cure_hint docstring. "
-                             "There are some restrictions to the length of nodes/domain.")
+        possible_node_lengths = np.array([(order + 1) + n * order for n in range(len(nodes))], dtype=int)
+        if not len(nodes) in possible_node_lengths:
+            suggested_indices = np.where(np.isclose(possible_node_lengths, len(nodes), atol=order - 1))[0]
+            alternative_node_lengths = possible_node_lengths[suggested_indices]
+            raise ValueError("See LagrangeNthOrder.cure_hint docstring.\n"
+                             "\tThere are some restrictions to the length of nodes/domain.\n"
+                             "\tYour desired (invalid) node count is {}.\n"
+                             "\tSuggested valid node count(s): {}.".format(len(nodes), alternative_node_lengths))
 
         funcs = np.empty((len(nodes),), dtype=LagrangeNthOrder)
         no_peaks = True
@@ -286,9 +291,7 @@ class LagrangeFirstOrder(Function):
                                        left_border=True if len(domain) == 2 else False)
 
         for idx in range(1, len(domain) - 1):
-            funcs[idx] = LagrangeFirstOrder(domain[idx - 1],
-                                            domain[idx],
-                                            domain[idx + 1],
+            funcs[idx] = LagrangeFirstOrder(domain[idx - 1], domain[idx], domain[idx + 1],
                                             left_border=True if idx == 1 else False,
                                             right_border=True if idx == len(domain) - 2 else False)
         return domain, funcs
@@ -416,23 +419,21 @@ class LagrangeSecondOrder(Function):
         funcs = np.empty((len(domain),), dtype=LagrangeSecondOrder)
 
         # boundary special cases
-        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
-                                       curvature="concave", half="left", left_border=True)
-        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
-                                        curvature="concave", half="right", right_border=True)
+        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2], curvature="concave", half="left",
+                                       left_border=True)
+        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1], curvature="concave", half="right",
+                                        right_border=True)
 
         # interior
         for idx in range(1, len(domain) - 1):
             if idx % 2 != 0:
                 funcs[idx] = LagrangeSecondOrder(domain[idx - 1], domain[idx], domain[idx + 1], curvature="convex",
                                                  left_border=True if idx == 1 else False,
-                                                 right_border=True if idx == len(domain) - 2 else False,
-                                                 )
+                                                 right_border=True if idx == len(domain) - 2 else False, )
             else:
                 funcs[idx] = LagrangeSecondOrder(domain[idx - 2], domain[idx], domain[idx + 2], curvature="concave",
                                                  left_border=True if idx == 2 else False,
-                                                 right_border=True if idx == len(domain) - 3 else False,
-                                                 )
+                                                 right_border=True if idx == len(domain) - 3 else False, )
 
         return domain, funcs
 

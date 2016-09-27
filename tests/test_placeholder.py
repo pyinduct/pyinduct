@@ -22,6 +22,7 @@ class TestPlaceHolder(unittest.TestCase):
     """
     Test cases for the Placeholder base class
     """
+
     def setUp(self):
         self.data = dict(a=10, b="hallo")
 
@@ -362,9 +363,7 @@ class WeakFormulationTest(unittest.TestCase):
     def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
         sim.WeakFormulation(ph.ScalarTerm(self.field_var_at1))  # scalar case
-        sim.WeakFormulation([ph.ScalarTerm(self.field_var_at1),
-                             ph.IntegralTerm(self.field_var, (0, 1))
-                             ])  # vector case
+        sim.WeakFormulation([ph.ScalarTerm(self.field_var_at1), ph.IntegralTerm(self.field_var, (0, 1))])  # vector case
 
     def tearDown(self):
         deregister_base("ini_funcs")
