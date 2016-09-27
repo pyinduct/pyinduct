@@ -36,6 +36,8 @@ class SimpleInput(sim.SimulationInput):
     """
     the simplest input we can imagine
     """
+    def __init__(self):
+        super().__init__("SimpleInput")
 
     def _calc_output(self, **kwargs):
         return 0
@@ -45,6 +47,8 @@ class MonotonousInput(sim.SimulationInput):
     """
     an input that ramps up
     """
+    def __init__(self):
+        super().__init__("MonotonousInput")
 
     def _calc_output(self, **kwargs):
         return dict(output=kwargs["time"])
@@ -54,6 +58,8 @@ class CorrectInput(sim.SimulationInput):
     """
     a diligent input
     """
+    def __init__(self):
+        super().__init__("CorrectInput")
 
     def _calc_output(self, **kwargs):
         if "time" not in kwargs:
@@ -164,7 +170,7 @@ class ParseTest(unittest.TestCase):
         self.input_squared = ph.Input(self.u, exponent=2)
 
         # scale function
-        register_base("heavi", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
+        register_base("heaviside", cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1)), overwrite=True)
 
         nodes, self.ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
 
@@ -202,7 +208,7 @@ class ParseTest(unittest.TestCase):
         self.input_term3 = ph.IntegralTerm(ph.Product(self.phi, self.input), (0, 1))
         self.input_term3_swapped = ph.IntegralTerm(ph.Product(self.input, self.phi), (0, 1))
         self.input_term3_scaled = ph.IntegralTerm(
-            ph.Product(ph.Product(ph.ScalarFunction("heavi"), self.phi), self.input), (0, 1))
+            ph.Product(ph.Product(ph.ScalarFunction("heaviside"), self.phi), self.input), (0, 1))
 
         # same goes for field variables
         self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
@@ -554,6 +560,8 @@ class StringMassTest(unittest.TestCase):
             """
             String With Mass Function Vector, necessary due to manipulated scalar product
             """
+            def __init__(self, function, scalar):
+                super().__init__(function, scalar)
 
             @property
             def func(self):
@@ -653,14 +661,14 @@ class RadFemTrajectoryTest(unittest.TestCase):
         self.dz = sim.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1.
-        temporal_disc = 2e2
+        temporal_disc = 200
         self.dt = sim.Domain(bounds=(0, self.T), num=temporal_disc)
 
         # create test functions
-        nodes_1, ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder, dz.bounds, node_count=spatial_disc)
-        register_base("init_funcs_1", ini_funcs_1, overwrite=True)
-        nodes_2, ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder, dz.bounds, node_count=spatial_disc)
-        register_base("init_funcs_2", ini_funcs_2, overwrite=True)
+        nodes_1, self.ini_funcs_1 = sf.cure_interval(sf.LagrangeFirstOrder, self.dz.bounds, node_count=spatial_disc)
+        register_base("init_funcs_1", self.ini_funcs_1, overwrite=True)
+        nodes_2, self.ini_funcs_2 = sf.cure_interval(sf.LagrangeSecondOrder, self.dz.bounds, node_count=spatial_disc)
+        register_base("init_funcs_2", self.ini_funcs_2, overwrite=True)
 
     @unittest.skip  # needs border homogenization to work
     def test_dd(self):
@@ -686,6 +694,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             app.exec_()
 
         # TODO add Test here
+        return t, q
 
     @unittest.skip  # needs border homogenization to work
     def test_dd(self):
@@ -695,23 +704,23 @@ class RadFemTrajectoryTest(unittest.TestCase):
         actuation_type = 'dirichlet'
         u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
-            # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
-                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
-                                              ph.TestFunction("init_funcs_2", order=2)), dz.bounds, -a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1),
-                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds, -a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
-                                              ph.TestFunction("init_funcs_2", order=0)), dz.bounds, -a0)
-            # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=l),
-                                          ph.TestFunction("init_funcs_2", order=0, location=l)), -a2)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
-                                          ph.TestFunction("init_funcs_2", order=0, location=0)), a2 * alpha)
-            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
-                                          ph.TestFunction("init_funcs_2", order=1, location=0)), -a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_2", order=1, location=l)), a2)
+        # integral terms
+        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_2", order=1),
+                                          ph.TestFunction("init_funcs_2", order=0)), self.dz.bounds)
+        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                          ph.TestFunction("init_funcs_2", order=2)), self.dz.bounds, -self.a2)
+        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1),
+                                          ph.TestFunction("init_funcs_2", order=0)), self.dz.bounds, -self.a1)
+        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0),
+                                          ph.TestFunction("init_funcs_2", order=0)), self.dz.bounds, -self.a0)
+        # scalar terms from int 2
+        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=1, location=self.l),
+                                      ph.TestFunction("init_funcs_2", order=0, location=self.l)), -self.a2)
+        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
+                                      ph.TestFunction("init_funcs_2", order=0, location=0)), self.a2 * self.alpha)
+        s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_2", order=0, location=0),
+                                      ph.TestFunction("init_funcs_2", order=1, location=0)), -self.a2)
+        s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_2", order=1, location=self.l)), self.a2)
 
         # derive state-space system
         rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
@@ -722,41 +731,43 @@ class RadFemTrajectoryTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss, np.zeros(self.ini_funcs_2.shape), self.dt)
         # TODO add test here
 
-            return t, q
+        return t, q
 
-        def test_dr():
-            # trajectory
-            bound_cond_type = 'dirichlet'
-            actuation_type = 'robin'
-            u = tr.RadTrajectory(l, T, param, bound_cond_type, actuation_type)
-            # integral terms
-            int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
-                                              ph.TestFunction("init_funcs_1", order=0)), dz.bounds)
-            int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
-                                              ph.TestFunction("init_funcs_1", order=1)), dz.bounds, a2)
-            int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
-                                              ph.TestFunction("init_funcs_1", order=1)), dz.bounds, a1)
-            int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
-                                              ph.TestFunction("init_funcs_1", order=0)), dz.bounds, -a0)
-            # scalar terms from int 2
-            s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
-                                          ph.TestFunction("init_funcs_1", order=0, location=l)), -a1)
-            s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=l),
-                                          ph.TestFunction("init_funcs_1", order=0, location=l)), a2 * beta)
-            s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
-                                          ph.TestFunction("init_funcs_1", order=0, location=0)), a2)
-            s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_1", order=0, location=l)), -a2)
-            # derive state-space system
-            rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
-            cf = sim.parse_weak_formulation(rad_pde)
-            ss = cf.convert_to_state_space()
+    def test_dr(self):
+        # trajectory
+        bound_cond_type = 'dirichlet'
+        actuation_type = 'robin'
+        u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+
+        # integral terms
+        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("init_funcs_1", order=1),
+                                          ph.TestFunction("init_funcs_1", order=0)), self.dz.bounds)
+        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1),
+                                          ph.TestFunction("init_funcs_1", order=1)), self.dz.bounds, self.a2)
+        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
+                                          ph.TestFunction("init_funcs_1", order=1)), self.dz.bounds, self.a1)
+        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0),
+                                          ph.TestFunction("init_funcs_1", order=0)), self.dz.bounds, -self.a0)
+        # scalar terms from int 2
+        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=self.l),
+                                      ph.TestFunction("init_funcs_1", order=0, location=self.l)), -self.a1)
+        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=0, location=self.l),
+                                      ph.TestFunction("init_funcs_1", order=0, location=self.l)), self.a2 * self.beta)
+        s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("init_funcs_1", order=1, location=0),
+                                      ph.TestFunction("init_funcs_1", order=0, location=0)), self.a2)
+        s4 = ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction("init_funcs_1", order=0, location=self.l)), -self.a2)
+        # derive state-space system
+        rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+        cf = sim.parse_weak_formulation(rad_pde)
+        ss = cf.convert_to_state_space()
 
         # simulate system
         t, q = sim.simulate_state_space(ss, np.zeros(self.ini_funcs_1.shape), self.dt)
 
         # check if (x'(0,t_end) - 1.) < 0.1
         self.assertLess(np.abs(self.ini_funcs_1[0].derive(1)(sys.float_info.min) * (q[-1, 0] - q[-1, 1])) - 1, 0.1)
-        return
+
+        return t, q
 
     def test_rr(self):
         # trajectory
@@ -773,9 +784,9 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # check if (x(0,t_end) - 1.) < 0.1
         self.assertLess(np.abs(self.ini_funcs_1[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
-        return
+        return t, q
 
-    def test_rr_const_traj(self):
+    def test_rr_const_trajectory(self):
         """ check if simulation interface call tr.ConstantTrajectory properly """
 
         # const trajectory simulation call test
@@ -788,7 +799,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # simulate system
         t, q = sim.simulate_state_space(ss, np.zeros(self.ini_funcs_1.shape), self.dt)
         # TODO add a Test here
-        return
+        return t, q
 
     def tearDown(self):
         deregister_base("init_funcs_1")
@@ -814,11 +825,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         dz = sim.Domain(bounds=(0, l), num=spatial_disc)
 
         T = 1.
-        temporal_disc = 1e2
+        temporal_disc = 100
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
 
         norm_fak = np.ones(spatial_disc) * np.sqrt(2)
-        eig_values, eig_funcs =  ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, scale=norm_fak)
+        eig_values, eig_funcs = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, scale=norm_fak)
         register_base("eig_funcs", eig_funcs, overwrite=True)
         _, adjoint_eig_funcs = ef.SecondOrderDirichletEigenfunction.solve_evp_hint(adjoint_param, l, scale=norm_fak)
         register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
@@ -837,7 +848,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
-        # determine (A,B) with modal-transfomation
+        # determine (A,B) with modal transformation
         A = np.diag(eig_values)
         B = -a2 * np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
@@ -879,7 +890,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         dz = sim.Domain(bounds=(0, l), num=spatial_disc)
 
         T = 1.
-        temporal_disc = 1e2
+        temporal_disc = 100
         dt = sim.Domain(bounds=(0, T), num=temporal_disc)
         n = 10
 
@@ -905,7 +916,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         cf = sim.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
-        # determine (A,B) with modal-transfomation
+        # determine (A,B) with modal transformation
         A = np.diag(np.real_if_close(eig_val))
         B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_val))])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
