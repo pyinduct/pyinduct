@@ -371,7 +371,7 @@ class ParseTest(unittest.TestCase):
                           sim.WeakFormulation([self.alternating_weights_term, self.field_int]))
 
     def tearDown(self):
-        deregister_base("heavi")
+        deregister_base("heaviside")
         deregister_base("ini_funcs")
 
 
