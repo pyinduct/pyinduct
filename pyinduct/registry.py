@@ -23,36 +23,27 @@ def is_registered(label):
     return label in list(_registry.keys())
 
 
-def register_base(label, functions, overwrite=False):
+def register_base(label, base, overwrite=False):
     """
-    Register a set of initial functions to make them accessible all over the :py:mod:`pyinduct` framework.
+    Register a basis to make it accessible all over the :py:mod:`pyinduct` framework.
 
     Args:
-        functions (iterable): Array , list or single instance of :py:class:`pyinduct.core.BaseFraction` s.
+        base (:py:class:`pyinduct.core.Base`): base to register
         label (str): String that will be used as label.
         overwrite: Force overwrite if a basis is already registered under this label.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as labels!")
 
-    funcs = np.atleast_1d(functions)
-    derivatives = _registry.get(label, {})
+    new_base = _registry.get(label, None)
 
-    if derivatives:
+    if new_base is not None:
         if overwrite:
             deregister_base(label)
         else:
             raise ValueError("Function set '{0}' already in registry!".format(label))
 
-    n = 0
-    while True:
-        try:
-            derivatives[n] = np.array([func.derive(n) for func in funcs])
-            n += 1
-        except ValueError:
-            break
-
-    _registry[label] = derivatives
+    _registry[label] = base
 
 
 def deregister_base(label):
@@ -84,12 +75,8 @@ def get_base(label, order=None):
     Return:
         initial_functions
     """
-    if is_registered(label):
-        if order is None:
-            order = 0
-        base = _registry[label].get(order, None)
-        if base is None:
-            raise ValueError("Base with label '{}' not available in order {}!".format(label, order))
-        return base
-    else:
+    base = _registry.get(label, None)
+    if base is None:
         raise ValueError("No base registered under label '{0}'!".format(label))
+    else:
+        return base

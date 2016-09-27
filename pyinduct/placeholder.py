@@ -2,14 +2,15 @@
 In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
 """
 
-import numpy as np
-import collections
-import copy
 from abc import ABCMeta
+import copy
 from numbers import Number
 
-from . import registry as rg
-from . import core as cr
+import numpy as np
+
+from .registry import get_base, register_base, is_registered
+from .core import sanitize_input
+import collections
 
 
 class Placeholder(object):
@@ -38,7 +39,7 @@ class Placeholder(object):
                 raise TypeError("location must be a number")
         self.location = location
 
-    def derive(self, *, temp_order, spat_order):
+    def derive(self, temp_order=0, spat_order=0):
         """
         Mimics a copy constructor and adds the given derivative orders.
 
@@ -52,9 +53,6 @@ class Placeholder(object):
         Returns:
             New :py:class:`Placeholder` instance with the desired derivative order.
         """
-        if temp_order == 0 and spat_order == 0:
-            return self
-
         new_obj = copy.deepcopy(self)
         new_obj.order = tuple(der + a for der, a in zip(self.order, (temp_order, spat_order)))
         return new_obj
@@ -80,12 +78,10 @@ class SpatialPlaceholder(Placeholder):
     The deeper meaning of this abstraction layer is to offer an easier to use interface.
     """
     def __init__(self, data, order=0, location=None):
-        super().__init__(data, order=(0, order), location=location)
+        Placeholder.__init__(self, data, order=(0, order), location=location)
 
-    def derive(self, *, spat_order=0, temp_order=0):
-        if temp_order != 0:
-            raise ValueError("SpatialPlaceholder cannot be temporally derived.")
-        return super().derive(spat_order=spat_order, temp_order=0)
+    def derive(self, order=0):
+        return super().derive(spat_order=order)
 
 
 class Scalars(Placeholder):
@@ -103,7 +99,7 @@ class Scalars(Placeholder):
             target_term = dict(name="f")
         values = np.atleast_2d(values)
 
-        super().__init__(cr.sanitize_input(values, Number))
+        super().__init__(sanitize_input(values, Number))
         self.target_term = target_term
         self.target_form = target_form
 
@@ -120,7 +116,7 @@ class ScalarFunction(SpatialPlaceholder):
     """
 
     def __init__(self, function_label, order=0, location=None):
-        if not rg.is_registered(function_label):
+        if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
         super().__init__({"func_lbl": function_label}, order=order, location=location)
@@ -159,7 +155,7 @@ class TestFunction(SpatialPlaceholder):
     """
 
     def __init__(self, function_label, order=0, location=None):
-        if not rg.is_registered(function_label):
+        if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
         super().__init__({"func_lbl": function_label}, order, location=location)
@@ -215,7 +211,7 @@ class FieldVariable(Placeholder):
                 raise TypeError("location must be a number")
 
         # basis
-        if not rg.is_registered(function_label):
+        if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
         if weight_label is None:
             weight_label = function_label
@@ -313,8 +309,8 @@ class Product(object):
                     break
 
         if scalar_func and other_func:
-            s_func = rg.get_base(scalar_func.data["func_lbl"], scalar_func.order[1])
-            o_func = rg.get_base(other_func.data["func_lbl"], other_func.order[1])
+            s_func = get_base(scalar_func.data["func_lbl"], scalar_func.order[1])
+            o_func = get_base(other_func.data["func_lbl"], other_func.order[1])
 
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
@@ -326,7 +322,7 @@ class Product(object):
             exp = other_func.data.get("exponent", 1)
             new_func = np.asarray([func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)])
             new_name = new_func.tobytes()
-            rg.register_base(new_name, new_func)
+            register_base(new_name, new_func)
 
             # overwrite spatial derivative order since derivation take place
             if isinstance(other_func, (ScalarFunction, TestFunction)):
@@ -429,12 +425,12 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = rg.get_base(placeholder.data['func_lbl'], placeholder.order[1])
+    fractions = get_base(placeholder.data['func_lbl']).derive(placeholder.order[1]).fractions
     location = placeholder.location
     exponent = placeholder.data.get("exponent", 1)
     if getattr(placeholder, "raised_spatially", False):
         exponent = 1
-    values = np.atleast_2d([func.raise_to(exponent)(location) for func in functions])
+    values = np.atleast_2d([frac.raise_to(exponent)(location) for frac in fractions])
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values, target_term=dict(name="E", order=placeholder.order[0],

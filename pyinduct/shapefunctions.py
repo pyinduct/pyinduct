@@ -6,12 +6,11 @@ functions.
 
 import numpy as np
 import numpy.polynomial.polynomial as npoly
+from .core import Base, Function
+from .simulation import Domain
 
-from . import core as cr
-from . import simulation as sim
 
-
-class LagrangeNthOrder(cr.Function):
+class LagrangeNthOrder(Function):
     """
     Lagrangian shape functions of order :math:`n`.
 
@@ -73,7 +72,7 @@ class LagrangeNthOrder(cr.Function):
         else:
             funcs = [self._func_factory(d_ord, order, nodes, left, right, poly=poly) for d_ord in range(order + 1)]
 
-        cr.Function.__init__(self, funcs[0], nonzero=(nodes[0], nodes[-1]), derivative_handles=funcs[1:])
+        Function.__init__(self, funcs[0], nonzero=(nodes[0], nodes[-1]), derivative_handles=funcs[1:])
 
     def _poly_factory(self, zero_nodes, one_node):
         poly = npoly.Polynomial(npoly.polyfromroots(zero_nodes))
@@ -198,7 +197,7 @@ class LagrangeNthOrder(cr.Function):
         return domain, funcs
 
 
-class LagrangeFirstOrder(cr.Function):
+class LagrangeFirstOrder(Function):
     """
     Lagrangian shape functions of order 1.
 
@@ -238,7 +237,7 @@ class LagrangeFirstOrder(cr.Function):
         else:
             funcs = self._function_factory(start, top, end, **kwargs)
 
-        cr.Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
+        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
 
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
@@ -295,7 +294,7 @@ class LagrangeFirstOrder(cr.Function):
         return domain, funcs
 
 
-class LagrangeSecondOrder(cr.Function):
+class LagrangeSecondOrder(Function):
     """
     Lagrangian shape functions of order 2.
 
@@ -352,7 +351,7 @@ class LagrangeSecondOrder(cr.Function):
         else:
             funcs = self._function_factory(start, mid, end, **kwargs)
 
-        cr.Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
+        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
 
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
@@ -461,11 +460,11 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
             :code:`(domain, funcs)`: Where :code:`domain` is a :py:class:`pyinduct.simulation.Domain` instance
             and :code:`funcs` is a list of (e.g. :py:class:`LagrangeFirstOrder`) shapefunctions.
     """
-    domain = sim.Domain(bounds=interval, step=node_distance, num=node_count)
+    domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
     try:
-        nodes, base = shapefunction_class.cure_hint(domain, **kwargs)
+        nodes, fractions = shapefunction_class.cure_hint(domain, **kwargs)
     except AttributeError:
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return nodes, base
+    return nodes, Base(fractions)

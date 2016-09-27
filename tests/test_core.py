@@ -26,6 +26,22 @@ class SanitizeInputTestCase(unittest.TestCase):
         core.sanitize_input(1.0, float)
 
 
+class BaseFractionTestCase(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_init(self):
+        f = core.BaseFraction(np.sin)
+        self.assertEqual(f.members, np.sin)
+
+    def test_derive(self):
+        f = core.BaseFraction(np.sin)
+        self.assertEqual(f.members, np.sin)
+
+        f_d0 = f.derive(0)
+        self.assertEqual(f, f_d0)
+
+
 class FunctionTestCase(unittest.TestCase):
     def setUp(self):
         pass
@@ -194,6 +210,38 @@ class FunctionTestCase(unittest.TestCase):
         # vectorial arguments should be understood and an np.ndarray shall be returned
         self.assertIsInstance(f(np.array(range(10))), np.ndarray)
         self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
+
+
+class BaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.fractions = [core.Function(lambda x: 2),
+                          core.Function(lambda x: 2 * x),
+                          core.Function(lambda x: x ** 2),
+                          core.Function(lambda x: np.sin(x))
+                          ]
+
+    def test_init(self):
+        # single and iterable arguments should be taken
+        b1 = core.Base(self.fractions[0])
+        b2 = core.Base(self.fractions)
+
+
+class StackedBaseTestCase(unittest.TestCase):
+    def setUp(self):
+        b1 = core.Base([core.Function(lambda x: np.sin(2)),
+                        core.Function(lambda x: np.sin(2*x)),
+                        core.Function(lambda x: np.sin(2 ** 2 * x)),
+                        ])
+        register_base("b1", b1)
+        b2 = core.Base([core.Function(lambda x: np.cos(4)),
+                        core.Function(lambda x: np.cos(4 * x)),
+                        core.Function(lambda x: np.cos(4 ** 2 * x)),
+                        ])
+        register_base("b2", b2)
+
+    def test_init(self):
+        b = core.StackedBase(["b1", "b2"])
+        self.assertEqual(b.fractions.size, 6)
 
 
 class IntersectionTestCase(unittest.TestCase):
