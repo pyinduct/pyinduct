@@ -239,6 +239,7 @@ class StackedBaseTestCase(unittest.TestCase):
                         ])
         register_base("b2", b2)
 
+    @unittest.skip  # WIP
     def test_init(self):
         b = core.StackedBase(["b1", "b2"])
         self.assertEqual(b.fractions.size, 6)
@@ -402,7 +403,7 @@ class ProjectionTest(unittest.TestCase):
         vec_real_func = np.vectorize(self.funcs[1])
         real_weights = vec_real_func(self.nodes)
         approx_func = core.back_project_from_base(real_weights, self.initial_functions)
-        approx_func_dz = core.back_project_from_base(real_weights, get_base("ini_funcs", 1))
+        approx_func_dz = core.back_project_from_base(real_weights, get_base("ini_funcs").derive(1))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
@@ -483,9 +484,9 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
         self.g = core.Function(np.cos, domain=(0, np.pi * 2))
         self.l = core.Function(np.log, domain=(0, np.exp(1)))
 
-        self.base_f = np.array([self.f])
-        self.base_g = np.array([self.g])
-        self.base_l = np.array([self.l])
+        self.base_f = core.Base([self.f])
+        self.base_g = core.Base([self.g])
+        self.base_l = core.Base([self.l])
 
     def test_self_scale(self):
         f = core.normalize_base(self.base_f)

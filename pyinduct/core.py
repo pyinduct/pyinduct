@@ -848,8 +848,8 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     Args:
         scalar_product_handle (callable): function handle that is called to calculate the scalar product.
             This function has to be able to cope with (1d) vectorial input.
-        base_a (numpy.ndarray): array of :py:class:`BaseFraction`
-        base_b (numpy.ndarray): array of :py:class:`BaseFraction`
+        base_a (:py:class:`Base`): Basis a
+        base_b (:py:class:`Base`): Basis b
         optimize (bool): switch to turn on the symmetry based speed up. For development purposes only.
 
     TODO:
@@ -860,8 +860,8 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     """
     if optimize:
         raise NotImplementedError("this approach leads to wrong results atm.")
-        # There are certain conditions that hvae to be satisfied to make use of a symmetrical procut matrix
-        # not all of these conditions are checked here and the implementation itself is not yet free from errros.
+        # There are certain conditions that have to be satisfied to make use of a symmetrical product matrix
+        # not all of these conditions are checked here and the implementation itself is not yet free from errors.
 
         # if scalar_product handle commutes whe can save some operations
         if base_a.size > base_b.size:
@@ -926,9 +926,9 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
         return out if not transposed else out.T
 
     else:
-        i, j = np.mgrid[0:base_a.shape[0], 0:base_b.shape[0]]
-        fractions_i = base_a[i]
-        fractions_j = base_b[j]
+        i, j = np.mgrid[0:base_a.fractions.shape[0], 0:base_b.fractions.shape[0]]
+        fractions_i = base_a.fractions[i]
+        fractions_j = base_b.fractions[j]
 
         res = scalar_product_handle(fractions_i.flatten(), fractions_j.flatten())
         return res.reshape(fractions_i.shape)
@@ -963,27 +963,21 @@ def back_project_from_base(weights, base):
 
     Args:
         weights (numpy.ndarray): Weight vector.
-        base (numpy.ndarray): Vector that generates the base.
+        base (:py:class:`Base`): Base to be used for the projection.
 
     Return:
         evaluation handle
     """
     if isinstance(weights, Number):
         weights = np.asarray([weights])
-    if isinstance(base, Function):
-        base = np.asarray([base])
-    if not isinstance(weights, np.ndarray) or not isinstance(base, np.ndarray):
-        raise TypeError("Only numpy ndarrays accepted as input")
-
-    if weights.shape[0] != base.shape[0]:
+    if weights.shape[0] != base.fractions.shape[0]:
         raise ValueError("Lengths of weights and initial_initial_functions do not match!")
 
     def eval_handle(z):
         # TODO call uniform complex converter instead
-        res = np.real_if_close(sum([weights[i] * base[i](z) for i in range(weights.shape[0])]), tol=1e6)
+        res = np.real_if_close(sum([weights[i] * base.fractions[i](z) for i in range(weights.shape[0])]), tol=1e6)
         if not all(np.imag(res) == 0):
             print(("warning: complex values encountered! {0}".format(np.max(np.imag(res)))))
-            # return np.real(res)
             return np.zeros_like(z)
 
         return res
@@ -998,8 +992,8 @@ def change_projection_base(src_weights, src_base, dst_base):
 
     Args:
         src_weights (numpy.ndarray): Vector of numbers.
-        src_base (numpy.ndarray): Vector of :py:class:`BaseFraction` s that generate the source basis
-        dst_base (numpy.ndarray): Vector of :py:class:`BaseFraction` s that generate the target basis
+        src_base (:py:class:`Base`): The source Basis.
+        dst_base (:py:class:`Base`): The destination Basis.
 
     Return:
         :obj:`numpy.ndarray`: target weights
@@ -1172,8 +1166,8 @@ def calculate_base_transformation_matrix(src_base, dst_base):
         TypeError: If given bases do not provide an :py:func:`scalar_product_hint` method.
 
     Args:
-        dst_base (:py:class:`BaseFraction`): New projection base.
-        src_base (:py:class:`BaseFraction`): Current projection base.
+        src_base (:py:class:`Base`): Current projection base.
+        dst_base (:py:class:`Base`): New projection base.
 
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
