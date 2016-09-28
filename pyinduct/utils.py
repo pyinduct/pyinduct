@@ -43,8 +43,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     if not isinstance(placeholder, (ph.FieldVariable, ph.TestFunction)):
         raise TypeError("Input Object not supported!")
 
-    funcs = rg.get_base(placeholder.data["func_lbl"], placeholder.order[1])
-    return np.array([func(input_values) for func in funcs])
+    base = rg.get_base(placeholder.data["func_lbl"]).derive(placeholder.order[1])
+    return np.array([func(input_values) for func in base.fractions])
 
 
 def split_domain(n, a_desired, l, mode='coprime'):
