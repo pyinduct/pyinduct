@@ -220,7 +220,8 @@ class StateSpace(object):
 
         # optional
         if isinstance(b_matrices, np.ndarray):
-            self.B = {1: b_matrices}
+            # fake import order and power for backward compatibility
+            self.B = {0: {1: b_matrices}}
         else:
             self.B = b_matrices
 
@@ -733,7 +734,7 @@ def create_state_space(canonical_equations):
     (created by :py:func:`parse_weak_formulation`)
 
     Args:
-        canonical_equations (dict): dict of name: py:class:`CanonicalEquation` pairs
+        canonical_equations (:py:class:`CanonicalEquation` or dict): dict of name: py:class:`CanonicalEquation` pairs
 
     Raises:
         ValueError: If compatibility criteria cannot be fulfilled
@@ -741,6 +742,9 @@ def create_state_space(canonical_equations):
     Return:
         :py:class:`StateSpace`: State-space representation of the approximated system
     """
+    if isinstance(canonical_equations, CanonicalEquation):
+        # backward compatibility
+        canonical_equations = dict(default=canonical_equations)
 
     # check whether the formulations are compatible
     for name, eq in canonical_equations.items():

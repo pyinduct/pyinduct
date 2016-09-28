@@ -9,7 +9,7 @@ from numbers import Number
 import numpy as np
 
 from .registry import get_base, register_base, is_registered
-from .core import sanitize_input
+from .core import sanitize_input, Base
 import collections
 
 
@@ -222,6 +222,8 @@ class FieldVariable(Placeholder):
         else:
             self.simulation_compliant = False
 
+        self.raised_spatially = raised_spatially
+
         # exponent
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
@@ -309,8 +311,8 @@ class Product(object):
                     break
 
         if scalar_func and other_func:
-            s_func = get_base(scalar_func.data["func_lbl"], scalar_func.order[1])
-            o_func = get_base(other_func.data["func_lbl"], other_func.order[1])
+            s_func = get_base(scalar_func.data["func_lbl"]).derive(scalar_func.order[1]).fractions
+            o_func = get_base(other_func.data["func_lbl"]).derive(other_func.order[1]).fractions
 
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
@@ -320,18 +322,22 @@ class Product(object):
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
             exp = other_func.data.get("exponent", 1)
-            new_func = np.asarray([func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)])
-            new_name = new_func.tobytes()
-            register_base(new_name, new_func)
+            new_base = Base(np.asarray(
+                [func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)]))
+            # TODO change name generation to more sane behaviour
+            new_name = new_base.fractions.tobytes()
+            register_base(new_name, new_base)
 
-            # overwrite spatial derivative order since derivation take place
+            # overwrite spatial derivative order since derivation took place
             if isinstance(other_func, (ScalarFunction, TestFunction)):
                 a = other_func.__class__(function_label=new_name, order=0, location=other_func.location)
             elif isinstance(other_func, FieldVariable):
-                a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
-                                  order=(other_func.order[0], 0), location=other_func.location,
-                                  exponent=other_func.data["exponent"])
-                a.raised_spatially = True
+                a = copy.deepcopy(other_func)
+                a.data["func_lbl"] = new_name
+                a.order = (other_func.order[0], 0)
+                # a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
+                #                   order=(other_func.order[0], 0), location=other_func.location,
+                #                   exponent=other_func.data["exponent"])
             b = None
 
         return a, b
@@ -415,7 +421,7 @@ def _evaluate_placeholder(placeholder):
     Evaluates a placeholder object and returns a Scalars object.
 
     Args:
-        placeholder (:py:class:`Placholder`):
+        placeholder (:py:class:`Placeholder`):
 
     Return:
         :py:class:`Scalars` or NotImplementedError

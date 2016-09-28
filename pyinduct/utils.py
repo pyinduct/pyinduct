@@ -1,7 +1,7 @@
 """
 A few helper functions for users and developer.
 """
-
+import numpy as np
 import collections
 import copy as cp
 import os
@@ -9,10 +9,10 @@ import warnings
 from numbers import Number
 from subprocess import call
 
-import numpy as np
-
+from . import core as cr
 from . import registry as rg
 from . import placeholder as ph
+from . import simulation as sim
 
 
 class Parameters:
@@ -259,82 +259,109 @@ def _convert_to_function(coef):
         return coef
 
 
-def _convert_to_scalar_function(coef, label):
-    from . import core as cr
-    if not isinstance(coef, collections.Callable):
-        rg.register_base(label, cr.Function(lambda z: coef), overwrite=True)
-    elif isinstance(coef, cr.Function):
-        rg.register_base(label, coef, overwrite=True)
+def convert_to_scalar_function(coefficient, label):
+    # TODO move to placeholder.ScalarFunction and add as static method
+    """
+    create a :py:class:`ScalarFunction` from a coefficient.
+
+    Args:
+        coefficient (number, callable or :py:class:`core.Function`): input that is used the generate the placeholder.
+            If a number is given, a constant function will be created, if it is callable it will be wrapped in a
+            :py:class:`core.Function` and registered.
+        label (string): label to register the created base under.
+
+    Returns:
+        :py:class:`placeholder.ScalarFunction` : Placeholder object that can be used in a weak formulation.
+    """
+    if isinstance(coefficient, Number):
+        fraction = cr.Function(lambda z: coefficient)
+    elif isinstance(coefficient, cr.Function):
+        fraction = coefficient
+    elif isinstance(coefficient, collections.Callable):
+        fraction = cr.Function(coefficient)
     else:
-        rg.register_base(label, cr.Function(coef), overwrite=True)
+        raise TypeError("Coefficient type not understood.")
+
+    base = cr.Base(fraction)
+    rg.register_base(label, base)
+
     return ph.ScalarFunction(label)
 
 
-def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input, param, spatial_domain):
-    from . import simulation as sim
+def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input_handle, param, spatial_domain):
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
+
+    x = ph.FieldVariable(init_func_label)
+    x_dt = x.derive(temp_order=1)
+    x_dz = x.derive(spat_order=1)
+
+    psi = ph.TestFunction(test_func_label)
+    psi_dz = psi.derive(1)
+    psi_ddz = psi.derive(2)
+
     # integral terms
-    int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=2)), spatial_domain, -a2)
-    int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a1)
-    int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -a0)
+    int1 = ph.IntegralTerm(ph.Product(x_dt, psi), spatial_domain)
+    int2 = ph.IntegralTerm(ph.Product(x, psi_ddz), spatial_domain, -a2)
+    int3 = ph.IntegralTerm(ph.Product(x, psi_dz), spatial_domain, a1)
+    int4 = ph.IntegralTerm(ph.Product(x, psi), spatial_domain, -a0)
+
     # scalar terms
-    s1 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=1, location=l)), a2)
-    s2 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), -a1)
-    s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=l),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), -a2)
-    s4 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1, location=0),
-                                  ph.TestFunction(test_func_label, order=0, location=0)), a2)
+    s1 = ph.ScalarTerm(ph.Product(ph.Input(input_handle), psi_dz(l)), a2)
+    s2 = ph.ScalarTerm(ph.Product(ph.Input(input_handle), psi(l)), -a1)
+    s3 = ph.ScalarTerm(ph.Product(x_dz(l), psi(l)), -a2)
+    s4 = ph.ScalarTerm(ph.Product(x_dz(0), psi(0)), a2)
 
     # derive state-space system
-    return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4])
+    return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4], name="parabolic_dirichlet")
 
 
-def get_parabolic_robin_weak_form(init_func_label, test_func_label, input, param, spatial_domain,
+def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handle, param, spatial_domain,
                                   actuation_type_point=None):
-    from . import simulation as sim
+    """
+
+    :param shape_base_label:
+    :param test_base_label:
+    :param input_handle:
+    :param param:
+    :param spatial_domain:
+    :param actuation_type_point:
+    :return:
+    """
+    # TODO What is happening here? -> add documentation.
 
     if actuation_type_point is None:
         actuation_type_point = spatial_domain[1]
 
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
-    # init ph.ScalarFunction for a1 and a0, to handle spatially varying coefficients
-    # a2 = _convert_to_scalar_function(a2, "a2_z")
-    a1_z = _convert_to_scalar_function(a1, "a1_z")
-    a0_z = _convert_to_scalar_function(a0, "a0_z")
+
+    # init ph.ScalarFunction for a1 and a0 to handle spatially varying coefficients
+    created_base_labels = ["a0_z", "a1_z"]
+    a0_z = convert_to_scalar_function(a0, created_base_labels[0])
+    a1_z = convert_to_scalar_function(a1, created_base_labels[1])
+
+    x = ph.FieldVariable(shape_base_label)
+    x_dt = x.derive(temp_order=1)
+    x_dz = x.derive(spat_order=1)
+
+    psi = ph.TestFunction(test_base_label, order=0)
+    psi_dz = psi.derive(1)
 
     # integral terms
-    int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain)
-    int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1),
-                                      ph.TestFunction(test_func_label, order=1)), spatial_domain, a2)
-    int3 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=1), a1_z),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
-    int4 = ph.IntegralTerm(ph.Product(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0), a0_z),
-                                      ph.TestFunction(test_func_label, order=0)), spatial_domain, -1)
+    int1 = ph.IntegralTerm(ph.Product(x_dt, psi), spatial_domain)
+    int2 = ph.IntegralTerm(ph.Product(x_dz, psi_dz), spatial_domain, a2)
+    int3 = ph.IntegralTerm(ph.Product(ph.Product(x_dz, a1_z), psi), spatial_domain, -1)
+    int4 = ph.IntegralTerm(ph.Product(ph.Product(x, a0_z), psi), spatial_domain, -1)
 
     # scalar terms
-    s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=0),
-                                  ph.TestFunction(test_func_label, order=0, location=0)), a2 * alpha)
-    s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable(init_func_label, order=0, location=l),
-                                  ph.TestFunction(test_func_label, order=0, location=l)), a2 * beta)
-    s3 = ph.ScalarTerm(ph.Product(ph.Input(input),
-                                  ph.TestFunction(test_func_label, order=0, location=actuation_type_point)), -a2)
+    s1 = ph.ScalarTerm(ph.Product(x(0), psi(0)), a2 * alpha)
+    s2 = ph.ScalarTerm(ph.Product(x(l), psi(l)), a2 * beta)
+    s3 = ph.ScalarTerm(ph.Product(ph.Input(input_handle), psi(actuation_type_point)), -a2)
+
     # derive state-space system
-    return sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3])
-
-
-# TODO: think about interp
-# def find_nearest_idx(array, value):
-#     return (np.abs(array - value)).argmin()
+    weak_form = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3], name="parabolic_robin_{}".format(param))
+    return weak_form, created_base_labels
 
 
 def create_dir(dir_name):
