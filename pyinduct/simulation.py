@@ -75,6 +75,10 @@ class Domain(object):
     def bounds(self):
         return self._limits
 
+    @property
+    def points(self):
+        return self._values
+
 
 class SimulationInput(object, metaclass=ABCMeta):
     """

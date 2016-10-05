@@ -949,10 +949,10 @@ def project_on_base(function, base):
         raise TypeError("Only pyinduct.core.Base accepted as base")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2, np.array([function]), base.fractions).flatten()
+    projections = calculate_scalar_product_matrix(dot_product_l2, Base(function), base).flatten()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base.fractions, base.fractions)
+    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
 
     return np.dot(np.linalg.inv(scale_mat), projections)
 
@@ -1014,9 +1014,7 @@ def project_weights(projection_matrix, src_weights):
     Return:
         :py:class:`numpy.ndarray`: weights in the target basis; dimension (1, n)
     """
-    if isinstance(src_weights, Number):
-        src_weights = np.asarray([src_weights])
-
+    src_weights = sanitize_input(src_weights, Number)
     return np.dot(projection_matrix, src_weights)
 
 
@@ -1172,21 +1170,15 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
     """
-    src_base = sanitize_input(src_base, BaseFraction)
-    dst_base = sanitize_input(dst_base, BaseFraction)
-
-    if not hasattr(src_base[0], "scalar_product_hint"):
-        raise TypeError("Input type not supported.")
-
     # compute P and Q matrices, where P = Sum(P_n) and Q = Sum(Q_n)
-    s_hints = src_base[0].scalar_product_hint()
-    d_hints = dst_base[0].scalar_product_hint()
+    s_hints = src_base.scalar_product_hint()
+    d_hints = dst_base.scalar_product_hint()
 
     p_matrices = []
     q_matrices = []
     for idx, (s_hint, d_hint) in enumerate(zip(s_hints, d_hints)):
-        dst_members = np.array([dst_frac.get_member(idx) for dst_frac in dst_base])
-        src_members = np.array([src_frac.get_member(idx) for src_frac in src_base])
+        dst_members = Base([dst_frac.get_member(idx) for dst_frac in dst_base.fractions])
+        src_members = Base([src_frac.get_member(idx) for src_frac in src_base.fractions])
 
         # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
         p_matrices.append(calculate_scalar_product_matrix(s_hint, dst_members, src_members))
