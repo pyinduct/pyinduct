@@ -867,7 +867,7 @@ def create_state_space(canonical_equations):
     return dom_ss
 
 
-def parse_weak_formulation(weak_form):
+def parse_weak_formulation(weak_form, finalize=True):
     """
     Parses a :py:class:`WeakFormulation` that has been derived by projecting a partial differential equation an a set
         of test-functions. Within this process, the separating approximation :math:`x^n(z, t) = ` is plugged into the
@@ -876,6 +876,7 @@ def parse_weak_formulation(weak_form):
 
     Args:
         weak_form: Weak formulation of the pde.
+        finalize (bool): finalize the generated CanonicalEquation. see :py:method:`CanonicalEquation.finalize()`
 
     Return:
         :py:class:`CanonicalEquation`: The spatially approximated equation in a canonical form.
@@ -908,7 +909,7 @@ def parse_weak_formulation(weak_form):
             exponent = field_var.data["exponent"]
             term_info = dict(name="E", order=temp_order, exponent=exponent)
             base = get_base(field_var.data["func_lbl"]).derive(field_var.order[1])
-            shape_funcs = base.raise_to(exponent).fractions
+            shape_funcs = base.raise_to(exponent)
 
             if placeholders["inputs"]:
                 # TODO think about this case, is it relevant?
@@ -920,11 +921,12 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
+                test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1])
                 result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
             else:
                 # extract constant term and compute integral
-                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in shape_funcs]))
+                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
+                                           for func in shape_funcs.fractions]))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
@@ -957,12 +959,11 @@ def parse_weak_formulation(weak_form):
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
-                                       for func in test_funcs]))
+                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
 
                 # cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
-                ce.add_to(weight_label=None, term=get_common_target(placeholders["scalars"]), val=result * term.scale)
+                ce.add_to(weight_label=a.target_form, term=get_common_target(placeholders["scalars"]), val=result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -1017,8 +1018,9 @@ def parse_weak_formulation(weak_form):
             ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
             continue
 
-    # inform object that the parsing process is complete
-    ce.finalize()
+    if finalize:
+        # inform object that the parsing process is complete
+        ce.finalize()
     return ce
 
 

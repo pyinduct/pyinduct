@@ -45,8 +45,8 @@ class CureTestCase(unittest.TestCase):
         dz = pi.Domain((0, 1), step=.001)
         dt = pi.Domain((0, 0), num=1)
 
-        nodes, funcs = pi.cure_interval(cls, dz.bounds, node_count=11)
-        pi.register_base("test", funcs, overwrite=True)
+        nodes, base = pi.cure_interval(cls, dz.bounds, node_count=11)
+        pi.register_base("test", base)
 
         # approx_func = pi.Function(np.cos, domain=dz.bounds,
         #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
@@ -60,7 +60,7 @@ class CureTestCase(unittest.TestCase):
 
         if show_plots:
             # plot shapefunctions
-            c_map = create_colormap(len(funcs))
+            c_map = create_colormap(len(base.fractions))
             pw = pg.plot(title="{}-Test".format(cls.__name__))
             pw.addLegend()
             pw.showGrid(x=True, y=True, alpha=0.5)
@@ -69,7 +69,7 @@ class CureTestCase(unittest.TestCase):
                                         weights[idx] * func.derive(der_order)(dz),
                                         pen=pg.mkPen(color=c_map[idx]),
                                         name="{}.{}".format(cls.__name__, idx)))
-             for idx, func in enumerate(funcs)]
+             for idx, func in enumerate(base.fractions)]
 
             # plot hull curve
             pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :],
@@ -114,8 +114,8 @@ class NthOrderCureTestCase(unittest.TestCase):
 
         for order in orders:
             num_nodes = 1 + (1 + conf) * order
-            nodes, funcs = pi.cure_interval(sh.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
-            pi.register_base("test", funcs, overwrite=True)
+            nodes, base = pi.cure_interval(sh.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
+            pi.register_base("test", base)
             weights = approx_func(nodes)
 
             for der_order in derivatives[order]:
@@ -128,7 +128,7 @@ class NthOrderCureTestCase(unittest.TestCase):
                     hull_show = pi.evaluate_approximation("test", np.atleast_2d(weights),
                                                           temp_domain=dt, spat_domain=dz, spat_order=der_order)
                     # plot shapefunctions
-                    c_map = create_colormap(len(funcs))
+                    c_map = create_colormap(len(base.fractions))
                     win = pg.GraphicsWindow(title="Debug window")
                     win.resize(1500, 600)
                     pw1 = win.addPlot()
@@ -139,7 +139,7 @@ class NthOrderCureTestCase(unittest.TestCase):
                                                                                              der_order))
                     pw2.showGrid(x=True, y=True, alpha=0.5)
 
-                    for idx, func in enumerate(funcs):
+                    for idx, func in enumerate(base.fractions):
                         pw1.addItem(pg.PlotDataItem(np.array(dz),
                                                     weights[idx] * func.derive(der_order)(dz),
                                                     pen=pg.mkPen(color=c_map[idx]),

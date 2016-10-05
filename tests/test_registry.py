@@ -62,13 +62,7 @@ class RegistryTests(unittest.TestCase):
 
         # base should be identical with local copy
         self.assertTrue(np.array_equal(get_base("test_base"), self.double_base))  # order should default to 0
-        self.assertTrue(np.array_equal(get_base("test_base", order=0), self.double_base))
-
-        # getting the first derivative should work
-        b = get_base("test_base", 1)
-
-        # getting the second derivative should raise an error
-        b = self.assertRaises(ValueError, get_base, "test_base", 2)
+        self.assertTrue(np.array_equal(get_base("test_base"), self.double_base))
 
     def tearDown(self):
         if is_registered("test_base"):
