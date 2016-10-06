@@ -155,8 +155,7 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(np.sin(np.array(range(100))) ** 2,
-                                       g2(np.array(range(100)))))
+        self.assertTrue(np.array_equal(np.sin(np.array(range(100))) ** 2, g2(np.array(range(100)))))
         self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_call(self):
@@ -266,23 +265,20 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         # run the non optimized code
         """
         # symmetrical
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
-                                                   self.initial_functions1, self.initial_functions1,
-                                                   optimize=self.optimization)
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions1,
+                                                   self.initial_functions1, optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect1
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
-                                                   self.initial_functions2, self.initial_functions1,
-                                                   optimize=self.optimization)
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions2,
+                                                   self.initial_functions1, optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect2
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2,
-                                                   self.initial_functions1, self.initial_functions2,
-                                                   optimize=self.optimization)
+        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions1,
+                                                   self.initial_functions2, optimize=self.optimization)
         # print(mat)
         # print()
 
@@ -308,11 +304,8 @@ class ProjectionTest(unittest.TestCase):
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)  # because we are smarter
-        self.funcs = [core.Function(lambda x: 2),
-                      core.Function(lambda x: 2 * x),
-                      core.Function(lambda x: x ** 2),
-                      core.Function(lambda x: np.sin(x))
-                      ]
+        self.funcs = [core.Function(lambda x: 2), core.Function(lambda x: 2 * x), core.Function(lambda x: x ** 2),
+                      core.Function(lambda x: np.sin(x))]
         self.funcs[1](10)
         self.real_values = [func(self.z_values) for func in self.funcs]
 

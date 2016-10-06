@@ -531,8 +531,8 @@ class CanonicalForm(object):
             # include highest order for system input
             max_order += 1
 
-        blocks = (np.dot(product_mat, self._matrices[entry].get(order, {}).get(power, np.zeros(entry_shape)))
-                  for order in range(max_order))
+        blocks = (np.dot(product_mat, self._matrices[entry].get(order, {}).get(power, np.zeros(entry_shape))) for order
+                  in range(max_order))
         return np.hstack(blocks)
 
 

@@ -107,10 +107,8 @@ def _parse_control_law(law):
     cfs = CanonicalForms(law.name)
 
     for term in law.terms:
-        placeholders = dict([
-            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
-            ("scalars", term.arg.get_arg_by_class(Scalars)),
-        ])
+        placeholders = dict([("field_variables", term.arg.get_arg_by_class(FieldVariable)),
+            ("scalars", term.arg.get_arg_by_class(Scalars)), ])
         if placeholders["field_variables"]:
             field_var = placeholders["field_variables"][0]
             temp_order = field_var.order[0]

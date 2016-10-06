@@ -430,8 +430,8 @@ class MplSlicePlot(PgDataPlot):
 
         # TODO: move to ut.EvalData
         len_data = len(self._data)
-        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data)
-                        for eval_data in eval_data_list]
+        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data) for
+                        eval_data in eval_data_list]
 
         if time_point is None:
             slice_input = [data_set.input_data[0] for data_set in self._data]

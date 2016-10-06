@@ -922,8 +922,8 @@ class TransformationInfo:
         return hash((self.src_lbl, self.dst_lbl, self.src_order, self.dst_order))
 
     def __eq__(self, other):
-        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == \
-               (other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
+        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == (
+        other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
 
 
 def get_weight_transformation(info):
@@ -1020,8 +1020,9 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
 
     # build block matrix
     part_transformation = block_diag(*[core_transformation for i in range(dst_order + 1)])
-    complete_transformation = np.hstack([part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size))
-                                                                 for i in range(src_order - dst_order)])
+    complete_transformation = np.hstack(
+        [part_transformation] + [np.zeros((part_transformation.shape[0], src_base.size)) for i in
+                                 range(src_order - dst_order)])
     return complete_transformation
 
 

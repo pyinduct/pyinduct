@@ -4,9 +4,7 @@ import unittest
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pyinduct import core as cr, \
-    utils as ut, \
-    eigenfunctions as ef
+from pyinduct import core as cr, utils as ut, eigenfunctions as ef
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
