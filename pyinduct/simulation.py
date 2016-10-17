@@ -471,7 +471,7 @@ class CanonicalForm(object):
 
         # get entry
         if term["name"] == "f":
-            if "order" in term or "exponent" in term:
+            if ("order" in term) or ("exponent" in term and term["exponent"] is not 0):
                 warnings.warn("order and exponent are ignored for f_vector!")
             f_vector = self.matrices.get("f", np.zeros_like(value))
             self.matrices["f"] = value + f_vector
@@ -830,7 +830,7 @@ def create_state_space(canonical_equations):
         new_base = StackedBase(members)
         register_base(new_name, new_base)
 
-    # build new state transition matrices A_p where p is the power
+    # build new state transition matrices A_p_k for corresponding powers p_k of the state vector
     a_matrices = {}
     for p in state_space_props.powers:
         a_mat = np.zeros((state_space_props.size, state_space_props.size))
@@ -933,7 +933,6 @@ def parse_weak_formulation(weak_form, finalize=True):
             shape_funcs = base.raise_to(exponent)
 
             if placeholders["inputs"]:
-                # TODO think about this case, is it relevant?
                 # essentially, this means that parts of the state-transition matrix will be time dependent
                 raise NotImplementedError
 
@@ -956,12 +955,10 @@ def parse_weak_formulation(weak_form, finalize=True):
 
                 result = _compute_product_of_scalars([a, b])
 
-            # cf.weights = field_var.data["weight_lbl"]
-            # cf.add_to(term_info, result * term.scale)
             ce.add_to(weight_label=field_var.data["weight_lbl"], term=term_info, val=result * term.scale)
             continue
 
-        # TestFunction or pre evaluated terms, those can end up in E, f or G
+        # TestFunctions or pre evaluated terms, those can end up in E, f or G
         if placeholders["functions"]:
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
@@ -983,8 +980,9 @@ def parse_weak_formulation(weak_form, finalize=True):
                 b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
 
-                # cf.add_to(get_common_target(placeholders["scalars"]), result * term.scale)
-                ce.add_to(weight_label=a.target_form, term=get_common_target(placeholders["scalars"]), val=result * term.scale)
+                ce.add_to(weight_label=a.target_form,
+                          term=get_common_target(placeholders["scalars"]),
+                          val=result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -999,10 +997,7 @@ def parse_weak_formulation(weak_form, finalize=True):
 
                 result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
 
-                # cf.add_to(term_info, result * term.scale,
-                #           column=input_index)
-                # cf.input_function = input_func
-                ce.add_to(weight_label=None, term=term_info, val=result * term.scale)
+                ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
                 ce.input_function = input_func
                 continue
 
@@ -1026,22 +1021,20 @@ def parse_weak_formulation(weak_form, finalize=True):
 
                 if target["name"] == "E":
                     # this would mean that the input term should appear in a matrix like E1 or E2
+                    # the result would be a time dependant sate transition matrix
                     raise NotImplementedError
 
-                # cf.add_to(term_info, result * term.scale,
-                #           column=input_index)
-                # cf.input_function = input_func
                 ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
                 ce.input_function = input_func
                 continue
 
-            # cf.add_to(target, result * term.scale)
             ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
             continue
 
+    # inform object that the parsing process is complete
     if finalize:
-        # inform object that the parsing process is complete
         ce.finalize()
+
     return ce
 
 

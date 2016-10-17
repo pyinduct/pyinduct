@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 from pickle import dump
 
+import pyinduct as pi
 from pyinduct import \
     registry as reg, \
     eigenfunctions as ef, \
@@ -133,10 +134,10 @@ class CanonicalFormTest(unittest.TestCase):
 
         f = np.atleast_2d(np.array(range(5))).T
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), f)
-        self.cf.add_to(dict(name="f", order=None, exponent=None), f)
+        self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], f))
         # try to add something with derivative or exponent to f: value should end up in f
-        self.cf.add_to(dict(name="f", order=None, exponent=None), f)
+        self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], 2 * f))
 
         c = np.atleast_2d(np.array(range(5))).T
@@ -164,10 +165,9 @@ class ParseTest(unittest.TestCase):
         self.input_squared = ph.Input(self.u, exponent=2)
 
         # scale function
-        reg.register_base("heavi", cr.Base(cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1))))
+        reg.register_base("heavyside", cr.Base(cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1))))
 
-        nodes, self.test_base = sf.cure_interval(sf.LagrangeFirstOrder,
-                                                 (0, 1), node_count=3)
+        nodes, self.test_base = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
         reg.register_base("test_base", self.test_base, overwrite=True)
 
         # TestFunctions
@@ -203,7 +203,7 @@ class ParseTest(unittest.TestCase):
         self.input_term3 = ph.IntegralTerm(ph.Product(self.phi, self.input), (0, 1))
         self.input_term3_swapped = ph.IntegralTerm(ph.Product(self.input, self.phi), (0, 1))
         self.input_term3_scaled = ph.IntegralTerm(
-            ph.Product(ph.Product(ph.ScalarFunction("heavi"), self.phi), self.input), (0, 1))
+            ph.Product(ph.Product(ph.ScalarFunction("heavyside"), self.phi), self.input), (0, 1))
 
         # same goes for field variables
         self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
@@ -398,7 +398,7 @@ class ParseTest(unittest.TestCase):
                           sim.WeakFormulation([self.alternating_weights_term, self.field_int], name=""))
 
     def tearDown(self):
-        reg.deregister_base("heavi")
+        reg.deregister_base("heavyside")
         reg.deregister_base("test_base")
 
 
