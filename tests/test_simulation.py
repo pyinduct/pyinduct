@@ -81,7 +81,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace({1: a}, {1: b}, input_handle=u)
+        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
@@ -124,7 +124,7 @@ class CanonicalFormTest(unittest.TestCase):
         self.cf.add_to(dict(name="E", order=0, exponent=1), a)
         self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], a))
         self.cf.add_to(dict(name="E", order=0, exponent=1), 5 * a)
-        self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], 6*a))
+        self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], 6 * a))
 
         b = np.eye(10)
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), b)
@@ -137,7 +137,7 @@ class CanonicalFormTest(unittest.TestCase):
         self.assertTrue(np.array_equal(self.cf.matrices["f"], f))
         # try to add something with derivative or exponent to f: value should end up in f
         self.cf.add_to(dict(name="f", order=None, exponent=None), f)
-        self.assertTrue(np.array_equal(self.cf.matrices["f"], 2*f))
+        self.assertTrue(np.array_equal(self.cf.matrices["f"], 2 * f))
 
         c = np.atleast_2d(np.array(range(5))).T
         # that one should be easy

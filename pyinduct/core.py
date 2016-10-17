@@ -169,17 +169,17 @@ class Base:
         if target is False:
             raise NotImplementedError
 
-        cls = info.src_base[0].__class__ if target else info.dst_base[0].__class__
+        cls = info.src_base.__class__ if target else info.dst_base.__class__
         if cls == self.__class__:
             return self._transformation_factory(info), None
         else:
             # No Idea what to do.
-            msg = "This is {1} speaking, \n" \
-                  "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n" \
-                  "furthermore the source derivative order is {4} and the target one is {4}. \n" \
-                  "But this is a dumb method so implement your own hint to make things work!".format(
-                  info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
-                  info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
+            msg = ("This is {1} speaking, \n"
+                   + "You requested information about how to transform to '{0}'({1}) from '{2}'({3}), \n"
+                   + "furthermore the source derivative order is {4} and the target one is {4}. \n"
+                   + "But this is a dumb method so implement your own hint to make things work!").format(
+                info.dst_lbl, self.__class__.__name__, info.src_lbl, info.src_base[0].__class__.__name__,
+                info.dst_base[0].__class__.__name__, info.src_order, info.dst_order)
             raise NotImplementedError(msg)
 
     def scalar_product_hint(self):
@@ -1075,7 +1075,7 @@ def get_weight_transformation(info):
         return identity
 
     # try to get help from the destination base
-    handle, hint = info.dst_base[0].transformation_hint(info, True)
+    handle, hint = info.dst_base.transformation_hint(info, True)
     # if handle is None:
     #     # try source instead
     #     handle, hint = info.src_base[0].transformation_hint(info, False)

@@ -173,7 +173,7 @@ class SimulationInputSum(SimulationInput):
 
 
 class WeakFormulation(object):
-    """
+    r"""
     This class represents the weak formulation of a spatial problem.
     It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
     The equation is interpreted as
@@ -191,27 +191,27 @@ class WeakFormulation(object):
 
 
 class StateSpace(object):
-    """
+    r"""
     Wrapper class that represents the state space form of a dynamic system where
 
     .. math::
-        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) \\\\
-        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
+        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t) \\
+        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
 
     which has been approximated by projection on a base given by weight_label.
 
     Args:
-        a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
-        b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
-        input_handle: :math:`u(t)`
-        f_vector:
-        c_matrix: :math:`\\boldsymbol{C}`
-        d_matrix: :math:`\\boldsymbol{D}`
+        a_matrices (dict): State transition matrices :math:`\boldsymbol{A}_{p_k}`
+            for the corresponding powers of :math:`\boldsymbol{x}`
+        b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
+            temporal derivative order, exponent .
+        input_handle:  function handle, returning the system input :math:`u(t)`
+        c_matrix: :math:`\boldsymbol{C}`
+        d_matrix: :math:`\boldsymbol{D}`
     """
 
-    def __init__(self, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None, d_matrix=None,
-                 base_lbl=None):
-        self.f = f_vector
+    def __init__(self, a_matrices, b_matrices, input_handle=None, c_matrix=None, d_matrix=None, base_lbl=None):
         self.C = c_matrix
         self.D = d_matrix
         self.base_lbl = base_lbl
@@ -221,6 +221,9 @@ class StateSpace(object):
             self.A = {1: a_matrices}
         else:
             self.A = a_matrices
+        if 0 not in self.A:
+            # this is the constant term aka the f-vector
+            self.A[0] = np.zeros((self.A[1].shape[0], ))
 
         # optional
         if isinstance(b_matrices, np.ndarray):
@@ -233,8 +236,6 @@ class StateSpace(object):
         available_power = 1
         if self.B is None:
             self.B = {available_power: np.zeros((self.A[available_power].shape[0], available_power))}
-        if self.f is None:
-            self.f = np.zeros((self.A[available_power].shape[0],))
         if self.C is None:
             self.C = np.zeros((available_power, self.A[available_power].shape[1]))
         if self.D is None:
@@ -249,7 +250,17 @@ class StateSpace(object):
 
     # TODO export cython code?
     def rhs(self, _t, _q):
-        q_t = self.f
+        r"""
+        Callback for the integration of the dynamic system, described by this object.
+
+        Args:
+            _t (float): timestamp
+            _q (array): weight vector
+
+        Returns:
+            (array): :math:`\boldsymbol{\dot{x}}(t)`
+        """
+        q_t = self.A[0]
         for p, a_mat in self.A.items():
             q_t = q_t + a_mat @ np.power(_q, p)
 
@@ -384,7 +395,7 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
 
 class CanonicalForm(object):
     """
-    The canonical form of an ordinary differential equation system of order n.
+    The canonical form of an nth order ordinary differential equation system.
     """
 
     def __init__(self, name=None):
@@ -546,7 +557,7 @@ class CanonicalForm(object):
         Convert the canonical ode system of order n a into an ode system of order 1.
 
         Note:
-            This will only work if the highest derivative order of the given can be isolated. This is the case if
+            This will only work if the highest derivative order of the given form can be isolated. This is the case if
             the highest order is only present in one power and the equation system can therefore be solved for it.
 
         Return:
@@ -611,8 +622,12 @@ class CanonicalForm(object):
 
 class CanonicalEquation(object):
     """
-    Wrapper object that holds several entities of canonical forms for different weight-sets that form an equation when
+    Wrapper object, holding several entities of canonical forms for different weight-sets that form an equation when
     summed up.
+    After instantiation, this object can be filled with information by passing the corresponding coefficients to
+    :py:func:`add_to` . When the parsing process is completed and all coefficients have been collected, calling
+    :py:func:`finalize` is required to compute all necessary information for further processing.
+    When finalized, this object provides access to the dominant form of this equation.
     """
 
     def __init__(self, name):
@@ -625,7 +640,7 @@ class CanonicalEquation(object):
     def add_to(self, weight_label, term, val, column=None):
         """
         Add the provided *val* to the canonical form for *weight_label*, see :py:func:`CanonicalForm.add_to` for further
-         information.
+        information.
 
         Args:
             weight_label (str): Basis to add onto.
@@ -652,12 +667,12 @@ class CanonicalEquation(object):
     def finalize(self):
         """
         Finalize the Object.
-            After the complete formulation has been parsed ans all terms have been sorted into this Object via
-            :py:func:`add_to` this function has to be called to inform this object about it.
-            When invoked, the :py:class:`CanonicalForm` that holds the highest temporal derivative order will be marked
-            as dominant and can be accessed via :py:attr:`dominant_form`.
-            Furthermore, the f and G parts of the static_form will be copied to the dominant form for easier
-            state-space transformation.
+        After the complete formulation has been parsed and all terms have been sorted into this Object via
+        :py:func:`add_to` this function has to be called to inform this object about it.
+        When invoked, the :py:class:`CanonicalForm` that holds the highest temporal derivative order will be marked
+        as dominant and can be accessed via :py:attr:`dominant_form`.
+        Furthermore, the f and G parts of the static_form will be copied to the dominant form for easier
+        state-space transformation.
 
         Raises:
             RuntimeError: If two different forms provide the highest derivative orders
@@ -692,6 +707,10 @@ class CanonicalEquation(object):
 
     @property
     def static_form(self):
+        """
+        :py:class:`WeakForm` that does not depend on any weights.
+        :return:
+        """
         return self._static_form
 
     @property
@@ -725,6 +744,9 @@ class CanonicalEquation(object):
 
     @property
     def input_function(self):
+        """
+        The input handle for the equation.
+        """
         return self._static_form.input_function
 
     @input_function.setter
@@ -801,7 +823,7 @@ def create_state_space(canonical_equations):
 
     # build new basis by concatenating the dominant bases of every equation
     if len(canonical_equations) == 1:
-        new_name = next(iter(canonical_equations.keys()))
+        new_name = next(iter(canonical_equations.values())).dominant_lbl
     else:
         members = [state_space_props.parts.keys()]
         new_name = "_".join(members.keys())
@@ -863,7 +885,7 @@ def create_state_space(canonical_equations):
     # TOD0 f_vector
     f_vector = None
 
-    dom_ss = StateSpace(a_matrices, b_matrices, input_handle=state_space_props.input, f_vector=None)
+    dom_ss = StateSpace(a_matrices, b_matrices, input_handle=state_space_props.input, base_lbl=new_name)
     return dom_ss
 
 
@@ -876,7 +898,7 @@ def parse_weak_formulation(weak_form, finalize=True):
 
     Args:
         weak_form: Weak formulation of the pde.
-        finalize (bool): finalize the generated CanonicalEquation. see :py:method:`CanonicalEquation.finalize()`
+        finalize (bool): finalize the generated CanonicalEquation. see :py:func:`CanonicalEquation.finalize()`
 
     Return:
         :py:class:`CanonicalEquation`: The spatially approximated equation in a canonical form.
@@ -885,7 +907,6 @@ def parse_weak_formulation(weak_form, finalize=True):
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("Only able to parse WeakFormulation")
 
-    # cf = CanonicalForm(weak_form.name)
     ce = CanonicalEquation(weak_form.name)
 
     # handle each term

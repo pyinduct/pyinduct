@@ -1,3 +1,4 @@
+import pyinduct as pi
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
@@ -50,23 +51,23 @@ T = 1
 actuation_type = 'robin'
 bound_cond_type = 'robin'
 spatial_domain = sim.Domain(bounds=(0, l), num=n_fem)
-temporal_domain = sim.Domain(bounds=(0, 1), num=1e2)
+temporal_domain = sim.Domain(bounds=(0, 1), num=100)
 n = n_modal
 
 # create (not normalized) eigenfunctions
 eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
-init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds) for om in eig_freq])
-init_adjoint_eig_funcs = np.array(
-    [ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds) for om in eig_freq])
+init_eig_funcs = pi.Base([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds) for om in eig_freq])
+init_adjoint_eig_funcs = pi.Base([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds)
+                                  for om in eig_freq])
 
 # normalize eigenfunctions and adjoint eigenfunctions
 eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions from target system ("_t")
 eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
-eig_funcs_t = np.array(
-    [ef.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, spatial_domain.bounds).scale(eig_funcs[i](0))
-     for i in range(n)])
+eig_funcs_t = pi.Base(
+    [ef.SecondOrderRobinEigenfunction(eig_freq_t[idx], param_t, spatial_domain.bounds).scale(func(0))
+     for idx, func in enumerate(eig_funcs.fractions)])
 
 # create fem test functions
 nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
@@ -74,10 +75,10 @@ nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
                                     node_count=len(spatial_domain))
 
 # register eigenfunctions
-re.register_base("eig_funcs", eig_funcs, overwrite=True)
-re.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-re.register_base("eig_funcs_t", eig_funcs_t, overwrite=True)
-re.register_base("fem_funcs", fem_funcs, overwrite=True)
+re.register_base("eig_funcs", eig_funcs)
+re.register_base("adjoint_eig_funcs", adjoint_eig_funcs)
+re.register_base("eig_funcs_t", eig_funcs_t)
+re.register_base("fem_funcs", fem_funcs)
 
 # original () and target (_t) field variable
 fem_field_variable = ph.FieldVariable("fem_funcs", location=l)
@@ -100,6 +101,7 @@ def transform_ti(z):
     """
     return np.exp(a1_t / 2 / a2 * z)  # x_ti = x_t * transform_ti
 
+
 # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
 x_fem_i_at_l = [ph.ScalarTerm(fem_field_variable, transform_i(l))]
 x_i_at_l = [ph.ScalarTerm(field_variable, transform_i(l))]
@@ -113,6 +115,7 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, transform_ti(l)),
 # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
 def int_kernel_zz(z):
     return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
+
 
 # init trajectory
 traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)
@@ -130,11 +133,16 @@ controller = ut.get_parabolic_robin_backstepping_controller(state=x_i_at_l,
                                                             scale=transform_i(-l))
 
 # determine (A,B)
-rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)
-cf = sim.parse_weak_formulation(rad_pde)
-ss_weak = cf.convert_to_state_space()
+rad_pde, base_lbls = pi.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)
+ce = pi.parse_weak_formulation(rad_pde)
+ss_weak = pi.create_state_space(ce)
+
 # simulate
 t, q = sim.simulate_state_space(ss_weak, init_profile * np.ones(n_fem), temporal_domain)
+
+# deregister created bases
+for lbl in base_lbls:
+    pi.deregister_base(lbl)
 
 # evaluate desired output data
 y_d, t_d = tr.gevrey_tanh(T, 80)

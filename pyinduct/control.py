@@ -210,10 +210,11 @@ class LawEvaluator(object):
                 info = cr.TransformationInfo()
                 info.src_lbl = weight_label
                 info.dst_lbl = lbl
-                info.src_base = rg.get_base(weight_label, 0)
-                info.dst_base = rg.get_base(lbl, 0)
-                info.src_order = int(weights.size / info.src_base.size) - 1
-                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
+                info.src_base = rg.get_base(weight_label)
+                info.dst_base = rg.get_base(lbl)
+                info.src_order = int(weights.size / info.src_base.fractions.size) - 1
+                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size
+                                     / info.dst_base.fractions.size) - 1
 
                 # look up transformation
                 if info not in self._transformations.keys():
