@@ -235,7 +235,7 @@ class StateSpace(object):
         # TODO calculate available order
         available_power = 1
         if self.B is None:
-            self.B = {available_power: np.zeros((self.A[available_power].shape[0], available_power))}
+            self.B = {0: {available_power: np.zeros((self.A[available_power].shape[0], available_power))}}
         if self.C is None:
             self.C = np.zeros((available_power, self.A[available_power].shape[1]))
         if self.D is None:
@@ -296,7 +296,7 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
 
     Args:
         weak_forms ((list of) :py:class:`WeakFormulation`): (list of) Weak formulation(s) of the system(s) to simulate.
-        initial_states (numpy.ndarray): Array of core.Functions for
+        initial_states (dict, numpy.ndarray): Array of core.Functions for
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
         temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
         spatial_domains ((list of) :py:class:`Domain`): Domain object(s) holding information for spatial evaluation.
@@ -413,6 +413,7 @@ class CanonicalForm(object):
         self.dim_xb = None
         self.e_n_pb = None
         self.e_n_pb_inv = None
+        self.singular = True
 
     # @staticmethod
     # def _build_name(term):
@@ -529,12 +530,14 @@ class CanonicalForm(object):
             raise NotImplementedError
 
         self.e_n_pb = self.matrices["E"][self.max_temp_order][pb]
+        self.dim_x = self.e_n_pb.shape[0]  # length of the weight vector
         rank_e_n_pb = np.linalg.matrix_rank(self.e_n_pb)
         if rank_e_n_pb != max(self.e_n_pb.shape) or self.e_n_pb.shape[0] != self.e_n_pb.shape[1]:
-            raise ValueError("singular matrix provided")
-
-        self.dim_x = self.e_n_pb.shape[0]  # length of the weight vector
-        self.e_n_pb_inv = np.linalg.inv(self.e_n_pb)
+            # this form cannot be used as dominant form
+            self.singular = True
+        else:
+            self.singular = False
+            self.e_n_pb_inv = np.linalg.inv(self.e_n_pb)
 
         self.dim_xb = self.max_temp_order * self.dim_x  # dimension of the new system
 
@@ -697,6 +700,8 @@ class CanonicalEquation(object):
             raise ValueError("Highest derivative order cannot be isolated.")
 
         self.dominant_lbl = next((label for label, order in highest_dict.items() if order == max_order), None)
+        if self.dynamic_forms[self.dominant_lbl].singular:
+            raise ValueError("The form that has to be chosen is singular.")
 
         # copy static terms to dominant form to transform them correctly
         for letter in "fG":
@@ -818,16 +823,17 @@ def create_state_space(canonical_equations):
         if state_space_props.input is None:
             state_space_props.input = eq.input_function
         else:
-            if state_space_props.input != eq.input:
+            if eq.input_function is not None and state_space_props.input != eq.input_function:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
     if len(canonical_equations) == 1:
         new_name = next(iter(canonical_equations.values())).dominant_lbl
     else:
-        members = [state_space_props.parts.keys()]
-        new_name = "_".join(members.keys())
-        new_base = StackedBase(members)
+        members = state_space_props.parts.keys()
+        new_name = "_".join(members)
+        fracs = [frac for lbl in members for frac in get_base(lbl).fractions]
+        new_base = StackedBase(fracs, state_space_props.parts)
         register_base(new_name, new_base)
 
     # build new state transition matrices A_p_k for corresponding powers p_k of the state vector
@@ -844,8 +850,9 @@ def create_state_space(canonical_equations):
             col_idx = 0
             for col_name, col_eq in canonical_equations.items():
                 col_dom_lbl = col_eq.dominant_lbl
+
+                # main diagonal
                 if col_name == row_name:
-                    # main diagonal
                     if row_dom_sys_mat is None:
                         # nothing to do for this power
                         continue
@@ -854,7 +861,11 @@ def create_state_space(canonical_equations):
                     continue
 
                 # coupling terms
-                for order, mats in row_eq.dynamic_forms[col_dom_lbl]["E"].items():
+                if col_dom_lbl not in row_eq.dynamic_forms:
+                    # if there are no coupling terms, proceed
+                    continue
+
+                for order, mats in row_eq.dynamic_forms[col_dom_lbl].matrices["E"].items():
                     orig_mat = mats.get(p, None)
                     if orig_mat is None:
                         # nothing to do for this power

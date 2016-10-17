@@ -539,9 +539,9 @@ class StackedBase(Base):
         fractions (dict): Dictionary with base_label and corresponding function
     """
 
-    def __init__(self, fractions, info):
-        super().__init__(OrderedDict(**fractions))
-        self._info = info
+    def __init__(self, fractions, base_info):
+        super().__init__(fractions)
+        self._info = base_info
 
     def scalar_product_hint(self):
         return [dot_product_l2 for k in self.members.keys()]
