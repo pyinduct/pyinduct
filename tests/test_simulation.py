@@ -959,7 +959,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         self.assertLess(np.abs(self.base_1.fractions[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
 
     def test_rr_const_trajectory(self):
-        """ check if simulation interface call tr.ConstantTrajectory properly """
+        # TODO if it is only testing ConstantTrajectory should it better be moved to test_visualization ?
         # const trajectory simulation call test
         u = tr.ConstantTrajectory(1)
 
