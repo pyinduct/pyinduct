@@ -678,7 +678,7 @@ class StringMassTest(unittest.TestCase):
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
 
         # simulate
-        eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, derivative_orders=(2, 0))
+        eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, derivative_orders=(1, 0))
 
         # display results
         if show_plots:
@@ -770,7 +770,7 @@ class MultiplePDETest(unittest.TestCase):
 
     def test_single_system(self):
         results = pi.simulate_system(self.weak_form_1, self.ic1, self.dt, self.dz1)
-        vis = pi.PgAnimatedPlot(results)
+        win = pi.PgAnimatedPlot(results)
         if show_plots:
             app.exec_()
 
@@ -784,7 +784,7 @@ class MultiplePDETest(unittest.TestCase):
         derivatives = {self.weak_form_1.name: (0, 0), self.weak_form_2.name: (0, 0)}
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
-        vis = pi.PgAnimatedPlot(res)
+        win = pi.PgAnimatedPlot(res)
 
         if show_plots:
             app.exec_()
@@ -805,7 +805,7 @@ class MultiplePDETest(unittest.TestCase):
                        self.weak_form_3.name: (0, 0)}
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
-        vis = pi.PgAnimatedPlot(res)
+        win = pi.PgAnimatedPlot(res)
 
         if show_plots:
             app.exec_()

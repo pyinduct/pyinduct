@@ -3,20 +3,21 @@ Simulation infrastructure with helpers and data structures for preprocessing of 
 and functions for postprocessing of simulation data.
 """
 
-from abc import ABCMeta, abstractmethod
-from collections import Iterable, OrderedDict
-from copy import copy
 import warnings
-import numpy as np
+from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
+from copy import copy
 from itertools import chain
-from scipy.linalg import block_diag
-from scipy.interpolate import interp1d
-from scipy.integrate import ode
 
-from .registry import get_base, is_registered, register_base
+import numpy as np
+from scipy.integrate import ode
+from scipy.interpolate import interp1d
+from scipy.linalg import block_diag
+
 from .core import (Function, integrate_function, calculate_scalar_product_matrix, project_on_base, dot_product_l2,
                    sanitize_input, StackedBase, TransformationInfo, get_weight_transformation)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
+from .registry import get_base, register_base
 from .utils import Parameters
 from .visualization import EvalData
 
@@ -225,7 +226,7 @@ class StateSpace(object):
         else:
             self.A = a_matrices
         if 0 not in self.A:
-            # this is the constant term aka the f-vector
+            # this is the constant term (power 0) aka the f-vector
             self.A[0] = np.zeros((self.A[1].shape[0],))
 
         # optional
@@ -276,22 +277,6 @@ class StateSpace(object):
         return q_t
 
 
-# TODO update signature
-# def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
-#     """
-#     Convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters.
-#
-#     Args:
-#         weak_forms (:py:class:`WeakFormulation`):
-#         initial_states:
-#         time_interval:
-#         time_step:
-#         spatial_interval:
-#         spatial_step:
-#     """
-#     return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
-#             weak_forms]
-
 def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, derivative_orders=(0, 0),
                     settings=None):
     """
@@ -325,7 +310,7 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         initial_states (dict, numpy.ndarray): Array of core.Functions for
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
         temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
-        spatial_domains ((list of) :py:class:`Domain`): Domain object(s) holding information for spatial evaluation.
+        spatial_domains (dict) Dict with :py:class:`Domain` objects holding information for spatial evaluation.
         derivative_orders (dict): Dict, containing tuples of derivative orders (time, spat) that shall be
             evaluated additionally as values
         settings: Integrator settings, see :py:func:`simulate_state_space`.
@@ -633,10 +618,12 @@ class CanonicalForm(object):
         else:
             b_matrices = None
 
-        # the f vector
+        # the f vector aka the A matrix corresponding to the power zero
         f_mat = np.zeros((self.dim_xb,))
         if "f" in self.matrices:
             f_mat[-self.dim_x:] = self.matrices["f"]
+
+        a_matrices.update({0: f_mat})
 
         ss = StateSpace(a_matrices, b_matrices, input_handle=self.input_function)
         return ss
@@ -915,9 +902,6 @@ def create_state_space(canonical_equations):
 
                 b_order_mats.update({p: b_power_mat})
             b_matrices.update({order: b_order_mats})
-
-    # TOD0 f_vector
-    f_vector = None
 
     dom_ss = StateSpace(a_matrices, b_matrices, input_handle=state_space_props.input, base_lbl=new_name)
     return dom_ss
