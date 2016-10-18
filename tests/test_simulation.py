@@ -703,8 +703,11 @@ class MultiplePDETest(unittest.TestCase):
     def setUp(self):
         l1 = 1
         l2 = 4
+        l3 = 6
+
         self.dz1 = sim.Domain(bounds=(0, l1), num=100)
         self.dz2 = sim.Domain(bounds=(l1, l2), num=100)
+        self.dz3 = sim.Domain(bounds=(l2, l3), num=100)
 
         t_start = 0
         t_end = 10
@@ -713,6 +716,7 @@ class MultiplePDETest(unittest.TestCase):
 
         v1 = 1
         v2 = 2
+        v3 = 3
 
         def x(z, t):
             """
@@ -723,20 +727,22 @@ class MultiplePDETest(unittest.TestCase):
         # initial conditions
         self.ic1 = np.array([cr.Function(lambda z: x(z, 0))])
         self.ic2 = np.array([cr.Function(lambda z: x(z, 0))])
+        self.ic3 = np.array([cr.Function(lambda z: x(z, 0))])
 
         # weak formulations
-        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=20)
-        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=30)
+        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=3)
+        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=3)
+        nodes3, base3 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz3.bounds, node_count=3)
+
         pi.register_base("base_1", base1)
         pi.register_base("base_2", base2)
+        pi.register_base("base_3", base3)
 
-        x1 = pi.FieldVariable("base_1")
-        psi_1 = pi.TestFunction("base_1")
-        # traj = MonotonousInput(name="u1")
-        # traj = pi.SignalGenerator("square", self.dt)
         traj = AlternatingInput()
         u = pi.Input(traj)
 
+        x1 = pi.FieldVariable("base_1")
+        psi_1 = pi.TestFunction("base_1")
         self.weak_form_1 = pi.WeakFormulation([
             pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi_1), limits=self.dz1.bounds),
             pi.IntegralTerm(pi.Product(x1, psi_1.derive(1)), limits=self.dz1.bounds, scale=-v1),
@@ -753,6 +759,15 @@ class MultiplePDETest(unittest.TestCase):
             pi.ScalarTerm(pi.Product(x2(l2), psi_2(l2)), scale=v2),
         ], name="sys_2")
 
+        x3 = pi.FieldVariable("base_3")
+        psi_3 = pi.TestFunction("base_3")
+        self.weak_form_3 = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(x3.derive(temp_order=1), psi_3), limits=self.dz3.bounds),
+            pi.IntegralTerm(pi.Product(x3, psi_3.derive(1)), limits=self.dz3.bounds, scale=-v3),
+            pi.ScalarTerm(pi.Product(x2(l2), psi_3(l2)), scale=-v3),
+            pi.ScalarTerm(pi.Product(x3(l3), psi_3(l3)), scale=v3),
+        ], name="sys_3")
+
     def test_single_system(self):
         results = pi.simulate_system(self.weak_form_1, self.ic1, self.dt, self.dz1)
         vis = pi.PgAnimatedPlot(results)
@@ -760,6 +775,9 @@ class MultiplePDETest(unittest.TestCase):
             app.exec_()
 
     def test_coupled_system(self):
+        """
+        test the coupled system
+        """
         weak_forms = [self.weak_form_1, self.weak_form_2]
         ics = {self.weak_form_1.name: self.ic1, self.weak_form_2.name: self.ic2}
         spat_domains = {self.weak_form_1.name: self.dz1, self.weak_form_2.name: self.dz2}
@@ -767,8 +785,35 @@ class MultiplePDETest(unittest.TestCase):
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
         vis = pi.PgAnimatedPlot(res)
+
         if show_plots:
             app.exec_()
+
+    def test_triple_system(self):
+        """
+        three coupled systems
+        """
+        weak_forms = [self.weak_form_1, self.weak_form_2, self.weak_form_3]
+        ics = {self.weak_form_1.name: self.ic1,
+               self.weak_form_2.name: self.ic2,
+               self.weak_form_3.name: self.ic3}
+        spat_domains = {self.weak_form_1.name: self.dz1,
+                        self.weak_form_2.name: self.dz2,
+                        self.weak_form_3.name: self.dz3}
+        derivatives = {self.weak_form_1.name: (0, 0),
+                       self.weak_form_2.name: (0, 0),
+                       self.weak_form_3.name: (0, 0)}
+
+        res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
+        vis = pi.PgAnimatedPlot(res)
+
+        if show_plots:
+            app.exec_()
+
+    def tearDown(self):
+        pi.deregister_base("base_1")
+        pi.deregister_base("base_2")
+        pi.deregister_base("base_3")
 
 
 class RadFemTrajectoryTest(unittest.TestCase):

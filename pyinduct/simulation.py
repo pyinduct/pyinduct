@@ -877,35 +877,27 @@ def create_state_space(canonical_equations):
             row_dom_sys_mat = dominant_state_spaces[row_dom_lbl].A.get(p, None)
             row_idx = state_space_props.parts[row_dom_lbl]["start"]
 
-            col_idx = 0
             for col_name, col_eq in canonical_equations.items():
                 col_dom_lbl = col_eq.dominant_lbl
 
                 # main diagonal
                 if col_name == row_name:
-                    if row_dom_sys_mat is None:
-                        # nothing to do for this power
-                        continue
-                    a_mat[row_idx:row_idx + row_dom_dim, row_idx:row_idx + row_dom_dim] = row_dom_sys_mat
-                    col_idx += row_dom_dim
+                    if row_dom_sys_mat is not None:
+                        a_mat[row_idx:row_idx + row_dom_dim, row_idx:row_idx + row_dom_dim] = row_dom_sys_mat
                     continue
 
                 # coupling terms
-                if col_dom_lbl not in row_eq.dynamic_forms:
-                    # if there are no coupling terms, proceed
-                    continue
-
-                for order, mats in row_eq.dynamic_forms[col_dom_lbl].matrices["E"].items():
-                    orig_mat = -mats.get(p, None)  # since it's not the dominant entry, revert sign change
-                    if orig_mat is None:
-                        # nothing to do for this power
-                        continue
-
-                    # transform matrix with row-transformation matrix and add to last "row"
-                    cop_mat = row_dom_trans_mat @ orig_mat
-                    v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
-                    h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
-                    a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
+                if col_dom_lbl in row_eq.dynamic_forms:
+                    for order, mats in row_eq.dynamic_forms[col_dom_lbl].matrices["E"].items():
+                        orig_mat = mats.get(p, None)
+                        if orig_mat is not None:
+                            # transform matrix with row-transformation matrix and add to last "row"
+                            # since it's not the dominant entry, revert sign change
+                            cop_mat = row_dom_trans_mat @ -orig_mat
+                            v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
+                            col_idx = state_space_props.parts[col_dom_lbl]["start"]
+                            h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
+                            a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
 
         a_matrices.update({p: a_mat})
 
