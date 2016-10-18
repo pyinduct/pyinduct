@@ -66,6 +66,26 @@ class CorrectInput(sim.SimulationInput):
         return dict(output=0)
 
 
+class AlternatingInput(sim.SimulationInput):
+    """
+    a simple alternating input, composed of smooth transitions
+    """
+
+    def _calc_output(self, **kwargs):
+        t = kwargs["time"] % 2
+        if t < 1:
+            res = self.tr_up(t)
+        else:
+            res = self.tr_down(t)
+
+        return dict(output=res)
+
+    def __init__(self):
+        super().__init__(self)
+        self.tr_up = pi.SmoothTransition(states=(0, 1), interval=(0, 1), method="poly")
+        self.tr_down = pi.SmoothTransition(states=(1, 0), interval=(1, 2), method="poly")
+
+
 class SimulationInputTest(unittest.TestCase):
     def setUp(self):
         pass
@@ -683,8 +703,8 @@ class MultiplePDETest(unittest.TestCase):
     def setUp(self):
         l1 = 1
         l2 = 4
-        self.dz1 = sim.Domain(bounds=(0, l1), num=10)
-        self.dz2 = sim.Domain(bounds=(l1, l2), num=10)
+        self.dz1 = sim.Domain(bounds=(0, l1), num=100)
+        self.dz2 = sim.Domain(bounds=(l1, l2), num=100)
 
         t_start = 0
         t_end = 10
@@ -705,15 +725,16 @@ class MultiplePDETest(unittest.TestCase):
         self.ic2 = np.array([cr.Function(lambda z: x(z, 0))])
 
         # weak formulations
-        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=2)
-        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=3)
+        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=20)
+        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=30)
         pi.register_base("base_1", base1)
         pi.register_base("base_2", base2)
 
         x1 = pi.FieldVariable("base_1")
         psi_1 = pi.TestFunction("base_1")
         # traj = MonotonousInput(name="u1")
-        traj = pi.SignalGenerator("square", self.dt)
+        # traj = pi.SignalGenerator("square", self.dt)
+        traj = AlternatingInput()
         u = pi.Input(traj)
 
         self.weak_form_1 = pi.WeakFormulation([

@@ -357,8 +357,8 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
     q0 = np.array([])
     for form in weak_forms:
         lbl = canonical_equations[form.name].dominant_lbl
-        np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl)) for initial_state in initial_states[form.name]]))
-    # q0 = np.array(q0).flatten()
+        q0 = np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl))
+                                     for initial_state in initial_states[form.name]]))
 
     # simulate
     print(">>> performing time step integration")
