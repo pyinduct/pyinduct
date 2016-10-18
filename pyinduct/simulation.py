@@ -108,7 +108,7 @@ class SimulationInput(object, metaclass=ABCMeta):
             entries.append(value)
             self._value_storage[key] = entries
 
-        return np.atleast_2d(out["output"])
+        return out["output"]
 
     @abstractmethod
     def _calc_output(self, **kwargs):

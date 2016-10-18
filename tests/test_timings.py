@@ -39,7 +39,7 @@ def simulation_benchmark(spat_domain, settings):
     sys_name = 'transport system'
     v = 10
 
-    temp_domain = sim.Domain(bounds=(0, 5), num=1e2)
+    temp_domain = sim.Domain(bounds=(0, 5), num=100)
 
     init_x = cr.Function(lambda z: 0)
 
@@ -47,15 +47,15 @@ def simulation_benchmark(spat_domain, settings):
     nodes, base = sh.cure_interval(**settings)
     _b = time.clock()
 
-    func_label = 'init_funcs'
-    reg.register_base(func_label, base, overwrite=True)
+    func_label = 'base'
+    reg.register_base(func_label, base)
 
     u = sim.SimulationInputSum([
-        tr.SignalGenerator('square', np.array(temp_domain), frequency=0.3, scale=2, offset=4, phase_shift=1),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[15]),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[25], scale=-4),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[35]),
-        tr.SignalGenerator('gausspulse', np.array(temp_domain), phase_shift=temp_domain[60], scale=-2),
+        tr.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2, offset=4, phase_shift=1),
+        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[15]),
+        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[25], scale=-4),
+        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[35]),
+        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[60], scale=-2),
     ])
 
     _c = time.clock()
@@ -76,26 +76,25 @@ def simulation_benchmark(spat_domain, settings):
     initial_states = np.atleast_1d(init_x)
 
     _e = time.clock()
-    canonical_form = sim.parse_weak_formulation(weak_form)
+    can_eq = sim.parse_weak_formulation(weak_form)
     _f = time.clock()
 
-    state_space_form = canonical_form.convert_to_state_space()
+    state_space_form = sim.create_state_space(can_eq)
 
     _g = time.clock()
-    q0 = np.array([sim.project_on_base(initial_state, reg.get_base(
-        canonical_form.weights, 0)) for initial_state in
-                   initial_states]).flatten()
+    q0 = np.array([sim.project_on_base(initial_state, reg.get_base(can_eq.dominant_lbl))
+                   for initial_state in initial_states]).flatten()
     _h = time.clock()
 
     sim_domain, q = sim.simulate_state_space(state_space_form, q0, temp_domain)
 
     temporal_order = min(initial_states.size - 1, 0)
     _i = time.clock()
-    eval_data = sim.process_sim_data(canonical_form.weights, q, sim_domain, spat_domain, temporal_order, 0,
-                                     name=canonical_form.name)
+    eval_data = sim.process_sim_data(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
+                                     name=can_eq.dominant_form.name)
     _j = time.clock()
 
-    reg.deregister_base("init_funcs")
+    reg.deregister_base("base")
 
     return _b - _a, _d - _c, _f - _e, _h - _g, _j - _i
 
@@ -150,7 +149,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
                      node_count=self.node_cnt,
                      order=2),
             ]
-        print("comparing {} against {}".format(*[candidate["shapefunction_class"] for candidate in self.candidates]))
+        print("comparing {} (1) against {} (2)".format(*[candidate["shapefunction_class"] for candidate in self.candidates]))
 
     def test_simulation(self):
         print(">>> transport system example speed test: \n")
@@ -176,8 +175,8 @@ class ShapeFunctionTestBench(unittest.TestCase):
         diff = np.subtract(mean[1], mean[0])
         frac = 100 * diff / mean[0]
 
-        self.print_time("absolute difference in [s]", diff)
-        self.print_time("relative difference in [%]", frac)
+        self.print_time("absolute difference  (2-1) in [s]", diff)
+        self.print_time("relative difference  (2-1)/1 in [%]", frac)
 
     def test_evaluation(self):
         print(">>> evaluation speed test:")
@@ -199,8 +198,8 @@ class ShapeFunctionTestBench(unittest.TestCase):
         diff = np.subtract(mean[1], mean[0])
         frac = 100 * diff / mean[0]
 
-        print("absolute difference in [s]:\n\t {}".format(diff))
-        print("relative difference in [%]:\n\t {}".format(frac))
+        print("absolute difference (2-1) in [s]:\n\t {}".format(diff))
+        print("relative difference (2-1)/1 in [%]:\n\t {}".format(frac))
 
     def print_time(self, headline, times):
         print(headline + "\n" +

@@ -30,7 +30,7 @@ class ConstantTrajectoryTestCase(unittest.TestCase):
 
     def test_const_traj(self):
         self.assertAlmostEqual(self.const_traj(time=1), 1)
-        self.assertTrue(all(np.isclose(self.const_traj(time=np.arange(10)), np.ones((10,)))))
+        self.assertTrue(np.allclose(self.const_traj(time=np.arange(10)), np.ones((10,))))
         with self.assertRaises(NotImplementedError):
             self.const_traj(time=(1,))
 
@@ -113,7 +113,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
         x_l = tr.power_series(self.l, self.t, B)
         d_x_l = tr.power_series(self.l, self.t, B, spatial_der_order=1)
         u_c = d_x_l + self.beta * x_l
-        u_a = tr.InterpTrajectory(self.t, u_c, show_plot=show_plots)
+        u_a = tr.InterpolationTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
         u_b = tr.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
@@ -131,12 +131,10 @@ class InterpSignalGeneratorTest(unittest.TestCase):
         if not any([sig_form in sig.waveforms.__all__ for sig_form in
                     ['sawtooth', 'square', 'gausspulse', 'chirp', 'sweep_poly']]):
             warnings.warn("New scipy.signal module interface!"
-                          "Rewrite these test case (and have a look at pyinduct.trajectory.SignalGenerator!")
+                          "Rewrite this TestCase (and have a look at pyinduct.trajectory.SignalGenerator!")
 
-        # self.t = 2 * np.pi * 5 * np.linspace(0, 1, 500)
-        self.t = np.linspace(0, 1, 500)
         self.t = sim.Domain(bounds=(0, 1), num=500)
-        self.t_interp = np.linspace(0, 1, 10)
+        self.t_interp = sim.Domain(bounds=(0, 1), num=50)
         self.t1 = 1
         self.f0 = 50
         self.f1 = 500
@@ -146,22 +144,22 @@ class InterpSignalGeneratorTest(unittest.TestCase):
 
     def test_sawtooth(self):
         self.sig_gen = tr.SignalGenerator('sawtooth', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(all(np.isclose(np.array([0, 1, 1, 1]),
-                                       self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), atol=0.01)))
-        self.assertTrue(all(np.isclose(np.array([0, .5, .5, .5]),
-                                       self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), atol=0.01)))
+        self.assertTrue(np.allclose(np.array([0, 1, 1, 1]),
+                                    self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), atol=0.01))
+        self.assertTrue(np.allclose(np.array([0, .5, .5, .5]),
+                                    self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), atol=0.01))
 
     def test_square(self):
         self.sig_gen = tr.SignalGenerator('square', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(all(np.isclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
-                                       self.sig_gen.__call__(
-                                           time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
-                                       atol=0.01)))
+        self.assertTrue(np.allclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
+                                    self.sig_gen.__call__(
+                                        time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
+                                    atol=0.01))
 
     def test_gausspulse(self):
         self.sig_gen = tr.SignalGenerator('gausspulse', self.t, phase_shift=0.5)
-        self.assertTrue(all(np.isclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
-                                       self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), atol=0.01)))
+        self.assertTrue(np.allclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
+                                    self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), atol=0.01))
 
     def test_kwarg(self):
         self.no_plot = True
@@ -173,6 +171,6 @@ class InterpSignalGeneratorTest(unittest.TestCase):
     def tearDown(self):
         if show_plots and not self.no_plot:
             pw = pg.plot(title="control_input")
-            pw.plot(self.t, self.sig_gen.__call__(time=self.t), pen='c')
-            pw.plot(self.t_interp, self.sig_gen.__call__(time=self.t_interp), pen='g')
+            pw.plot(self.t.points, self.sig_gen.__call__(time=self.t), pen='c')
+            pw.plot(self.t_interp.points, self.sig_gen.__call__(time=self.t_interp), pen='g')
             app.exec_()

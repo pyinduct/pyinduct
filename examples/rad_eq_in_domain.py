@@ -109,7 +109,7 @@ else:
     x_ti_desired = tr.power_series(np.array([l]), t_x, C_ti)
     dx_ti_desired = tr.power_series(np.array([l]), t_x, C_ti, spatial_der_order=1)
     v_i = dx_ti_desired + beta_ti * x_ti_desired
-    traj = tr.InterpTrajectory(t_x, v_i, show_plot=show_plots)
+    traj = tr.InterpolationTrajectory(t_x, v_i, show_plot=show_plots)
 
 # scale trajectory that x(0,T)=1 instead of x_i(0,T)=1
 # traj.scale /= x1_id_desired[-1, 0]

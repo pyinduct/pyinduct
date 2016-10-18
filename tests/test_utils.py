@@ -1,9 +1,8 @@
+import os
 import sys
 import unittest
 
 import numpy as np
-import os
-
 from pyinduct import register_base, deregister_base, \
     core as cr, \
     simulation as sim, \
@@ -25,7 +24,6 @@ if show_plots:
 
 
 class ParamsTestCase(unittest.TestCase):
-
     def test_init(self):
         p = ut.Parameters(a=10, b=12, c="high")
         self.assertTrue(p.a == 10)
@@ -37,7 +35,7 @@ class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
     def setUp(self):
         self.f = np.cos
         self.psi = cr.Function(np.sin)
-        register_base("funcs", self.psi, overwrite=True)
+        register_base("funcs", cr.Base(self.psi), overwrite=True)
         self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
@@ -120,7 +118,6 @@ class CreateDirTestCase(unittest.TestCase):
 
 
 class CreateVideoTestCase(unittest.TestCase):
-
     @unittest.skip("unfinished test case that requires ffmpeg")
     def test_creation(self):
         # TODO generate test data first!

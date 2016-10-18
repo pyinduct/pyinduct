@@ -460,15 +460,15 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
     return x
 
 
-class InterpTrajectory(sim.SimulationInput):
+class InterpolationTrajectory(sim.SimulationInput):
     """
     Provides a system input through one-dimensional linear interpolation between
-    the given vectors :math:`u` and :math:`t`.
+    the given vector :math:`u` .
 
     Args:
         t (array_like): Vector :math:`t` with time steps.
         u (array_like): Vector :math:`u` with function values, corresponding to the vector :math:`t`.
-        show_plot (boolean): A plot window with plot(t, u) will pop up if it is true.
+        show_plot (bool): Open a plot window, showing u(t).
     """
 
     def __init__(self, t, u, show_plot=False):
@@ -488,12 +488,12 @@ class InterpTrajectory(sim.SimulationInput):
     def get_plot(self):
         pw = pg.plot(title="InterpTrajectory", labels=dict(left='u(t)', bottom='t'), pen='b')
         pw.plot(self._t, self.__call__(time=self._t), pen='b')
-        # pw.plot([0, self._T], self.__call__(time=[0, self._T]), pen=None, symbolPen=pg.mkPen("g"))
+        # TODO the function name does not really tell that a QtEvent loop will be executed in here
         pg.QtGui.QApplication.instance().exec_()
         return pw
 
 
-class SignalGenerator(InterpTrajectory):
+class SignalGenerator(InterpolationTrajectory):
     """
     Signal generator that combines :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
 
@@ -511,7 +511,7 @@ class SignalGenerator(InterpTrajectory):
 
     def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
         if waveform not in sig.waveforms.__all__:
-            raise ValueError('Desired waveform is not provided from scipy.signal module.')
+            raise ValueError('Desired waveform is not provided by scipy.signal module.')
         if isinstance(t, sim.Domain):
             t = t.points
         if not any([isinstance(value, Number) for value in [scale, offset]]):
@@ -531,16 +531,16 @@ class SignalGenerator(InterpTrajectory):
                 raise NotImplementedError
             t_gen_sig = t
 
-        # pop not scipy.signal.waveform.__all__ kwarg
+        # pop non scipy.signal.waveform.__all__ kwargs
         try:
             phase_shift = kwargs.pop('phase_shift')
         except KeyError as e:
             phase_shift = 0
         u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
-        InterpTrajectory.__init__(self, t, u)
+        InterpolationTrajectory.__init__(self, t, u)
 
 
-class RadTrajectory(InterpTrajectory):
+class RadTrajectory(InterpolationTrajectory):
     """
     Class that implements a flatness based control approach
     for the reaction-advection-diffusion equation
@@ -606,4 +606,4 @@ class RadTrajectory(InterpTrajectory):
         # pde's with advection term a_1 x'(z,t) considered
         u *= np.exp(-self._a1_original / 2. / a2 * l)
 
-        InterpTrajectory.__init__(self, t, u, show_plot=show_plot)
+        InterpolationTrajectory.__init__(self, t, u, show_plot=show_plot)
