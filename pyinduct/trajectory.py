@@ -512,6 +512,8 @@ class SignalGenerator(InterpTrajectory):
     def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
         if waveform not in sig.waveforms.__all__:
             raise ValueError('Desired waveform is not provided from scipy.signal module.')
+        if isinstance(t, sim.Domain):
+            t = np.array(t)
         if not any([isinstance(value, Number) for value in [scale, offset]]):
             raise ValueError('scale and offset must be a Number')
         self._signal = getattr(sig, waveform)

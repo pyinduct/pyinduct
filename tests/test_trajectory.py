@@ -135,6 +135,7 @@ class InterpSignalGeneratorTest(unittest.TestCase):
 
         # self.t = 2 * np.pi * 5 * np.linspace(0, 1, 500)
         self.t = np.linspace(0, 1, 500)
+        self.t = sim.Domain(bounds=(0, 1), num=500)
         self.t_interp = np.linspace(0, 1, 10)
         self.t1 = 1
         self.f0 = 50

@@ -682,7 +682,7 @@ class MultiplePDETest(unittest.TestCase):
 
     def setUp(self):
         l1 = 1
-        l2 = 2
+        l2 = 4
         self.dz1 = sim.Domain(bounds=(0, l1), num=10)
         self.dz2 = sim.Domain(bounds=(l1, l2), num=10)
 
@@ -705,21 +705,22 @@ class MultiplePDETest(unittest.TestCase):
         self.ic2 = np.array([cr.Function(lambda z: x(z, 0))])
 
         # weak formulations
-        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=10)
-        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=10)
+        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=2)
+        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=3)
         pi.register_base("base_1", base1)
         pi.register_base("base_2", base2)
 
         x1 = pi.FieldVariable("base_1")
         psi_1 = pi.TestFunction("base_1")
-        traj = MonotonousInput(name="u1")
+        # traj = MonotonousInput(name="u1")
+        traj = pi.SignalGenerator("square", self.dt)
         u = pi.Input(traj)
 
         self.weak_form_1 = pi.WeakFormulation([
             pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi_1), limits=self.dz1.bounds),
             pi.IntegralTerm(pi.Product(x1, psi_1.derive(1)), limits=self.dz1.bounds, scale=-v1),
+            pi.ScalarTerm(pi.Product(u, psi_1(0)), scale=-v1),
             pi.ScalarTerm(pi.Product(x1(l1), psi_1(l1)), scale=v1),
-            pi.ScalarTerm(pi.Product(u, psi_1(0)), scale=-v1)
         ], name="sys_1")
 
         x2 = pi.FieldVariable("base_2")
@@ -727,8 +728,8 @@ class MultiplePDETest(unittest.TestCase):
         self.weak_form_2 = pi.WeakFormulation([
             pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi_2), limits=self.dz2.bounds),
             pi.IntegralTerm(pi.Product(x2, psi_2.derive(1)), limits=self.dz2.bounds, scale=-v2),
+            pi.ScalarTerm(pi.Product(x1(l1), psi_2(l1)), scale=-v2),
             pi.ScalarTerm(pi.Product(x2(l2), psi_2(l2)), scale=v2),
-            pi.ScalarTerm(pi.Product(x1(l1), psi_2(l1)), scale=-v2)
         ], name="sys_2")
 
     def test_single_system(self):
@@ -741,8 +742,9 @@ class MultiplePDETest(unittest.TestCase):
         weak_forms = [self.weak_form_1, self.weak_form_2]
         ics = {self.weak_form_1.name: self.ic1, self.weak_form_2.name: self.ic2}
         spat_domains = {self.weak_form_1.name: self.dz1, self.weak_form_2.name: self.dz2}
+        derivatives = {self.weak_form_1.name: (0, 0), self.weak_form_2.name: (0, 0)}
 
-        res = pi.simulate_system(weak_forms, ics, self.dt, spat_domains)
+        res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
         vis = pi.PgAnimatedPlot(res)
         if show_plots:
             app.exec_()

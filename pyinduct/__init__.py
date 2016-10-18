@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition, gevrey_tanh
+from .trajectory import SmoothTransition, gevrey_tanh, SignalGenerator
 # noinspection PyUnresolvedReferences
 from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
@@ -11,8 +11,10 @@ from .control import ControlLaw, Controller
 from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
                           TemporalDerivedFieldVariable, Product, TestFunction, Input)
 # noinspection PyUnresolvedReferences
-from .simulation import (Domain, SimulationInput, SimulationInputSum, WeakFormulation, parse_weak_formulation,
-                         create_state_space, simulate_system, process_sim_data, evaluate_approximation)
+from .simulation import *
+# from .simulation import (Domain, SimulationInput, SimulationInputSum, WeakFormulation, parse_weak_formulation,
+#                          create_state_space, simulate_system, simulate_systems, process_sim_data,
+#                          evaluate_approximation)
 # noinspection PyUnresolvedReferences
 from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
 # noinspection PyUnresolvedReferences

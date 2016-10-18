@@ -14,11 +14,14 @@ from scipy.interpolate import interp1d
 from scipy.integrate import ode
 
 from .registry import get_base, is_registered, register_base
-from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2, sanitize_input, StackedBase)
+from .core import (Function, integrate_function, calculate_scalar_product_matrix, project_on_base, dot_product_l2,
+                   sanitize_input, StackedBase, TransformationInfo, get_weight_transformation)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .utils import Parameters
 from .visualization import EvalData
+
+__all__ = ["Domain", "SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
+           "create_state_space", "simulate_system", "simulate_systems", "process_sim_data", "evaluate_approximation"]
 
 
 class Domain(object):
@@ -223,7 +226,7 @@ class StateSpace(object):
             self.A = a_matrices
         if 0 not in self.A:
             # this is the constant term aka the f-vector
-            self.A[0] = np.zeros((self.A[1].shape[0], ))
+            self.A[0] = np.zeros((self.A[1].shape[0],))
 
         # optional
         if isinstance(b_matrices, np.ndarray):
@@ -289,8 +292,31 @@ class StateSpace(object):
 #     return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step) for sys in
 #             weak_forms]
 
+def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, derivative_orders=(0, 0),
+                    settings=None):
+    """
+    Convenience wrapper for :py:func:`simulate_systems`.
 
-def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains, settings=None, derivative_orders=(0, 0)):
+    Args:
+        weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
+        initial_states (numpy.ndarray): Array of core.Functions for
+            :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
+        temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
+        spatial_domain (:py:class:`Domain`): Domain object holding information for spatial evaluation.
+        derivative_orders (tuple): tuples of derivative orders (time, spat) that shall be
+            evaluated additionally as values
+        settings: Integrator settings, see :py:func:`simulate_state_space`.
+    """
+    ics = sanitize_input(initial_states, Function)
+    initial_states = {weak_form.name: ics}
+    spatial_domains = {weak_form.name: spatial_domain}
+    derivative_orders = {weak_form.name: derivative_orders}
+    res = simulate_systems([weak_form], initial_states, temporal_domain, spatial_domains, derivative_orders, settings)
+    return res
+
+
+def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domains, derivative_orders=None,
+                     settings=None):
     """
     Convenience wrapper that encapsulates the whole simulation process.
 
@@ -300,7 +326,8 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
         temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
         spatial_domains ((list of) :py:class:`Domain`): Domain object(s) holding information for spatial evaluation.
-        derivative_orders (tuple): Tuple of derivative orders (time, spat) that shall be evaluated additionally.
+        derivative_orders (dict): Dict, containing tuples of derivative orders (time, spat) that shall be
+            evaluated additionally as values
         settings: Integrator settings, see :py:func:`simulate_state_space`.
 
     Note:
@@ -310,16 +337,6 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
         list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable
         and demanded derivatives.
     """
-    # compatibility (when simulating a single system, no extra dicts with initial conditions and so on are required)
-    if isinstance(weak_forms, WeakFormulation):
-        scalar_mode = True
-        ics = sanitize_input(initial_states, Function)
-        initial_states = {weak_forms.name: ics}
-        spatial_domains = {weak_forms.name: spatial_domains}
-        derivative_orders = {weak_forms.name: derivative_orders}
-    else:
-        scalar_mode = False
-
     weak_forms = sanitize_input(weak_forms, WeakFormulation)
     print("simulating systems: {}".format([f.name for f in weak_forms]))
 
@@ -328,7 +345,8 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
     for form in weak_forms:
         print(">>> parsing formulation {}".format(form.name))
         if form.name in canonical_equations:
-            raise ValueError("Name {} for CanonicalEquation already assigned, names must be unique.".format(form.name))
+            raise ValueError(("Name {} for CanonicalEquation already assigned,"
+                              + "names must be unique.").format(form.name))
         canonical_equations.update({form.name: parse_weak_formulation(form)})
 
     print(">>> creating state space system")
@@ -336,12 +354,11 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
 
     # calculate initial state, assuming it will be constituted by the dominant systems
     print(">>> deriving initial conditions")
-    q0 = []
+    q0 = np.array([])
     for form in weak_forms:
         lbl = canonical_equations[form.name].dominant_lbl
-        q0.append([project_on_base(initial_state, get_base(lbl)) for initial_state in
-                   initial_states[form.name]])
-    q0 = np.array(q0).flatten()
+        np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl)) for initial_state in initial_states[form.name]]))
+    # q0 = np.array(q0).flatten()
 
     # simulate
     print(">>> performing time step integration")
@@ -349,16 +366,29 @@ def simulate_system(weak_forms, initial_states, temporal_domain, spatial_domains
 
     # evaluate
     print(">>> performing postprocessing")
-    results = {}
+    results = []
     for form in weak_forms:
-        temporal_order = min(initial_states[form.name].size - 1, derivative_orders[form.name][0])
-        data = process_sim_data(canonical_equations[form.name].dominant_lbl, q, sim_domain, spatial_domains[form.name],
-                                temporal_order, derivative_orders[form.name][1], name=form.name)
-        results.update({form.name: data})
+        # acquire a transformation into the original weights
+        info = TransformationInfo()
+        info.src_lbl = state_space_form.base_lbl
+        info.src_base = get_base(info.src_lbl)
+        info.src_order = initial_states[form.name].size - 1
+        info.dst_lbl = canonical_equations[form.name].dominant_lbl
+        info.dst_base = get_base(info.dst_lbl)
+        info.dst_order = derivative_orders[form.name][0]
+        transformation = get_weight_transformation(info)
+
+        # project back
+        data = process_sim_data(info.dst_lbl,
+                                np.apply_along_axis(transformation, 1, q),
+                                sim_domain,
+                                spatial_domains[form.name],
+                                info.dst_order,
+                                derivative_orders[form.name][1],
+                                name=form.name)
+        results += data
 
     print("finished simulation.")
-    if scalar_mode:
-        return results[weak_forms[0].name]
     return results
 
 
@@ -576,7 +606,7 @@ class CanonicalForm(object):
 
             # add integrator chain
             a_mat[:-self.dim_x:, self.dim_x:] = block_diag(*[np.eye(self.dim_x)
-                                                           for a in range(self.max_temp_order - 1)])
+                                                             for a in range(self.max_temp_order - 1)])
 
             # add "block-line" with feedback entries
             a_mat[-self.dim_x:, :] = -self._build_feedback("E", p, self.e_n_pb_inv)
@@ -771,7 +801,7 @@ def create_state_space(canonical_equations):
         ValueError: If compatibility criteria cannot be fulfilled
 
     Return:
-        :py:class:`StateSpace`: State-space representation of the approximated system
+        :py:class:`StateSpace`: State-space representation of the approximated system,
     """
     if isinstance(canonical_equations, CanonicalEquation):
         # backward compatibility
@@ -866,7 +896,7 @@ def create_state_space(canonical_equations):
                     continue
 
                 for order, mats in row_eq.dynamic_forms[col_dom_lbl].matrices["E"].items():
-                    orig_mat = mats.get(p, None)
+                    orig_mat = -mats.get(p, None)  # since it's not the dominant entry, revert sign change
                     if orig_mat is None:
                         # nothing to do for this power
                         continue
@@ -876,6 +906,7 @@ def create_state_space(canonical_equations):
                     v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
                     h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
                     a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
+
         a_matrices.update({p: a_mat})
 
     # build new state input matrices
@@ -1054,17 +1085,20 @@ def _compute_product_of_scalars(scalars):
         raise NotImplementedError
 
     if len(scalars) == 1:
+        # simple scaling of all terms
         res = scalars[0].data
     elif scalars[0].data.shape == scalars[1].data.shape:
+        # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    elif scalars[0].data.shape == scalars[1].data.T.shape:
-        # guarantee dyadic product no matter in which order args are passed
-        if scalars[0].data.shape[0] > scalars[0].data.shape[1]:
-            res = np.dot(scalars[0].data, scalars[1].data)
-        else:
-            res = np.dot(scalars[1].data, scalars[0].data)
     else:
-        raise NotImplementedError
+        # dyadic product
+        try:
+            if scalars[0].data.shape[1] == 1:
+                res = scalars[0].data @ scalars[1].data
+            else:
+                res = scalars[1].data @ scalars[0].data
+        except ValueError as e:
+            raise ValueError("provided entries do not form a dyadic product" + e.msg)
 
     return res
 
