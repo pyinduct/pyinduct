@@ -55,6 +55,10 @@ class CorrectInput(sim.SimulationInput):
     """
     a diligent input
     """
+    def __init__(self, limits):
+        super().__init__(self)
+        self.t_min = limits[0]
+        self.t_max = limits[1]
 
     def _calc_output(self, **kwargs):
         if "time" not in kwargs:
@@ -63,6 +67,8 @@ class CorrectInput(sim.SimulationInput):
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
+        if not (self.t_min <= kwargs["time"] <= self.t_max):
+            raise ValueError("integration may only evaluate inputs within the simulation time range!")
         return dict(output=0)
 
 
@@ -118,7 +124,7 @@ class SimulationInputTest(unittest.TestCase):
         domain = sim.Domain((0, 10), step=.1)
         res = sim.simulate_state_space(ss, ic, domain)
 
-        # don't return entries that are not there
+        # don't return any entries that aren't there
         self.assertRaises(KeyError, u.get_results, domain, "Unknown Entry")
 
         # default key is "output"
@@ -126,7 +132,7 @@ class SimulationInputTest(unittest.TestCase):
         ed_explicit = u.get_results(domain, result_key="output")
         self.assertTrue(np.array_equal(ed, ed_explicit))
 
-        # return np.ndarray as default
+        # return an np.ndarray as default
         self.assertIsInstance(ed, np.ndarray)
 
         # return EvalData if corresponding flag is set
@@ -424,13 +430,16 @@ class ParseTest(unittest.TestCase):
 
 class StateSpaceTests(unittest.TestCase):
     def setUp(self):
-        self.u = CorrectInput()
 
         # setup temp and spat domain
+        self.time_domain = sim.Domain((0, 10), num=100)
         node_cnt = 3
         spat_domain = sim.Domain((0, 1), num=node_cnt)
         nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
         reg.register_base("swm_base", lag_base)
+
+        # input
+        self.u = CorrectInput(limits=self.time_domain.bounds)
 
         # enter string with mass equations
         int1 = ph.IntegralTerm(
@@ -447,7 +456,7 @@ class StateSpaceTests(unittest.TestCase):
 
         string_eq = sim.WeakFormulation([int1, s1, int2, s2], name="swm")
         self.ce = sim.parse_weak_formulation(string_eq)
-        self.ic = np.zeros((3, 2))
+        self.ic = np.zeros((6, ))
 
     def test_convert_to_state_space(self):
         ss = sim.create_state_space({"test_eq": self.ce})
@@ -461,6 +470,14 @@ class StateSpaceTests(unittest.TestCase):
         self.assertEqual(ss.B[0][1].shape, (6, 1))
         self.assertTrue(np.allclose(ss.B[0][1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
         self.assertEqual(self.ce.input_function, self.u)
+
+    def test_simulate_state_space(self):
+        """
+        using the diligent input this test makes sure, that the solver doesn't evaluate the provided input outside
+        the given time domain
+        """
+        ss = sim.create_state_space({"test_eq": self.ce})
+        t, q = sim.simulate_state_space(ss, self.ic, self.time_domain)
 
     def tearDown(self):
         reg.deregister_base("swm_base")

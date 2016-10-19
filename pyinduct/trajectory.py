@@ -7,6 +7,7 @@ hyperbolic and parabolic systems.
 
 import sympy as sp
 import warnings
+import scipy.interpolate
 import scipy.misc as sm
 import scipy.signal as sig
 import numpy as np
@@ -386,19 +387,19 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
 
     Args:
         z (numbers.Number): Evaluation point :math:`z^*`.
-        C (dict):
-            Coeffient dictionary which keys correspond to the coefficient index. The values are 2D numpy.array's.
+        C (dict): Coefficient dictionary whose keys correspond to the coefficient index.
+            The values are 2D numpy.arrays.
             For example C[1] should provide a 2d-array with the coefficient :math:`c_1(t)` and at least :math:`n`
             temporal derivatives
 
-            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]).
+            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]) .
 
-        up_to_order (int): Max. temporal derivative order :math:`n` to compute.
-        series_termination_index (int): Series termination index :math:`N`.
-        spatial_der_order (int): Spatial derivativ order :math:`j`.
+        up_to_order (int): Maximum temporal derivative order :math:`n` to compute.
+        series_termination_index (int): Series termination index :math:`N` .
+        spatial_der_order (int): Spatial derivative order :math:`j` .
 
     Return:
-        numpy.array( [:math:`q^{(j,0)}, ... , q^{(j,n)}`] )
+        numpy.ndarray: array holding the elements :math:`q^{(j,0)}, \dotsc, q^{(j,n)}`
     """
 
     if not isinstance(z, Number):
@@ -462,33 +463,49 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
 
 class InterpolationTrajectory(sim.SimulationInput):
     """
-    Provides a system input through one-dimensional linear interpolation between
+    Provides a system input through one-dimensional linear interpolation in
     the given vector :math:`u` .
 
     Args:
         t (array_like): Vector :math:`t` with time steps.
-        u (array_like): Vector :math:`u` with function values, corresponding to the vector :math:`t`.
-        show_plot (bool): Open a plot window, showing u(t).
+        u (array_like): Vector :math:`u` with function values, evaluated at :math:`t`.
+        **kwargs: see below
+
+    Keyword Args:
+        show_plot (bool): to open a plot window, showing u(t).
+        scale (float): factor to scale the output.
+
     """
 
-    def __init__(self, t, u, show_plot=False):
+    def __init__(self, t, u, **kwargs):
         sim.SimulationInput.__init__(self)
 
         self._t = t
         self._T = t[-1]
-        self._u = u
-        self.scale = 1
+        self._u = u * kwargs.get("scale", 1)
 
-        if show_plot:
+        self._inter = scipy.interpolate.interp1d(self._t, self._u)
+        self._res = np.zeros_like(self._inter(self._t[0]))
+
+        if kwargs.get("show_plot", False):
             self.get_plot()
 
     def _calc_output(self, **kwargs):
-        return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
+        return dict(output=self._inter(kwargs["time"]))
+        # return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
 
     def get_plot(self):
+        """
+        Create a plot of the interpolated trajectory.
+
+        Todo:
+            the function name does not really tell that a QtEvent loop will be executed in here
+
+        Returns:
+            (pg.PlotWindow): the PlotWindow widget.
+        """
         pw = pg.plot(title="InterpTrajectory", labels=dict(left='u(t)', bottom='t'), pen='b')
         pw.plot(self._t, self.__call__(time=self._t), pen='b')
-        # TODO the function name does not really tell that a QtEvent loop will be executed in here
         pg.QtGui.QApplication.instance().exec_()
         return pw
 
@@ -565,7 +582,7 @@ class RadTrajectory(InterpolationTrajectory):
 
         - :code:`actuation_type == "robin"`: :math:`x'(l,t) = -\\beta x(l,t) + u(t)`.
 
-    The flat output :math:`y(t)` will calculated with :py:func:`gevrey_tanh`.
+    The flat output trajectory :math:`y(t)` will be calculated with :py:func:`gevrey_tanh`.
     """
 
     # TODO: kwarg: t_step

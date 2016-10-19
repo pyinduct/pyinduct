@@ -96,6 +96,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         self._time_storage = []
         self._value_storage = {}
         self.name = name
+        self._res = np.array([0])
 
     def __call__(self, **kwargs):
         """
@@ -108,7 +109,7 @@ class SimulationInput(object, metaclass=ABCMeta):
             entries.append(value)
             self._value_storage[key] = entries
 
-        return out["output"]
+        return np.atleast_1d(out["output"])
 
     @abstractmethod
     def _calc_output(self, **kwargs):
@@ -123,7 +124,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         Returns:
             dict: Dictionary with mandatory key ``output``.
         """
-        return dict(output=0)
+        return dict(output=self._res)
 
     def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
@@ -172,7 +173,7 @@ class SimulationInputSum(SimulationInput):
         self.inputs = inputs
 
     def _calc_output(self, **kwargs):
-        outs = np.array([handle(**kwargs) for handle in self.inputs])
+        outs = [handle(**kwargs) for handle in self.inputs]
         return dict(output=np.sum(outs, axis=0))
 
 
@@ -272,7 +273,8 @@ class StateSpace(object):
         u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
         for o, p_mats in self.B.items():
             for p, b_mat in p_mats.items():
-                q_t = q_t + (b_mat @ np.power(u, p)).flatten()
+                # q_t = q_t + (b_mat @ np.power(u, p)).flatten()
+                q_t = q_t + b_mat @ np.power(u, p)
 
         return q_t
 
@@ -1123,7 +1125,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
-        qn = r.integrate(t_step)
+        qn = r.integrate(t_step, step=True)
         if not r.successful():
             warnings.warn("*** Error: Simulation aborted at t={} ***".format(r.t))
             break
