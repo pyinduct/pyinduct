@@ -90,6 +90,11 @@ class SimulationInput(object, metaclass=ABCMeta):
 
     The calculated values for each time-step are stored in internal memory and can be accessed by
     :py:func:`get_results` (after the simulation is finished).
+
+    Note:
+        Due to the underlying solver, this handle may get called with time arguments, that lie outside of the specified
+        integration domain. This should not be a problem for a feedback controller but might cause problems for a
+        feedforward or trajectory implementation.
     """
 
     def __init__(self, name=""):
@@ -131,7 +136,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         Return results from internal storage for given time steps.
 
         Raises:
-            Error: If calling this method before a simulation was running.
+            Error: If calling this method before a simulation was run.
 
         Args:
             time_steps: Time points where values are demanded.
@@ -1125,7 +1130,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
-        qn = r.integrate(t_step, step=True)
+        qn = r.integrate(t_step)
         if not r.successful():
             warnings.warn("*** Error: Simulation aborted at t={} ***".format(r.t))
             break

@@ -484,15 +484,11 @@ class InterpolationTrajectory(sim.SimulationInput):
         self._T = t[-1]
         self._u = u * kwargs.get("scale", 1)
 
-        self._inter = scipy.interpolate.interp1d(self._t, self._u)
-        self._res = np.zeros_like(self._inter(self._t[0]))
-
         if kwargs.get("show_plot", False):
             self.get_plot()
 
     def _calc_output(self, **kwargs):
-        return dict(output=self._inter(kwargs["time"]))
-        # return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
+        return dict(output=np.interp(kwargs["time"], self._t, self._u))
 
     def get_plot(self):
         """

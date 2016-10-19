@@ -67,8 +67,6 @@ class CorrectInput(sim.SimulationInput):
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
-        if not (self.t_min <= kwargs["time"] <= self.t_max):
-            raise ValueError("integration may only evaluate inputs within the simulation time range!")
         return dict(output=0)
 
 
@@ -106,7 +104,7 @@ class SimulationInputTest(unittest.TestCase):
     def test_call_arguments(self):
         a = np.eye(2, 2)
         b = np.array([[0], [1]])
-        u = CorrectInput()
+        u = CorrectInput(limits=(0, 1))
         ic = np.zeros((2, 1))
         ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
@@ -432,14 +430,15 @@ class StateSpaceTests(unittest.TestCase):
     def setUp(self):
 
         # setup temp and spat domain
-        self.time_domain = sim.Domain((0, 10), num=100)
+        self.time_domain = sim.Domain((0, 1), num=10)
         node_cnt = 3
         spat_domain = sim.Domain((0, 1), num=node_cnt)
         nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
         reg.register_base("swm_base", lag_base)
 
         # input
-        self.u = CorrectInput(limits=self.time_domain.bounds)
+        self.u = CorrectInput(limits=(0, 10))
+        # self.u = CorrectInput(limits=self.time_domain.bounds)
 
         # enter string with mass equations
         int1 = ph.IntegralTerm(
@@ -478,6 +477,13 @@ class StateSpaceTests(unittest.TestCase):
         """
         ss = sim.create_state_space({"test_eq": self.ce})
         t, q = sim.simulate_state_space(ss, self.ic, self.time_domain)
+
+        # print(self.u._time_storage)
+        # print(self.time_domain.points)
+        # print(t.points)
+
+        # check that the demanded time range has been simulated
+        self.assertTrue(np.allclose(t.points, self.time_domain.points))
 
     def tearDown(self):
         reg.deregister_base("swm_base")
