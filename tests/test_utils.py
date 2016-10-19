@@ -2,14 +2,8 @@ import os
 import sys
 import unittest
 
-import numpy as np
-from pyinduct import register_base, deregister_base, \
-    core as cr, \
-    simulation as sim, \
-    shapefunctions as sh, \
-    utils as ut, \
-    visualization as vt, \
-    placeholder as ph
+import core
+from pyinduct import utils as ut
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -25,58 +19,10 @@ if show_plots:
 
 class ParamsTestCase(unittest.TestCase):
     def test_init(self):
-        p = ut.Parameters(a=10, b=12, c="high")
+        p = core.Parameters(a=10, b=12, c="high")
         self.assertTrue(p.a == 10)
         self.assertTrue(p.b == 12)
         self.assertTrue(p.c == "high")
-
-
-class EvaluatePlaceholderFunctionTestCase(unittest.TestCase):
-    def setUp(self):
-        self.f = np.cos
-        self.psi = cr.Function(np.sin)
-        register_base("funcs", cr.Base(self.psi), overwrite=True)
-        self.funcs = ph.TestFunction("funcs")
-
-    def test_eval(self):
-        eval_values = np.array(list(range(10)))
-
-        # supply a non-placeholder
-        self.assertRaises(TypeError, ut.evaluate_placeholder_function, self.f, eval_values)
-
-        # check for correct results
-        res = ut.evaluate_placeholder_function(self.funcs, eval_values)
-        self.assertTrue(np.allclose(self.psi(eval_values), res))
-
-    def tearDown(self):
-        deregister_base("funcs")
-
-
-class EvaluateApproximationTestCase(unittest.TestCase):
-    def setUp(self):
-        self.node_cnt = 5
-        self.time_step = 1e-1
-        self.dates = np.arange(0, 10, self.time_step)
-        self.spat_int = (0, 1)
-        self.nodes = np.linspace(self.spat_int[0], self.spat_int[1], self.node_cnt)
-
-        # create initial functions
-        self.nodes, self.funcs = sh.cure_interval(sh.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        register_base("approx_funcs", self.funcs, overwrite=True)
-
-        # create a slow rising, nearly horizontal line
-        self.weights = np.array(list(range(self.node_cnt * self.dates.size))).reshape(
-            (self.dates.size, len(self.nodes)))
-
-    def test_eval_helper(self):
-        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, 1)
-        if show_plots:
-            p = vt.PgAnimatedPlot(eval_data)
-            app.exec_()
-            del p
-
-    def tearDown(self):
-        pass
 
 
 class CreateDirTestCase(unittest.TestCase):

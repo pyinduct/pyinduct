@@ -1,8 +1,11 @@
 import sys
 import unittest
 
+import core
 import matplotlib.pyplot as plt
 import numpy as np
+import parabolic.control
+import parabolic.general
 
 from pyinduct import core as cr, \
     utils as ut, \
@@ -39,24 +42,24 @@ class FiniteTransformTest(unittest.TestCase):
         l = 5.
         k = 5
         b_desired = 0
-        k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        A = ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n")
+        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+        A = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
         self.assertAlmostEqual(b, 0)
         self.assertTrue(all(np.isclose(A, np.linalg.inv(A)).all(1)))
         b_desired = l
-        k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        B = ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n")
+        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+        B = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
         self.assertAlmostEqual(b, l)
         self.assertTrue(all(np.isclose(B, np.diag(np.ones(B.shape[0]))).all(1)))
-        A = ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n")
+        A = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
 
     def test_paper_example(self):
 
         l = 5.
         k = 5
         b_desired = 2
-        k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
+        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+        M = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
         func = lambda z: np.cos(z)
         shifted_func = ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda)
         z = np.linspace(0, l, 1e3)
@@ -75,9 +78,9 @@ class FiniteTransformTest(unittest.TestCase):
         n = 1
         k = 5
         b_desired = 2
-        k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
+        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+        M = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
+        eig_freq, eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
         eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
         shifted_eig_funcs = np.array(
             [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
@@ -100,9 +103,9 @@ class FiniteTransformTest(unittest.TestCase):
                 spatial_domain = (0, l)
                 n = 1
                 b_desired = 2
-                k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-                M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
-                eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+                k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+                M = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
+                eig_freq, eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(param, l, n)
                 eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain) for om in eig_freq])
                 shifted_eig_funcs = np.array(
                     [ef.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
@@ -125,7 +128,7 @@ class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
         self.z = np.linspace(0, l, 1e2)
         self.n = 10
 
-        eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, l, self.n, show_plot=show_plots)
+        eig_freq, self.eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(self.param, l, self.n, show_plot=show_plots)
         self.eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, spatial_domain) for om in eig_freq])
         self.a2_z = lambda z: a2
         self.a1_z = a1
@@ -176,7 +179,7 @@ class IntermediateTransformationTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.get_adjoint_rad_evp_param(self.param)
+        adjoint_param = parabolic.general.get_adjoint_rad_evp_param(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -187,9 +190,9 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform2intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = parabolic.general.eliminate_advection_term(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform2intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = parabolic.general.eliminate_advection_term(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
@@ -199,7 +202,7 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.n = 10
 
         # create (not normalized) eigenfunctions
-        self.eig_freq, self.eig_val = ef.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
+        self.eig_freq, self.eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(self.param, self.l, self.n)
         init_eig_base = cr.Base(
             [ef.SecondOrderRobinEigenfunction(om, self.param, self.spatial_domain) for om in self.eig_freq])
         init_adjoint_eig_funcs = cr.Base(
@@ -209,7 +212,7 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.eig_base, self.adjoint_eig_funcs = cr.normalize_base(init_eig_base, init_adjoint_eig_funcs)
 
         # eigenvalues and -frequencies test
-        eig_freq_i, eig_val_i = ef.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
+        eig_freq_i, eig_val_i = parabolic.general.compute_rad_robin_eigenfrequencies(self.param_i, self.l, self.n)
         self.assertTrue(all(np.isclose(self.eig_val, eig_val_i)))
         calc_eig_freq = np.sqrt((a0_i - eig_val_i) / a2)
         self.assertTrue(all(np.isclose(calc_eig_freq, eig_freq_i)))
@@ -228,12 +231,12 @@ class IntermediateTransformationTest(unittest.TestCase):
 
 class ReturnRealPartTest(unittest.TestCase):
     def test_it(self):
-        self.assertTrue(np.isreal(ef.return_real_part(1)))
-        self.assertTrue(np.isreal(ef.return_real_part(1 + 0j)))
-        self.assertTrue(np.isreal(ef.return_real_part(1 + 1e-20j)))
-        self.assertRaises(TypeError, ef.return_real_part, None)
-        self.assertRaises(TypeError, ef.return_real_part, (1, 2., 2 + 2j))
-        self.assertRaises(TypeError, ef.return_real_part, [None, 2., 2 + 2j])
-        self.assertRaises(ValueError, ef.return_real_part, [1, 2., 2 + 2j])
-        self.assertRaises(ValueError, ef.return_real_part, 1 + 1e-10j)
-        self.assertRaises(ValueError, ef.return_real_part, 1j)
+        self.assertTrue(np.isreal(core.return_real_part(1)))
+        self.assertTrue(np.isreal(core.return_real_part(1 + 0j)))
+        self.assertTrue(np.isreal(core.return_real_part(1 + 1e-20j)))
+        self.assertRaises(TypeError, core.return_real_part, None)
+        self.assertRaises(TypeError, core.return_real_part, (1, 2., 2 + 2j))
+        self.assertRaises(TypeError, core.return_real_part, [None, 2., 2 + 2j])
+        self.assertRaises(ValueError, core.return_real_part, [1, 2., 2 + 2j])
+        self.assertRaises(ValueError, core.return_real_part, 1 + 1e-10j)
+        self.assertRaises(ValueError, core.return_real_part, 1j)

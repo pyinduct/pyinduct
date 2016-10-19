@@ -6,8 +6,8 @@ functions.
 
 import numpy as np
 import numpy.polynomial.polynomial as npoly
-from .core import Base, Function
-from .simulation import Domain
+
+from .core import Base, Function, Domain
 
 
 class LagrangeNthOrder(Function):
@@ -163,7 +163,7 @@ class LagrangeNthOrder(Function):
         - and so on.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): Domain to be cured.
+            domain (:py:class:`core.Domain`): Domain to be cured.
             order (int): Order of the lagrange polynomials.
 
         Return:
@@ -274,7 +274,7 @@ class LagrangeFirstOrder(Function):
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
@@ -405,7 +405,7 @@ class LagrangeSecondOrder(Function):
         Hint function that will cure the given interval with LagrangeSecondOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeSecondOrder` shapefunctions.

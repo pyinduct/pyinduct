@@ -1,8 +1,8 @@
 =======
-Control
+General
 =======
 
-.. automodule:: pyinduct.control
+.. automodule:: pyinduct.parabolic.general
     :members:
     :undoc-members:
     :show-inheritance:

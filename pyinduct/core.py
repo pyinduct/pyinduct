@@ -1,6 +1,7 @@
 """
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
+import warnings
 
 import numpy as np
 import collections
@@ -412,6 +413,24 @@ class Function(BaseFraction):
         """
         return [dot_product_l2]
 
+    @staticmethod
+    def from_constant(constant, **kwargs):
+        """
+        Create a :py:class:`Function` that returns a constant value.
+
+        Args:
+            constant (number): value to return
+            **kwargs: all kwargs get to :py:class:`Function`
+
+        Returns:
+            :py:class:`Function`: A constant function
+        """
+        def f(z):
+            return constant
+
+        func = Function(eval_handle=f, **kwargs)
+        return func
+
 
 class ComposedFunctionVector(BaseFraction):
     """
@@ -611,8 +630,8 @@ def domain_intersection(first, second):
     Calculate intersection(s) of two domains.
 
     Args:
-        first (:py:class:`pyinduct.simulation.Domain`): first domain
-        second (:py:class:`pyinduct.simulation.Domain`): second domain
+        first (:py:class:`core.Domain`): first domain
+        second (:py:class:`core.Domain`): second domain
 
     Return:
         list: intersection(s) given by (start, end) tuples.
@@ -1147,7 +1166,8 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
         :obj:`numpy.ndarray`: Transformation matrix
     """
     if src_order < dst_order:
-        raise ValueError("higher derivative order needed than provided!")
+        raise ValueError(("higher 'dst_order'({0}) demanded than "
+                          + "'src_order'({1}) can provide for this strategy.").format(dst_order, src_order))
 
     # build core transformation
     if use_eye:
@@ -1262,7 +1282,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
     increase the keyword-argument points_per_root.
 
-    In Detail py:function:fsolve is used to find initial candidates for roots of f(x). If a root satisfies the criteria
+    In Detail py:function:`fsolve` is used to find initial candidates for roots of f(x). If a root satisfies the criteria
     given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
     entries error and the current error is performed. If the newly calculated root comes with a smaller error it
     supersedes the present entry.
@@ -1310,7 +1330,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     while found_roots < n_roots:
         try:
             res = root(function, next(val), tol=atol)
-            # calculated_root, info, ier, msg = fsolve(function, val.next(), full_output=True)
         except StopIteration:
             break
 
@@ -1403,3 +1422,106 @@ def complex_wrapper(func):
                          np.imag(func(np.complex(x[0], x[1])))])
 
     return wrapper
+
+
+class Parameters:
+    """
+    Handy class to collect system parameters.
+    This class can be instantiated with a dict, whose keys will the become attributes of the object.
+    (Bunch approach)
+
+    Args:
+        kwargs: parameters
+    """
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+class Domain(object):
+    """
+    Helper class that manages ranges for data evaluation, containing parameters.
+
+    Args:
+        bounds (tuple): Interval bounds.
+        num (int): Number of points in interval.
+        step (numbers.Number): Distance between points (if homogeneous).
+        points (array_like): Points themselves.
+
+    Note:
+        If num and step are given, num will take precedence.
+    """
+
+    def __init__(self, bounds=None, num=None, step=None, points=None):
+        if points is not None:
+            # points are given, easy one
+            self._values = np.atleast_1d(points)
+            self._limits = (points.min(), points.max())
+            self._num = points.size
+            # TODO check for evenly spaced entries
+            # for now just use provided information
+            self._step = step
+        elif bounds and num:
+            self._limits = bounds
+            self._num = num
+            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+            if step is not None and not np.isclose(self._step, step):
+                raise ValueError("could not satisfy both redundant requirements for num and step!")
+        elif bounds and step:
+            self._limits = bounds
+            # calculate number of needed points but save correct step size
+            self._num = int((bounds[1] - bounds[0]) / step + 1.5)
+            self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
+            if np.abs(step - self._step) > 1e-1:
+                warnings.warn("desired step-size {} doesn't fit to given interval,"
+                              " changing to {}".format(step, self._step))
+        else:
+            raise ValueError("not enough arguments provided!")
+
+    def __len__(self):
+        return len(self._values)
+
+    def __getitem__(self, item):
+        return self._values[item]
+
+    @property
+    def step(self):
+        return self._step
+
+    @property
+    def bounds(self):
+        return self._limits
+
+    @property
+    def points(self):
+        return self._values
+
+
+def return_real_part(to_return):
+    """
+    Check if the imaginary part of :code:`to_return` vanishes
+    and return the real part.
+
+    Args:
+        to_return (numbers.Number or array_like): Variable to check.
+
+    Raises:
+        ValueError: If (all) imaginary part(s) not vanishes.
+
+    Return:
+        numbers.Number or array_like: Real part of :code:`to_return`.
+    """
+    if not isinstance(to_return, (Number, list, np.ndarray)):
+        raise TypeError
+    if isinstance(to_return, (list, np.ndarray)):
+        if not all([isinstance(num, Number) for num in to_return]):
+            raise TypeError
+
+    maybe_real = np.atleast_1d(np.real_if_close(to_return))
+
+    if maybe_real.dtype == 'complex':
+        raise ValueError("Something goes wrong, imaginary part does not vanish")
+    else:
+        if maybe_real.shape == (1,):
+            maybe_real = maybe_real[0]
+        return maybe_real

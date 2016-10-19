@@ -14,74 +14,15 @@ from scipy.integrate import ode
 from scipy.interpolate import interp1d
 from scipy.linalg import block_diag
 
-from .core import (Function, integrate_function, calculate_scalar_product_matrix, project_on_base, dot_product_l2,
-                   sanitize_input, StackedBase, TransformationInfo, get_weight_transformation)
+from .core import (Domain, Parameters, Function, integrate_function, calculate_scalar_product_matrix,
+                   project_on_base, dot_product_l2, sanitize_input, StackedBase, TransformationInfo,
+                   get_weight_transformation)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .registry import get_base, register_base
-from .utils import Parameters
 from .visualization import EvalData
 
-__all__ = ["Domain", "SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
+__all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
            "create_state_space", "simulate_system", "simulate_systems", "process_sim_data", "evaluate_approximation"]
-
-
-class Domain(object):
-    """
-    Helper class that manages ranges for data evaluation, containing parameters.
-
-    Args:
-        bounds (tuple): Interval bounds.
-        num (int): Number of points in interval.
-        step (numbers.Number): Distance between points (if homogeneous).
-        points (array_like): Points themselves.
-
-    Note:
-        If num and step are given, num will take precedence.
-    """
-
-    def __init__(self, bounds=None, num=None, step=None, points=None):
-        if points is not None:
-            # points are given, easy one
-            self._values = np.atleast_1d(points)
-            self._limits = (points.min(), points.max())
-            self._num = points.size
-            # TODO check for evenly spaced entries
-            # for now just use provided information
-            self._step = step
-        elif bounds and num:
-            self._limits = bounds
-            self._num = num
-            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
-            if step is not None and not np.isclose(self._step, step):
-                raise ValueError("could not satisfy both redundant requirements for num and step!")
-        elif bounds and step:
-            self._limits = bounds
-            # calculate number of needed points but save correct step size
-            self._num = int((bounds[1] - bounds[0]) / step + 1.5)
-            self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
-            if np.abs(step - self._step) > 1e-1:
-                warnings.warn("desired step-size {} doesn't fit to given interval,"
-                              " changing to {}".format(step, self._step))
-        else:
-            raise ValueError("not enough arguments provided!")
-
-    def __len__(self):
-        return len(self._values)
-
-    def __getitem__(self, item):
-        return self._values[item]
-
-    @property
-    def step(self):
-        return self._step
-
-    @property
-    def bounds(self):
-        return self._limits
-
-    @property
-    def points(self):
-        return self._values
 
 
 class SimulationInput(object, metaclass=ABCMeta):
@@ -293,8 +234,8 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
         weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
         initial_states (numpy.ndarray): Array of core.Functions for
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
-        temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
-        spatial_domain (:py:class:`Domain`): Domain object holding information for spatial evaluation.
+        temporal_domain (:py:class:`core.Domain`): Domain object holding information for time evaluation.
+        spatial_domain (:py:class:`core.Domain`): Domain object holding information for spatial evaluation.
         derivative_orders (tuple): tuples of derivative orders (time, spat) that shall be
             evaluated additionally as values
         settings: Integrator settings, see :py:func:`simulate_state_space`.
@@ -316,7 +257,7 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         weak_forms ((list of) :py:class:`WeakFormulation`): (list of) Weak formulation(s) of the system(s) to simulate.
         initial_states (dict, numpy.ndarray): Array of core.Functions for
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
-        temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
+        temporal_domain (:py:class:`core.Domain`): Domain object holding information for time evaluation.
         spatial_domains (dict) Dict with :py:class:`Domain` objects holding information for spatial evaluation.
         derivative_orders (dict): Dict, containing tuples of derivative orders (time, spat) that shall be
             evaluated additionally as values
@@ -393,8 +334,8 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
         temp_order: Order or temporal derivatives to evaluate additionally.
         spat_order: Order or spatial derivatives to evaluate additionally.
         q: weights
-        spat_domain (:py:class:`Domain`): Domain object providing values for spatial evaluation.
-        temp_domain (:py:class:`Domain`): Time steps on which rows of q are given.
+        spat_domain (:py:class:`core.Domain`): Domain object providing values for spatial evaluation.
+        temp_domain (:py:class:`core.Domain`): Time steps on which rows of q are given.
         name (str): Name of the WeakForm, used to generate the data set.
     """
     data = []
@@ -1095,7 +1036,7 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     Args:
         state_space (:py:class:`StateSpace`): State space formulation of the system.
         initial_state: Initial state vector of the system.
-        temp_domain (:py:class:`Domain`): Temporal domain object.
+        temp_domain (:py:class:`core.Domain`): Temporal domain object.
         settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with
             the integrator name included under the key :obj:`name`.
 

@@ -4,25 +4,25 @@ Besides you can find here a trivial (constant) input signal generator as
 well as input signal generator for equilibrium to equilibrium transitions for
 hyperbolic and parabolic systems.
 """
-
-import sympy as sp
 import warnings
-import scipy.interpolate
-import scipy.misc as sm
-import scipy.signal as sig
-import numpy as np
-import pyqtgraph as pg
 from numbers import Number
 
-from . import simulation as sim
-from . import eigenfunctions as ef
+import numpy as np
+import pyqtgraph as pg
+import scipy.misc as sm
+import scipy.signal as sig
+import sympy as sp
+
+from .core import Domain
+from .simulation import SimulationInput
+
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
 K_tanh = 2.
 
 
-class ConstantTrajectory(sim.SimulationInput):
+class ConstantTrajectory(SimulationInput):
     """
     Trivial trajectory generator for a constant value as simulation input signal.
 
@@ -31,7 +31,7 @@ class ConstantTrajectory(sim.SimulationInput):
     """
 
     def __init__(self, const=0):
-        sim.SimulationInput.__init__(self)
+        SimulationInput.__init__(self)
         self._const = const
 
     def _calc_output(self, **kwargs):
@@ -123,14 +123,14 @@ class SmoothTransition:
         return y
 
 
-class FlatString(sim.SimulationInput):
+class FlatString(SimulationInput):
     """
     Class that implements a flatness based control approach
     for the "string with mass" model.
     """
 
     def __init__(self, y0, y1, z0, z1, t0, dt, params):
-        sim.SimulationInput.__init__(self)
+        SimulationInput.__init__(self)
 
         # store params
         self._tA = t0
@@ -461,7 +461,7 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
     return x
 
 
-class InterpolationTrajectory(sim.SimulationInput):
+class InterpolationTrajectory(SimulationInput):
     """
     Provides a system input through one-dimensional linear interpolation in
     the given vector :math:`u` .
@@ -478,7 +478,7 @@ class InterpolationTrajectory(sim.SimulationInput):
     """
 
     def __init__(self, t, u, **kwargs):
-        sim.SimulationInput.__init__(self)
+        SimulationInput.__init__(self)
 
         self._t = t
         self._T = t[-1]
@@ -525,7 +525,7 @@ class SignalGenerator(InterpolationTrajectory):
     def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
         if waveform not in sig.waveforms.__all__:
             raise ValueError('Desired waveform is not provided by scipy.signal module.')
-        if isinstance(t, sim.Domain):
+        if isinstance(t, Domain):
             t = t.points
         if not any([isinstance(value, Number) for value in [scale, offset]]):
             raise ValueError('scale and offset must be a Number')
@@ -551,72 +551,3 @@ class SignalGenerator(InterpolationTrajectory):
             phase_shift = 0
         u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
         InterpolationTrajectory.__init__(self, t, u)
-
-
-class RadTrajectory(InterpolationTrajectory):
-    """
-    Class that implements a flatness based control approach
-    for the reaction-advection-diffusion equation
-
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t)
-
-    with the boundary condition
-
-        - :code:`bound_cond_type == "dirichlet"`: :math:`x(0,t)=0`
-
-            - A transition from :math:`x'(0,0)=0` to  :math:`x'(0,T)=1` is considered.
-            - With :math:`x'(0,t) = y(t)` where :math:`y(t)` is the flat output.
-
-        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \\alpha x(0,t)`
-
-            - A transition from :math:`x(0,0)=0` to  :math:`x(0,T)=1` is considered.
-            - With :math:`x(0,t) = y(t)` where :math:`y(t)` is the flat output.
-
-    and the actuation
-
-        - :code:`actuation_type == "dirichlet"`: :math:`x(l,t)=u(t)`
-
-        - :code:`actuation_type == "robin"`: :math:`x'(l,t) = -\\beta x(l,t) + u(t)`.
-
-    The flat output trajectory :math:`y(t)` will be calculated with :py:func:`gevrey_tanh`.
-    """
-
-    # TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh,
-                 show_plot=False):
-
-        cases = {'dirichlet', 'robin'}
-        if bound_cond_type not in cases:
-            raise TypeError('Type of boundary condition by z=0 is not understood.')
-        if actuation_type not in cases:
-            raise TypeError('Type of actuation_type is not understood.')
-
-        self._l = l
-        self._T = T
-        self._a1_original = param_original[1]
-        self._param = ef.transform2intermediate(param_original)
-        self._bound_cond_type = bound_cond_type
-        self._actuation_type = actuation_type
-        self._n = n
-        self._sigma = sigma
-        self._K = K
-
-        self._z = np.array([self._l])
-        y, t = gevrey_tanh(self._T, self._n + 2, self._sigma, self._K)
-        x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, bound_cond_type)
-
-        a2, a1, a0, alpha, beta = self._param
-        if self._actuation_type is 'dirichlet':
-            u = x[:, -1]
-        elif self._actuation_type is 'robin':
-            u = d_x[:, -1] + beta * x[:, -1]
-        else:
-            raise NotImplementedError
-
-        # actually the algorithm consider the pde
-        # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
-        # with the following back transformation are also
-        # pde's with advection term a_1 x'(z,t) considered
-        u *= np.exp(-self._a1_original / 2. / a2 * l)
-
-        InterpolationTrajectory.__init__(self, t, u, show_plot=show_plot)

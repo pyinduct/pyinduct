@@ -1,16 +1,19 @@
-import pyinduct as pi
-from pyinduct import registry as re
-from pyinduct import core as cr
-from pyinduct import placeholder as ph
-from pyinduct import utils as ut
-from pyinduct import trajectory as tr
-from pyinduct import eigenfunctions as ef
-from pyinduct import simulation as sim
-from pyinduct import visualization as vis
-from pyinduct import shapefunctions as sh
 import numpy as np
+import parabolic.general
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
+
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
+
+# from pyinduct import registry as re
+# from pyinduct import core as cr
+# from pyinduct import placeholder as ph
+# from pyinduct import trajectory as tr
+# from pyinduct import eigenfunctions as ef
+# from pyinduct import simulation as sim
+# from pyinduct import visualization as vis
+# from pyinduct import shapefunctions as sh
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation
@@ -29,7 +32,7 @@ a0 = 6
 alpha = -1
 beta = -1
 param = [a2, a1, a0, alpha, beta]
-adjoint_param = ef.get_adjoint_rad_evp_param(param)
+adjoint_param = parabolic.general.get_adjoint_rad_evp_param(param)
 
 # target system parameters (controller parameters)
 a1_t = 0
@@ -50,8 +53,8 @@ l = 1
 T = 1
 actuation_type = 'robin'
 bound_cond_type = 'robin'
-spatial_domain = sim.Domain(bounds=(0, l), num=n_fem)
-temporal_domain = sim.Domain(bounds=(0, 1), num=100)
+spatial_domain = core.Domain(bounds=(0, l), num=n_fem)
+temporal_domain = core.Domain(bounds=(0, 1), num=100)
 n = n_modal
 
 # create (not normalized) eigenfunctions
@@ -121,19 +124,19 @@ def int_kernel_zz(z):
 traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)
 
 # controller initialization
-controller = ut.get_parabolic_robin_backstepping_controller(state=x_i_at_l,
-                                                            approx_state=x_i_at_l,
-                                                            d_approx_state=xd_i_at_l,
-                                                            approx_target_state=x_ti_at_l,
-                                                            d_approx_target_state=xd_ti_at_l,
-                                                            integral_kernel_zz=int_kernel_zz(l),
-                                                            original_beta=beta_i,
-                                                            target_beta=beta_ti,
-                                                            trajectory=traj,
-                                                            scale=transform_i(-l))
+controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=x_i_at_l,
+                                                                           approx_state=x_i_at_l,
+                                                                           d_approx_state=xd_i_at_l,
+                                                                           approx_target_state=x_ti_at_l,
+                                                                           d_approx_target_state=xd_ti_at_l,
+                                                                           integral_kernel_zz=int_kernel_zz(l),
+                                                                           original_beta=beta_i,
+                                                                           target_beta=beta_ti,
+                                                                           trajectory=traj,
+                                                                           scale=transform_i(-l))
 
 # determine (A,B)
-rad_pde, base_lbls = pi.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)
+rad_pde, base_lbls = parabolic.control.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)
 ce = pi.parse_weak_formulation(rad_pde)
 ss_weak = pi.create_state_space(ce)
 

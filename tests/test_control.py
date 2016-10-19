@@ -1,25 +1,29 @@
 import sys
 import unittest
 
+import core
 import numpy as np
 from scipy import integrate
 
-from pyinduct import control as ct
-from pyinduct import core as cr
-from pyinduct import eigenfunctions as ef
-from pyinduct import placeholder as ph
-from pyinduct import register_base, deregister_base
-from pyinduct import shapefunctions as sf
-from pyinduct import simulation as sim
-from pyinduct import trajectory as tr
-from pyinduct import utils as ut
-from pyinduct import visualization as vis
+import pyinduct as pi
+
+# from pyinduct import control as ct
+# from pyinduct import core as cr
+# from pyinduct import eigenfunctions as ef
+# from pyinduct import placeholder as ph
+# from pyinduct import register_base, deregister_base
+# from pyinduct import shapefunctions as sf
+# from pyinduct import simulation as sim
+# from pyinduct import trajectory as tr
+# from pyinduct import utils as ut
+# from pyinduct import visualization as vis
+
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
@@ -27,88 +31,93 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
-# TODO Test for ControlLaw and LawEvaluator
-
-
 class CollocatedTestCase(unittest.TestCase):
     def setUp(self):
-        interval = (0, 1)
-        nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
-        register_base("funcs", funcs, overwrite=True)
-        x_at1 = ph.FieldVariable("funcs", location=1)
-        x_dt_at1 = ph.TemporalDerivedFieldVariable("funcs", 1, location=1)
-        x_dz_at0 = ph.SpatialDerivedFieldVariable("funcs", 1, location=0)
+        spat_dom = core.Domain((0, 1), 10)
+        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder, spat_dom.bounds, 3)
+        pi.register_base("base", base)
 
-        exp_func = cr.Function(np.exp)
-        register_base("exp_func", exp_func, overwrite=True)
-        exp_at1 = ph.ScalarFunction("exp_func", location=1)
+        x = pi.FieldVariable("base")
+        x_dt_at1 = x.derive(temp_order=1)(1)
+        x_dz_at0 = x.derive(spat_order=1)(0)
+
+        exp_base = pi.Base(pi.Function(np.exp))
+        pi.register_base("exp_base", exp_base, overwrite=True)
+        exp_at1 = pi.ScalarFunction("exp_base")(1)
 
         alpha = 2
-        self.term1 = ph.ScalarTerm(x_dt_at1, 1 + alpha)
-        self.term2 = ph.ScalarTerm(x_dz_at0, 2)
-        self.term3 = ph.ScalarTerm(ph.Product(x_at1, exp_at1))
+        self.term1 = pi.ScalarTerm(x_dt_at1, 1 + alpha)
+        self.term2 = pi.ScalarTerm(x_dz_at0, 2)
+        self.term3 = pi.ScalarTerm(pi.Product(x(1), exp_at1))
 
-        self.weight_label = "funcs"
+        self.weight_label = "base"
         self.weights = np.array([1, 1, 1, 2, 2, 2])
 
+    def _build_case(self, term):
+        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"), finalize=False)
+        evaluator = pi.LawEvaluator(ce)
+        return evaluator(self.weights, self.weight_label)["output"]
+
     def test_temp_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term1)
         self.assertAlmostEqual(res, 6)
 
     def test_spat_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term2)
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term3)
         self.assertAlmostEqual(res, 1 * np.exp(1))
 
     def tearDown(self):
-        deregister_base("funcs")
-        deregister_base("exp_func")
+        pi.deregister_base("base")
+        pi.deregister_base("exp_base")
 
 
 class ContinuousTestCase(unittest.TestCase):
     def setUp(self):
+        self.weight_label = "base"
+
         interval = (0, 1)
-        nodes, funcs = sf.cure_interval(sf.LagrangeFirstOrder, interval, 3)
-        register_base("funcs", funcs, overwrite=True)
-        x = ph.FieldVariable("funcs")
-        x_dt = ph.TemporalDerivedFieldVariable("funcs", 1)
-        x_dz = ph.SpatialDerivedFieldVariable("funcs", 1)
-        register_base("scal_func", cr.Function(np.exp), overwrite=True)
-        exp = ph.ScalarFunction("scal_func")
+        nodes, funcs = pi.cure_interval(pi.LagrangeFirstOrder, interval, 3)
+        pi.register_base(self.weight_label, funcs)
+
+        x = pi.FieldVariable(self.weight_label)
+        x_dt = x.derive(temp_order=1)
+        x_dz = x.derive(spat_order=1)
+
+        pi.register_base("scalar_func", pi.Base(pi.Function(np.exp)))
+        exp = pi.ScalarFunction("scalar_func")
 
         alpha = 2
-        self.term1 = ph.IntegralTerm(x_dt, interval, 1 + alpha)
-        self.term2 = ph.IntegralTerm(x_dz, interval, 2)
-        self.term3 = ph.IntegralTerm(ph.Product(x, exp), interval)
+        self.term1 = pi.IntegralTerm(x_dt, interval, 1 + alpha)
+        self.term2 = pi.IntegralTerm(x_dz, interval, 2)
+        self.term3 = pi.IntegralTerm(pi.Product(x, exp), interval)
 
-        self.weight_label = "funcs"
-        self.weights = np.hstack([1, 1, 1, 2, 2, 2])
+        self.weights = np.array([1, 1, 1, 2, 2, 2])
+
+    def _build_case(self, term):
+        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"), finalize=False)
+        evaluator = pi.LawEvaluator(ce)
+        return evaluator(self.weights, self.weight_label)["output"]
 
     def test_temp_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term1])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term1)
         self.assertTrue(np.equal(res, 6))
 
     def test_spat_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term2])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term2)
         self.assertAlmostEqual(res, 0)
 
     def test_product_term(self):
-        law = ct.LawEvaluator(ct.approximate_control_law(ct.ControlLaw([self.term3])))
-        res = law(self.weights, self.weight_label)["output"]
+        res = self._build_case(self.term3)
         # TODO calculate expected result
         # self.assertAlmostEqual(res, 1*np.exp(1))
 
     def tearDown(self):
-        deregister_base("funcs")
-        deregister_base("scal_func")
+        pi.deregister_base(self.weight_label)
+        pi.deregister_base("scalar_func")
 
 
 class RadDirichletControlApproxTest(unittest.TestCase):

@@ -1,3 +1,5 @@
+import core
+import parabolic.trajectory
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import control as ct
@@ -34,8 +36,8 @@ actuation_type = 'dirichlet'
 bound_cond_type = 'dirichlet'
 l = 1  # attention: only l=1. supported in this test case
 T = 1
-spatial_domain = sim.Domain(bounds=(0, l), num=30)
-temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
+spatial_domain = core.Domain(bounds=(0, l), num=30)
+temporal_domain = core.Domain(bounds=(0, T), num=1e2)
 n = n_modal
 
 # eigenvalues /-functions original system
@@ -64,7 +66,7 @@ start_state = cr.Function(lambda z: init_profile)
 initial_weights = cr.project_on_base(start_state, eig_funcs)
 
 # init trajectory
-traj = tr.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
+traj = parabolic.trajectory.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
 
 # input with feedback
 control_law = sim.SimulationInputSum([traj, controller])

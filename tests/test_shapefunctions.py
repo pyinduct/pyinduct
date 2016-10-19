@@ -1,6 +1,7 @@
 import sys
 import unittest
 
+import core
 import numpy as np
 import pyinduct as pi
 import pyinduct.shapefunctions as sh
@@ -42,8 +43,8 @@ class CureTestCase(unittest.TestCase):
         verify the correct connection with visual feedback
         """
 
-        dz = pi.Domain((0, 1), step=.001)
-        dt = pi.Domain((0, 0), num=1)
+        dz = core.Domain((0, 1), step=.001)
+        dt = core.Domain((0, 0), num=1)
 
         nodes, base = pi.cure_interval(cls, dz.bounds, node_count=11)
         pi.register_base("test", base)
@@ -109,8 +110,8 @@ class NthOrderCureTestCase(unittest.TestCase):
         lam_sin_func = [sp.lambdify(z, func) for func in sin_func]
         approx_func = pi.Function(lam_sin_func[0], domain=(0, 1), derivative_handles=lam_sin_func[1:])
 
-        dz = pi.Domain((0, 1), step=.001)
-        dt = pi.Domain((0, 0), num=1)
+        dz = core.Domain((0, 1), step=.001)
+        dt = core.Domain((0, 0), num=1)
 
         for order in orders:
             num_nodes = 1 + (1 + conf) * order

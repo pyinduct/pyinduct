@@ -1,3 +1,4 @@
+import core
 import pyinduct.core as cr
 import pyinduct.placeholder as ph
 import pyinduct.registry as reg
@@ -12,8 +13,8 @@ sys_name = 'transport system'
 v = 10
 l = 5
 T = 5
-spat_domain = sim.Domain(bounds=(0, l), num=51)
-temp_domain = sim.Domain(bounds=(0, T), num=1e2)
+spat_domain = core.Domain(bounds=(0, l), num=51)
+temp_domain = core.Domain(bounds=(0, T), num=1e2)
 
 init_x = cr.Function(lambda z: 0)
 

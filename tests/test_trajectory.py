@@ -1,7 +1,11 @@
 import sys
 import warnings
 import unittest
+
+import core
 import numpy as np
+import parabolic.control
+import parabolic.trajectory
 import scipy.signal as sig
 
 import pyinduct.utils as ut
@@ -24,8 +28,8 @@ else:
 
 class ConstantTrajectoryTestCase(unittest.TestCase):
     def setUp(self):
-        self.spat_domain = sim.Domain(bounds=(0, 1), num=2)
-        self.temp_domain = sim.Domain(bounds=(0, 1), num=10)
+        self.spat_domain = core.Domain(bounds=(0, 1), num=2)
+        self.temp_domain = core.Domain(bounds=(0, 1), num=10)
         self.const_traj = tr.ConstantTrajectory(1)
 
     def test_const_traj(self):
@@ -48,7 +52,7 @@ class SmoothTransitionTestCase(unittest.TestCase):
         self.y0 = -5
         self.y1 = 10
 
-        self.params = ut.Parameters
+        self.params = core.Parameters
         self.params.m = 1
         self.params.sigma = 1
         self.params.tau = 2
@@ -88,7 +92,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
 
         b_desired = 0.4
         k = 5  # = k1 + k2
-        k1, k2, b = ut.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
+        k1, k2, b = parabolic.control.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
         # q
         E = tr.coefficient_recursion(self.y, self.beta * self.y, self.param)
         q = tr.temporal_derived_power_series(self.l - b, E, int(self.n_y / 2) - 1, self.n_y)
@@ -116,7 +120,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
         u_a = tr.InterpolationTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
-        u_b = tr.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
+        u_b = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
         u_b_t = u_b(time=self.t)
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:
@@ -133,8 +137,8 @@ class InterpSignalGeneratorTest(unittest.TestCase):
             warnings.warn("New scipy.signal module interface!"
                           "Rewrite this TestCase (and have a look at pyinduct.trajectory.SignalGenerator!")
 
-        self.t = sim.Domain(bounds=(0, 1), num=500)
-        self.t_interp = sim.Domain(bounds=(0, 1), num=50)
+        self.t = core.Domain(bounds=(0, 1), num=500)
+        self.t_interp = core.Domain(bounds=(0, 1), num=50)
         self.t1 = 1
         self.f0 = 50
         self.f1 = 500

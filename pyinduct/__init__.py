@@ -6,10 +6,10 @@ from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
 from .core import Base, Function, normalize_base, find_roots
 # noinspection PyUnresolvedReferences
-from .control import ControlLaw, Controller
+from .control import LawEvaluator, Controller
 # noinspection PyUnresolvedReferences
 from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
-                          TemporalDerivedFieldVariable, Product, TestFunction, Input)
+                          TemporalDerivedFieldVariable, ScalarFunction, Product, TestFunction, Input)
 # noinspection PyUnresolvedReferences
 from .simulation import *
 # from .simulation import (Domain, SimulationInput, SimulationInputSum, WeakFormulation, parse_weak_formulation,
@@ -20,7 +20,7 @@ from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrd
 # noinspection PyUnresolvedReferences
 from .visualization import EvalData, PgAnimatedPlot, PgSurfacePlot
 # noinspection PyUnresolvedReferences
-from .utils import get_parabolic_robin_weak_form, get_parabolic_dirichlet_weak_form
+# from .utils import get_parabolic_robin_weak_form
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"

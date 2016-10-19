@@ -4,19 +4,13 @@ of the corresponding eigenvalues are included.
 The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
 order to handle transformations and reduce effort by the controller implementation.
 """
-import numpy as np
-import warnings
-import copy as cp
 import collections
-import pyqtgraph as pg
-import scipy.integrate as si
-from scipy.interpolate import interp1d
-from scipy.optimize import fsolve
-from numbers import Number
 from functools import partial
 
-from . import utils as ut
-from . import core as cr
+import numpy as np
+import scipy.integrate as si
+
+from .core import return_real_part, Function
 
 # from . import placeholder as ph
 # from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
@@ -26,7 +20,7 @@ from . import core as cr
 
 class AddMulFunction(object):
     """
-    (Temporary) Function class wich can multiplied with scalars and added with functions.
+    (Temporary) Function class which can multiplied with scalars and added with functions.
     Only needed to compute the matrix (of scalars) vector (of functions) product in
     :py:class:`FiniteTransformFunction`. Will be no longer needed when :py:class:`pyinduct.core.Function`
     is overloaded with :code:`__add__` and :code:`__mul__` operator.
@@ -48,7 +42,7 @@ class AddMulFunction(object):
         return AddMulFunction(lambda z: self.function(z) + other(z))
 
 
-class FiniteTransformFunction(cr.Function):
+class FiniteTransformFunction(Function):
     """
     Provide a transformed :py:class:`pyinduct.core.Function` :math:`\\bar x(z)` through the transformation
     :math:`\\bar{\\boldsymbol{\\xi}} = T * \\boldsymbol \\xi`,
@@ -103,7 +97,7 @@ class FiniteTransformFunction(cr.Function):
         self.function = function
         self.M = M
         self.l = l
-        if scale_func == None:
+        if scale_func is None:
             self.scale_func = lambda z: 1
         else:
             self.scale_func = scale_func
@@ -114,7 +108,7 @@ class FiniteTransformFunction(cr.Function):
 
         if not nested_lambda:
             # iteration mode
-            cr.Function.__init__(self,
+            Function.__init__(self,
                                  self._call_transformed_func,
                                  nonzero=(0, l),
                                  derivative_handles=[])
@@ -132,7 +126,7 @@ class FiniteTransformFunction(cr.Function):
 
             self.y_func_vec = np.dot(self.x_func_vec, np.transpose(M))
 
-            cr.Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
+            Function.__init__(self, self._call_transformed_func_vec, nonzero=(0, l), derivative_handles=[])
 
     def _call_transformed_func_vec(self, z):
         i = int(z / self.l0)
@@ -163,35 +157,35 @@ class FiniteTransformFunction(cr.Function):
         return to_return
 
 
-class TransformedSecondOrderEigenfunction(cr.Function):
-    """
-    Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
+class TransformedSecondOrderEigenfunction(Function):
+    r"""
+    Provide the eigenfunction :math:`\varphi(z)` to an eigenvalue problem of the form
 
-    .. math:: a_2(z)\\varphi''(z) + a_1(z)\\varphi'(z) + a_0(z)\\varphi(z) = \\lambda\\varphi(z)
+    .. math:: a_2(z)\varphi''(z) + a_1(z)\varphi'(z) + a_0(z)\varphi(z) = \lambda\varphi(z) ,
 
-    where :math:`\\lambda` is a predefined (potentially complex) eigenvalue and :math:`[z_0,z_1]\\ni z` is the domain.
+    where :math:`\lambda` is a predefined (potentially complex) eigenvalue and :math:`[z_0,z_1]\ni z` is the domain.
 
     Args:
-        target_eigenvalue (numbers.Number): :math:`\\lambda`
-        init_state_vect (array_like):
-            .. math:: \\Big(\\text{Re}\\{\\varphi(0)\\}, \\text{Re}\\{\\varphi'(0)\\}, \\text{Im}\\{\\varphi(0)\\}, \\text{Im}\\{\\varphi'(0)\\}\\Big)^T
+        target_eigenvalue (numbers.Number): :math:`\lambda`
+        initial_state_vector (array_like):
+            :math:`\Big(\text{Re}\{\varphi(0)\}, \text{Re}\{\varphi'(0)\}, \text{Im}\{\varphi(0)\}, \text{Im}\{\varphi'(0)\}\Big)^T`
         dgl_coefficients (array_like):
-            :math:`\\Big( a2(z), a1(z), a0(z) \\Big)^T`
+            :math:`\Big( a2(z), a1(z), a0(z) \Big)^T`
         domain (array_like):
-            :math:`\\Big( z_0, ..... , z_1 \\Big)`
+            :math:`\Big( z_0, ..... , z_1 \Big)`
     """
 
-    def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
+    def __init__(self, target_eigenvalue, initial_state_vector, dgl_coefficients, domain):
 
-        if not all([isinstance(state, (int, float)) for state in init_state_vect]) \
-            and len(init_state_vect) == 4 and isinstance(init_state_vect, (list, tuple)):
+        if not all([isinstance(state, (int, float)) for state in initial_state_vector]) \
+                and len(initial_state_vector) == 4 and isinstance(initial_state_vector, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) \
-            and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in
-                     dgl_coefficients]):
+                and all([isinstance(coef, collections.Callable) or isinstance(coef, (int, float))
+                         for coef in dgl_coefficients]):
             raise TypeError
         if not isinstance(domain, (np.ndarray, list)) \
-            or not all([isinstance(num, (int, float)) for num in domain]):
+                or not all([isinstance(num, (int, float)) for num in domain]):
             raise TypeError
 
         if isinstance(target_eigenvalue, complex):
@@ -203,15 +197,15 @@ class TransformedSecondOrderEigenfunction(cr.Function):
         else:
             raise TypeError
 
-        self._init_state_vect = init_state_vect
-        self._a2, self._a1, self._a0 = [ut._convert_to_function(coef) for coef in dgl_coefficients]
+        self._init_state_vect = initial_state_vector
+        self._a2, self._a1, self._a0 = [Function.from_constant(coefficient) for coefficient in dgl_coefficients]
         self._domain = domain
 
         state_vect = self._transform_eigenfunction()
         self._transf_eig_func_real, self._transf_d_eig_func_real = state_vect[0:2]
         self._transf_eig_func_imag, self._transf_d_eig_func_imag = state_vect[2:4]
 
-        cr.Function.__init__(self, self._phi, nonzero=(domain[0], domain[-1]), derivative_handles=[self._d_phi])
+        Function.__init__(self, self._phi, nonzero=(domain[0], domain[-1]), derivative_handles=[self._d_phi])
 
     def _ff(self, y, z):
         a2, a1, a0 = [self._a2, self._a1, self._a0]
@@ -237,7 +231,7 @@ class TransformedSecondOrderEigenfunction(cr.Function):
         return np.interp(z, self._domain, self._transf_d_eig_func_real)
 
 
-class SecondOrderRobinEigenfunction(cr.Function):
+class SecondOrderRobinEigenfunction(Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -264,7 +258,7 @@ class SecondOrderRobinEigenfunction(cr.Function):
         self._om = om
         self._param = param
         self.phi_0 = phi_0
-        cr.Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         a2, a1, a0, alpha, beta = self._param
@@ -312,7 +306,7 @@ class SecondOrderRobinEigenfunction(cr.Function):
         return return_real_part(d_phi_i * self.phi_0)
 
 
-class SecondOrderDirichletEigenfunction(cr.Function):
+class SecondOrderDirichletEigenfunction(Function):
     """
     Provide the eigenfunction :math:`\\varphi(z)` to an eigenvalue problem of the form
 
@@ -342,7 +336,7 @@ class SecondOrderDirichletEigenfunction(cr.Function):
 
         a2, a1, a0, _, _ = self._param
         self._eta = -a1 / 2. / a2
-        cr.Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
+        Function.__init__(self, self._phi, nonzero=spatial_domain, derivative_handles=[self._d_phi, self._dd_phi])
 
     def _phi(self, z):
         eta = self._eta
@@ -369,215 +363,3 @@ class SecondOrderDirichletEigenfunction(cr.Function):
         return return_real_part(d_phi_i * self.norm_fac)
 
 
-def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
-    """
-    Return the first :code:`n_roots` eigenfrequencies :math:`\\omega` (and eigenvalues :math:`\\lambda`)
-
-    .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
-
-    to the eigenvalue problem
-
-    .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi'(0) &= \\alpha\\varphi(0) \\\\
-        \\varphi'(l) &= -\\beta\\varphi(l).
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-        l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
-        n_roots (int): Amount of eigenfrequencies to be compute.
-        show_plot (bool): A plot window of the characteristic equation appears if it is :code:`True`.
-
-    Return:
-        tuple --> booth tuple elements are numpy.ndarrays of length :code:`nroots`:
-            :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
-    """
-
-    a2, a1, a0, alpha, beta = param
-    eta = -a1 / 2. / a2
-
-    def characteristic_equation(om):
-        if np.round(om, 200) != 0.:
-            zero = (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
-        else:
-            zero = (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
-        return zero
-
-    def complex_characteristic_equation(om):
-        if np.round(om, 200) != 0.:
-            zero = (alpha + beta) * np.cosh(om * l) + ((eta + beta) * (alpha - eta) / om + om) * np.sinh(om * l)
-        else:
-            zero = (alpha + beta) * np.cosh(om * l) + (eta + beta) * (alpha - eta) * l + om * np.sinh(om * l)
-        return zero
-
-    # assume 1 root per pi/l (safety factor = 3)
-    om_end = 3 * n_roots * np.pi / l
-    start_values = np.arange(0, om_end, .1)
-    om = cr.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
-                       show_plot=show_plot).tolist()
-
-    # delete all around om = 0
-    om.reverse()
-    for i in range(np.sum(np.array(om) < np.pi / l / 2e1)):
-        om.pop()
-    om.reverse()
-
-    # if om = 0 is a root then add 0 to the list
-    zero_limit = alpha + beta + (eta + beta) * (alpha - eta) * l
-    if np.round(zero_limit, 6 + int(np.log10(l))) == 0.:
-        om.insert(0, 0.)
-
-    # regard complex roots
-    om_squared = np.power(om, 2).tolist()
-    complex_root = fsolve(complex_characteristic_equation, om_end)
-    if np.round(complex_root, 6 + int(np.log10(l))) != 0.:
-        om_squared.insert(0, -complex_root[0] ** 2)
-
-    # basically complex eigenfrequencies
-    om = np.sqrt(np.array(om_squared).astype(complex))
-
-    if len(om) < n_roots:
-        raise ValueError("RadRobinEigenvalues.compute_eigen_frequencies()"
-                         "can not find enough roots")
-
-    eig_frequencies = om[:n_roots]
-    eig_values = a0 - a2 * eig_frequencies ** 2 - a1 ** 2 / 4. / a2
-    return eig_frequencies, eig_values
-
-
-def return_real_part(to_return):
-    """
-    Check if the imaginary part of :code:`to_return` vanishes
-    and return the real part.
-
-    Args:
-        to_return (numbers.Number or array_like): Variable to check.
-
-    Raises:
-        ValueError: If (all) imaginary part(s) not vanishes.
-
-    Return:
-        numbers.Number or array_like: Real part of :code:`to_return`.
-    """
-    if not isinstance(to_return, (Number, list, np.ndarray)):
-        raise TypeError
-    if isinstance(to_return, (list, np.ndarray)):
-        if not all([isinstance(num, Number) for num in to_return]):
-            raise TypeError
-
-    maybe_real = np.atleast_1d(np.real_if_close(to_return))
-
-    if maybe_real.dtype == 'complex':
-        raise ValueError("Something goes wrong, imaginary part does not vanish")
-    else:
-        if maybe_real.shape == (1,):
-            maybe_real = maybe_real[0]
-        return maybe_real
-
-
-def get_adjoint_rad_evp_param(param):
-    """
-    Return to the eigen value problem of the reaction-advection-diffusion
-    equation with robin and/or dirichlet boundary conditions
-
-    .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi(0) = 0 \\quad &\\text{or} \\quad \\varphi'(0) = \\alpha\\varphi(0) \\\\
-        \\varphi`(l) = 0 \\quad &\\text{or} \\quad \\varphi'(l) = -\\beta\\varphi(l)
-
-    the parameters for the adjoint problem (with the same structure).
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-
-    Return:
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=-a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
-            the adjoint problem
-
-            .. math::
-                a_2\\psi''(z) + a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
-                \\psi(0) = 0 \\quad &\\text{or} \\quad \\psi'(0) = \\tilde\\alpha\\psi(0) \\\\
-                \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l).
-    """
-    a2, a1, a0, alpha, beta = param
-
-    if alpha == None:
-        alpha_n = None
-    else:
-        alpha_n = a1 / a2 + alpha
-
-    if beta == None:
-        beta_n = None
-    else:
-        beta_n = -a1 / a2 + beta
-    a1_n = -a1
-
-    return a2, a1_n, a0, alpha_n, beta_n
-
-
-def transform2intermediate(param, d_end=None):
-    """
-    Transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
-    which eliminate the advection term :math:`a_1 x(z,t)` from the
-    reaction-advection-diffusion equation
-
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t)
-
-    with robin
-
-    .. math:: x'(0,t) = \\alpha x(0,t), \\quad x'(l,t) = -\\beta x(l,t)
-
-    or dirichlet
-
-    .. math:: x(0,t) = 0, \\quad x(l,t) = 0
-
-    or mixed boundary condition.
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-
-    Raises:
-        TypeError: If :math:`a_1(z)` is callable but no derivative handle is defined for it.
-
-    Return:
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z), \\tilde \\alpha, \\tilde \\beta \\big)` for
-            the transformed system
-
-            .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t) + \\tilde a_0(z) \\tilde x(z,t)
-
-            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None by dirichlet
-            boundary condition).
-
-    """
-    if not isinstance(param, (tuple, list)) or not len(param) == 5:
-        raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or list")
-
-    a2, a1, a0, alpha, beta = param
-    if isinstance(a1, collections.Callable) or isinstance(a0, collections.Callable):
-        if not len(a1._derivative_handles) >= 1:
-            raise TypeError
-        a0_z = ut._convert_to_function(a0)
-        a0_n = lambda z: a0_z(z) - a1(z) ** 2 / 4 / a2 - a1.derive(1)(z) / 2
-    else:
-        a0_n = a0 - a1 ** 2 / 4 / a2
-
-    if alpha is None:
-        alpha_n = None
-    elif isinstance(a1, collections.Callable):
-        alpha_n = a1(0) / 2. / a2 + alpha
-    else:
-        alpha_n = a1 / 2. / a2 + alpha
-
-    if beta is None:
-        beta_n = None
-    elif isinstance(a1, collections.Callable):
-        beta_n = -a1(d_end) / 2. / a2 + beta
-    else:
-        beta_n = -a1 / 2. / a2 + beta
-
-    a2_n = a2
-    a1_n = 0
-
-    return a2_n, a1_n, a0_n, alpha_n, beta_n

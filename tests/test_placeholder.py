@@ -2,6 +2,7 @@ import sys
 import unittest
 
 import numpy as np
+import placeholder
 
 from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
 from pyinduct import register_base, deregister_base, LagrangeFirstOrder, cure_interval
@@ -254,13 +255,13 @@ class ProductTest(unittest.TestCase):
         # test single argument call
         p3 = ph.Product(self.test_funcs)
         self.assertTrue(p3.b_empty)
-        res = ut.evaluate_placeholder_function(p3.args[0], np.pi / 2)
+        res = placeholder.evaluate_placeholder_function(p3.args[0], np.pi / 2)
         self.assertTrue(np.allclose(res, [1, 0]))
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
         self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
-        res = ut.evaluate_placeholder_function(p4.args[0], 0)
+        res = placeholder.evaluate_placeholder_function(p4.args[0], 0)
         self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
                                                                    self.shape_base.fractions[1](0)])))
         self.assertEqual(p4.args[1], None)
@@ -275,17 +276,17 @@ class ProductTest(unittest.TestCase):
                         ph.Product(self.test_funcs, self.scale_funcs))
         self.assertFalse(p6.b_empty)
 
-        res = ut.evaluate_placeholder_function(p5.args[0], 0)
+        res = placeholder.evaluate_placeholder_function(p5.args[0], 0)
         self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
                                                                    self.shape_base.fractions[1](0)])))
-        res1 = ut.evaluate_placeholder_function(p5.args[0], 1)
+        res1 = placeholder.evaluate_placeholder_function(p5.args[0], 1)
         self.assertTrue(np.allclose(res1, self.scale(1) * np.array([self.shape_base.fractions[0](1),
                                                                     self.shape_base.fractions[1](1)])))
 
-        res2 = ut.evaluate_placeholder_function(p5.args[1], 0)
+        res2 = placeholder.evaluate_placeholder_function(p5.args[1], 0)
         self.assertTrue(np.allclose(res2, self.scale(0) * np.array([self.t_base.fractions[0](0),
                                                                     self.t_base.fractions[1](0)])))
-        res3 = ut.evaluate_placeholder_function(p5.args[1], 1)
+        res3 = placeholder.evaluate_placeholder_function(p5.args[1], 1)
         self.assertTrue(np.allclose(res3, self.scale(0) * np.array([self.t_base.fractions[0](1),
                                                                     self.t_base.fractions[1](1)])))
 

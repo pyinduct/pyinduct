@@ -5,6 +5,8 @@ Test benches for the computational efficiency of toolbox routines.
 import sys
 import time
 import unittest
+
+import core
 import numpy as np
 
 import pyinduct.core as cr
@@ -30,7 +32,7 @@ def simulation_benchmark(spat_domain, settings):
     This benchmark covers a typical simulation.
 
     Args:
-        spat_domain (:py:class:`pyinduct.simulation.Domain`): spatial domain for the simulation
+        spat_domain (:py:class:`core.Domain`): spatial domain for the simulation
         settings (dict): settings to use for simulation run
 
     Returns:
@@ -39,7 +41,7 @@ def simulation_benchmark(spat_domain, settings):
     sys_name = 'transport system'
     v = 10
 
-    temp_domain = sim.Domain(bounds=(0, 5), num=100)
+    temp_domain = core.Domain(bounds=(0, 5), num=100)
 
     init_x = cr.Function(lambda z: 0)
 
@@ -126,7 +128,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
     """
     def setUp(self):
         self.node_cnt = 51
-        self.domain = sim.Domain(bounds=(0, 1), num=1e3)
+        self.domain = core.Domain(bounds=(0, 1), num=1e3)
 
         # first one is used as reference
         if True:

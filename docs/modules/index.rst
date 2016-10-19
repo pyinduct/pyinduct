@@ -11,7 +11,7 @@ Most of the things are already documented though in this document, that is
 automatically generated using PyInduct's docstrings.
 
 Click the  "modules" (:ref:`modindex`) link in the top right corner to easily
-access any PyInduct module, or use this contens:
+access any PyInduct module, or use this table of contents:
 
 .. toctree::
     :maxdepth: 2
@@ -26,6 +26,7 @@ access any PyInduct module, or use this contens:
     trajectory
     visualization
     utils
+    parabolic/index
 
 Contributions to docs
 ---------------------

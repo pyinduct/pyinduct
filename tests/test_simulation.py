@@ -1,10 +1,18 @@
 import os
 import sys
 import unittest
+
+import core
 import numpy as np
 from pickle import dump
 
+import parabolic.control
+import parabolic.general
+import parabolic.trajectory
 import pyinduct as pi
+import shapefunctions as sh
+import simulation as sim
+import visualization as vt
 from pyinduct import \
     registry as reg, \
     eigenfunctions as ef, \
@@ -14,7 +22,8 @@ from pyinduct import \
     visualization as vis, \
     trajectory as tr, \
     placeholder as ph, \
-    shapefunctions as sf
+    shapefunctions as sf, register_base
+from test_utils import show_plots, app
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -109,7 +118,7 @@ class SimulationInputTest(unittest.TestCase):
         ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
-        res = sim.simulate_state_space(ss, ic, sim.Domain((0, 1), num=10))
+        res = sim.simulate_state_space(ss, ic, core.Domain((0, 1), num=10))
 
     def test_storage(self):
         a = np.eye(2, 2)
@@ -119,7 +128,7 @@ class SimulationInputTest(unittest.TestCase):
         ss = sim.StateSpace(a, b, input_handle=u)
 
         # run simulation to fill the internal storage
-        domain = sim.Domain((0, 10), step=.1)
+        domain = core.Domain((0, 10), step=.1)
         res = sim.simulate_state_space(ss, ic, domain)
 
         # don't return any entries that aren't there
@@ -430,9 +439,9 @@ class StateSpaceTests(unittest.TestCase):
     def setUp(self):
 
         # setup temp and spat domain
-        self.time_domain = sim.Domain((0, 1), num=10)
+        self.time_domain = core.Domain((0, 1), num=10)
         node_cnt = 3
-        spat_domain = sim.Domain((0, 1), num=node_cnt)
+        spat_domain = core.Domain((0, 1), num=node_cnt)
         nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
         reg.register_base("swm_base", lag_base)
 
@@ -495,14 +504,14 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         z_step = 0.1
-        self.dz = sim.Domain(bounds=(z_start, z_end), num=9)
+        self.dz = core.Domain(bounds=(z_start, z_end), num=9)
 
         t_start = 0
         t_end = 10
         t_step = 0.01
-        self.dt = sim.Domain(bounds=(t_start, t_end), step=t_step)
+        self.dt = core.Domain(bounds=(t_start, t_end), step=t_step)
 
-        self.params = ut.Parameters
+        self.params = core.Parameters
         self.params.node_distance = 0.1
         self.params.m = 1.0
         self.params.order = 8
@@ -728,14 +737,14 @@ class MultiplePDETest(unittest.TestCase):
         l2 = 4
         l3 = 6
 
-        self.dz1 = sim.Domain(bounds=(0, l1), num=100)
-        self.dz2 = sim.Domain(bounds=(l1, l2), num=100)
-        self.dz3 = sim.Domain(bounds=(l2, l3), num=100)
+        self.dz1 = core.Domain(bounds=(0, l1), num=100)
+        self.dz2 = core.Domain(bounds=(l1, l2), num=100)
+        self.dz3 = core.Domain(bounds=(l2, l3), num=100)
 
         t_start = 0
         t_end = 10
         t_step = 0.01
-        self.dt = sim.Domain(bounds=(t_start, t_end), step=t_step)
+        self.dt = core.Domain(bounds=(t_start, t_end), step=t_step)
 
         v1 = 1
         v2 = 2
@@ -850,11 +859,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         self.l = 1.
         spatial_disc = 11
-        self.dz = sim.Domain(bounds=(0, self.l), num=spatial_disc)
+        self.dz = core.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1.
         temporal_disc = 50
-        self.dt = sim.Domain(bounds=(0, self.T), num=temporal_disc)
+        self.dt = core.Domain(bounds=(0, self.T), num=temporal_disc)
 
         # create test functions
         self.nodes_1, self.base_1 = sf.cure_interval(sf.LagrangeFirstOrder, self.dz.bounds,
@@ -870,10 +879,10 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'dirichlet'
-        u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
-        rad_pde = ut.get_parabolic_dirichlet_weak_form("base_2", "base_2", u, self.param, self.dz.bounds)
+        rad_pde = parabolic.general.get_parabolic_dirichlet_weak_form("base_2", "base_2", u, self.param, self.dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss = sim.create_state_space(ce)
 
@@ -895,7 +904,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'dirichlet'
-        u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # integral terms
         int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("base_2", order=1),
@@ -929,7 +938,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'robin'
-        u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # integral terms
         int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("base_1", order=1),
@@ -965,10 +974,10 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'robin'
-        u = tr.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
-        rad_pde, extra_labels = ut.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
+        rad_pde, extra_labels = parabolic.general.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss = sim.create_state_space(ce)
 
@@ -987,7 +996,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         u = tr.ConstantTrajectory(1)
 
         # derive state-space system
-        rad_pde, extra_labels = ut.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
+        rad_pde, extra_labels = parabolic.general.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss = sim.create_state_space(ce)
 
@@ -1012,16 +1021,16 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'dirichlet'
         bound_cond_type = 'dirichlet'
         param = [1., -2., -1., None, None]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = parabolic.general.get_adjoint_rad_evp_param(param)
         a2, a1, a0, _, _ = param
 
         l = 1.
         spatial_disc = 10
-        dz = sim.Domain(bounds=(0, l), num=spatial_disc)
+        dz = core.Domain(bounds=(0, l), num=spatial_disc)
 
         t_end = 1.
         temporal_disc = 50
-        dt = sim.Domain(bounds=(0, t_end), num=temporal_disc)
+        dt = core.Domain(bounds=(0, t_end), num=temporal_disc)
 
         omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
         eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
@@ -1039,11 +1048,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = tr.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
 
         # ------------- determine (A,B) with weak-formulation (pyinduct)
         # derive sate-space system
-        rad_pde = ut.get_parabolic_dirichlet_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
+        rad_pde = parabolic.general.get_parabolic_dirichlet_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss_weak = sim.create_state_space(ce)
 
@@ -1077,19 +1086,19 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'robin'
         bound_cond_type = 'robin'
         param = [2., 1.5, -3., -1., -.5]
-        adjoint_param = ef.get_adjoint_rad_evp_param(param)
+        adjoint_param = parabolic.general.get_adjoint_rad_evp_param(param)
         a2, a1, a0, alpha, beta = param
 
         l = 1.
         spatial_disc = 10
-        dz = sim.Domain(bounds=(0, l), num=spatial_disc)
+        dz = core.Domain(bounds=(0, l), num=spatial_disc)
 
         t_end = 1.
         temporal_disc = 50
-        dt = sim.Domain(bounds=(0, t_end), num=temporal_disc)
+        dt = core.Domain(bounds=(0, t_end), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = ef.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(param, l, n)
 
         init_eig_base = cr.Base([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
         init_adjoint_eig_base = cr.Base([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
@@ -1107,10 +1116,10 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = cr.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = tr.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
 
         # determine pair (A, B) by weak-formulation (pyinduct)
-        rad_pde, extra_labels = ut.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
+        rad_pde, extra_labels = parabolic.general.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss_weak = sim.create_state_space(ce)
 
@@ -1136,3 +1145,30 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         reg.deregister_base(extra_labels[1])
         reg.deregister_base("eig_base")
         reg.deregister_base("adjoint_eig_base")
+
+
+class EvaluateApproximationTestCase(unittest.TestCase):
+    def setUp(self):
+        self.node_cnt = 5
+        self.time_step = 1e-1
+        self.dates = np.arange(0, 10, self.time_step)
+        self.spat_int = (0, 1)
+        self.nodes = np.linspace(self.spat_int[0], self.spat_int[1], self.node_cnt)
+
+        # create initial functions
+        self.nodes, self.funcs = sh.cure_interval(sh.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
+        register_base("approx_funcs", self.funcs, overwrite=True)
+
+        # create a slow rising, nearly horizontal line
+        self.weights = np.array(list(range(self.node_cnt * self.dates.size))).reshape(
+            (self.dates.size, len(self.nodes)))
+
+    def test_eval_helper(self):
+        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, 1)
+        if show_plots:
+            p = vt.PgAnimatedPlot(eval_data)
+            app.exec_()
+            del p
+
+    def tearDown(self):
+        pass
