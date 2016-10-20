@@ -9,6 +9,8 @@ import numpy.polynomial.polynomial as npoly
 
 from .core import Base, Function, Domain
 
+__all__ = ["LagrangeFirstOrder", "LagrangeSecondOrder", "LagrangeNthOrder", "cure_interval"]
+
 
 class LagrangeNthOrder(Function):
     """

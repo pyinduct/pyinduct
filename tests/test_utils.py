@@ -2,7 +2,7 @@ import os
 import sys
 import unittest
 
-import core
+import pyinduct as pi
 from pyinduct import utils as ut
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
@@ -17,12 +17,6 @@ if show_plots:
     app = pg.QtGui.QApplication([])
 
 
-class ParamsTestCase(unittest.TestCase):
-    def test_init(self):
-        p = core.Parameters(a=10, b=12, c="high")
-        self.assertTrue(p.a == 10)
-        self.assertTrue(p.b == 12)
-        self.assertTrue(p.c == "high")
 
 
 class CreateDirTestCase(unittest.TestCase):

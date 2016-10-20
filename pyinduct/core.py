@@ -15,7 +15,11 @@ from scipy.optimize import root
 
 from . import registry as rg
 
-__all__ = ["Domain", "Base", "Function", "normalize_base", "find_roots", "project_on_base"]
+__all__ = ["Domain", "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
+           "find_roots", "sanitize_input", "dot_product_l2", "Parameters",
+           "project_on_base", "change_projection_base", "back_project_from_base",
+           "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
+           "calculate_expanded_base_transformation_matrix"]
 
 
 def sanitize_input(input_object, allowed_type):

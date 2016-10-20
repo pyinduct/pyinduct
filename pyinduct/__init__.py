@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # noinspection PyUnresolvedReferences
-from .core import Domain, Base, Function, normalize_base, find_roots, project_on_base
+from .core import *
 # noinspection PyUnresolvedReferences
 from .control import LawEvaluator, Controller
 # noinspection PyUnresolvedReferences
 from .eigenfunctions import *
 # noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition, gevrey_tanh, SignalGenerator, coefficient_recursion, power_series
+from .trajectory import (SmoothTransition, gevrey_tanh, SignalGenerator, coefficient_recursion, power_series,
+                         ConstantTrajectory, InterpolationTrajectory, temporal_derived_power_series, FlatString)
 # noinspection PyUnresolvedReferences
 from .registry import register_base, deregister_base, get_base, is_registered
 # noinspection PyUnresolvedReferences
@@ -15,9 +16,10 @@ from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, Spat
 # noinspection PyUnresolvedReferences
 from .simulation import *
 # noinspection PyUnresolvedReferences
-from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
+from .shapefunctions import *
 # noinspection PyUnresolvedReferences
-from .visualization import EvalData, PgAnimatedPlot, PgSurfacePlot, MplSlicePlot
+from .visualization import *
+
 # noinspection PyUnresolvedReferences
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"

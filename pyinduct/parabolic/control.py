@@ -8,7 +8,7 @@ from ..control import Controller
 from ..placeholder import ScalarTerm, IntegralTerm
 from ..simulation import SimulationInput, SimulationInputSum, WeakFormulation
 
-__all__ = ["get_parabolic_robin_backstepping_controller"]
+__all__ = ["get_parabolic_robin_backstepping_controller", "split_domain"]
 
 
 def split_domain(n, a_desired, l, mode='coprime'):

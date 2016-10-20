@@ -206,6 +206,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         pi.deregister_base("eig_base_t")
 
 
+@unittest.skip
 class RadRobinControlApproxTest(unittest.TestCase):
     """
     """
@@ -320,6 +321,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         deregister_base("eig_base_t")
 
 
+@unittest.skip
 class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
     """
     """
@@ -488,6 +490,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         deregister_base("fem_funcs")
 
 
+@unittest.skip
 class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
     """
     """
@@ -624,6 +627,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         deregister_base("fem_funcs")
 
 
+@unittest.skip
 class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
     """
     """

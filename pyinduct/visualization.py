@@ -21,6 +21,8 @@ from mpl_toolkits.mplot3d import axes3d
 
 from . import utils as ut
 
+__all__ = ["EvalData", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot"]
+
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
