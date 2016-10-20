@@ -120,7 +120,8 @@ class FormalPowerSeriesTest(unittest.TestCase):
         u_a = tr.InterpolationTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
-        u_b = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y, show_plot=show_plots)
+        u_b = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y,
+                                                 show_plot=show_plots)
         u_b_t = u_b(time=self.t)
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:

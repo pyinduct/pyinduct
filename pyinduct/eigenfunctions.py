@@ -12,6 +12,8 @@ import scipy.integrate as si
 
 from .core import return_real_part, Function
 
+__all__ = ["SecondOrderDirichletEigenfunction", "SecondOrderRobinEigenfunction"]
+
 # from . import placeholder as ph
 # from .shapefunctions import LagrangeFirstOrder, LagrangeSecondOrder
 # from .placeholder import FieldVariable, TestFunction

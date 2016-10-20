@@ -102,15 +102,12 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_t, transform_ti_at_l),
 int_kernel_zz = alpha_ti - alpha_i + si.quad(lambda z: (a0_i(z) - a0_ti) / 2 / a2, 0, l)[0]
 
 # init controller
-controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=x_fem_i_at_l,
-                                                                           approx_state=x_i_at_l,
+controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=x_fem_i_at_l, approx_state=x_i_at_l,
                                                                            d_approx_state=xd_i_at_l,
                                                                            approx_target_state=x_ti_at_l,
                                                                            d_approx_target_state=xd_ti_at_l,
                                                                            integral_kernel_zz=int_kernel_zz,
-                                                                           original_beta=beta_i,
-                                                                           target_beta=beta_ti,
-                                                                           trajectory=traj,
+                                                                           original_beta=beta_i, target_beta=beta_ti,
                                                                            scale=inv_transform_i_at_l)
 
 rad_pde = parabolic.general.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds)

@@ -4,8 +4,8 @@ import warnings
 import numpy as np
 from scipy.optimize import fsolve
 
-from ..core import Function
-from ..placeholder import (TestFunction, FieldVariable, ScalarTerm,
+from ..core import Domain, Function, find_roots
+from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTerm,
                            IntegralTerm, Input, Product)
 from ..simulation import WeakFormulation
 
@@ -57,8 +57,8 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     # assume 1 root per pi/l (safety factor = 3)
     om_end = 3 * n_roots * np.pi / l
     start_values = np.arange(0, om_end, .1)
-    om = cr.find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
-                       show_plot=show_plot).tolist()
+    om = find_roots(characteristic_equation, 2 * n_roots, start_values, rtol=int(np.log10(l) - 6),
+                    show_plot=show_plot).tolist()
 
     # delete all around om = 0
     om.reverse()
@@ -254,8 +254,8 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
     created_base_labels = ["a0_z", "a1_z"]
-    a0_z = convert_to_scalar_function(a0, created_base_labels[0])
-    a1_z = convert_to_scalar_function(a1, created_base_labels[1])
+    a0_z = ScalarFunction.from_scalars(a0, created_base_labels[0])
+    a1_z = ScalarFunction.from_scalars(a1, created_base_labels[1])
 
     x = FieldVariable(shape_base_label)
     x_dt = x.derive(temp_order=1)

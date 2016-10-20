@@ -187,15 +187,12 @@ def int_kernel_zz(z):
     return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
 
 
-controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l,
-                                                                           approx_state=x_i_at_l,
+controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l, approx_state=x_i_at_l,
                                                                            d_approx_state=xd_i_at_l,
                                                                            approx_target_state=x_ti_at_l,
                                                                            d_approx_target_state=xd_ti_at_l,
                                                                            integral_kernel_zz=int_kernel_zz(l),
-                                                                           original_beta=beta_i,
-                                                                           target_beta=beta_ti,
-                                                                           trajectory=traj,
+                                                                           original_beta=beta_i, target_beta=beta_ti,
                                                                            scale=np.exp(-a1 / 2 / a2 * b))
 
 # determine (A,B) with modal transformation

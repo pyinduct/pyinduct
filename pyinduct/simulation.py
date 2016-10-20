@@ -22,7 +22,8 @@ from .registry import get_base, register_base
 from .visualization import EvalData
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
-           "create_state_space", "simulate_system", "simulate_systems", "process_sim_data", "evaluate_approximation"]
+           "create_state_space", "StateSpace", "simulate_state_space", "simulate_system", "simulate_systems",
+           "process_sim_data", "evaluate_approximation"]
 
 
 class SimulationInput(object, metaclass=ABCMeta):

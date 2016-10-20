@@ -15,6 +15,8 @@ from scipy.optimize import root
 
 from . import registry as rg
 
+__all__ = ["Domain", "Base", "Function", "normalize_base", "find_roots", "project_on_base"]
+
 
 def sanitize_input(input_object, allowed_type):
     """

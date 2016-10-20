@@ -2,6 +2,8 @@ import numpy as np
 
 from ..trajectory import sigma_tanh, K_tanh, gevrey_tanh, _power_series_flat_out, InterpolationTrajectory
 
+from .general import eliminate_advection_term
+
 __all__ = ["RadTrajectory"]
 
 
@@ -31,11 +33,18 @@ class RadTrajectory(InterpolationTrajectory):
         - :code:`actuation_type == "robin"`: :math:`x'(l,t) = -\\beta x(l,t) + u(t)`.
 
     The flat output trajectory :math:`y(t)` will be calculated with :py:func:`gevrey_tanh`.
+
+    Args:
+        **kwargs: see below. All arguments that are not specified below
+            are passed to :py:class:`InterpolationTrajectory` .
+
+    Keyword Arguments:
     """
 
     # TODO: kwarg: t_step
+    # TODO document arguments
     def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh,
-                 show_plot=False):
+                 **kwargs):
 
         cases = {'dirichlet', 'robin'}
         if bound_cond_type not in cases:
@@ -46,7 +55,7 @@ class RadTrajectory(InterpolationTrajectory):
         self._l = l
         self._T = T
         self._a1_original = param_original[1]
-        self._param = parabolic.general.eliminate_advection_term(param_original)
+        self._param = eliminate_advection_term(param_original)
         self._bound_cond_type = bound_cond_type
         self._actuation_type = actuation_type
         self._n = n
@@ -71,4 +80,4 @@ class RadTrajectory(InterpolationTrajectory):
         # pde's with advection term a_1 x'(z,t) considered
         u *= np.exp(-self._a1_original / 2. / a2 * l)
 
-        InterpolationTrajectory.__init__(self, t, u, show_plot=show_plot)
+        InterpolationTrajectory.__init__(self, t, u, **kwargs)

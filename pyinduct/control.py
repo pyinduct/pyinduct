@@ -178,7 +178,8 @@ class LawEvaluator(object):
 
         vectors = {}
         for power in powers:
-            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders) + 1)])
+            vector = np.hstack([terms["E"].get(order, {}).get(power, np.zeros(dim))[0, :]
+                                for order in range(max(orders) + 1)])
             vectors.update({power: vector})
 
         return vectors

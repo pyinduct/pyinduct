@@ -6,7 +6,7 @@ import numpy as np
 
 from ..control import Controller
 from ..placeholder import ScalarTerm, IntegralTerm
-from ..simulation import SimulationInput, SimulationInputSum
+from ..simulation import SimulationInput, SimulationInputSum, WeakFormulation
 
 __all__ = ["get_parabolic_robin_backstepping_controller"]
 
@@ -122,8 +122,9 @@ def scale_equation_term_list(eqt_list, factor):
 
 
 def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz, original_beta,
-                                                target_beta, trajectory=None, scale=None):
+                                                d_approx_target_state, integral_kernel_zz, original_beta, target_beta,
+                                                scale=None):
+    # TODO add docstring for this method
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     if not all([isinstance(arg, list) for arg in args]):
         raise TypeError
@@ -133,8 +134,6 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_zz]]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
-        raise TypeError
-    if not isinstance(trajectory, (SimulationInput, type(None))):
         raise TypeError
 
     beta = original_beta
@@ -156,16 +155,11 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
 
     if scale is not None:
         scaled_control_law = scale_equation_term_list(control_law, scale)
-        if trajectory is not None:
-            trajectory.scale *= scale
     else:
         scaled_control_law = control_law
 
     c_name = "parabolic_robin_backstepping_controller"
-    if trajectory is not None:
-        return SimulationInputSum([trajectory, Controller(ControlLaw(scaled_control_law, name=c_name))])
-    else:
-        return SimulationInputSum([Controller(ControlLaw(scaled_control_law, name=c_name))])
+    return Controller(WeakFormulation(scaled_control_law, name=c_name))
 
 
 # TODO: change to factory, rename: function_wrapper
