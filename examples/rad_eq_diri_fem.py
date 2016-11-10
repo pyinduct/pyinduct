@@ -1,3 +1,5 @@
+import core
+import parabolic.trajectory
 import pyinduct.trajectory as tr
 import pyinduct.core as cr
 import pyinduct.shapefunctions as sh
@@ -15,8 +17,8 @@ l = 1
 param = [1, 0, 0, None, None]  # or try this: param = [1, -0.5, -8, None, None]     :)))
 a2, a1, a0, _, _ = param
 
-temp_domain = sim.Domain(bounds=(0, T), num=1e2)
-spat_domain = sim.Domain(bounds=(0, l), num=n_fem * 11)
+temp_domain = core.Domain(bounds=(0, T), num=1e2)
+spat_domain = core.Domain(bounds=(0, l), num=n_fem * 11)
 
 # initial and test functions
 nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=n_fem)
@@ -28,7 +30,7 @@ register_base("sim", not_act_fem_funcs)
 register_base("vis", vis_fems_funcs)
 
 # trajectory
-u = tr.RadTrajectory(l, T, param, "dirichlet", "dirichlet")
+u = parabolic.trajectory.RadTrajectory(l, T, param, "dirichlet", "dirichlet")
 
 # weak form ...
 x = ph.FieldVariable("sim")
@@ -63,7 +65,7 @@ b_bar = np.dot(A_tilde, np.dot(A, b1) + b0)
 start_func = cr.Function(lambda z: 0)
 start_state = np.array([sim.project_on_base(start_func, get_base(cf.weights, 0))]).flatten()
 transf_start_state = np.dot(A_tilde, start_state) - (b1 * u(time=0)).flatten()
-ss = sim.StateSpace("transf_sim", A_bar, b_bar, input_handle=u)
+ss = sim.StateSpace(A_bar, b_bar, input_handle=u)
 sim_temp_domain, sim_transf_weights = sim.simulate_state_space(ss, transf_start_state, temp_domain)
 
 # back-transformation

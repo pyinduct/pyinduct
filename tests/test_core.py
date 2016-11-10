@@ -1,29 +1,45 @@
-import sys
 import collections
+import sys
 import unittest
 from numbers import Number
 
 import numpy as np
+import pyinduct as pi
+import pyinduct.core as core
 
-from pyinduct import register_base, deregister_base, get_base, core, shapefunctions
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
-    # show_plots = True
-    show_plots = False
+    show_plots = True
+    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
-
     app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTestCase(unittest.TestCase):
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
-        core.sanitize_input(1, int)
-        core.sanitize_input(1.0, float)
+        pi.sanitize_input(1, int)
+        pi.sanitize_input(1.0, float)
+
+
+class BaseFractionTestCase(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_init(self):
+        f = pi.BaseFraction(np.sin)
+        self.assertEqual(f.members, np.sin)
+
+    def test_derive(self):
+        f = pi.BaseFraction(np.sin)
+        self.assertEqual(f.members, np.sin)
+
+        f_d0 = f.derive(0)
+        self.assertEqual(f, f_d0)
 
 
 class FunctionTestCase(unittest.TestCase):
@@ -31,8 +47,9 @@ class FunctionTestCase(unittest.TestCase):
         pass
 
     def test_init(self):
-        self.assertRaises(TypeError, core.Function, 42)
-        p = core.Function(np.sin)
+        self.assertRaises(TypeError, pi.Function, 42)
+        p = pi.Function(np.sin)
+
         # default kwargs
         self.assertEqual(p.domain, [(-np.inf, np.inf)])
         self.assertEqual(p.nonzero, [(-np.inf, np.inf)])
@@ -40,16 +57,16 @@ class FunctionTestCase(unittest.TestCase):
         for kwarg in ["domain", "nonzero"]:
             # some nice but wrong variants
             for val in ["4-2", dict(start=1, stop=2), [1, 2]]:
-                self.assertRaises(TypeError, core.Function, np.sin, **{kwarg: val})
+                self.assertRaises(TypeError, pi.Function, np.sin, **{kwarg: val})
 
             # a correct one
-            core.Function(np.sin, **{kwarg: (0, 10)})
-            core.Function(np.sin, **{kwarg: [(0, 3), (5, 10)]})
+            pi.Function(np.sin, **{kwarg: (0, 10)})
+            pi.Function(np.sin, **{kwarg: [(0, 3), (5, 10)]})
 
             # check sorting
-            p = core.Function(np.sin, **{kwarg: (0, -10)})
+            p = pi.Function(np.sin, **{kwarg: (0, -10)})
             self.assertEqual(getattr(p, kwarg), [(-10, 0)])
-            p = core.Function(np.sin, **{kwarg: [(5, 0), (-10, -5)]})
+            p = pi.Function(np.sin, **{kwarg: [(5, 0), (-10, -5)]})
             self.assertEqual(getattr(p, kwarg), [(-10, -5), (0, 5)])
 
             if kwarg == "domain":
@@ -64,10 +81,10 @@ class FunctionTestCase(unittest.TestCase):
         def wrong_handle(x):
             return np.array([x, x])
 
-        self.assertRaises(TypeError, core.Function, wrong_handle)
+        self.assertRaises(TypeError, pi.Function, wrong_handle)
 
     def test_derivation(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
 
         # be robust to meaningless input
         self.assertRaises(ValueError, f.derive, -1)  # stupid derivative
@@ -100,7 +117,7 @@ class FunctionTestCase(unittest.TestCase):
         f.__dict__.pop("members")
         self.assertEqual(d1.__dict__, f.__dict__)
 
-        f_2 = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        f_2 = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
         d2 = f_2.derive(2)
 
         # derivatives should change
@@ -119,7 +136,7 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(d2.__dict__, f_2.__dict__)
 
     def test_scale(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
 
         # no new object since trivial scaling occurred
         g1 = f.scale(1)
@@ -144,7 +161,7 @@ class FunctionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, g3.derive, 1)  # derivatives should be removed when scaled by function
 
     def test_raise(self):
-        f = core.Function(np.sin, derivative_handles=[np.cos, np.sin])
+        f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
 
         # no new object since trivial scaling occurred
         g1 = f.raise_to(1)
@@ -165,7 +182,7 @@ class FunctionTestCase(unittest.TestCase):
                 raise TypeError("no vectorial stuff allowed!")
             return 2 ** x
 
-        f = core.Function(func, domain=(0, 10))
+        f = pi.Function(func, domain=(0, 10))
         self.assertEqual(f._vectorial, False)  # function handle should be recognized as non-vectorial
 
         # call with scalar should return scalar with correct value
@@ -182,7 +199,7 @@ class FunctionTestCase(unittest.TestCase):
         def vector_func(x):
             return 2 * x
 
-        f = core.Function(vector_func, domain=(0, 10))
+        f = pi.Function(vector_func, domain=(0, 10))
         self.assertEqual(f._vectorial, True)  # function handle should be recognized as vectorial
 
         # call with scalar should return scalar with correct value
@@ -193,6 +210,41 @@ class FunctionTestCase(unittest.TestCase):
         # vectorial arguments should be understood and an np.ndarray shall be returned
         self.assertIsInstance(f(np.array(range(10))), np.ndarray)
         self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
+
+
+class BaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.fractions = [pi.Function(lambda x: 2),
+                          pi.Function(lambda x: 2 * x),
+                          pi.Function(lambda x: x ** 2),
+                          pi.Function(lambda x: np.sin(x))
+                          ]
+
+    def test_init(self):
+        # single and iterable arguments should be taken
+        b1 = pi.Base(self.fractions[0])
+        b2 = pi.Base(self.fractions)
+
+
+class StackedBaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.b1 = pi.Base([pi.Function(lambda x: np.sin(2)),
+                           pi.Function(lambda x: np.sin(2*x)),
+                           pi.Function(lambda x: np.sin(2 ** 2 * x)),
+                           ])
+        pi.register_base("b1", self.b1)
+        self.b2 = pi.Base([pi.Function(lambda x: np.cos(4)),
+                           pi.Function(lambda x: np.cos(4 * x)),
+                           pi.Function(lambda x: np.cos(4 ** 2 * x)),
+                           ])
+        pi.register_base("b2", self.b2)
+
+    @unittest.skip  # WIP
+    def test_init(self):
+        fractions = np.hstack([self.b1, self.b2])
+        info = None
+        b = pi.StackedBase(fractions, info)
+        self.assertEqual(b.fractions.size, 6)
 
 
 class IntersectionTestCase(unittest.TestCase):
@@ -223,14 +275,14 @@ class IntersectionTestCase(unittest.TestCase):
 
 class ScalarDotProductL2TestCase(unittest.TestCase):
     def setUp(self):
-        self.f1 = core.Function(lambda x: 1, domain=(0, 10))
-        self.f2 = core.Function(lambda x: 2, domain=(0, 5))
-        self.f3 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
-        self.f4 = core.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2 + 1e-1))
+        self.f1 = pi.Function(lambda x: 1, domain=(0, 10))
+        self.f2 = pi.Function(lambda x: 2, domain=(0, 5))
+        self.f3 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
+        self.f4 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2 + 1e-1))
 
-        self.f5 = shapefunctions.LagrangeFirstOrder(0, 1, 2)
-        self.f6 = shapefunctions.LagrangeFirstOrder(1, 2, 3)
-        self.f7 = shapefunctions.LagrangeFirstOrder(2, 3, 4)
+        self.f5 = pi.LagrangeFirstOrder(0, 1, 2)
+        self.f6 = pi.LagrangeFirstOrder(1, 2, 3)
+        self.f7 = pi.LagrangeFirstOrder(2, 3, 4)
 
     def test_domain(self):
         self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
@@ -253,10 +305,8 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         nodes = 5
-        self.nodes1, self.initial_functions1 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
-                                                                            node_count=nodes)
-        self.nodes2, self.initial_functions2 = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
-                                                                            node_count=2 * nodes - 1)
+        self.nodes1, self.initial_functions1 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=nodes)
+        self.nodes2, self.initial_functions2 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=2*nodes-1)
         self.optimization = None
         print(np.array(self.nodes1), np.array(self.nodes2))
 
@@ -265,20 +315,23 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         # run the non optimized code
         """
         # symmetrical
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions1,
-                                                   self.initial_functions1, optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions1, self.initial_functions1,
+                                                 optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect1
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions2,
-                                                   self.initial_functions1, optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions2, self.initial_functions1,
+                                                 optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect2
-        mat = core.calculate_scalar_product_matrix(core.dot_product_l2, self.initial_functions1,
-                                                   self.initial_functions2, optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions1, self.initial_functions2,
+                                                 optimize=self.optimization)
         # print(mat)
         # print()
 
@@ -298,56 +351,49 @@ class ProjectionTest(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         node_cnt = 11
-        self.nodes, self.initial_functions = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, interval,
-                                                                          node_count=node_cnt)
-        register_base("ini_funcs", self.initial_functions, overwrite=True)
+        self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=node_cnt)
+        pi.register_base("lag_base", self.lag_base, overwrite=True)
 
         # "real" functions
         self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)  # because we are smarter
-        self.funcs = [core.Function(lambda x: 2), core.Function(lambda x: 2 * x), core.Function(lambda x: x ** 2),
-                      core.Function(lambda x: np.sin(x))]
-        self.funcs[1](10)
-        self.real_values = [func(self.z_values) for func in self.funcs]
+        self.functions = [pi.Function(lambda x: 2),
+                          pi.Function(lambda x: 2 * x),
+                          pi.Function(lambda x: x ** 2),
+                          pi.Function(lambda x: np.sin(x))
+                          ]
+        self.real_values = [func(self.z_values) for func in self.functions]
 
     def test_types_projection(self):
-        self.assertRaises(TypeError, core.project_on_base, 1, 2)
-        self.assertRaises(TypeError, core.project_on_base, np.sin, np.sin)
+        self.assertRaises(TypeError, pi.project_on_base, 1, 2)
+        self.assertRaises(TypeError, pi.project_on_base, np.sin, np.sin)
 
     def test_projection_on_lag1st(self):
-        weights = []
-
-        # convenience wrapper for non array input -> constant function
-        weight = core.project_on_base(self.funcs[0], self.initial_functions[1])
-        self.assertTrue(np.allclose(weight, 1.5 * self.funcs[0](self.nodes[1])))
+        weights = [pi.project_on_base(self.functions[1], self.lag_base),
+                   pi.project_on_base(self.functions[2], self.lag_base),
+                   pi.project_on_base(self.functions[3], self.lag_base)]
 
         # linear function -> should be fitted exactly
-        weights.append(core.project_on_base(self.funcs[1], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], self.funcs[1](self.nodes)))
+        self.assertTrue(np.allclose(weights[0], self.functions[1](self.nodes)))
 
         # quadratic function -> should be fitted somehow close
-        weights.append(core.project_on_base(self.funcs[2], self.initial_functions))
-        self.assertTrue(np.allclose(weights[-1], self.funcs[2](self.nodes), atol=.5))
+        self.assertTrue(np.allclose(weights[1], self.functions[2](self.nodes), atol=.5))
 
         # trig function -> will be crappy
-        weights.append(core.project_on_base(self.funcs[3], self.initial_functions))
+        self.assertTrue(np.allclose(weights[2], self.functions[3](self.nodes), atol=.5))
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
-                pw.plot(x=self.nodes, y=w, pen="b")
+                pw.plot(x=self.nodes.points, y=w, pen="b")
                 app.exec_()
 
-    def test_types_back_projection(self):
-        self.assertRaises(TypeError, core.back_project_from_base, 1, 2)
-        self.assertRaises(TypeError, core.back_project_from_base, 1.0, np.sin)
-
     def test_back_projection_from_lagrange_1st(self):
-        vec_real_func = np.vectorize(self.funcs[1])
+        vec_real_func = np.vectorize(self.functions[1])
         real_weights = vec_real_func(self.nodes)
-        approx_func = core.back_project_from_base(real_weights, self.initial_functions)
-        approx_func_dz = core.back_project_from_base(real_weights, get_base("ini_funcs", 1))
+        approx_func = pi.back_project_from_base(real_weights, self.lag_base)
+        approx_func_dz = pi.back_project_from_base(real_weights, pi.get_base("lag_base").derive(1))
         self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
 
         if show_plots:
@@ -359,23 +405,22 @@ class ProjectionTest(unittest.TestCase):
             app.exec_()
 
     def tearDown(self):
-        deregister_base("ini_funcs")
+        pi.deregister_base("lag_base")
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
     def setUp(self):
         # real function
         self.z_values = np.linspace(0, 1, 1000)
-        self.real_func = core.Function(lambda x: x)
+        self.real_func = pi.Function(lambda x: x)
         self.real_func_handle = np.vectorize(self.real_func)
 
         # approximation by lag1st
-        self.nodes, self.src_test_funcs = shapefunctions.cure_interval(shapefunctions.LagrangeFirstOrder, (0, 1),
-                                                                       node_count=2)
-        register_base("test_funcs", self.src_test_funcs, overwrite=True)
-        self.src_weights = core.project_on_base(self.real_func, self.src_test_funcs)
+        self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        pi.register_base("lag_base", self.lag_base)
+        self.src_weights = pi.project_on_base(self.real_func, self.lag_base)
         self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
-        self.src_approx_handle = core.back_project_from_base(self.src_weights, self.src_test_funcs)
+        self.src_approx_handle = pi.back_project_from_base(self.src_weights, self.lag_base)
 
         # approximation by sin(w*x)
         def trig_factory(freq):
@@ -384,66 +429,171 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
             return func
 
-        self.trig_test_funcs = np.array([core.Function(trig_factory(w), domain=(0, 1)) for w in range(1, 3)])
+        self.trig_base = pi.Base([pi.Function(trig_factory(w), domain=(0, 1)) for w in range(1, 3)])
 
     def test_types_change_projection_base(self):
-        self.assertRaises(TypeError, core.change_projection_base, 1, np.sin, np.cos)
+        with self.assertRaises(TypeError):
+            pi.change_projection_base(1, pi.Base(np.sin), pi.Base(np.cos))
 
     def test_lag1st_to_trig(self):
-        # scalar case
-        dest_weight = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs[0])
-        dest_approx_handle_s = core.back_project_from_base(dest_weight, self.trig_test_funcs[0])
-
-        # standard case
-        dest_weights = core.change_projection_base(self.src_weights, self.src_test_funcs, self.trig_test_funcs)
-        dest_approx_handle = core.back_project_from_base(dest_weights, self.trig_test_funcs)
-        error = np.sum(
-            np.power(np.subtract(self.real_func_handle(self.z_values), dest_approx_handle(self.z_values)), 2))
+        destination_weights = pi.change_projection_base(self.src_weights, self.lag_base, self.trig_base)
+        destination_approx_handle = pi.back_project_from_base(destination_weights, self.trig_base)
+        error = np.sum(np.power(
+            np.subtract(self.real_func_handle(self.z_values), destination_approx_handle(self.z_values)),
+            2))
 
         if show_plots:
             pw = pg.plot(title="change projection base")
             i1 = pw.plot(x=self.z_values, y=self.real_func_handle(self.z_values), pen="r")
             i2 = pw.plot(x=self.z_values, y=self.src_approx_handle(self.z_values),
                          pen=pg.mkPen("g", style=pg.QtCore.Qt.DashLine))
-            i3 = pw.plot(x=self.z_values, y=dest_approx_handle_s(self.z_values), pen="b")
-            i4 = pw.plot(x=self.z_values, y=dest_approx_handle(self.z_values), pen="c")
+            i3 = pw.plot(x=self.z_values, y=destination_approx_handle(self.z_values), pen="c")
             legend = pw.addLegend()
             legend.addItem(i1, "f(x) = x")
             legend.addItem(i2, "2x Lagrange1st")
-            legend.addItem(i3, "sin(x)")
-            legend.addItem(i4, "sin(wx) with w in [1, {0}]".format(dest_weights.shape[0]))
+            legend.addItem(i3, "sin(wx) with w in [1, {0}]".format(destination_weights.shape[0]))
             app.exec_()
 
         # should fit pretty nice
         self.assertLess(error, 1e-2)
 
     def tearDown(self):
-        deregister_base("test_funcs")
+        pi.deregister_base("lag_base")
 
 
 class NormalizeFunctionsTestCase(unittest.TestCase):
     def setUp(self):
-        self.f = core.Function(np.sin, domain=(0, np.pi * 2))
-        self.g = core.Function(np.cos, domain=(0, np.pi * 2))
-        self.l = core.Function(np.log, domain=(0, np.exp(1)))
+        self.f = pi.Function(np.sin, domain=(0, np.pi * 2))
+        self.g = pi.Function(np.cos, domain=(0, np.pi * 2))
+        self.l = pi.Function(np.log, domain=(0, np.exp(1)))
 
-        self.base_f = np.array([self.f])
-        self.base_g = np.array([self.g])
-        self.base_l = np.array([self.l])
+        self.base_f = pi.Base(self.f)
+        self.base_g = pi.Base(self.g)
+        self.base_l = pi.Base(self.l)
 
     def test_self_scale(self):
-        f = core.normalize_base(self.base_f)
-        prod = core.dot_product_l2(f, f)[0]
+        f = pi.normalize_base(self.base_f)
+        prod = pi.dot_product_l2(f.fractions, f.fractions)[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
-        f, l = core.normalize_base(self.base_f, self.base_l)
-        prod = core.dot_product_l2(f, l)[0]
+        f, l = pi.normalize_base(self.base_f, self.base_l)
+        prod = pi.dot_product_l2(f.fractions, l.fractions)[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_culprits(self):
         # not possible
-        self.assertRaises(ValueError, core.normalize_base, self.base_g, self.base_l)
+        self.assertRaises(ValueError, pi.normalize_base, self.base_g, self.base_l)
 
         # orthogonal
-        self.assertRaises(ValueError, core.normalize_base, self.base_f, self.base_g)
+        self.assertRaises(ValueError, pi.normalize_base, self.base_f, self.base_g)
+
+
+class FindRootsTestCase(unittest.TestCase):
+    def setUp(self):
+        def _char_equation(omega):
+            return omega * (np.sin(omega) + omega * np.cos(omega))
+
+        def _univar_equation(x):
+            return [np.cos(x[0]), np.cos(4 * x[1])]
+
+        def _cmplx_equation(lamda):
+            if lamda == 0:
+                return 0
+            return lamda ** 2 + 9
+
+        self.char_eq = _char_equation
+        self.univar_eq = _univar_equation
+        self.cmplx_eq = _cmplx_equation
+
+        self.n_roots = 10
+        self.small_grid = np.arange(0, 1, 1)
+        self.grid = np.arange(0, 50, 1)
+        self.rtol = -1
+
+    def test_in_fact_roots(self):
+        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        for root in roots:
+            self.assertAlmostEqual(self.char_eq(root), 0)
+
+    def test_enough_roots(self):
+        # small area -> not enough roots -> Exception
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.small_grid, self.rtol)
+
+        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        self.assertEqual(len(roots), self.n_roots)
+
+    def test_rtol(self):
+        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol, show_plot=show_plots)
+        self.assertGreaterEqual(np.log10(min(np.abs(np.diff(roots)))), self.rtol)
+
+    def test_in_area(self):
+        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        for root in roots:
+            self.assertTrue(root >= 0.)
+
+    @unittest.skip  # doesn't match the new signature
+    def test_error_raiser(self):
+        float_num = -1.
+        int_num = 0
+        to_small_area_end = 1e-3
+
+        self.assertRaises(TypeError, pi.find_roots, int_num, self.n_roots, self.grid, self.rtol)
+        self.assertRaises(TypeError, pi.find_roots, self.char_eq, float_num, self.grid, self.rtol)
+        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
+                          points_per_root=float_num)
+        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
+                          show_plots=int_num)
+        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, float_num)
+
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol, atol=int_num)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, int_num, self.grid, self.rtol)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
+                          points_per_root=int_num)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
+                          atol=float_num)
+        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
+
+    def test_debug_plot(self):
+        if show_plots:
+            self.roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
+                                       show_plot=show_plots)
+
+    def test_cmplx_func(self):
+        grid = [np.arange(-10, 10), np.arange(-5, 5)]
+        roots = pi.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
+        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
+        print(roots)
+
+    def test_n_dim_func(self):
+        grid = np.array([list(range(10)), list(range(10))])
+        roots = pi.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
+                              show_plot=show_plots)
+        print(roots)
+
+    def tearDown(self):
+        pass
+
+
+@unittest.skip
+class ReturnRealPartTest(unittest.TestCase):
+    def test_it(self):
+        self.assertTrue(np.isreal(pi.return_real_part(1)))
+        self.assertTrue(np.isreal(pi.return_real_part(1 + 0j)))
+        self.assertTrue(np.isreal(pi.return_real_part(1 + 1e-20j)))
+        self.assertRaises(TypeError, pi.return_real_part, None)
+        self.assertRaises(TypeError, pi.return_real_part, (1, 2., 2 + 2j))
+        self.assertRaises(TypeError, pi.return_real_part, [None, 2., 2 + 2j])
+        self.assertRaises(ValueError, pi.return_real_part, [1, 2., 2 + 2j])
+        self.assertRaises(ValueError, pi.return_real_part, 1 + 1e-10j)
+        self.assertRaises(ValueError, pi.return_real_part, 1j)
+
+
+class ParamsTestCase(unittest.TestCase):
+    def test_init(self):
+        p = pi.Parameters(a=10, b=12, c="high")
+        self.assertTrue(p.a == 10)
+        self.assertTrue(p.b == 12)
+        self.assertTrue(p.c == "high")

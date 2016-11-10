@@ -151,12 +151,14 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(None, a.location)
         self.assertEqual(1, a.data["exponent"])  # default exponent is 1
+        self.assertTrue(a.simulation_compliant)
 
         b = ph.FieldVariable("test_funcs", order=(1, 1), location=7, weight_label="test_lbl", exponent=10)
         self.assertEqual((1, 1), b.order)
         self.assertEqual("test_lbl", b.data["weight_lbl"])  # default weight label is function label
         self.assertEqual(7, b.location)
         self.assertEqual(10, b.data["exponent"])
+        self.assertFalse(b.simulation_compliant)
 
     def test_call_factory(self):
         a = ph.FieldVariable("test_funcs")
@@ -165,6 +167,8 @@ class FieldVariableTest(unittest.TestCase):
         self.assertEqual(1, b.location)
         self.assertTrue(isinstance(b, ph.FieldVariable))
         self.assertTrue(a != b)
+        self.assertTrue(a.simulation_compliant)
+        self.assertTrue(b.simulation_compliant)
 
     def test_derive_factory(self):
         a = ph.FieldVariable("test_funcs")
@@ -230,18 +234,18 @@ class ProductTest(unittest.TestCase):
 
         phi = cr.Function(np.sin)
         psi = cr.Function(np.cos)
-        self.t_funcs = np.array([phi, psi])
-        register_base("funcs", self.t_funcs)
-        self.test_funcs = ph.TestFunction("funcs")
+        self.t_base = cr.Base([phi, psi])
+        register_base("test_base", self.t_base)
+        self.test_funcs = ph.TestFunction("test_base")
 
-        self.s_funcs = np.array([cr.Function(self.scale)])[[0, 0]]
-        register_base("scale_funcs", self.s_funcs)
-        self.scale_funcs = ph.ScalarFunction("scale_funcs")
+        self.s_base = cr.Base([cr.Function(self.scale), cr.Function(self.scale)])
+        register_base("scale_base", self.s_base)
+        self.scale_funcs = ph.ScalarFunction("scale_base")
 
-        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
-        register_base("prod_ini_funcs", self.ini_funcs)
-        self.field_var = ph.FieldVariable("prod_ini_funcs")
-        self.field_var_dz = ph.SpatialDerivedFieldVariable("prod_ini_funcs", 1)
+        nodes, self.shape_base = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
+        register_base("prod_base", self.shape_base)
+        self.field_var = ph.FieldVariable("prod_base")
+        self.field_var_dz = ph.SpatialDerivedFieldVariable("prod_base", 1)
 
     def test_product(self):
         self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed
@@ -251,14 +255,15 @@ class ProductTest(unittest.TestCase):
         # test single argument call
         p3 = ph.Product(self.test_funcs)
         self.assertTrue(p3.b_empty)
-        res = ut.evaluate_placeholder_function(p3.args[0], np.pi / 2)
+        res = ph.evaluate_placeholder_function(p3.args[0], np.pi / 2)
         self.assertTrue(np.allclose(res, [1, 0]))
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
         self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
-        res = ut.evaluate_placeholder_function(p4.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
+        res = ph.evaluate_placeholder_function(p4.args[0], 0)
+        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
+                                                                   self.shape_base.fractions[1](0)])))
         self.assertEqual(p4.args[1], None)
         self.assertTrue(p4.b_empty)
 
@@ -271,15 +276,19 @@ class ProductTest(unittest.TestCase):
                         ph.Product(self.test_funcs, self.scale_funcs))
         self.assertFalse(p6.b_empty)
 
-        res = ut.evaluate_placeholder_function(p5.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.ini_funcs[0](0), self.ini_funcs[1](0)])))
-        res1 = ut.evaluate_placeholder_function(p5.args[0], 1)
-        self.assertTrue(np.allclose(res1, self.scale(1) * np.array([self.ini_funcs[0](1), self.ini_funcs[1](1)])))
+        res = ph.evaluate_placeholder_function(p5.args[0], 0)
+        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
+                                                                   self.shape_base.fractions[1](0)])))
+        res1 = ph.evaluate_placeholder_function(p5.args[0], 1)
+        self.assertTrue(np.allclose(res1, self.scale(1) * np.array([self.shape_base.fractions[0](1),
+                                                                    self.shape_base.fractions[1](1)])))
 
-        res2 = ut.evaluate_placeholder_function(p5.args[1], 0)
-        self.assertTrue(np.allclose(res2, self.scale(0) * np.array([self.t_funcs[0](0), self.t_funcs[1](0)])))
-        res3 = ut.evaluate_placeholder_function(p5.args[1], 1)
-        self.assertTrue(np.allclose(res3, self.scale(0) * np.array([self.t_funcs[0](1), self.t_funcs[1](1)])))
+        res2 = ph.evaluate_placeholder_function(p5.args[1], 0)
+        self.assertTrue(np.allclose(res2, self.scale(0) * np.array([self.t_base.fractions[0](0),
+                                                                    self.t_base.fractions[1](0)])))
+        res3 = ph.evaluate_placeholder_function(p5.args[1], 1)
+        self.assertTrue(np.allclose(res3, self.scale(0) * np.array([self.t_base.fractions[0](1),
+                                                                    self.t_base.fractions[1](1)])))
 
         # test methods
         self.assertEqual(p1.get_arg_by_class(ph.Input), [self.input])
@@ -288,9 +297,9 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
 
     def tearDown(self):
-        deregister_base("funcs")
-        deregister_base("scale_funcs")
-        deregister_base("prod_ini_funcs")
+        deregister_base("test_base")
+        deregister_base("scale_base")
+        deregister_base("prod_base")
 
 
 class EquationTermsTest(unittest.TestCase):
@@ -362,8 +371,9 @@ class WeakFormulationTest(unittest.TestCase):
 
     def test_init(self):
         self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
-        sim.WeakFormulation(ph.ScalarTerm(self.field_var_at1))  # scalar case
-        sim.WeakFormulation([ph.ScalarTerm(self.field_var_at1), ph.IntegralTerm(self.field_var, (0, 1))])  # vector case
+        sim.WeakFormulation(ph.ScalarTerm(self.field_var_at1), name="scalar")  # scalar case
+        sim.WeakFormulation([ph.ScalarTerm(self.field_var_at1), ph.IntegralTerm(self.field_var, (0, 1))],
+                            name="vector")  # vectorial case
 
     def tearDown(self):
         deregister_base("ini_funcs")

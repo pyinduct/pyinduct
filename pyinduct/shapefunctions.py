@@ -6,8 +6,10 @@ functions.
 
 import numpy as np
 import numpy.polynomial.polynomial as npoly
-from .core import Function
-from .simulation import Domain
+
+from .core import Base, Function, Domain
+
+__all__ = ["LagrangeFirstOrder", "LagrangeSecondOrder", "LagrangeNthOrder", "cure_interval"]
 
 
 class LagrangeNthOrder(Function):
@@ -163,7 +165,7 @@ class LagrangeNthOrder(Function):
         - and so on.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): Domain to be cured.
+            domain (:py:class:`core.Domain`): Domain to be cured.
             order (int): Order of the lagrange polynomials.
 
         Return:
@@ -279,7 +281,7 @@ class LagrangeFirstOrder(Function):
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
@@ -408,7 +410,7 @@ class LagrangeSecondOrder(Function):
         Hint function that will cure the given interval with LagrangeSecondOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeSecondOrder` shapefunctions.
@@ -464,8 +466,8 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
     try:
-        nodes, base = shapefunction_class.cure_hint(domain, **kwargs)
+        nodes, fractions = shapefunction_class.cure_hint(domain, **kwargs)
     except AttributeError:
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return nodes, base
+    return nodes, Base(fractions)

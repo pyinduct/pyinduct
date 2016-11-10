@@ -4,16 +4,18 @@ Besides you can find here a trivial (constant) input signal generator as
 well as input signal generator for equilibrium to equilibrium transitions for
 hyperbolic and parabolic systems.
 """
-
-import sympy as sp
 import warnings
-from .simulation import SimulationInput
 from numbers import Number
-from . import eigenfunctions as ef
-import scipy.misc as sm
-import scipy.signal as sig
+
 import numpy as np
 import pyqtgraph as pg
+import scipy.misc as sm
+import scipy.signal as sig
+import sympy as sp
+
+from .core import Domain
+from .simulation import SimulationInput
+
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
@@ -385,19 +387,19 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
 
     Args:
         z (numbers.Number): Evaluation point :math:`z^*`.
-        C (dict):
-            Coeffient dictionary which keys correspond to the coefficient index. The values are 2D numpy.array's.
+        C (dict): Coefficient dictionary whose keys correspond to the coefficient index.
+            The values are 2D numpy.arrays.
             For example C[1] should provide a 2d-array with the coefficient :math:`c_1(t)` and at least :math:`n`
             temporal derivatives
 
-            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]).
+            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]) .
 
-        up_to_order (int): Max. temporal derivative order :math:`n` to compute.
-        series_termination_index (int): Series termination index :math:`N`.
-        spatial_der_order (int): Spatial derivativ order :math:`j`.
+        up_to_order (int): Maximum temporal derivative order :math:`n` to compute.
+        series_termination_index (int): Series termination index :math:`N` .
+        spatial_der_order (int): Spatial derivative order :math:`j` .
 
     Return:
-        numpy.array( [:math:`q^{(j,0)}, ... , q^{(j,n)}`] )
+        numpy.ndarray: array holding the elements :math:`q^{(j,0)}, \dotsc, q^{(j,n)}`
     """
 
     if not isinstance(z, Number):
@@ -459,40 +461,52 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
     return x
 
 
-class InterpTrajectory(SimulationInput):
+class InterpolationTrajectory(SimulationInput):
     """
-    Provides a system input through one-dimensional linear interpolation between
-    the given vectors :math:`u` and :math:`t`.
+    Provides a system input through one-dimensional linear interpolation in
+    the given vector :math:`u` .
 
     Args:
         t (array_like): Vector :math:`t` with time steps.
-        u (array_like): Vector :math:`u` with function values, corresponding to the vector :math:`t`.
-        show_plot (boolean): A plot window with plot(t, u) will pop up if it is true.
+        u (array_like): Vector :math:`u` with function values, evaluated at :math:`t`.
+        **kwargs: see below
+
+    Keyword Args:
+        show_plot (bool): to open a plot window, showing u(t).
+        scale (float): factor to scale the output.
+
     """
 
-    def __init__(self, t, u, show_plot=False):
+    def __init__(self, t, u, **kwargs):
         SimulationInput.__init__(self)
 
         self._t = t
         self._T = t[-1]
-        self._u = u
-        self.scale = 1
+        self._u = u * kwargs.get("scale", 1)
 
-        if show_plot:
+        if kwargs.get("show_plot", False):
             self.get_plot()
 
     def _calc_output(self, **kwargs):
-        return dict(output=np.interp(kwargs["time"], self._t, self._u) * self.scale)
+        return dict(output=np.interp(kwargs["time"], self._t, self._u))
 
     def get_plot(self):
+        """
+        Create a plot of the interpolated trajectory.
+
+        Todo:
+            the function name does not really tell that a QtEvent loop will be executed in here
+
+        Returns:
+            (pg.PlotWindow): the PlotWindow widget.
+        """
         pw = pg.plot(title="InterpTrajectory", labels=dict(left='u(t)', bottom='t'), pen='b')
         pw.plot(self._t, self.__call__(time=self._t), pen='b')
-        # pw.plot([0, self._T], self.__call__(time=[0, self._T]), pen=None, symbolPen=pg.mkPen("g"))
         pg.QtGui.QApplication.instance().exec_()
         return pw
 
 
-class SignalGenerator(InterpTrajectory):
+class SignalGenerator(InterpolationTrajectory):
     """
     Signal generator that combines :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
 
@@ -510,7 +524,9 @@ class SignalGenerator(InterpTrajectory):
 
     def __init__(self, waveform, t, scale=1, offset=0, **kwargs):
         if waveform not in sig.waveforms.__all__:
-            raise ValueError('Desired waveform is not provided from scipy.signal module.')
+            raise ValueError('Desired waveform is not provided by scipy.signal module.')
+        if isinstance(t, Domain):
+            t = t.points
         if not any([isinstance(value, Number) for value in [scale, offset]]):
             raise ValueError('scale and offset must be a Number')
         self._signal = getattr(sig, waveform)
@@ -528,79 +544,10 @@ class SignalGenerator(InterpTrajectory):
                 raise NotImplementedError
             t_gen_sig = t
 
-        # pop not scipy.signal.waveform.__all__ kwarg
+        # pop non scipy.signal.waveform.__all__ kwargs
         try:
             phase_shift = kwargs.pop('phase_shift')
         except KeyError as e:
             phase_shift = 0
         u = self._signal(t_gen_sig - phase_shift, **kwargs) * scale + offset
-        InterpTrajectory.__init__(self, t, u)
-
-
-class RadTrajectory(InterpTrajectory):
-    """
-    Class that implements a flatness based control approach
-    for the reaction-advection-diffusion equation
-
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t)
-
-    with the boundary condition
-
-        - :code:`bound_cond_type == "dirichlet"`: :math:`x(0,t)=0`
-
-            - A transition from :math:`x'(0,0)=0` to  :math:`x'(0,T)=1` is considered.
-            - With :math:`x'(0,t) = y(t)` where :math:`y(t)` is the flat output.
-
-        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \\alpha x(0,t)`
-
-            - A transition from :math:`x(0,0)=0` to  :math:`x(0,T)=1` is considered.
-            - With :math:`x(0,t) = y(t)` where :math:`y(t)` is the flat output.
-
-    and the actuation
-
-        - :code:`actuation_type == "dirichlet"`: :math:`x(l,t)=u(t)`
-
-        - :code:`actuation_type == "robin"`: :math:`x'(l,t) = -\\beta x(l,t) + u(t)`.
-
-    The flat output :math:`y(t)` will calculated with :py:func:`gevrey_tanh`.
-    """
-
-    # TODO: kwarg: t_step
-    def __init__(self, l, T, param_original, bound_cond_type, actuation_type, n=80, sigma=sigma_tanh, K=K_tanh,
-                 show_plot=False):
-
-        cases = {'dirichlet', 'robin'}
-        if bound_cond_type not in cases:
-            raise TypeError('Type of boundary condition by z=0 is not understood.')
-        if actuation_type not in cases:
-            raise TypeError('Type of actuation_type is not understood.')
-
-        self._l = l
-        self._T = T
-        self._a1_original = param_original[1]
-        self._param = ef.transform_to_intermediate(param_original)
-        self._bound_cond_type = bound_cond_type
-        self._actuation_type = actuation_type
-        self._n = n
-        self._sigma = sigma
-        self._K = K
-
-        self._z = np.array([self._l])
-        y, t = gevrey_tanh(self._T, self._n + 2, self._sigma, self._K)
-        x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, bound_cond_type)
-
-        a2, a1, a0, alpha, beta = self._param
-        if self._actuation_type is 'dirichlet':
-            u = x[:, -1]
-        elif self._actuation_type is 'robin':
-            u = d_x[:, -1] + beta * x[:, -1]
-        else:
-            raise NotImplementedError
-
-        # actually the algorithm consider the pde
-        # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
-        # with the following back transformation are also
-        # pde's with advection term a_1 x'(z,t) considered
-        u *= np.exp(-self._a1_original / 2. / a2 * l)
-
-        InterpTrajectory.__init__(self, t, u, show_plot=show_plot)
+        InterpolationTrajectory.__init__(self, t, u)

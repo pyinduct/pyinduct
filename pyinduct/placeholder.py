@@ -1,16 +1,16 @@
 """
 In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
 """
-
+import unittest
 from abc import ABCMeta
 import copy
 from numbers import Number
 
 import numpy as np
-
-from .registry import get_base, register_base, is_registered
-from .core import sanitize_input
 import collections
+
+from .registry import register_base, deregister_base, get_base, is_registered
+from .core import sanitize_input, Base, Function
 
 
 class Placeholder(object):
@@ -87,10 +87,15 @@ class SpatialPlaceholder(Placeholder):
 
 class Scalars(Placeholder):
     """
-    Placeholder for scalars that will be replaced later.
+    Placeholder for scalar values that scale the equation system,
+    gained by the projection of the pde onto the test basis.
+
+    Note:
+        The arguments *target_term* and *target_form* are used inside the parser.
+        For frontend use, just specify the *values*.
 
     Args:
-        values: Iterable object containing the scalars for every n-th equation.
+        values: Iterable object containing the scalars for every k-th equation.
         target_term: Coefficient matrix to :py:func:`add_to`.
         target_form: Desired weight set.
     """
@@ -107,12 +112,21 @@ class Scalars(Placeholder):
 
 class ScalarFunction(SpatialPlaceholder):
     """
-    Class that works as a placeholder for spatial-functions in an equation such as spatial dependent coefficients.
+    Class that works as a placeholder for spatial functions in an equation.
+    An example could be spatial dependent coefficients.
 
     Args:
-        function_label (str):
-        order (int):
-        location:
+        function_label (str): label under which the function is registered
+        order (int): spatial derivative order to use
+        location: location to evaluate at
+
+    Warn:
+        There seems to be a problem when this function is used in combination witch the
+        :py:class:`Product` class. Make sure to provide this class as first argument to
+        any product you define.
+
+    Todo:
+        see warning.
 
     """
 
@@ -121,6 +135,47 @@ class ScalarFunction(SpatialPlaceholder):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
 
         super().__init__({"func_lbl": function_label}, order=order, location=location)
+
+    @staticmethod
+    def from_scalars(scalars, label, **kwargs):
+        """
+        create a :py:class:`ScalarFunction` from scalar values.
+
+        Args:
+            scalars (array like): Input that is used the generate the placeholder.
+                # If a number is given, a constant function will be created, if
+                it is callable it will be wrapped in a :py:class:`core.Function`
+                and registered.
+            label (string): Label to register the created base.
+            **kwargs: All kwargs that are not mentioned below will be passed
+                to :py:class:`core.Function`.
+
+        Keyword Args:
+            order (int): See constructor.
+            location (int): See constructor.
+            overwrite (bool): See :py:func:`pyinduct.registry.register_base`
+
+        Returns:
+            :py:class:`placeholder.ScalarFunction` : Placeholder object that
+            can be used in a weak formulation.
+        """
+        # if isinstance(coefficient, Number):
+        #     fraction = Function(lambda z: coefficient)
+        # elif isinstance(coefficient, Function):
+        #     fraction = coefficient
+        # elif isinstance(coefficient, collections.Callable):
+        #     fraction = Function(coefficient)
+        # else:
+        #     raise TypeError("Coefficient type not understood.")
+
+        order = kwargs.pop("order", 0)
+        loc = kwargs.pop("location", None)
+        over = kwargs.pop("overwrite", False)
+
+        f = Function.from_constant(scalars)
+        register_base(label, Base(f), overwrite=over)
+
+        return ScalarFunction(label, order, loc)
 
 
 class Input(Placeholder):
@@ -198,21 +253,34 @@ class FieldVariable(Placeholder):
                  raised_spatially=False):
         """
         """
+        # derivative orders
         if not isinstance(order, tuple) or len(order) > 2:
             raise TypeError("order mus be 2-tuple of int.")
         if any([True for n in order if n < 0]):
             raise ValueError("derivative orders must be positive")
+        # TODO: Is this restriction still needed?
         if sum(order) > 2:
             raise ValueError("only derivatives of order one and two supported")
+
         if location is not None:
             if location and not isinstance(location, Number):
                 raise TypeError("location must be a number")
+
+        # basis
         if not is_registered(function_label):
             raise ValueError("Unknown function label '{0}'!".format(function_label))
         if weight_label is None:
             weight_label = function_label
         elif not isinstance(weight_label, str):
             raise TypeError("only strings allowed as 'weight_label'")
+        if function_label == weight_label:
+            self.simulation_compliant = True
+        else:
+            self.simulation_compliant = False
+
+        self.raised_spatially = raised_spatially
+
+        # exponent
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
 
@@ -299,8 +367,8 @@ class Product(object):
                     break
 
         if scalar_func and other_func:
-            s_func = get_base(scalar_func.data["func_lbl"], scalar_func.order[1])
-            o_func = get_base(other_func.data["func_lbl"], other_func.order[1])
+            s_func = get_base(scalar_func.data["func_lbl"]).derive(scalar_func.order[1]).fractions
+            o_func = get_base(other_func.data["func_lbl"]).derive(other_func.order[1]).fractions
 
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
@@ -310,18 +378,22 @@ class Product(object):
                     raise ValueError("Cannot simplify Product due to dimension mismatch!")
 
             exp = other_func.data.get("exponent", 1)
-            new_func = np.asarray([func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)])
-            new_name = new_func.tobytes()
-            register_base(new_name, new_func)
+            new_base = Base(np.asarray(
+                [func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)]))
+            # TODO change name generation to more sane behaviour
+            new_name = new_base.fractions.tobytes()
+            register_base(new_name, new_base)
 
-            # overwrite spatial derivative order since derivation take place
+            # overwrite spatial derivative order since derivation took place
             if isinstance(other_func, (ScalarFunction, TestFunction)):
                 a = other_func.__class__(function_label=new_name, order=0, location=other_func.location)
             elif isinstance(other_func, FieldVariable):
-                a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
-                                  order=(other_func.order[0], 0), location=other_func.location,
-                                  exponent=other_func.data["exponent"])
-                a.raised_spatially = True
+                a = copy.deepcopy(other_func)
+                a.data["func_lbl"] = new_name
+                a.order = (other_func.order[0], 0)
+                # a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
+                #                   order=(other_func.order[0], 0), location=other_func.location,
+                #                   exponent=other_func.data["exponent"])
             b = None
 
         return a, b
@@ -405,7 +477,7 @@ def _evaluate_placeholder(placeholder):
     Evaluates a placeholder object and returns a Scalars object.
 
     Args:
-        placeholder (:py:class:`Placholder`):
+        placeholder (:py:class:`Placeholder`):
 
     Return:
         :py:class:`Scalars` or NotImplementedError
@@ -415,12 +487,12 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    functions = get_base(placeholder.data['func_lbl'], placeholder.order[1])
+    fractions = get_base(placeholder.data['func_lbl']).derive(placeholder.order[1]).fractions
     location = placeholder.location
     exponent = placeholder.data.get("exponent", 1)
     if getattr(placeholder, "raised_spatially", False):
         exponent = 1
-    values = np.atleast_2d([func.raise_to(exponent)(location) for func in functions])
+    values = np.atleast_2d([frac.raise_to(exponent)(location) for frac in fractions])
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values,
@@ -443,7 +515,7 @@ def get_common_target(scalars):
     Return:
         dict: Common target.
     """
-    e_targets = [scal.target_term for scal in scalars if scal.target_term["name"] == "E"]
+    e_targets = [scalar.target_term for scalar in scalars if scalar.target_term["name"] == "E"]
     if e_targets:
         if len(e_targets) == 1:
             return e_targets[0]
@@ -457,3 +529,44 @@ def get_common_target(scalars):
         return e_targets[0]
     else:
         return dict(name="f")
+
+
+def evaluate_placeholder_function(placeholder, input_values):
+    """
+    Evaluate a given placeholder object, that contains functions.
+
+    Args:
+        placeholder: Instance of :py:class:`FieldVariable`, :py:class:`TestFunction` or :py:class:`ScalarFunction`.
+        input_values: Values to evaluate at.
+
+    Return:
+        :py:obj:`numpy.ndarray` of results.
+    """
+    if not isinstance(placeholder, (FieldVariable, TestFunction)):
+        raise TypeError("Input Object not supported!")
+
+    base = get_base(placeholder.data["func_lbl"]).derive(placeholder.order[1])
+    return np.array([func(input_values) for func in base.fractions])
+
+
+class EvaluatePlaceholderTestCase(unittest.TestCase):
+    def setUp(self):
+        self.f = np.cos
+        self.psi = Function(np.sin)
+        register_base("funcs", Base(self.psi), overwrite=True)
+        self.funcs = TestFunction("funcs")
+
+    def test_eval(self):
+        eval_values = np.array(list(range(10)))
+
+        # supply a non-placeholder
+        self.assertRaises(TypeError, evaluate_placeholder_function, self.f, eval_values)
+
+        # check for correct results
+        res = evaluate_placeholder_function(self.funcs, eval_values)
+        self.assertTrue(np.allclose(self.psi(eval_values), res))
+
+    def tearDown(self):
+        deregister_base("funcs")
+
+

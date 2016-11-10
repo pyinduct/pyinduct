@@ -1,3 +1,7 @@
+import core
+import parabolic.control
+import parabolic.general
+import parabolic.trajectory
 from pyinduct import registry as re
 from pyinduct import core as cr
 from pyinduct import placeholder as ph
@@ -26,8 +30,8 @@ actuation_type = 'robin'
 bound_cond_type = 'robin'
 l = 1
 T = 1
-spatial_domain = sim.Domain(bounds=(0, l), num=n_fem)
-temporal_domain = sim.Domain(bounds=(0, T), num=1e2)
+spatial_domain = core.Domain(bounds=(0, l), num=n_fem)
+temporal_domain = core.Domain(bounds=(0, T), num=1e2)
 n = n_modal
 show_plots = False
 
@@ -38,7 +42,7 @@ a0 = 2
 alpha = -0.5
 beta = -1
 param = [a2, a1, a0, alpha, beta]
-adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
+adjoint_param = parabolic.general.get_adjoint_rad_evp_param(param)
 
 # target system parameters (controller parameters)
 a1_t = -1
@@ -50,13 +54,13 @@ param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 # actuation_type by b which is close to b_desired on a k times subdivided spatial domain
 b_desired = 0.4
 k = 5  # = k1 + k2
-k1, k2, b = ut.split_domain(k, b_desired, l, mode='coprime')[0:3]
-M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
+k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+M = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
 
 # original intermediate ("_i") and target intermediate ("_ti") system parameters
-_, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param)
+_, _, a0_i, alpha_i, beta_i = parabolic.general.eliminate_advection_term(param)
 param_i = a2, 0, a0_i, alpha_i, beta_i
-_, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
+_, _, a0_ti, alpha_ti, beta_ti = parabolic.general.eliminate_advection_term(param_t)
 param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
 # COMPUTE DESIRED FIELDVARIABLE
@@ -99,7 +103,7 @@ evald_xi_desired = vis.EvalData([t_x, z_x], xi_desired, name="x(z,t) power serie
 # THE TOOLBOX OFFERS TWO WAYS TO GENERATE A TRAJECTORY FOR THE TARGET SYSTEM
 if False:
     # First way: simply instantiate tr.RadTrajectory
-    traj = tr.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type, show_plot=show_plots)
+    traj = parabolic.trajectory.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type, show_plot=show_plots)
 else:
     # Second (and more general) way:
     #   - calculate the power series coefficients with tr.coefficient_recursion
@@ -109,30 +113,40 @@ else:
     x_ti_desired = tr.power_series(np.array([l]), t_x, C_ti)
     dx_ti_desired = tr.power_series(np.array([l]), t_x, C_ti, spatial_der_order=1)
     v_i = dx_ti_desired + beta_ti * x_ti_desired
-    traj = tr.InterpTrajectory(t_x, v_i, show_plot=show_plots)
+    traj = tr.InterpolationTrajectory(t_x, v_i, show_plot=show_plots)
 
 # scale trajectory that x(0,T)=1 instead of x_i(0,T)=1
 # traj.scale /= x1_id_desired[-1, 0]
 
 # create (not normalized) eigenfunctions
-eig_val, init_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param, l, n=n)
-_, init_adjoint_eig_funcs = ef.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param, l, eig_val=eig_val)
+eig_freq, eig_val = parabolic.general.compute_rad_robin_eigenfrequencies(param, l, n, show_plot=show_plots)
+init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, spatial_domain.bounds)
+                           for om in eig_freq])
+init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, spatial_domain.bounds)
+                                   for om in eig_freq])
 
 # normalize eigenfunctions and adjoint eigenfunctions
 eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-scale_id = [f(0) for f in eig_funcs]
-eig_val_i, eig_funcs_id = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_i, l, eig_val=eig_val, scale=scale_id)
-scale_i = [e_f(0) * e_f_id(l) / e_f_id(b) for e_f, e_f_id in zip(eig_funcs, eig_funcs_id)]
-_, eig_funcs_i = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_i, l, eig_val=eig_val, scale=scale_i)
+eig_freq_i, eig_val_i = parabolic.general.compute_rad_robin_eigenfrequencies(param_i, l, n, show_plot=show_plots)
+eig_funcs_id = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
+                                                          eig_funcs[i](0))
+                         for i in range(n)])
+eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], param_i, spatial_domain.bounds,
+                                                         eig_funcs[i](0) * eig_funcs_id[i](l) / eig_funcs_id[i](b))
+                        for i in range(n)])
 
 # eigenfunctions from target intermediate system ("_ti")
-scale_ti = [f(0) for f in eig_funcs_i]
-_, eig_funcs_ti = ef.SecondOrderRobinEigenfunction.solve_evp_hint(param_ti, l, eig_val=eig_val, scale=scale_ti)
+eig_freq_ti = np.sqrt((a0_ti - eig_val) / a2)
+eig_funcs_ti = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_ti[i], param_ti, spatial_domain.bounds,
+                                                          eig_funcs_i[i](0))
+                         for i in range(n)])
 
 # create test-functions
-nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spatial_domain.bounds, node_count=len(spatial_domain))
+nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder,
+                                    spatial_domain.bounds,
+                                    node_count=len(spatial_domain))
 
 # register functions
 re.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
@@ -156,13 +170,15 @@ xd_ti_at_l = [ph.ScalarTerm(d_field_variable_ti)]
 
 # shift transformation
 shifted_fem_funcs_i = np.array(
-    [ef.FiniteTransformFunction(func, M, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z)) for func in fem_funcs])
+    [ef.FiniteTransformFunction(func, M, l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z))
+     for func in fem_funcs])
 shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, l) for func in eig_funcs_id])
 re.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
 re.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
 sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=l)
 sh_field_variable_id = ph.FieldVariable("sh_eig_funcs_id", weight_label="eig_funcs", location=l)
-sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i), ph.ScalarTerm(field_variable_i),
+sh_x_fem_i_at_l = [ph.ScalarTerm(sh_fem_field_variable_i),
+                   ph.ScalarTerm(field_variable_i),
                    ph.ScalarTerm(sh_field_variable_id, -1)]
 
 
@@ -171,15 +187,16 @@ def int_kernel_zz(z):
     return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
 
 
-controller = ut.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l, approx_state=x_i_at_l,
-                                                            d_approx_state=xd_i_at_l, approx_target_state=x_ti_at_l,
-                                                            d_approx_target_state=xd_ti_at_l,
-                                                            integral_kernel_zz=int_kernel_zz(l), original_beta=beta_i,
-                                                            target_beta=beta_ti, trajectory=traj,
-                                                            scale=np.exp(-a1 / 2 / a2 * b))
+controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=sh_x_fem_i_at_l, approx_state=x_i_at_l,
+                                                                           d_approx_state=xd_i_at_l,
+                                                                           approx_target_state=x_ti_at_l,
+                                                                           d_approx_target_state=xd_ti_at_l,
+                                                                           integral_kernel_zz=int_kernel_zz(l),
+                                                                           original_beta=beta_i, target_beta=beta_ti,
+                                                                           scale=np.exp(-a1 / 2 / a2 * b))
 
 # determine (A,B) with modal transformation
-rad_pde = ut.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds, b)
+rad_pde = parabolic.general.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, param, spatial_domain.bounds, b)
 cf = sim.parse_weak_formulation(rad_pde)
 ss_weak = cf.convert_to_state_space()
 
