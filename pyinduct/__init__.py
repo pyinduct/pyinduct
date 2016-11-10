@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+import os
+import matplotlib as mpl
+
+# make everybody use qt5
+mpl.use('Qt5Agg')
+os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+
 # noinspection PyUnresolvedReferences
 from .core import *
 # noinspection PyUnresolvedReferences
