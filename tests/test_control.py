@@ -222,7 +222,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         alpha = -2
         beta = -3
         param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(param)
+        adjoint_param = pm.SecondOrderEigenfunction.get_adjoint_problem(param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -233,8 +233,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(param)
-        _, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(param_t)
+        _, _, a0_i, alpha_i, beta_i = pm.transform_to_intermediate(param)
+        _, _, a0_ti, alpha_ti, beta_ti = pm.transform_to_intermediate(param_t)
 
         # system/simulation parameters
         actuation_type = 'robin'
@@ -249,9 +249,9 @@ class RadRobinControlApproxTest(unittest.TestCase):
         n = 10
 
         # create (not normalized) eigenfunctions
-        eig_freq, eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, self.l, n)
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
+        eig_freq, eig_val = pm.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, self.l, n)
+        init_eig_funcs = np.array([pm.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
+        init_adjoint_eig_funcs = np.array([pm.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -259,7 +259,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
         eig_funcs_t = np.array(
-            [ef.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, l).scale(eig_funcs[i](0)) for i in range(n)])
+            [pm.SecondOrderRobinEigenfunction(eig_freq_t[i], param_t, l).scale(eig_funcs[i](0)) for i in range(n)])
 
         # register eigenfunctions
         register_base("eig_base", eig_funcs, overwrite=True)
@@ -331,7 +331,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param)
+        adjoint_param = pm.SecondOrderEigenfunction.get_adjoint_problem(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -342,9 +342,9 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform_to_intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = pm.transform_to_intermediate(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform_to_intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = pm.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters
@@ -360,10 +360,10 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.n = 10
 
         # create (not normalized) eigenfunctions
-        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in eig_freq])
+        eig_freq, self.eig_val = pm.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
+        init_eig_funcs = np.array([pm.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in eig_freq])
         init_adjoint_eig_funcs = np.array(
-            [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in eig_freq])
+            [pm.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
@@ -371,7 +371,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         # eigenfunctions from target system ("_t")
         eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - self.eig_val) / a2)
         eig_funcs_t = np.array(
-            [ef.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, self.l).scale(eig_funcs[i](0)) for i in
+            [pm.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, self.l).scale(eig_funcs[i](0)) for i in
              range(self.n)])
 
         # create testfunctions
@@ -514,25 +514,25 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         alpha_t = 1
         beta_t = 1
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
-        adjoint_param_t = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param_t)
+        adjoint_param_t = pm.SecondOrderEigenfunction.get_adjoint_problem(self.param_t)
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = ef.transform_to_intermediate(self.param, l=self.l)
+        _, _, a0_i, alpha_i, beta_i = pm.transform_to_intermediate(self.param, l=self.l)
         self.param_i = a2, 0, a0_i, alpha_i, beta_i
-        _, _, a0_ti, alpha_ti, beta_ti = ef.transform_to_intermediate(self.param_t)
+        _, _, a0_ti, alpha_ti, beta_ti = pm.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
         # create (not normalized) target (_t) eigenfunctions
-        eig_freq_t, self.eig_val_t = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_t, self.l, self.n)
-        init_eig_funcs_t = np.array([ef.SecondOrderRobinEigenfunction(om, self.param_t, self.l) for om in eig_freq_t])
+        eig_freq_t, self.eig_val_t = pm.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_t, self.l, self.n)
+        init_eig_funcs_t = np.array([pm.SecondOrderRobinEigenfunction(om, self.param_t, self.l) for om in eig_freq_t])
         init_adjoint_eig_funcs_t = np.array(
-            [ef.SecondOrderRobinEigenfunction(om, adjoint_param_t, self.l) for om in eig_freq_t])
+            [pm.SecondOrderRobinEigenfunction(om, adjoint_param_t, self.l) for om in eig_freq_t])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs_t, self.adjoint_eig_funcs_t = cr.normalize_base(init_eig_funcs_t, init_adjoint_eig_funcs_t)
 
         # # transformed original eigenfunctions
-        self.eig_funcs = np.array([ef.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
+        self.eig_funcs = np.array([pm.TransformedSecondOrderEigenfunction(self.eig_val_t[i],
                                                                           [eig_funcs_t[i](0), alpha * eig_funcs_t[i](0),
                                                                            0, 0], [a2, a1_z, a0_z],
                                                                           np.linspace(0, self.l, 1e4)) for i in
@@ -639,7 +639,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = ef.SecondOrderEigenfunction.get_adjoint_problem(self.param)
+        adjoint_param = pm.SecondOrderEigenfunction.get_adjoint_problem(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -655,34 +655,34 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         M = np.linalg.inv(ut.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
 
         # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = ef.transform_to_intermediate(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i = pm.transform_to_intermediate(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = ef.transform_to_intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = pm.transform_to_intermediate(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # create (not normalized) eigenfunctions
-        eig_freq, self.eig_val = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
-        init_eig_funcs = np.array([ef.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in eig_freq])
+        eig_freq, self.eig_val = pm.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
+        init_eig_funcs = np.array([pm.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in eig_freq])
         init_adjoint_eig_funcs = np.array(
-            [ef.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in eig_freq])
+            [pm.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
         eig_funcs, self.adjoint_eig_funcs = cr.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
         # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-        eig_freq_i, eig_val_i = ef.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_i, self.l, self.n)
+        eig_freq_i, eig_val_i = pm.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_i, self.l, self.n)
         self.assertTrue(all(np.isclose(eig_val_i, self.eig_val)))
         eig_funcs_id = np.array(
-            [ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l, eig_funcs[i](0)) for i in
+            [pm.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l, eig_funcs[i](0)) for i in
              range(self.n)])
-        eig_funcs_i = np.array([ef.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l,
+        eig_funcs_i = np.array([pm.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l,
                                                                  eig_funcs[i](0) * eig_funcs_id[i](self.l) /
                                                                  eig_funcs_id[i](self.b)) for i in range(self.n)])
 
         # eigenfunctions from target system ("_ti")
         eig_freq_ti = np.sqrt((a0_ti - self.eig_val) / a2)
         eig_funcs_ti = np.array(
-            [ef.SecondOrderRobinEigenfunction(eig_freq_ti[i], self.param_ti, self.l, eig_funcs_i[i](0)) for i in
+            [pm.SecondOrderRobinEigenfunction(eig_freq_ti[i], self.param_ti, self.l, eig_funcs_i[i](0)) for i in
              range(self.n)])
 
         # create testfunctions
@@ -716,9 +716,9 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # shift transformation
         shifted_fem_funcs_i = np.array(
-            [ef.FiniteTransformFunction(func, M, self.l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z)) for func in
+            [pm.FiniteTransformFunction(func, M, self.l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z)) for func in
              self.fem_funcs])
-        shifted_eig_funcs_id = np.array([ef.FiniteTransformFunction(func, M, self.l) for func in eig_funcs_id])
+        shifted_eig_funcs_id = np.array([pm.FiniteTransformFunction(func, M, self.l) for func in eig_funcs_id])
         register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
         register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
         sh_fem_field_variable_i = ph.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=self.l)
