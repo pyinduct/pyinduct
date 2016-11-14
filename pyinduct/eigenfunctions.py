@@ -9,13 +9,13 @@ import numpy as np
 import sympy as sp
 from sympy.utilities.lambdify import lambdify
 import scipy.integrate as si
-from . import utils as ut
-from .core import Function, back_project_from_base
 from numbers import Number
 from functools import partial
 import collections
 import matplotlib.pyplot as plt
 from abc import ABCMeta, abstractstaticmethod
+
+from .core import Function, back_project_from_base, find_roots
 
 
 class LambdifiedSympyExpression(Function):
@@ -406,14 +406,14 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
         # search imaginary roots
         try:
-            om = list(ut.find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag],
-                                    rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot, get_all=True))
+            om = list(find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag],
+                                 rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot))  #, get_all=True))
         except ValueError:
             om = list()
 
         # search real roots
-        om += ut.find_roots(characteristic_equation, 2 * n_roots, [start_values_real, np.array([0])],
-                            rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot).tolist()
+        om += find_roots(characteristic_equation, 2 * n_roots, [start_values_real, np.array([0])],
+                         rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0 and real part == 0 considered
         if any([not np.isclose(root.real, 0) and not np.isclose(root.imag, 0) for root in om]):

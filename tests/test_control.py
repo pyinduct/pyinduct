@@ -2,12 +2,10 @@ import sys
 import unittest
 
 import numpy as np
-from scipy import integrate
-
 import pyinduct as pi
 import pyinduct.control as control
 import pyinduct.parabolic as parabolic
-
+from scipy import integrate
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -138,8 +136,6 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         self.modal_order = 10
 
         # eigenvalues /-functions of the original system
-        # eig_freq = np.array([(i + 1) * np.pi / self.l for i in range(self.modal_order)])
-        # self.eig_values = a0 - a2 * eig_freq ** 2 - a1 ** 2 / 4. / a2
         eig_freq, self.eig_values = \
             pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(self.param,
                                                                      self.l,
@@ -147,7 +143,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
         self.eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(eig_freq[i],
                                                                       self.param,
-                                                                      self.dz.bounds,
+                                                                      self.dz.bounds[-1],
                                                                       scale=norm_fac[i])
                                  for i in range(self.modal_order)])
         pi.register_base("eig_base", self.eig_base)
@@ -157,7 +153,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         norm_fac_t = norm_fac * eig_freq / eig_freq_t
         self.eig_base_t = pi.Base([pi.SecondOrderDirichletEigenfunction(eig_freq_t[i],
                                                                         self.param_t,
-                                                                        self.dz.bounds,
+                                                                        self.dz.bounds[-1],
                                                                         norm_fac_t[i])
                                    for i in range(self.modal_order)])
         pi.register_base("eig_base_t", self.eig_base_t)
@@ -187,7 +183,7 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         # determine (A, B) with modal transformation
         a_mat = np.diag(self.eig_values)
         b_mat = -self.param[0] * np.atleast_2d([fraction.derive()(self.l)
-                                                for fraction in self.eig_base]).T
+                                                for fraction in self.eig_base.fractions]).T
         ss = pi.StateSpace(a_mat, b_mat, input_handle=control_law, base_lbl="eig_base")
 
         # simulate
@@ -210,23 +206,20 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         pi.deregister_base("eig_base_t")
 
 
-@unittest.skip
+# @unittest.skip
 class RadRobinControlApproxTest(unittest.TestCase):
     """
     """
 
     def setUp(self):
-        pass
-
-    def test_it(self):
         # original system parameters
         a2 = 1.5
         a1 = 2.5
         a0 = 28
         alpha = -2
         beta = -3
-        param = [a2, a1, a0, alpha, beta]
-        adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(param)
+        self.param = [a2, a1, a0, alpha, beta]
+        self.adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -237,77 +230,114 @@ class RadRobinControlApproxTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, alpha_i, beta_i = parabolic.eliminate_advection_term(param)
-        _, _, a0_ti, alpha_ti, beta_ti = parabolic.eliminate_advection_term(self.param_t)
+        # _, _, a0_i, alpha_i, beta_i = parabolic.eliminate_advection_term(self.param)
+        # _, _, a0_ti, alpha_ti, beta_ti = parabolic.eliminate_advection_term(self.param_t)
+        self.param_i = parabolic.eliminate_advection_term(self.param)
+        self.param_ti = parabolic.eliminate_advection_term(self.param_t)
 
         # system/simulation parameters
-        actuation_type = 'robin'
-        bound_cond_type = 'robin'
-        self.l = l = 1
+        self.actuation_type = 'robin'
+        self.bound_cond_type = 'robin'
+        self.l = 1
         spatial_disc = 10
-        dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
+        self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
 
-        T = 1.
+        self.t_end = 1.
         temporal_disc = 100
-        dt = pi.Domain(bounds=(0, T), num=temporal_disc)
-        n = 10
+        self.dt = pi.Domain(bounds=(0, self.t_end), num=temporal_disc)
+
+        self.modal_order = 10
 
         # create (not normalized) eigenfunctions
-        eig_freq, eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, self.l, n)
-        init_eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om, param, l) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om, adjoint_param, l) for om in eig_freq])
+        self.eig_freq, self.eig_val = \
+            pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param,
+                                                                 self.l,
+                                                                 self.modal_order)
+        init_eig_funcs = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, self.param, self.l)
+             for om in self.eig_freq])
+        init_adjoint_eig_funcs = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, self.adjoint_param, self.l)
+             for om in self.eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        eig_funcs, adjoint_eig_funcs = pi.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
+        eig_base, self.adjoint_eig_base = pi.normalize_base(init_eig_funcs,
+                                                            init_adjoint_eig_funcs)
 
         # eigenfunctions from target system ("_t")
-        eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2 + (a0_t - eig_val) / a2)
-        eig_funcs_t = np.array(
-            [pi.SecondOrderRobinEigenfunction(eig_freq_t[i], self.param_t, l).scale(eig_funcs[i](0)) for i in range(n)])
+        eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2
+                             + (a0_t - self.eig_val) / a2)
+        eig_base_t = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(eig_freq_t[i],
+                                              self.param_t,
+                                              self.l).scale(eig_base.fractions[i](0))
+             for i in range(self.modal_order)])
 
         # register eigenfunctions
-        pi.register_base("eig_base", eig_funcs, overwrite=True)
-        pi.register_base("adjoint_eig_funcs", adjoint_eig_funcs, overwrite=True)
-        pi.register_base("eig_base_t", eig_funcs_t, overwrite=True)
+        pi.register_base("eig_base", eig_base)
+        pi.register_base("adjoint_eig_funcs", self.adjoint_eig_base)
+        pi.register_base("eig_base_t", eig_base_t)
 
-        # derive initial field variable x(z,0) and weights
-        start_state = pi.Function(lambda z: 0., domain=(0, self.l))
-        initial_weights = pi.project_on_base(start_state, adjoint_eig_funcs)
-
+    def test_controller(self):
         # controller initialization
-        x_at_l = pi.FieldVariable("eig_base", location=self.l)
-        xd_at_l = pi.SpatialDerivedFieldVariable("eig_base", 1, location=self.l)
-        x_t_at_l = pi.FieldVariable("eig_base_t", weight_label="eig_base", location=self.l)
-        xd_t_at_l = pi.SpatialDerivedFieldVariable("eig_base_t", 1, weight_label="eig_base", location=self.l)
-        combined_transform = lambda z: np.exp((a1_t - a1) / 2 / a2 * z)
-        int_kernel_zz = lambda z: alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
+        x = pi.FieldVariable("eig_base")
+        x_at_l = x(self.l)
+        xdz_at_l = x.derive(spat_order=1)(self.l)
 
-        law = control.ControlLaw([pi.ScalarTerm(x_at_l, (beta_i - beta_ti - int_kernel_zz(self.l))),
-                                  pi.ScalarTerm(x_t_at_l, -beta_ti * combined_transform(self.l)),
-                                  pi.ScalarTerm(x_at_l, beta_ti), pi.ScalarTerm(xd_t_at_l, -combined_transform(self.l)),
-                                  pi.ScalarTerm(x_t_at_l, -a1_t / 2 / a2 * combined_transform(self.l)),
-                                  pi.ScalarTerm(xd_at_l, 1),
-                                  pi.ScalarTerm(x_at_l, a1 / 2 / a2 + int_kernel_zz(self.l))])
+        x_t = pi.FieldVariable("eig_base_t", weight_label="eig_base")
+        x_t_at_l = x_t(self.l)
+        xdz_t_at_l = x_t.derive(spat_order=1)(self.l)
+
+        def combined_transform(z):
+            return np.exp((self.param_t[1] - self.param[1]) / 2 / self.param[0] * z)
+
+        def int_kernel_zz(z):
+            return (self.param_ti[3]
+                    - self.param_i[3]
+                    + (self.param_i[2] - self.param_ti[0]) / 2 / self.param[0] * z)
+
+        law = pi.WeakFormulation([
+            pi.ScalarTerm(x_at_l,
+                          self.param_i[4] - self.param_ti[4] - int_kernel_zz(self.l)),
+            pi.ScalarTerm(x_t_at_l,
+                          -self.param_ti[4] * combined_transform(self.l)),
+            pi.ScalarTerm(x_at_l, self.param_ti[4]),
+            pi.ScalarTerm(xdz_t_at_l, -combined_transform(self.l)),
+            pi.ScalarTerm(x_t_at_l,
+                          -self.param_t[1] / 2 / self.param[0] * combined_transform(self.l)),
+            pi.ScalarTerm(xdz_at_l, 1),
+            pi.ScalarTerm(x_at_l,
+                          self.param[1] / 2 / self.param[0] + int_kernel_zz(self.l))],
+            name="Rad_Robin-Controller")
         controller = control.Controller(law)
 
         # init trajectory
-        traj = pi.RadTrajectory(self.l, T, self.param_t, bound_cond_type, actuation_type)
-        traj.scale = combined_transform(self.l)
+        trajectory = parabolic.RadTrajectory(self.l,
+                                             self.t_end,
+                                             self.param_t,
+                                             self.bound_cond_type,
+                                             self.actuation_type)
+        trajectory.scale = combined_transform(self.l)
 
         # input with feedback
-        control_law = pi.SimulationInputSum([traj, controller])
+        control_law = pi.SimulationInputSum([trajectory, controller])
 
         # determine (A,B) with modal-transformation
-        A = np.diag(np.real(eig_val))
-        B = a2 * np.array([adjoint_eig_funcs[i](self.l) for i in range(len(eig_freq))])
-        ss_modal = pi.StateSpace(A, B, input_handle=control_law)
+        a_mat = np.diag(np.real(self.eig_val))
+        b_mat = self.param[0] * np.array(
+            [fraction(self.l) for fraction in self.adjoint_eig_base.fractions])
+        ss_modal = pi.StateSpace(a_mat, b_mat, input_handle=control_law)
+
+        # derive initial field variable x(z,0) and weights
+        start_state = pi.Function.from_constant(0, domain=(0, self.l))
+        initial_weights = pi.project_on_base(start_state, self.adjoint_eig_base)
 
         # simulate
-        t, q = pi.simulate_state_space(ss_modal, initial_weights, dt)
+        t, q = pi.simulate_state_space(ss_modal, initial_weights, self.dt)
 
-        eval_d = pi.evaluate_approximation("eig_base", q, t, dz)
+        eval_d = pi.evaluate_approximation("eig_base", q, t, self.dz)
         x_0t = eval_d.output_data[:, 0]
-        yc, tc = pi.gevrey_tanh(T, 1)
+        yc, tc = pi.gevrey_tanh(self.t_end, 1)
         x_0t_desired = np.interp(t, tc, yc[0, :])
         self.assertLess(np.average((x_0t - x_0t_desired) ** 2), 1e-4)
 
@@ -317,6 +347,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
             win2 = pi.PgSurfacePlot(eval_d)
             app.exec_()
 
+    def tearDown(self):
         pi.deregister_base("eig_base")
         pi.deregister_base("adjoint_eig_funcs")
         pi.deregister_base("eig_base_t")
@@ -359,7 +390,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1
-        temporal_disc = 1e2
+        temporal_disc = 100
         self.dt = pi.Domain(bounds=(0, self.T), num=temporal_disc)
         self.n = 10
 
@@ -415,18 +446,21 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
 
     def test_fem(self):
         self.act_funcs = "fem_funcs"
-        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l, approx_state=self.x_i_at_l,
-                                                                    d_approx_state=self.xd_i_at_l,
-                                                                    approx_target_state=self.x_ti_at_l,
-                                                                    d_approx_target_state=self.xd_ti_at_l,
-                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_beta=self.beta_i, target_beta=self.beta_ti,
-                                                                    trajectory=self.traj,
-                                                                    scale=self.transform_i(-self.l))
+        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
+                                                                           approx_state=self.x_i_at_l,
+                                                                           d_approx_state=self.xd_i_at_l,
+                                                                           approx_target_state=self.x_ti_at_l,
+                                                                           d_approx_target_state=self.xd_ti_at_l,
+                                                                           integral_kernel_zz=self.int_kernel_zz(
+                                                                               self.l),
+                                                                           original_beta=self.beta_i,
+                                                                           target_beta=self.beta_ti,
+                                                                           trajectory=self.traj,
+                                                                           scale=self.transform_i(-self.l))
 
         # determine (A,B) with modal-transfomation
         rad_pde = parabolic.get_parabolic_robin_weak_form(self.act_funcs, self.act_funcs, controller, self.param,
-                                                   self.dz.bounds)
+                                                          self.dz.bounds)
         cf = pi.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
@@ -448,14 +482,17 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
     def test_modal(self):
         self.act_funcs = "eig_base"
         a2, a1, a0, alpha, beta = self.param
-        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l, approx_state=self.x_i_at_l,
-                                                                    d_approx_state=self.xd_i_at_l,
-                                                                    approx_target_state=self.x_ti_at_l,
-                                                                    d_approx_target_state=self.xd_ti_at_l,
-                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_beta=self.beta_i, target_beta=self.beta_ti,
-                                                                    trajectory=self.traj,
-                                                                    scale=self.transform_i(-self.l))
+        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_i_at_l,
+                                                                           approx_state=self.x_i_at_l,
+                                                                           d_approx_state=self.xd_i_at_l,
+                                                                           approx_target_state=self.x_ti_at_l,
+                                                                           d_approx_target_state=self.xd_ti_at_l,
+                                                                           integral_kernel_zz=self.int_kernel_zz(
+                                                                               self.l),
+                                                                           original_beta=self.beta_i,
+                                                                           target_beta=self.beta_ti,
+                                                                           trajectory=self.traj,
+                                                                           scale=self.transform_i(-self.l))
 
         # determine (A,B) with modal transformation
         A = np.diag(np.real(self.eig_val))
@@ -583,16 +620,18 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
         self.int_kernel_zz = alpha_ti - alpha_i + integrate.quad(lambda z: (a0_i(z) - a0_ti) / 2 / a2, 0, self.l)[0]
 
-        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l, approx_state=self.x_i_at_l,
-                                                                    d_approx_state=self.xd_i_at_l,
-                                                                    approx_target_state=self.x_ti_at_l,
-                                                                    d_approx_target_state=self.xd_ti_at_l,
-                                                                    integral_kernel_zz=self.int_kernel_zz,
-                                                                    original_beta=beta_i, target_beta=beta_ti,
-                                                                    trajectory=self.traj,
-                                                                    scale=self.inv_transform_i_at_l)
+        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.x_fem_i_at_l,
+                                                                           approx_state=self.x_i_at_l,
+                                                                           d_approx_state=self.xd_i_at_l,
+                                                                           approx_target_state=self.x_ti_at_l,
+                                                                           d_approx_target_state=self.xd_ti_at_l,
+                                                                           integral_kernel_zz=self.int_kernel_zz,
+                                                                           original_beta=beta_i, target_beta=beta_ti,
+                                                                           trajectory=self.traj,
+                                                                           scale=self.inv_transform_i_at_l)
 
-        rad_pde = parabolic.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.dz.bounds)
+        rad_pde = parabolic.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param,
+                                                          self.dz.bounds)
         cf = pi.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 
@@ -736,18 +775,21 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         a2, a1, _, _, _ = self.param
         controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.sh_x_fem_i_at_l,
-                                                                    approx_state=self.x_i_at_l,
-                                                                    d_approx_state=self.xd_i_at_l,
-                                                                    approx_target_state=self.x_ti_at_l,
-                                                                    d_approx_target_state=self.xd_ti_at_l,
-                                                                    integral_kernel_zz=self.int_kernel_zz(self.l),
-                                                                    original_beta=self.beta_i, target_beta=self.beta_ti,
-                                                                    trajectory=self.traj,
-                                                                    scale=np.exp(-a1 / 2 / a2 * self.b))
+                                                                           approx_state=self.x_i_at_l,
+                                                                           d_approx_state=self.xd_i_at_l,
+                                                                           approx_target_state=self.x_ti_at_l,
+                                                                           d_approx_target_state=self.xd_ti_at_l,
+                                                                           integral_kernel_zz=self.int_kernel_zz(
+                                                                               self.l),
+                                                                           original_beta=self.beta_i,
+                                                                           target_beta=self.beta_ti,
+                                                                           trajectory=self.traj,
+                                                                           scale=np.exp(-a1 / 2 / a2 * self.b))
 
         # determine (A,B) with modal transformation
-        rad_pde = parabolic.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param, self.dz.bounds,
-                                                   self.b)
+        rad_pde = parabolic.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param,
+                                                          self.dz.bounds,
+                                                          self.b)
         cf = pi.parse_weak_formulation(rad_pde)
         ss_weak = cf.convert_to_state_space()
 

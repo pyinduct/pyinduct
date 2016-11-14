@@ -1375,9 +1375,11 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         found_roots += 1
 
-    # sort roots
     valid_roots = roots[:found_roots]
-    good_roots = np.sort(valid_roots, 0)
+
+    # sort roots
+    idx = np.argsort(valid_roots[:, 0])
+    good_roots = valid_roots[idx, :]
 
     # if show_plot:
     #     pw = pg.plot(title="function + roots")
