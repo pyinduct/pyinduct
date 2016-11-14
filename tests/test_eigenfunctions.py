@@ -150,14 +150,14 @@ class TestEigenvalues(unittest.TestCase):
             self.assertTrue(all(np.isclose(eig_freq, desired_eig_freq)))
 
 
-class TestSecondOrderRobinEigenvalueProblemFuctions(unittest.TestCase):
+class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
     def setUp(self):
 
         self.param = [2, 1.5, -3, -5, -.5]
         a2, a1, a0, alpha, beta = self.param
         l = 1
         spatial_domain = (0, l)
-        self.z = np.linspace(0, l, 1e2)
+        self.z = np.linspace(0, l, 100)
         l = 1
         spatial_domain = (0, l)
         self.z = np.linspace(0, l, 100)
