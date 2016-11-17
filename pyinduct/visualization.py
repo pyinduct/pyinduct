@@ -84,7 +84,8 @@ class DataPlot:
             assert isinstance(data[0], EvalData)
 
         self._data = data
-        # Test input vectors to be Domain objects and use their .step attribute here
+        # TODO Test input vectors to be Domain objects and use
+        # their .step attribute here
         self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
@@ -500,3 +501,27 @@ def save_2d_pg_plot(plot, filename):
     exporter.parameters()['width'] = 1e3
     exporter.export(path_filename)
     return path_filename, path
+
+
+def visualize_roots():
+    """
+    visualize a given set of roots
+    """
+    pw = pg.plot(title="function + roots")
+    if complex:
+        pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+        # results = np.linalg.norm(function(values), axis=0)
+        # results = vec_function(grids)
+        # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
+        # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
+        # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
+        # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
+    else:
+        if dim == 1:
+            results = function(grids)
+            colors = vis.create_colormap(len(grids))
+            for idx, (intake, output) in enumerate(zip(grids, results)):
+                pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
+                pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
+
+    pg.QtGui.QApplication.instance().exec_()

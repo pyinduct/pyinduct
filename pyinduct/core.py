@@ -1329,7 +1329,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     found_roots = 0
 
     grids = np.meshgrid(*[row for row in grid])
-    values = np.vstack([arr.flatten() for arr in grids]).T
+    values = np.vstack([arr.squeeze() for arr in grids]).T
 
     # iterate over test_values
     val = iter(values)
@@ -1381,25 +1381,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     idx = np.argsort(valid_roots[:, 0])
     good_roots = valid_roots[idx, :]
 
-    # if show_plot:
-    #     pw = pg.plot(title="function + roots")
-    #     if complex:
-    #         pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
-    #         # results = np.linalg.norm(function(values), axis=0)
-    #         # results = vec_function(grids)
-    #         # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
-    #         # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
-    #         # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
-    #         # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
-    #     else:
-    #         if dim == 1:
-    #             results = function(grids)
-    #             colors = vis.create_colormap(len(grids))
-    #             for idx, (intake, output) in enumerate(zip(grids, results)):
-    #                 pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
-    #                 pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
-    #
-    #     pg.QtGui.QApplication.instance().exec_()
 
     if found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "

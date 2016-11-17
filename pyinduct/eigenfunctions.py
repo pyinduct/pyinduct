@@ -358,36 +358,42 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
-        """
-        Return the first *n_roots* eigenfrequencies :math:`\\omega` and eigenvalues :math:`\\lambda`.
+        r"""
+        Return the first *n_roots* eigenfrequencies :math:`\omega` and eigenvalues :math:`\lambda`.
 
-        .. math:: \\omega_i = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda_i}{a_2}} \\quad i = 1,...,\\text{n\\_roots}
+        .. math:: \omega_i = \sqrt{
+            - \frac{a_1^2}{4a_2^2}
+            + \frac{a_0 - \lambda_i}{a_2}}
+            \quad i = 1, \dotsc, \text{n\_roots}
 
         to the considered eigenvalue problem.
 
         Args:
-            param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
+            param (array_like): :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
+            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\ni z`.
             n_roots (int): Amount of eigenfrequencies to compute.
             show_plot (bool): Show a plot window of the characteristic equation.
 
         Return:
             tuple --> booth tuple elements are numpy.ndarrays of length *nroots*:
-                :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
+            .. math:: \Big(\big[\omega_1, \dotsc, \omega_{\text{n\_roots}}\Big],
+                \Big[\lambda_1, \dotsc, \lambda_{\text{n\_roots}}\big]\Big)
         """
 
         a2, a1, a0, alpha, beta = param
         eta = -a1 / 2. / a2
 
-        # characteristic equations for eigenvectors: phi = c1 e^(eta z) + c2 z e^(eta z)
+        # characteristic equations for eigen vectors: phi = c1 e^(eta z) + c2 z e^(eta z)
         char_eq = np.polynomial.Polynomial([alpha * beta * l + alpha + beta, alpha * l - beta * l, -l])
 
-        # characteristic equations for eigenvectors: phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
-        def characteristic_equation(om):
-            if np.isclose(om, 0):
-                return (alpha + beta) * np.cos(om * l) + (eta + beta) * (alpha - eta) * l - om * np.sin(om * l)
+        # characteristic equations for eigen vectors: phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
+        def characteristic_equation(omega):
+            if np.isclose(omega, 0):
+                return (alpha + beta) * np.cos(omega * l) \
+                       + (eta + beta) * (alpha - eta) * l - omega * np.sin(omega * l)
             else:
-                return (alpha + beta) * np.cos(om * l) + ((eta + beta) * (alpha - eta) / om - om) * np.sin(om * l)
+                return (alpha + beta) * np.cos(omega * l) \
+                       + ((eta + beta) * (alpha - eta) / omega - omega) * np.sin(omega * l)
 
         if show_plot:
             z_real = np.linspace(-15, 15)
@@ -490,7 +496,8 @@ class TransformedSecondOrderEigenfunction(Function):
             raise TypeError
 
         self._init_state_vect = init_state_vect
-        self._a2, self._a1, self._a0 = [ut.function_wrapper(coef) for coef in dgl_coefficients]
+        self._a2, self._a1, self._a0 = [coef  # Function.from_constant(coef, domain=domain)
+                                        for coef in dgl_coefficients]
         self._domain = domain
 
         state_vect = self._transform_eigenfunction()
