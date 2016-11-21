@@ -1381,7 +1381,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     idx = np.argsort(valid_roots[:, 0])
     good_roots = valid_roots[idx, :]
 
-
     if found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(found_roots, n_roots))

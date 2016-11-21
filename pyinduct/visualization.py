@@ -503,13 +503,14 @@ def save_2d_pg_plot(plot, filename):
     return path_filename, path
 
 
-def visualize_roots():
+def visualize_roots(roots, grid, function, complex=False):
     """
     visualize a given set of roots
     """
+    dim = len(grid)
     pw = pg.plot(title="function + roots")
     if complex:
-        pw.plot(good_roots[:, 0], good_roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+        pw.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
         # results = np.linalg.norm(function(values), axis=0)
         # results = vec_function(grids)
         # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
@@ -522,6 +523,6 @@ def visualize_roots():
             colors = vis.create_colormap(len(grids))
             for idx, (intake, output) in enumerate(zip(grids, results)):
                 pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
-                pw.plot(np.hstack([good_roots, function(good_roots)]), pen=None, symbolPen=pg.mkPen("g"))
+                pw.plot(np.hstack([roots, function(roots)]), pen=None, symbolPen=pg.mkPen("g"))
 
     pg.QtGui.QApplication.instance().exec_()
