@@ -19,9 +19,11 @@ from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
+from .core import complex_wrapper
 from . import utils as ut
 
-__all__ = ["EvalData", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot"]
+__all__ = ["EvalData", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
+           "visualize_roots"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 pg.setConfigOption('background', 'w')
@@ -503,26 +505,55 @@ def save_2d_pg_plot(plot, filename):
     return path_filename, path
 
 
-def visualize_roots(roots, grid, function, complex=False):
+def visualize_roots(roots, grid, function, cmplx=False):
     """
-    visualize a given set of roots
+    Visualize a given set of roots by examining the output
+    of the generating function.
+
+    Args:
+        roots (array like): list of roots to display.
+        grid (lits): list of arrays that form the grid, used for
+            the evaluation of the given *function*
+        function (callable): possibly vectorial function handle
+            that will take input of of the shape ('len(grid)', )
+        cmplx (bool): If True, the complex valued *function* is
+            handled as a vectorial function returning [Re(), Im()]
     """
+    if isinstance(grid[0], Number):
+        grid = [grid]
+
     dim = len(grid)
+    assert dim < 3
+
     pw = pg.plot(title="function + roots")
-    if complex:
-        pw.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
-        # results = np.linalg.norm(function(values), axis=0)
-        # results = vec_function(grids)
-        # pw.plot(grids.flatten, np.real(results), pen=pg.mkPen("b"))
-        # pw.plot(grids.flatten, np.imag(results), pen=pg.mkPen("b", style=pg.QtCore.Qt.DashLine))
-        # pw.plot(np.real(good_roots), np.real(results), pen=None, symbolPen=pg.mkPen("g"))
-        # pw.plot(np.imag(good_roots), np.imag(results), pen=None, symbolPen=pg.mkPen("g"))
+    if cmplx:
+        assert dim == 2
+        function = complex_wrapper(function)
+        roots = np.array([np.real(roots), np.imag(roots)])
+
+    grids = np.meshgrid(*[row for row in grid])
+    values = np.vstack([arr.flatten() for arr in grids]).T
+    components = []
+    absolute = []
+    for val in values:
+        components.append(function(val))
+        absolute.append(np.linalg.norm(components[-1]))
+
+    comp_values = np.array(components)
+    abs_values = np.array(absolute)
+
+    # plot roots
+    if dim == 1:
+        pw.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
+        pw.plot(np.squeeze(values), comp_values, pen=pg.mkPen("b"))
     else:
-        if dim == 1:
-            results = function(grids)
-            colors = vis.create_colormap(len(grids))
-            for idx, (intake, output) in enumerate(zip(grids, results)):
-                pw.plot(intake.flatten(), output.flatten(), pen=pg.mkPen(colors[idx]))
-                pw.plot(np.hstack([roots, function(roots)]), pen=None, symbolPen=pg.mkPen("g"))
+        images = []
+        pw.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+        for idx in range(comp_values.shape[1]):
+            images.append(pg.image(comp_values[:, idx].reshape(grids[0].shape),
+                          title="Component: {}".format(idx)))
+
+        images.append(pg.image(abs_values.reshape(grids[0].shape),
+                               title="Absolute Value"))
 
     pg.QtGui.QApplication.instance().exec_()

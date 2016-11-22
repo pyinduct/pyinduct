@@ -1314,7 +1314,6 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     #     raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
     # if not isinstance(show_plot, bool):
     #     raise TypeError("show_plot must be of type bool")
-
     if isinstance(grid[0], Number):
         grid = [grid]
 
@@ -1329,7 +1328,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     found_roots = 0
 
     grids = np.meshgrid(*[row for row in grid])
-    values = np.vstack([arr.squeeze() for arr in grids]).T
+    values = np.vstack([arr.flatten() for arr in grids]).T
 
     # iterate over test_values
     val = iter(values)

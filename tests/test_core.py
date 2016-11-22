@@ -513,6 +513,7 @@ class FindRootsTestCase(unittest.TestCase):
 
     def test_in_fact_roots(self):
         roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        pi.visualize_roots(roots, self.grid, self.char_eq)
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
@@ -566,12 +567,15 @@ class FindRootsTestCase(unittest.TestCase):
         roots = pi.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
         print(roots)
+        pi.visualize_roots(roots, grid, self.cmplx_eq, cmplx=True)
 
     def test_n_dim_func(self):
-        grid = np.array([list(range(10)), list(range(10))])
+        grid = [np.arange(10), np.arange(10)]
         roots = pi.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
                               show_plot=show_plots)
         print(roots)
+        grid = [np.arange(0, 10, .1), np.arange(1, 20, .1)]
+        pi.visualize_roots(roots, grid, self.univar_eq)
 
     def tearDown(self):
         pass
