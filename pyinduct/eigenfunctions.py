@@ -15,7 +15,7 @@ import collections
 import matplotlib.pyplot as plt
 from abc import ABCMeta, abstractstaticmethod
 
-from .core import Function, back_project_from_base, find_roots
+from .core import Function, back_project_from_base, find_roots, real
 
 
 class LambdifiedSympyExpression(Function):
@@ -40,7 +40,7 @@ class LambdifiedSympyExpression(Function):
         func = self._funcs[der_order]
 
         def function(z):
-            return return_real_part(func(z))
+            return real(func(z))
 
         return function
 
@@ -352,7 +352,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                 res = zero_limit_func(z)
             else:
                 res = func(z)
-            return return_real_part(res)
+            return real(res)
 
         return eigenfunction
 
@@ -412,14 +412,15 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
         # search imaginary roots
         try:
-            om = list(find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag],
-                                 rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot))  #, get_all=True))
+            om = list(
+                find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag], rtol=int(np.log10(l) - 3),
+                           cmplx=True))  #, get_all=True))
         except ValueError:
             om = list()
 
         # search real roots
         om += find_roots(characteristic_equation, 2 * n_roots, [start_values_real, np.array([0])],
-                         rtol=int(np.log10(l) - 3), complex=True, show_plot=show_plot).tolist()
+                         rtol=int(np.log10(l) - 3), cmplx=True).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0 and real part == 0 considered
         if any([not np.isclose(root.real, 0) and not np.isclose(root.imag, 0) for root in om]):
@@ -663,34 +664,34 @@ class FiniteTransformFunction(Function):
         return to_return
 
 
-def return_real_part(to_return):
-    """
-    Check if the imaginary part of :code:`to_return` vanishes
-    and return the real part.
-
-    Args:
-        to_return (numbers.Number or array_like): Variable to check.
-
-    Raises:
-        ValueError: If (all) imaginary part(s) not vanishes.
-
-    Return:
-        numbers.Number or array_like: Real part of :code:`to_return`.
-    """
-    if not isinstance(to_return, (Number, list, np.ndarray)):
-        raise TypeError
-    if isinstance(to_return, (list, np.ndarray)):
-        if not all([isinstance(num, Number) for num in to_return]):
-            raise TypeError
-
-    maybe_real = np.atleast_1d(np.real_if_close(to_return))
-
-    if maybe_real.dtype == 'complex':
-        raise ValueError("Something goes wrong, imaginary part does not vanish")
-    else:
-        if maybe_real.shape == (1,):
-            maybe_real = maybe_real[0]
-        return maybe_real
+# def real(to_return):
+#     """
+#     Check if the imaginary part of :code:`to_return` vanishes
+#     and return the real part.
+#
+#     Args:
+#         to_return (numbers.Number or array_like): Variable to check.
+#
+#     Raises:
+#         ValueError: If (all) imaginary part(s) not vanishes.
+#
+#     Return:
+#         numbers.Number or array_like: Real part of :code:`to_return`.
+#     """
+#     if not isinstance(to_return, (Number, list, np.ndarray)):
+#         raise TypeError
+#     if isinstance(to_return, (list, np.ndarray)):
+#         if not all([isinstance(num, Number) for num in to_return]):
+#             raise TypeError
+#
+#     maybe_real = np.atleast_1d(np.real_if_close(to_return))
+#
+#     if maybe_real.dtype == 'complex':
+#         raise ValueError("Something goes wrong, imaginary part does not vanish")
+#     else:
+#         if maybe_real.shape == (1,):
+#             maybe_real = maybe_real[0]
+#         return maybe_real
 
 
 def transform_to_intermediate(param, l=None):

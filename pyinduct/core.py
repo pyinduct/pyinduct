@@ -15,11 +15,12 @@ from scipy.optimize import root
 
 from . import registry as rg
 
-__all__ = ["EvalData", "Domain", "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
-           "find_roots", "sanitize_input", "dot_product_l2", "Parameters",
+__all__ = ["Domain", "EvalData", "Parameters",
+           "find_roots", "sanitize_input",
+           "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
            "project_on_base", "change_projection_base", "back_project_from_base",
            "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
-           "calculate_expanded_base_transformation_matrix"]
+           "calculate_expanded_base_transformation_matrix", "dot_product_l2"]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -715,6 +716,7 @@ def _dot_product_l2(first, second):
 
     Return:
         inner product
+
     """
     if not isinstance(first, Function) or not isinstance(second, Function):
         raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
@@ -735,11 +737,15 @@ def _dot_product_l2(first, second):
 
     # standard case
     def function(z):
-        return first(z) * second(z)
+        """
+        Take the complex conjugate of the first element and multiply it
+        by the second.
+        """
+        first_res = first(z)
+        return (np.real(first_res) - np.imag(first_res)) * second(z)
 
     result, error = integrate_function(function, areas)
-
-    return result
+    return real(result)
 
 
 def integrate_function(function, interval):
@@ -761,7 +767,7 @@ def integrate_function(function, interval):
         result += res[0]
         err += res[1]
 
-    return np.real_if_close(result), err
+    return result, err
 
 
 def complex_quadrature(func, a, b, **kwargs):
@@ -787,7 +793,8 @@ def complex_quadrature(func, a, b, **kwargs):
     real_integral = integrate.quad(real_func, a, b, **kwargs)
     imag_integral = integrate.quad(imag_func, a, b, **kwargs)
 
-    return real_integral[0] + 1j * imag_integral[0], real_integral[1] + imag_integral[1]
+    return (real_integral[0] + 1j * imag_integral[0],
+            real_integral[1] + imag_integral[1])
 
 
 def dot_product(first, second):
@@ -818,10 +825,6 @@ def dot_product_l2(first, second):
     # sanitize input
     first = np.atleast_1d(first)
     second = np.atleast_1d(second)
-
-    # if len(first.shape) == 2 or len(second.shape) == 2:
-    #     if first.shape[1] > 1 or second.shape[1] > 1:
-    #         raise NotImplementedError("input dimension not understood.")
 
     # calculate output size and allocate output
     out = np.ones(first.shape) * np.nan
@@ -1281,44 +1284,42 @@ def normalize_base(b1, b2=None):
         return b1_scaled, b2_scaled
 
 
-def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, complex=False):
-    """
-    Searches roots of the given function in the interval [0, area_end] and checks them with aid of rtol for uniqueness.
-    It will return the exact amount of roots given by n_roots or raise ValueError.
-    It is assumed that functions roots are distributed approximately homogeneously, if that is not the case you should
-    increase the keyword-argument points_per_root.
+def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
+    r"""
+    Searches *n_roots* roots of the *function* :math:`f(\boldsymbol{x})`
+    on the given *grid* and checks them for uniqueness with aid of *rtol*.
 
-    In Detail py:function:`fsolve` is used to find initial candidates for roots of f(x). If a root satisfies the criteria
-    given by atol and rtol it is added. If it is already in the list, a comprehension between the already present
-    entries error and the current error is performed. If the newly calculated root comes with a smaller error it
-    supersedes the present entry.
+    In Detail :py:func:`fsolve` is used to find initial candidates for
+    roots of :math:`f(\boldsymbol{x})` . If a root satisfies the criteria
+    given by atol and rtol it is added. If it is already in the list,
+    a comprehension between the already present entries' error and the
+    current error is performed. If the newly calculated root comes
+    with a smaller error it supersedes the present entry.
+
+    Raises:
+        ValueError: If the demanded amount of roots can't be found.
 
     Args:
-        function: Function handle for f(x) whose roots shall be found.
-        n_roots: Number of roots to find.
-        grid: numpy.ndarray (first dimension should fit the input dimension of the provided func) of values where to
-            start searching.
-        rtol: Magnitude to be exceeded for the difference of two roots to be unique f(r1) - f(r2) > 10^rtol.
-        atol: Absolute tolerance to zero  f(root) < atol.
-        show_plot: Shows a debug plot containing the given functions behavior completed by the extracted roots.
+        function (callable): Function handle for math:`f(\boldsymbol{x})`
+            whose roots shall be found.
+        n_roots (int): Number of roots to find.
+        grid (list): Grid to use as starting point for root detection.
+            The :math:`i` th element of this list provides sample points
+            for the :math:`i` th parameter of :math:`\boldsymbol{x}` .
+        rtol: Magnitude to be exceeded for the difference of two roots
+        to be unique: :math:`f(r1) - f(r2) > 10^{\textrm{rtol}}` .
+        atol: Absolute tolerance to zero: :math:`f(x^0) < \textrm{atol}` .
+        cmplx: Set to True if the given *function* is complex valued.
+
     Return:
-        numpy.ndarray of roots.
+        numpy.ndarray of roots; sorted in the order they are returned by
+        :math:`f(\boldsymbol{x})` .
     """
-    # positive_numbers = [n_roots, points_per_root, area, atol]
-    # integers = [n_roots, points_per_root, rtol]
-    # if not callable(function):
-    #     raise TypeError("callable handle is needed")
-    # if not all([isinstance(num, int) for num in integers]):
-    #     raise TypeError("n_roots, points_per_root and rtol must be of type int")
-    # if any([num <= 0 for num in positive_numbers]):
-    #     raise ValueError("n_roots, points_per_root, area_end and atol must be positive")
-    # if not isinstance(show_plot, bool):
-    #     raise TypeError("show_plot must be of type bool")
     if isinstance(grid[0], Number):
         grid = [grid]
 
     dim = len(grid)
-    if complex:
+    if cmplx:
         assert dim == 2
         function = complex_wrapper(function)
 
@@ -1383,12 +1384,10 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
     valid_roots = roots[:found_roots]
 
     # sort roots
+    # completely sort first column before we start
+    idx = np.argsort(valid_roots[:, 0])
+    sorted_roots = valid_roots[idx, :]
     for layer in range(valid_roots.shape[1] - 1):
-        if layer == 0:
-            # completely sort first column before we start
-            idx = np.argsort(valid_roots[:, layer])
-            sorted_roots = valid_roots[idx, :]
-
         for rt in sorted_roots[:, layer]:
             eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=10**rtol)
             idx = np.argsort(sorted_roots[eq_mask, layer + 1])
@@ -1396,7 +1395,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
     good_roots = sorted_roots
 
-    if complex:
+    if cmplx:
         return good_roots[:, 0] + 1j * good_roots[:, 1]
 
     if dim == 1:
@@ -1407,13 +1406,16 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
 def complex_wrapper(func):
     """
-    Wraps complex valued function into 2 dimensional function for easier handling.
+    Wraps complex valued functions into two-dimensional functions.
+    This enables the root-finding routine to handle it as a
+    vectorial function.
 
     Args:
-        func (callable):
+        func (callable): Callable that returns a complex result.
 
     Return:
-        2dim function handle, taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
+        two-dimensional, callable: function handle,
+            taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
     """
 
     def wrapper(x):
@@ -1496,34 +1498,29 @@ class Domain(object):
         return self._values
 
 
-def return_real_part(to_return):
+def real(data):
     """
-    Check if the imaginary part of :code:`to_return` vanishes
-    and return the real part.
+    Check if the imaginary part of :code:`data` vanishes
+    and return its real part if it does.
 
     Args:
-        to_return (numbers.Number or array_like): Variable to check.
+        data (numbers.Number or array_like): Possibly complex data to check.
 
     Raises:
-        ValueError: If (all) imaginary part(s) not vanishes.
+        ValueError: If provided data can't be converted within
+         the given tolerance limit.
 
     Return:
-        numbers.Number or array_like: Real part of :code:`to_return`.
+        numbers.Number or array_like: Real part of :code:`data`.
     """
-    if not isinstance(to_return, (Number, list, np.ndarray)):
-        raise TypeError
-    if isinstance(to_return, (list, np.ndarray)):
-        if not all([isinstance(num, Number) for num in to_return]):
-            raise TypeError
+    data = sanitize_input(data, Number)
+    candidates = np.real_if_close(data, tol=100)
 
-    maybe_real = np.atleast_1d(np.real_if_close(to_return))
+    if candidates.dtype == 'complex':
+        raise ValueError("Imaginary part does not vanish, "
+                         + "check for implementation errors.")
 
-    if maybe_real.dtype == 'complex':
-        raise ValueError("Something goes wrong, imaginary part does not vanish")
-    else:
-        if maybe_real.shape == (1,):
-            maybe_real = maybe_real[0]
-        return maybe_real
+    return candidates.squeeze()
 
 
 class EvalData:

@@ -503,7 +503,6 @@ def visualize_roots(roots, grid, function, cmplx=False):
         assert dim == 2
         function = complex_wrapper(function)
         roots = np.array([np.real(roots), np.imag(roots)]).T
-        print(roots)
 
     grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
@@ -519,17 +518,18 @@ def visualize_roots(roots, grid, function, cmplx=False):
     # plot roots
     pw = pg.GraphicsLayoutWidget()
     pw.setWindowTitle("Root Visualization")
-    rect = pg.QtCore.QRectF(grid[0][0],
-                            grid[1][0],
-                            grid[0][-1] - grid[0][0],
-                            grid[1][-1] - grid[1][0])
 
     if dim == 1:
+        # plot function with roots
         pl = pw.addPlot()
         pl.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
-        pl.plot(np.squeeze(values), comp_values, pen=pg.mkPen("b"))
+        pl.plot(np.squeeze(values), np.squeeze(comp_values), pen=pg.mkPen("b"))
     else:
         # plot function components
+        rect = pg.QtCore.QRectF(grid[0][0],
+                                grid[1][0],
+                                grid[0][-1] - grid[0][0],
+                                grid[1][-1] - grid[1][0])
         for idx in range(comp_values.shape[1]):
             lbl = pg.LabelItem(text="Component {}".format(idx),
                                angle=-90,

@@ -308,7 +308,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         self.nodes1, self.initial_functions1 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=nodes)
         self.nodes2, self.initial_functions2 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=2*nodes-1)
         self.optimization = None
-        print(np.array(self.nodes1), np.array(self.nodes2))
+        # print(np.array(self.nodes1), np.array(self.nodes2))
 
     def run_benchmark(self):
         """
@@ -494,17 +494,20 @@ class FindRootsTestCase(unittest.TestCase):
         def _char_equation(omega):
             return omega * (np.sin(omega) + omega * np.cos(omega))
 
-        def _univar_equation(x):
+        def _univariate_equation(x):
             return [np.cos(x[0]), np.cos(4 * x[1])]
 
-        def _cmplx_equation(lamda):
+        def _complex_equation(lamda):
+            """
+            Five roots on the unit circle.
+            """
             if lamda == 0:
                 return 0
             return lamda**5 - 1
 
         self.char_eq = _char_equation
-        self.univar_eq = _univar_equation
-        self.cmplx_eq = _cmplx_equation
+        self.univariate_eq = _univariate_equation
+        self.complex_eq = _complex_equation
 
         self.n_roots = 10
         self.small_grid = np.arange(0, 1, 1)
@@ -512,87 +515,64 @@ class FindRootsTestCase(unittest.TestCase):
         self.rtol = -1
 
     def test_in_fact_roots(self):
-        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        roots = pi.find_roots(function=self.char_eq, n_roots=self.n_roots, grid=self.grid, rtol=self.rtol)
         pi.visualize_roots(roots, self.grid, self.char_eq)
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
 
     def test_enough_roots(self):
         # small area -> not enough roots -> Exception
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.small_grid, self.rtol)
+        with self.assertRaises(ValueError):
+            pi.find_roots(self.char_eq, self.n_roots, self.small_grid, self.rtol)
 
+        # bigger area check good amount
         roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
 
     def test_rtol(self):
-        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol, show_plot=show_plots)
-        self.assertGreaterEqual(np.log10(min(np.abs(np.diff(roots)))), self.rtol)
+        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        self.assertGreaterEqual(np.log10(
+            min(np.abs(np.diff(roots)))), self.rtol)
 
     def test_in_area(self):
         roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
         for root in roots:
             self.assertTrue(root >= 0.)
 
-    @unittest.skip  # doesn't match the new signature
-    def test_error_raiser(self):
-        float_num = -1.
-        int_num = 0
-        to_small_area_end = 1e-3
-
-        self.assertRaises(TypeError, pi.find_roots, int_num, self.n_roots, self.grid, self.rtol)
-        self.assertRaises(TypeError, pi.find_roots, self.char_eq, float_num, self.grid, self.rtol)
-        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          points_per_root=float_num)
-        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          show_plots=int_num)
-        self.assertRaises(TypeError, pi.find_roots, self.char_eq, self.n_roots, self.grid, float_num)
-
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, int_num, self.rtol)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol, atol=int_num)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, int_num, self.grid, self.rtol)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          points_per_root=int_num)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, float_num, self.rtol)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, self.grid, self.rtol,
-                          atol=float_num)
-        self.assertRaises(ValueError, pi.find_roots, self.char_eq, self.n_roots, to_small_area_end, self.rtol)
-
-    def test_debug_plot(self):
-        if show_plots:
-            self.roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, rtol=self.rtol,
-                                       show_plot=show_plots)
-
-    def test_cmplx_func(self):
+    def test_complex_func(self):
         grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
-        roots = pi.find_roots(self.cmplx_eq, 5, grid, -1, show_plot=show_plots, complex=True)
-        self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
-        print(roots)
-        pi.visualize_roots(roots, grid, self.cmplx_eq, cmplx=True)
+        roots = pi.find_roots(function=self.complex_eq, n_roots=5, grid=grid, rtol=-1, cmplx=True)
+        self.assertTrue(np.allclose(
+            [self.complex_eq(root) for root in roots],
+            [0] * len(roots)))
+        pi.visualize_roots(roots,
+                           grid,
+                           self.complex_eq,
+                           cmplx=True)
 
     def test_n_dim_func(self):
-        grid = [np.arange(10, step=.1), np.arange(2, step=.1)]
-        roots = pi.find_roots(self.univar_eq, 6, grid, self.rtol,
-                              show_plot=show_plots)
-        print(roots)
-        grid = [np.arange(0, 5, .1), np.arange(0, 10, .1)]
-        pi.visualize_roots(roots, grid, self.univar_eq)
+        grid = [np.linspace(0, 10),
+                np.linspace(0, 2)]
+        roots = pi.find_roots(function=self.univariate_eq, n_roots=6, grid=grid, rtol=self.rtol)
+        grid = [np.arange(0, 10, .1), np.arange(0, 10, .1)]
+        pi.visualize_roots(roots, grid, self.univariate_eq)
 
     def tearDown(self):
         pass
 
 
-@unittest.skip
-class ReturnRealPartTest(unittest.TestCase):
-    def test_it(self):
-        self.assertTrue(np.isreal(pi.return_real_part(1)))
-        self.assertTrue(np.isreal(pi.return_real_part(1 + 0j)))
-        self.assertTrue(np.isreal(pi.return_real_part(1 + 1e-20j)))
-        self.assertRaises(TypeError, pi.return_real_part, None)
-        self.assertRaises(TypeError, pi.return_real_part, (1, 2., 2 + 2j))
-        self.assertRaises(TypeError, pi.return_real_part, [None, 2., 2 + 2j])
-        self.assertRaises(ValueError, pi.return_real_part, [1, 2., 2 + 2j])
-        self.assertRaises(ValueError, pi.return_real_part, 1 + 1e-10j)
-        self.assertRaises(ValueError, pi.return_real_part, 1j)
+class RealTestCase(unittest.TestCase):
+
+    def test_call(self):
+        self.assertTrue(np.isreal(pi.real(1)))
+        self.assertTrue(np.isreal(pi.real(1 + 0j)))
+        self.assertTrue(np.isreal(pi.real(1 + 1e-20j)))
+        self.assertRaises(TypeError, pi.real, None)
+        self.assertRaises(TypeError, pi.real, [None, 2., 2 + 2j])
+        self.assertRaises(ValueError, pi.real, (1, 2., 2 + 2j))
+        self.assertRaises(ValueError, pi.real, [1, 2., 2 + 2j])
+        self.assertRaises(ValueError, pi.real, 1 + 1e-10j)
+        self.assertRaises(ValueError, pi.real, 1j)
 
 
 class ParamsTestCase(unittest.TestCase):
