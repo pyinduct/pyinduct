@@ -500,7 +500,7 @@ class FindRootsTestCase(unittest.TestCase):
         def _cmplx_equation(lamda):
             if lamda == 0:
                 return 0
-            return lamda ** 2 + 9
+            return lamda**5 - 1
 
         self.char_eq = _char_equation
         self.univar_eq = _univar_equation
@@ -563,18 +563,18 @@ class FindRootsTestCase(unittest.TestCase):
                                        show_plot=show_plots)
 
     def test_cmplx_func(self):
-        grid = [np.arange(-10, 10), np.arange(-5, 5)]
-        roots = pi.find_roots(self.cmplx_eq, 3, grid, -1, show_plot=show_plots, complex=True)
+        grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
+        roots = pi.find_roots(self.cmplx_eq, 5, grid, -1, show_plot=show_plots, complex=True)
         self.assertTrue(np.allclose([self.cmplx_eq(root) for root in roots], [0] * len(roots)))
         print(roots)
         pi.visualize_roots(roots, grid, self.cmplx_eq, cmplx=True)
 
     def test_n_dim_func(self):
-        grid = [np.arange(10), np.arange(10)]
-        roots = pi.find_roots(self.univar_eq, self.n_roots, grid, self.rtol,
+        grid = [np.arange(10, step=.1), np.arange(2, step=.1)]
+        roots = pi.find_roots(self.univar_eq, 6, grid, self.rtol,
                               show_plot=show_plots)
         print(roots)
-        grid = [np.arange(0, 10, .1), np.arange(1, 20, .1)]
+        grid = [np.arange(0, 5, .1), np.arange(0, 10, .1)]
         pi.visualize_roots(roots, grid, self.univar_eq)
 
     def tearDown(self):

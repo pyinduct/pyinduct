@@ -15,7 +15,7 @@ from scipy.optimize import root
 
 from . import registry as rg
 
-__all__ = ["Domain", "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
+__all__ = ["EvalData", "Domain", "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
            "find_roots", "sanitize_input", "dot_product_l2", "Parameters",
            "project_on_base", "change_projection_base", "back_project_from_base",
            "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
@@ -1359,7 +1359,9 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         # check whether root is already present in cache
         rounded_root = np.round(calculated_root, -rtol)
-        cmp_arr = [all(bools) for bools in rounded_root == rounded_roots[:found_roots]]
+        cmp_arr = [all(identical_roots)
+                   for identical_roots in np.isclose(rounded_root,
+                                                     rounded_roots[:found_roots])]
         if any(cmp_arr):
             idx = cmp_arr.index(True)
             if errors[idx] > error:
@@ -1374,15 +1376,25 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, show_plot=False, comp
 
         found_roots += 1
 
-    valid_roots = roots[:found_roots]
-
-    # sort roots
-    idx = np.argsort(valid_roots[:, 0])
-    good_roots = valid_roots[idx, :]
-
     if found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(found_roots, n_roots))
+
+    valid_roots = roots[:found_roots]
+
+    # sort roots
+    for layer in range(valid_roots.shape[1] - 1):
+        if layer == 0:
+            # completely sort first column before we start
+            idx = np.argsort(valid_roots[:, layer])
+            sorted_roots = valid_roots[idx, :]
+
+        for rt in sorted_roots[:, layer]:
+            eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=10**rtol)
+            idx = np.argsort(sorted_roots[eq_mask, layer + 1])
+            sorted_roots[eq_mask] = sorted_roots[eq_mask][idx, :]
+
+    good_roots = sorted_roots
 
     if complex:
         return good_roots[:, 0] + 1j * good_roots[:, 1]
@@ -1512,3 +1524,29 @@ def return_real_part(to_return):
         if maybe_real.shape == (1,):
             maybe_real = maybe_real[0]
         return maybe_real
+
+
+class EvalData:
+    """
+    Convenience wrapper for function evaluation.
+    Contains the input data that was used for evaluation and the results.
+    """
+
+    def __init__(self, input_data, output_data, name=""):
+        # check type and dimensions
+        assert isinstance(input_data, list)
+        assert isinstance(output_data, np.ndarray)
+
+        # output_data has to contain at least len(input_data) dimensions
+        assert len(input_data) <= len(output_data.shape)
+
+        for dim in range(len(input_data)):
+            assert len(input_data[dim]) == output_data.shape[dim]
+
+        self.input_data = input_data
+        if output_data.size == 0:
+            raise ValueError("No initialisation possible with an empty array!")
+        self.output_data = output_data
+        self.min = output_data.min()
+        self.max = output_data.max()
+        self.name = name

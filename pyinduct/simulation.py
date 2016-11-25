@@ -16,10 +16,9 @@ from scipy.linalg import block_diag
 
 from .core import (Domain, Parameters, Function, integrate_function, calculate_scalar_product_matrix,
                    project_on_base, dot_product_l2, sanitize_input, StackedBase, TransformationInfo,
-                   get_weight_transformation)
+                   get_weight_transformation, EvalData)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .registry import get_base, register_base
-from .visualization import EvalData
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
            "create_state_space", "StateSpace", "simulate_state_space", "simulate_system", "simulate_systems",

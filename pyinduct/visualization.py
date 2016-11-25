@@ -19,10 +19,10 @@ from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
-from .core import complex_wrapper
+from .core import complex_wrapper, EvalData
 from . import utils as ut
 
-__all__ = ["EvalData", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
+__all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
            "visualize_roots"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
@@ -43,32 +43,6 @@ def create_colormap(cnt):
     col_map = pg.ColorMap(np.array([0, .5, 1]), np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
     return col_map.map(indexes, mode="qcolor")
-
-
-class EvalData:
-    """
-    Convenience wrapper for function evaluation.
-    Contains the input data that was used for evaluation and the results.
-    """
-
-    def __init__(self, input_data, output_data, name=""):
-        # check type and dimensions
-        assert isinstance(input_data, list)
-        assert isinstance(output_data, np.ndarray)
-
-        # output_data has to contain at least len(input_data) dimensions
-        assert len(input_data) <= len(output_data.shape)
-
-        for dim in range(len(input_data)):
-            assert len(input_data[dim]) == output_data.shape[dim]
-
-        self.input_data = input_data
-        if output_data.size == 0:
-            raise ValueError("No initialisation possible with an empty array!")
-        self.output_data = output_data
-        self.min = output_data.min()
-        self.max = output_data.max()
-        self.name = name
 
 
 class DataPlot:
@@ -512,7 +486,7 @@ def visualize_roots(roots, grid, function, cmplx=False):
 
     Args:
         roots (array like): list of roots to display.
-        grid (lits): list of arrays that form the grid, used for
+        grid (list): list of arrays that form the grid, used for
             the evaluation of the given *function*
         function (callable): possibly vectorial function handle
             that will take input of of the shape ('len(grid)', )
@@ -525,11 +499,11 @@ def visualize_roots(roots, grid, function, cmplx=False):
     dim = len(grid)
     assert dim < 3
 
-    pw = pg.plot(title="function + roots")
     if cmplx:
         assert dim == 2
         function = complex_wrapper(function)
-        roots = np.array([np.real(roots), np.imag(roots)])
+        roots = np.array([np.real(roots), np.imag(roots)]).T
+        print(roots)
 
     grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
@@ -543,17 +517,58 @@ def visualize_roots(roots, grid, function, cmplx=False):
     abs_values = np.array(absolute)
 
     # plot roots
+    pw = pg.GraphicsLayoutWidget()
+    pw.setWindowTitle("Root Visualization")
+    rect = pg.QtCore.QRectF(grid[0][0],
+                            grid[1][0],
+                            grid[0][-1] - grid[0][0],
+                            grid[1][-1] - grid[1][0])
+
     if dim == 1:
-        pw.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
-        pw.plot(np.squeeze(values), comp_values, pen=pg.mkPen("b"))
+        pl = pw.addPlot()
+        pl.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
+        pl.plot(np.squeeze(values), comp_values, pen=pg.mkPen("b"))
     else:
-        images = []
-        pw.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+        # plot function components
         for idx in range(comp_values.shape[1]):
-            images.append(pg.image(comp_values[:, idx].reshape(grids[0].shape),
-                          title="Component: {}".format(idx)))
+            lbl = pg.LabelItem(text="Component {}".format(idx),
+                               angle=-90,
+                               bold=True,
+                               size="10pt")
+            pw.addItem(lbl)
 
-        images.append(pg.image(abs_values.reshape(grids[0].shape),
-                               title="Absolute Value"))
+            p_img = pw.addPlot()
+            img = pg.ImageItem()
+            img.setImage(comp_values[:, idx].reshape(grids[0].shape).T)
+            img.setRect(rect)
+            p_img.addItem(img)
 
+            # add roots on top
+            p_img.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+
+            hist = pg.HistogramLUTItem()
+            hist.setImageItem(img)
+            pw.addItem(hist)
+
+            pw.nextRow()
+
+        # plot absolute value of function
+        lbl = pg.LabelItem(text="Absolute Value",
+                           angle=-90,
+                           bold=True,
+                           size="10pt")
+        pw.addItem(lbl)
+        p_abs = pw.addPlot()
+        img = pg.ImageItem()
+        img.setImage(abs_values.reshape(grids[0].shape).T)
+        img.setRect(rect)
+        p_abs.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        pw.addItem(hist)
+        # add roots on top
+        p_abs.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+
+    pw.show()
     pg.QtGui.QApplication.instance().exec_()

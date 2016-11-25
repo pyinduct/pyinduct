@@ -1,4 +1,3 @@
-import pyinduct.visualization as vis
 import os
 import sys
 import unittest
@@ -6,6 +5,9 @@ from pickle import loads
 
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
+
+import pyinduct as pi
+import pyinduct.visualization as vis
 
 # TODO: __init__ global variable show_plots
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
@@ -33,7 +35,7 @@ class PlotTestCase(unittest.TestCase):
             raise ValueError("run 'test_simulation' first!")
 
         lim = 50
-        self.short_data = vis.EvalData([self.test_data[0].input_data[0][0:lim], self.test_data[0].input_data[1][0:lim]],
+        self.short_data = pi.EvalData([self.test_data[0].input_data[0][0:lim], self.test_data[0].input_data[1][0:lim]],
             self.test_data[0].output_data[0:lim, 0:lim], name="short set")
 
     def test_slice_plot(self):

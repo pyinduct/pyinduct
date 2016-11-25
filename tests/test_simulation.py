@@ -139,7 +139,7 @@ class SimulationInputTest(unittest.TestCase):
         self.assertIsInstance(ed, np.ndarray)
 
         # return EvalData if corresponding flag is set
-        self.assertIsInstance(u.get_results(domain, as_eval_data=True), sim.EvalData)
+        self.assertIsInstance(u.get_results(domain, as_eval_data=True), cr.EvalData)
 
         # TODO interpolation methods and extrapolation errors
 
