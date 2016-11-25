@@ -1307,7 +1307,7 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
             The :math:`i` th element of this list provides sample points
             for the :math:`i` th parameter of :math:`\boldsymbol{x}` .
         rtol: Magnitude to be exceeded for the difference of two roots
-        to be unique: :math:`f(r1) - f(r2) > 10^{\textrm{rtol}}` .
+            to be unique: :math:`f(r1) - f(r2) > 10^{\textrm{rtol}}` .
         atol: Absolute tolerance to zero: :math:`f(x^0) < \textrm{atol}` .
         cmplx: Set to True if the given *function* is complex valued.
 

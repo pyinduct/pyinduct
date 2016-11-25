@@ -35,8 +35,10 @@ class PlotTestCase(unittest.TestCase):
             raise ValueError("run 'test_simulation' first!")
 
         lim = 50
-        self.short_data = pi.EvalData([self.test_data[0].input_data[0][0:lim], self.test_data[0].input_data[1][0:lim]],
-            self.test_data[0].output_data[0:lim, 0:lim], name="short set")
+        self.short_data = pi.EvalData([self.test_data[0].input_data[0][0:lim],
+                                       self.test_data[0].input_data[1][0:lim]],
+                                      self.test_data[0].output_data[0:lim, 0:lim],
+                                      name="short set")
 
     def test_slice_plot(self):
         pt = vis.PgSlicePlot(self.test_data[0])
