@@ -94,7 +94,7 @@ class LawEvaluator(object):
         # add dynamic part
         for lbl, law in self._cfs.get_dynamic_terms().items():
             dst_weights = [0]
-            if "E" in law is not None:
+            if "E" in law:
                 # build eval vector
                 if lbl not in self._eval_vectors.keys():
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
