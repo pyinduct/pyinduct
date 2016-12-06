@@ -15,7 +15,162 @@ import collections
 import matplotlib.pyplot as plt
 from abc import ABCMeta, abstractstaticmethod
 
-from .core import Function, back_project_from_base, find_roots, real
+from .core import Base, Function, back_project_from_base, find_roots, real
+
+
+class SecondOrderEigenVector(Function):
+    r"""
+    This class provides the eigen vectors corresponding to a
+    linear second order spatial operator denoted by
+        :math:`(Ax)(z) = a_2 x''(z) + a_1x'(z) + a_0x(z)` .
+
+    With the boundary conditions:
+        :math:`\alpha_1 x'(z_1) + \alpha_0 x(z_1) = 0
+        :math:`\beta_1 x'(z_2) + \beta_0 x(z_2) = 0 .
+
+    The calculate the corresponding eigenvectors, the problem
+        :math:`(Ax)(z) = \lambda x(z)
+    is solved for the eigen values :math:`\lambda` .
+
+    Note:
+        To easily instantiate a set of eigenvectors for a certain
+        system, use the :py:func:`cure_hint` of this class or even
+        better the helper-function
+        :py:func:`pyinduct.shapefunctions.cure_interval` from the
+        :py:module:`shapefunction` module.
+
+    Warn:
+        Due to their algebraic multiplicity the eigen vectors for
+        conjugate complex eigenvalue pairs are identical. Therefore
+        pay attention to pass only one member of these pairs to
+        obtain the orthonormal properties of the generated
+        eigenvectors.
+
+    Parameters:
+        lamda (complex): Eigenvalue for which the eigenvector is
+            to be determined.
+        kappa (tuple): Constants of the exponential ansatz solution.
+
+    """
+    def __init__(self, lamda, kappa, domain, derivative_order=2):
+        # build generic solution
+        z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
+        gen_sols = [sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))]
+        gen_sols[0].subs([(kappa1, kappa[0]),
+                          (kappa2, kappa[0]),
+                          (eta, np.real(lamda)),
+                          (nu, np.imag(lamda)),
+                          ])
+        # derive
+        for d in range(derivative_order + 1):
+            gen_sols.append(gen_sols[-1].diff(z))
+
+        # generate numeric handles
+        num_handles = [sp.lambdify(z, sol, modules="numpy")
+                       for sol in gen_sols]
+
+        super(self).__init__(num_handles[0],
+                             domain=domain,
+                             derivative_handles=num_handles[1:])
+
+    @staticmethod
+    def cure_hint(domain, params, count, derivative_order, **kwargs):
+        r"""
+        Helper to cure an interval with eigenvectors.
+
+        Parameters:
+            domain (:py:class:`core.domain`): Domain of the
+                spatial problem.
+            params (bunch-like): Parameters of the system, see
+                class docstring for details. Must somehow contain
+                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0, \beta_1` .
+            count (int): Amount of eigenvectors to generate.
+            derivative_order (int): Amount of derivative handles to provide.
+        """
+        bounds = domain.limits
+
+        # again, build generic solution
+        z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
+        gen_sol = sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))
+        gen_sol.subs([(eta, -params.a1/(2*params.a2))])
+
+        kappa = np.zeros((count, 2))
+
+        # check special case of dirichlet boundary, defined at zero
+        if params.alpha1 == 0 and params.alpha0 == 0 and 0 in domain.limits:
+            # since kappa1 is equal to sol evaluated at z=0
+            gen_sol = gen_sol.subs(kappa2, 1)
+            kappa[:, 0] = 0
+            # kappa2 is the arbitrary scaling factor
+            gen_sol = gen_sol.subs(kappa1, 0)
+            kappa[:, 1] = 1
+            settled_bc = domain.limits.index(0)
+
+        else:
+            # choose the arbitrary scaling to be one
+            gen_sol = gen_sol.subs(kappa1, 1)
+            kappa[:, 0] = 1
+
+            # incorporate the first boundary condition
+            bc1 = (params.alpha0 * gen_sol.subs(z, bounds[0])
+                   + params.alpha11 * gen_sol.diff(z).subs(z, bounds[0]))
+            kappa2_sol = sp.solve(bc1, kappa2)[0]
+            gen_sol = gen_sol.subs(kappa2, kappa2_sol)
+            settled_bc = 0
+
+        # resolve 2nd boundary condition to extract char. function
+        if settled_bc == 1:
+            c0 = params.alpha0
+            c1 = params.alpha1
+        elif settled_bc == 0:
+            c0 = params.beta0
+            c1 = params.beta1
+        else:
+            raise ValueError
+
+        char_func = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
+                     + c1 * gen_sol.diff(z).subs(z, bounds[1 -  settled_bc]))
+
+        # lambdify
+        char_num = sp.lambdify(nu, char_func, modules="numpy")
+
+        def char_func(_z):
+            """
+            Characteristic function of the spatial eigenvalue problem.
+            If the limit exists it is used to lift poles of the
+            function.
+            """
+            try:
+                return char_num(_z)
+            except FloatingPointError:
+                lim_p = np.float(sp.limit(char_func, nu, _z, dir="+"))
+                lim_m = np.float(sp.limit(char_func, nu, _z, dir="-"))
+                if np.isclose(lim_p, lim_m):
+                    return lim_m
+                else:
+                    # gained by dice roll, guaranteed to be fair.
+                    return 5
+
+        # search roots
+        nu_num = find_roots(char_func,
+                            n_roots=count,
+                            grid=[np.linspace(0, count*10, 1e2)])
+
+        # resolve kappa2
+        if kappa[0, 1] == np.nan:
+            kappa[:, 1] = kappa2_sol.evalf(nu_num)
+
+        # reconstruct eigenvalues
+        eta_num = np.ones_like(nu_num) * (-params.a1/(2*params.a2))
+        lamda = [eta + 1j * nu for eta, nu in zip(eta_num, nu_num)]
+
+        eig_vectors = [SecondOrderEigenVector(lamda=l,
+                                              kappa=k,
+                                              domain=domain,
+                                              derivative_order=derivative_order)
+                       for l, k in zip(lamda, kappa)]
+
+        return Base(eig_vectors)
 
 
 class LambdifiedSympyExpression(Function):
@@ -389,8 +544,10 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         # characteristic equations for eigen vectors: phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
         def characteristic_equation(omega):
             if np.isclose(omega, 0):
-                return (alpha + beta) * np.cos(omega * l) \
-                       + (eta + beta) * (alpha - eta) * l - omega * np.sin(omega * l)
+                return (alpha + beta) + (eta + beta) * (alpha - eta) * l
+                # return ((alpha + beta) * np.cos(omega * l)
+                #         + (eta + beta) * (alpha - eta) * l
+                #         - omega * np.sin(omega * l))
             else:
                 return (alpha + beta) * np.cos(omega * l) \
                        + ((eta + beta) * (alpha - eta) / omega - omega) * np.sin(omega * l)

@@ -288,6 +288,7 @@ def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
         Field variable x(z,t) and spatial derivative x'(z,t).
     """
     # TODO: documentation
+    print(param)
     a2, a1, a0, alpha, beta = param
     shape = (len(t), len(z))
     x = np.nan * np.ones(shape)

@@ -506,6 +506,7 @@ def visualize_roots(roots, grid, function, cmplx=False):
 
     grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
+
     components = []
     absolute = []
     for val in values:
