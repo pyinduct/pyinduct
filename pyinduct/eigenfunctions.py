@@ -15,7 +15,10 @@ import collections
 import matplotlib.pyplot as plt
 from abc import ABCMeta, abstractstaticmethod
 
-from .core import Base, Function, back_project_from_base, find_roots, real
+from .core import Base, Function, normalize_base, find_roots, real
+from .visualization import visualize_roots
+
+__all__ = ["SecondOrderEigenVector", "SecondOrderDirichletEigenfunction"]
 
 
 class SecondOrderEigenVector(Function):
@@ -47,20 +50,23 @@ class SecondOrderEigenVector(Function):
         eigenvectors.
 
     Parameters:
-        lamda (complex): Eigenvalue for which the eigenvector is
+        char_root (complex): Characteristic root, corresponding to the
+            eigenvalue :math:`\lambda` for which the eigenvector is
             to be determined.
+            (Can be obtained by :py:func:`convert_to_characteristic_root`)
         kappa (tuple): Constants of the exponential ansatz solution.
 
     """
-    def __init__(self, lamda, kappa, domain, derivative_order=2):
+    def __init__(self, char_root, kappa, domain, derivative_order=2):
         # build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
         gen_sols = [sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))]
-        gen_sols[0].subs([(kappa1, kappa[0]),
-                          (kappa2, kappa[0]),
-                          (eta, np.real(lamda)),
-                          (nu, np.imag(lamda)),
-                          ])
+
+        gen_sols[0] = gen_sols[0].subs([(kappa1, kappa[0]),
+                                        (kappa2, kappa[0]),
+                                        (eta, np.real(char_root)),
+                                        (nu, np.imag(char_root)),
+                                        ])
         # derive
         for d in range(derivative_order + 1):
             gen_sols.append(gen_sols[-1].diff(z))
@@ -69,9 +75,9 @@ class SecondOrderEigenVector(Function):
         num_handles = [sp.lambdify(z, sol, modules="numpy")
                        for sol in gen_sols]
 
-        super(self).__init__(num_handles[0],
-                             domain=domain,
-                             derivative_handles=num_handles[1:])
+        super().__init__(num_handles[0],
+                         domain=domain,
+                         derivative_handles=num_handles[1:])
 
     @staticmethod
     def cure_hint(domain, params, count, derivative_order, **kwargs):
@@ -86,13 +92,17 @@ class SecondOrderEigenVector(Function):
                 :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0, \beta_1` .
             count (int): Amount of eigenvectors to generate.
             derivative_order (int): Amount of derivative handles to provide.
+
+        Keyword Arguments:
+            debug (bool): If provided, this parameter will cause several debug
+                windows to open.
         """
-        bounds = domain.limits
+        bounds = domain.bounds
 
         # again, build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
         gen_sol = sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))
-        gen_sol.subs([(eta, -params.a1/(2*params.a2))])
+        gen_sol = gen_sol.subs([(eta, -params.a1/(2*params.a2))])
 
         kappa = np.zeros((count, 2))
 
@@ -113,7 +123,7 @@ class SecondOrderEigenVector(Function):
 
             # incorporate the first boundary condition
             bc1 = (params.alpha0 * gen_sol.subs(z, bounds[0])
-                   + params.alpha11 * gen_sol.diff(z).subs(z, bounds[0]))
+                   + params.alpha1 * gen_sol.diff(z).subs(z, bounds[0]))
             kappa2_sol = sp.solve(bc1, kappa2)[0]
             gen_sol = gen_sol.subs(kappa2, kappa2_sol)
             settled_bc = 0
@@ -128,11 +138,17 @@ class SecondOrderEigenVector(Function):
         else:
             raise ValueError
 
-        char_func = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
-                     + c1 * gen_sol.diff(z).subs(z, bounds[1 -  settled_bc]))
+        char_eq = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
+                   + c1 * gen_sol.diff(z).subs(z, bounds[1 - settled_bc]))
+
+        if "debug" in kwargs:
+            sp.init_printing()
+            print("characteristic equation:")
+            sp.pretty_print(char_eq)
+            sp.plot(char_eq)
 
         # lambdify
-        char_num = sp.lambdify(nu, char_func, modules="numpy")
+        char_num = sp.lambdify(nu, char_eq, modules="numpy")
 
         def char_func(_z):
             """
@@ -143,8 +159,8 @@ class SecondOrderEigenVector(Function):
             try:
                 return char_num(_z)
             except FloatingPointError:
-                lim_p = np.float(sp.limit(char_func, nu, _z, dir="+"))
-                lim_m = np.float(sp.limit(char_func, nu, _z, dir="-"))
+                lim_p = np.float(sp.limit(char_eq, nu, _z, dir="+"))
+                lim_m = np.float(sp.limit(char_eq, nu, _z, dir="-"))
                 if np.isclose(lim_p, lim_m):
                     return lim_m
                 else:
@@ -152,9 +168,15 @@ class SecondOrderEigenVector(Function):
                     return 5
 
         # search roots
+        iter_limit = count * 10
         nu_num = find_roots(char_func,
                             n_roots=count,
-                            grid=[np.linspace(0, count*10, 1e2)])
+                            grid=[np.linspace(0, iter_limit, 1e2)])
+
+        if "debug" in kwargs:
+            visualize_roots(nu_num,
+                            [np.linspace(0, iter_limit, 1e3)],
+                            char_func)
 
         # resolve kappa2
         if kappa[0, 1] == np.nan:
@@ -162,15 +184,49 @@ class SecondOrderEigenVector(Function):
 
         # reconstruct eigenvalues
         eta_num = np.ones_like(nu_num) * (-params.a1/(2*params.a2))
-        lamda = [eta + 1j * nu for eta, nu in zip(eta_num, nu_num)]
+        char_roots = np.array([eta + 1j * nu
+                               for eta, nu in zip(eta_num, nu_num)])
 
-        eig_vectors = [SecondOrderEigenVector(lamda=l,
-                                              kappa=k,
-                                              domain=domain,
-                                              derivative_order=derivative_order)
-                       for l, k in zip(lamda, kappa)]
+        eig_vectors = Base([SecondOrderEigenVector(char_root=r,
+                                                   kappa=k,
+                                                   domain=domain.bounds,
+                                                   derivative_order=derivative_order)
+                            for r, k in zip(char_roots, kappa)])
 
-        return Base(eig_vectors)
+        return normalize_base(eig_vectors)
+
+    @staticmethod
+    def convert_to_eigenvalue(params, char_root):
+        """
+        Converts a given characteristic into an
+        eigenvalue.
+
+        Parameters:
+            params (bunch): system parameters, see TODO.
+            char_root (complex): characteristic_root
+        """
+        return real(params.a2 / params.a0 * (
+            char_root**2
+            + char_root*params.a1/params.a2
+            + .5 * (params.a1/params.a2)**2
+        ))
+
+    @staticmethod
+    def convert_to_characteristic_root(params, eigenvalue):
+        r"""
+        Converts a given characteristic into an
+        eigenvalue.
+
+        Parameters:
+            params (bunch): system parameters, see TODO.
+            eigenvalue (real): eigenvalue :math:`\lamda`
+        """
+        return (-params.a1(2*params.a2)
+                + 1j*np.sqrt(
+                    (params.a1/(2*params.a2))**2
+                    - params.a0/params.a2 * eigenvalue
+                )
+        )
 
 
 class LambdifiedSympyExpression(Function):

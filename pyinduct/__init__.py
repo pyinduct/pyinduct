@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
+import numpy as np
 import matplotlib as mpl
+
+# since this is a serious toolbox
+np.seterr(divide="raise", invalid="raise")
 
 # make everybody use qt5
 mpl.use('Qt5Agg')

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
+import pyqtgraph as pg
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -144,6 +145,35 @@ class FiniteTransformTest(unittest.TestCase):
                 plt.plot(z, eig_funcs[0](z))
             plt.legend()
             plt.show()
+
+
+class TestSecondOrderEigenVector(unittest.TestCase):
+    # TODO test for conversion functions, dirichlet,
+    # neuman and robin conditions
+
+    def setUp(self):
+        self.domain = pi.Domain(bounds=(0, 1), num=1e2)
+        self.params_robin = pi.Parameters(a2=1,
+                                          a1=0,
+                                          a0=1,
+                                          alpha0=2,
+                                          alpha1=1,
+                                          beta0=2,
+                                          beta1=1)
+
+    def test_robin_bc(self):
+        eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
+                                                       self.params_robin,
+                                                       count=10,
+                                                       derivative_order=2,
+                                                       debug=False)
+        if show_plots:
+            pw = pg.plot(title="Robin eig-funcs")
+            pw.addLegend()
+            for idx, func in enumerate(eig_base.fractions):
+                pw.plot(self.domain.points, func(self.domain),
+                        name="eigenvector {}".format(idx))
+            pg.QAPP.exec_()
 
 
 class TestEigenvalues(unittest.TestCase):

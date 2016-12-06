@@ -160,7 +160,7 @@ class Function(BaseFraction):
                 if isinstance(val, tuple):
                     val = [val]
                 else:
-                    raise TypeError("List of tuples has to be provided for {0}".format(kw))
+                    raise TypeError("List or tuple has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
         self.function_handle = eval_handle
