@@ -97,6 +97,10 @@ class SecondOrderEigenVector(Function):
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
         """
+        if (params.alpha0 == 0 and params.alpha1 == 0
+                or params.beta0 == 0 and params.beta1 == 0):
+            raise ValueError("Provided boundary conditions are useless.")
+
         bounds = domain.bounds
 
         # again, build generic solution
@@ -107,14 +111,14 @@ class SecondOrderEigenVector(Function):
         kappa = np.zeros((count, 2))
 
         # check special case of dirichlet boundary, defined at zero
-        if params.alpha1 == 0 and params.alpha0 == 0 and 0 in domain.limits:
+        if params.alpha1 == 0 and params.alpha0 != 0 and 0 in domain.bounds:
             # since kappa1 is equal to sol evaluated at z=0
             gen_sol = gen_sol.subs(kappa2, 1)
             kappa[:, 0] = 0
             # kappa2 is the arbitrary scaling factor
             gen_sol = gen_sol.subs(kappa1, 0)
             kappa[:, 1] = 1
-            settled_bc = domain.limits.index(0)
+            settled_bc = domain.bounds.index(0)
 
         else:
             # choose the arbitrary scaling to be one
@@ -141,7 +145,7 @@ class SecondOrderEigenVector(Function):
         char_eq = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
                    + c1 * gen_sol.diff(z).subs(z, bounds[1 - settled_bc]))
 
-        if "debug" in kwargs:
+        if kwargs.get("debug", False):
             sp.init_printing()
             print("characteristic equation:")
             sp.pretty_print(char_eq)
@@ -173,7 +177,7 @@ class SecondOrderEigenVector(Function):
                             n_roots=count,
                             grid=[np.linspace(0, iter_limit, 1e2)])
 
-        if "debug" in kwargs:
+        if kwargs.get("debug", False):
             visualize_roots(nu_num,
                             [np.linspace(0, iter_limit, 1e3)],
                             char_func)
@@ -193,6 +197,7 @@ class SecondOrderEigenVector(Function):
                                                    derivative_order=derivative_order)
                             for r, k in zip(char_roots, kappa)])
 
+        return eig_vectors
         return normalize_base(eig_vectors)
 
     @staticmethod

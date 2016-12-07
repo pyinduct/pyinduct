@@ -14,20 +14,23 @@ import scipy.interpolate as si
 import pyqtgraph as pg
 import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
-from .core import complex_wrapper, EvalData
+from .core import complex_wrapper, EvalData, Domain
 from . import utils as ut
 
 __all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
-           "visualize_roots"]
+           "visualize_roots", "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
-pg.setConfigOption('background', 'w')
-pg.setConfigOption('foreground', 'k')
+color_map = "viridis"
+
+# pg.setConfigOption('background', 'w')
+# pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
@@ -43,6 +46,36 @@ def create_colormap(cnt):
     col_map = pg.ColorMap(np.array([0, .5, 1]), np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
     return col_map.map(indexes, mode="qcolor")
+
+
+def visualize_functions(functions, points=100):
+    """
+    Visualizes a set of :py:class:`core.Function` s on
+    their domain.
+
+    Parameters:
+        functions (iterable): collection of
+            :py:class:`core.Function` s to display.
+        points (int): Points to use for sampling
+            the domain.
+    """
+    cmap = cm.get_cmap(color_map)
+
+    pg.mkQApp()
+    pw = pg.plot(title="function set")
+    pw.addLegend()
+    for idx, func in enumerate(functions):
+        c = cmap(idx/len(functions), bytes=True)
+        if len(func.domain) > 1:
+            # TODO support funcs with multiple domains
+            raise NotImplementedError
+
+        dom = Domain(bounds=func.domain[0], num=points)
+        pw.plot(dom.points, func(dom),
+                name="eigenvector {}".format(idx),
+                pen=c)
+
+    pg.QAPP.exec_()
 
 
 class DataPlot:

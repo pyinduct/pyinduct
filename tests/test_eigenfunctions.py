@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-import pyqtgraph as pg
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -15,7 +14,7 @@ else:
 
 if show_plots:
     import pyqtgraph as pg
-    app = pg.QtGui.QApplication([])
+    app = pg.mkQApp()
 
 
 class TestAddMulFunction(unittest.TestCase):
@@ -152,7 +151,23 @@ class TestSecondOrderEigenVector(unittest.TestCase):
     # neuman and robin conditions
 
     def setUp(self):
-        self.domain = pi.Domain(bounds=(0, 1), num=1e2)
+        self.domain = pi.Domain(bounds=(0, 1), num=100)
+        self.cnt = 5
+
+        self.params_dirichlet = pi.Parameters(a2=1,
+                                              a1=0,
+                                              a0=1,
+                                              alpha0=1,
+                                              alpha1=0,
+                                              beta0=1,
+                                              beta1=0)
+        self.params_neumann = pi.Parameters(a2=1,
+                                            a1=0,
+                                            a0=1,
+                                            alpha0=0,
+                                            alpha1=1,
+                                            beta0=0,
+                                            beta1=1)
         self.params_robin = pi.Parameters(a2=1,
                                           a1=0,
                                           a0=1,
@@ -161,19 +176,23 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                           beta0=2,
                                           beta1=1)
 
-    def test_robin_bc(self):
+    def test_dirichlet(self):
+        self._cure_helper(self.params_dirichlet)
+
+    def test_neumann(self):
+        self._cure_helper(self.params_neumann)
+
+    def test_robin(self):
+        self._cure_helper(self.params_robin)
+
+    def _cure_helper(self, params):
         eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
-                                                       self.params_robin,
-                                                       count=10,
+                                                       params,
+                                                       count=self.cnt,
                                                        derivative_order=2,
                                                        debug=False)
         if show_plots:
-            pw = pg.plot(title="Robin eig-funcs")
-            pw.addLegend()
-            for idx, func in enumerate(eig_base.fractions):
-                pw.plot(self.domain.points, func(self.domain),
-                        name="eigenvector {}".format(idx))
-            pg.QAPP.exec_()
+            pi.visualize_functions(eig_base.fractions)
 
 
 class TestEigenvalues(unittest.TestCase):
