@@ -1,8 +1,10 @@
 """
-This modules provides eigenfunctions for a certain set of parabolic problems. Therefore functions for the computation
-of the corresponding eigenvalues are included.
-The functions which compute the eigenvalues are deliberately separated from the predefined eigenfunctions in
-order to handle transformations and reduce effort within the controller implementation.
+This modules provides eigenfunctions for a certain set of second order spatial
+operators. Therefore functions for the computation of the corresponding
+eigenvalues are included.
+The functions which compute the eigenvalues are deliberately separated from
+the predefined eigenfunctions in order to handle transformations and reduce
+effort within the controller implementation.
 """
 
 import numpy as np
@@ -25,29 +27,35 @@ class SecondOrderEigenVector(Function):
     r"""
     This class provides the eigen vectors corresponding to a
     linear second order spatial operator denoted by
-        :math:`(Ax)(z) = a_2 x''(z) + a_1x'(z) + a_0x(z)` .
+
+    .. math:: (Ax)(z) = \partial_z^2 a_2 x(z) + \partial_z a_1 x(z) + a_0 x(z)
+
+    where the :math:`a_i` are constant.
 
     With the boundary conditions:
-        :math:`\alpha_1 x'(z_1) + \alpha_0 x(z_1) = 0
-        :math:`\beta_1 x'(z_2) + \beta_0 x(z_2) = 0 .
+
+    .. math:: \alpha_1 x'(z_1) + \alpha_0 x(z_1) &= 0 \\
+              \beta_1 x'(z_2) + \beta_0 x(z_2) &= 0 .
 
     The calculate the corresponding eigenvectors, the problem
-        :math:`(Ax)(z) = \lambda x(z)
-    is solved for the eigen values :math:`\lambda` .
+
+    .. math:: (Ax)(z) = \lambda x(z)
+
+    is solved for the eigenvalues :math:`\lambda` .
 
     Note:
         To easily instantiate a set of eigenvectors for a certain
         system, use the :py:func:`cure_hint` of this class or even
         better the helper-function
-        :py:func:`pyinduct.shapefunctions.cure_interval` from the
-        :py:module:`shapefunction` module.
+        :py:func:`pyinduct.shapefunctions.cure_interval` .
 
     Warn:
-        Due to their algebraic multiplicity the eigen vectors for
-        conjugate complex eigenvalue pairs are identical. Therefore
-        pay attention to pass only one member of these pairs to
-        obtain the orthonormal properties of the generated
-        eigenvectors.
+        Since an eigenvalue corresponds to a pair of conjugate complex
+        characteristic roots, latter are only calculated for the positive
+        half-plane since the can be mirrored.
+        To obtain the orthonormal properties of the generated
+        eigenvectors, the eigenvalue corresponding to the characteristic
+        root 0+0j is ignored, since it leads to the zero function.
 
     Parameters:
         char_root (complex): Characteristic root, corresponding to the
@@ -57,18 +65,18 @@ class SecondOrderEigenVector(Function):
         kappa (tuple): Constants of the exponential ansatz solution.
 
     """
-    def __init__(self, char_root, kappa, domain, derivative_order=2):
+    def __init__(self, char_root, kappa, domain, derivative_order):
         # build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
         gen_sols = [sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))]
 
         gen_sols[0] = gen_sols[0].subs([(kappa1, kappa[0]),
-                                        (kappa2, kappa[0]),
+                                        (kappa2, kappa[1]),
                                         (eta, np.real(char_root)),
                                         (nu, np.imag(char_root)),
                                         ])
         # derive
-        for d in range(derivative_order + 1):
+        for d in range(derivative_order):
             gen_sols.append(gen_sols[-1].diff(z))
 
         # generate numeric handles
@@ -88,8 +96,9 @@ class SecondOrderEigenVector(Function):
             domain (:py:class:`core.domain`): Domain of the
                 spatial problem.
             params (bunch-like): Parameters of the system, see
-                class docstring for details. Must somehow contain
-                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0, \beta_1` .
+                :py:func:`__init__` for details on their definition.
+                Long story short, it must contain
+                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and } \beta_1` .
             count (int): Amount of eigenvectors to generate.
             derivative_order (int): Amount of derivative handles to provide.
 
@@ -191,13 +200,13 @@ class SecondOrderEigenVector(Function):
         char_roots = np.array([eta + 1j * nu
                                for eta, nu in zip(eta_num, nu_num)])
 
-        eig_vectors = Base([SecondOrderEigenVector(char_root=r,
-                                                   kappa=k,
-                                                   domain=domain.bounds,
-                                                   derivative_order=derivative_order)
+        eig_vectors = Base([SecondOrderEigenVector(
+            char_root=r,
+            kappa=k,
+            domain=domain.bounds,
+            derivative_order=derivative_order)
                             for r, k in zip(char_roots, kappa)])
 
-        return eig_vectors
         return normalize_base(eig_vectors)
 
     @staticmethod
@@ -224,14 +233,14 @@ class SecondOrderEigenVector(Function):
 
         Parameters:
             params (bunch): system parameters, see TODO.
-            eigenvalue (real): eigenvalue :math:`\lamda`
+            eigenvalue (real): eigenvalue :math:`\lambda`
         """
         return (-params.a1(2*params.a2)
                 + 1j*np.sqrt(
                     (params.a1/(2*params.a2))**2
                     - params.a0/params.a2 * eigenvalue
                 )
-        )
+                )
 
 
 class LambdifiedSympyExpression(Function):

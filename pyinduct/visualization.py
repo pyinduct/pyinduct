@@ -43,7 +43,8 @@ def create_colormap(cnt):
     Return:
         Colormap ...
     """
-    col_map = pg.ColorMap(np.array([0, .5, 1]), np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
+    col_map = pg.ColorMap(np.array([0, .5, 1]),
+                          np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
     return col_map.map(indexes, mode="qcolor")
 
