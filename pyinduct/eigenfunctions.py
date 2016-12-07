@@ -17,7 +17,8 @@ import collections
 import matplotlib.pyplot as plt
 from abc import ABCMeta, abstractstaticmethod
 
-from .core import Base, Function, normalize_base, find_roots, real
+from .core import (Domain, Base, Function, generic_scalar_product, normalize_base,
+                   find_roots, real)
 from .visualization import visualize_roots
 
 __all__ = ["SecondOrderEigenVector", "SecondOrderDirichletEigenfunction"]
@@ -65,10 +66,11 @@ class SecondOrderEigenVector(Function):
         kappa (tuple): Constants of the exponential ansatz solution.
 
     """
+
     def __init__(self, char_root, kappa, domain, derivative_order):
         # build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
-        gen_sols = [sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))]
+        gen_sols = [sp.exp(eta * z) * (kappa1 * sp.cos(nu * z) + kappa2 * sp.sin(nu * z))]
 
         gen_sols[0] = gen_sols[0].subs([(kappa1, kappa[0]),
                                         (kappa2, kappa[1]),
@@ -101,25 +103,41 @@ class SecondOrderEigenVector(Function):
                 :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and } \beta_1` .
             count (int): Amount of eigenvectors to generate.
             derivative_order (int): Amount of derivative handles to provide.
+            kwargs: will be passed to :py:func:`calculate_eigenvalues`
 
         Keyword Arguments:
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
         """
-        eig_vals, char_roots, kappa = SecondOrderEigenVector.calculate_eigenvalues(
-            domain,
-            params,
-            count,
-            extended_output=True)
+        diff = 1
+        while diff > 0:
+            eig_values, char_roots, kappa = SecondOrderEigenVector.calculate_eigenvalues(
+                domain,
+                params,
+                count + diff,
+                extended_output=True)
 
-        eig_vectors = Base([SecondOrderEigenVector(
-            char_root=r,
-            kappa=k,
-            domain=domain.bounds,
-            derivative_order=derivative_order)
-                            for r, k in zip(char_roots, kappa)])
+            sing_sols = np.where(np.isnan(kappa[:, 1]))
+            # eig_values = np.delete(eig_values, sing_sols)
+            char_roots = np.delete(char_roots, sing_sols)
+            kappa = np.delete(kappa, sing_sols, axis=0)
 
-        return normalize_base(eig_vectors)
+            eig_base = Base([SecondOrderEigenVector(
+                char_root=r,
+                kappa=k,
+                domain=domain.bounds,
+                derivative_order=derivative_order)
+                                for r, k in zip(char_roots, kappa)])
+
+            # if we can't normalize it, we can't use it
+            norm = generic_scalar_product(eig_base)
+            orthogonal_sols = np.where(np.isclose(norm, 0))
+            eig_vectors = np.delete(eig_base.fractions,
+                                    orthogonal_sols)[:count]
+
+            diff = max(0, count - len(eig_vectors))
+
+        return normalize_base(Base(eig_vectors[:count]))
 
     @staticmethod
     def calculate_eigenvalues(domain, params, count, **kwargs):
@@ -133,25 +151,30 @@ class SecondOrderEigenVector(Function):
             params (bunch-like): Parameters of the system, see
                 :py:func:`__init__` for details on their definition.
                 Long story short, it must contain
-                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and } \beta_1` .
+                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1,
+                \beta_0 \text{ and } \beta_1` .
             count (int): Amount of eigenvectors to generate.
 
         Keyword Arguments:
+            extended_output (bool): If true, not only eigenvalues but also
+                the corresponding characteristic roots and coefficients
+                of the eigenvectors are returned
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
         """
         if (params.alpha0 == 0 and params.alpha1 == 0
-                or params.beta0 == 0 and params.beta1 == 0):
+            or params.beta0 == 0 and params.beta1 == 0):
             raise ValueError("Provided boundary conditions are useless.")
 
         bounds = domain.bounds
 
         # again, build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
-        gen_sol = sp.exp(eta*z) * (kappa1*sp.cos(nu*z) + kappa2*sp.sin(nu*z))
-        gen_sol = gen_sol.subs([(eta, -params.a1/(2*params.a2))])
+        gen_sol = sp.exp(eta * z) * (kappa1 * sp.cos(nu * z)
+                                     + kappa2 * sp.sin(nu * z))
+        gen_sol = gen_sol.subs([(eta, -params.a1 / (2 * params.a2))])
 
-        kappa = np.zeros((count, 2))
+        kappa = np.nan * np.ones((count, 2))
 
         # check special case of a dirichlet boundary defined at zero
         if (params.alpha1 == 0 and params.alpha0 != 0 and bounds[0] == 0
@@ -205,6 +228,8 @@ class SecondOrderEigenVector(Function):
             function.
             """
             # TODO add cache for lifted poles to speed up the process
+            # TODO export into own wrapper class
+            # (see LambdifiedSympyExpression)
             try:
                 return char_num(_z)
             except FloatingPointError:
@@ -217,12 +242,12 @@ class SecondOrderEigenVector(Function):
                     return 5
 
         # search roots
-        iter_limit = count * 10
-        # TODO make stepwidth depend on parameters
-        cnt = 100
+        iter_limit = np.pi * count
+        search_grid = Domain(bounds=(0, iter_limit),
+                             step=np.pi/4)
         nu_num = find_roots(char_func,
                             n_roots=count,
-                            grid=[np.linspace(0, iter_limit, cnt)])
+                            grid=[search_grid.points])
 
         if kwargs.get("debug", False):
             visualize_roots(nu_num,
@@ -230,21 +255,39 @@ class SecondOrderEigenVector(Function):
                             char_func)
 
         # resolve kappa2
-        if kappa[0, 1] == np.nan:
-            kappa[:, 1] = kappa2_sol.evalf(nu_num)
+        if kappa[0, 0] == 1:
+            # kappa1 has been set to one, determine kappa2
+            k2_handle = sp.lambdify(nu,
+                                    kappa2_sol,
+                                    modules="numpy")
+
+            for idx, nu_ in enumerate(nu_num):
+                try:
+                    kappa[idx, 1] = k2_handle(nu_)
+                except FloatingPointError:
+                    """ These errors occur if there is practically no
+                    eigenvector for this characteristic root. Therefore
+                    the corresponding coefficient becomes infinite to
+                    fulfill the given boundary condition."""
+                    pass
 
         # reconstruct eigenvalues
-        eta_num = np.ones_like(nu_num) * (-params.a1/(2*params.a2))
+        eta_num = np.ones_like(nu_num) * (-params.a1 / (2 * params.a2))
         char_roots = np.array([eta + 1j * nu
                                for eta, nu in zip(eta_num, nu_num)])
 
-        eig_vals = SecondOrderEigenVector.convert_to_eigenvalue(params,
-                                                                char_roots)
-        if kwargs.get("extended_output", False):
-            return eig_vals, char_roots, kappa
-        else:
-            return eig_vals
+        eig_values = SecondOrderEigenVector.convert_to_eigenvalue(params,
+                                                                  char_roots)
 
+        # test condition for complex-valued eigenvalues
+        condition = (eig_values - .25 * params.a1 ** 2 / params.a2 - params.a0)
+        np.testing.assert_array_less(condition,
+                                     np.zeros_like(eig_values))
+
+        if kwargs.get("extended_output", False):
+            return eig_values, char_roots, kappa
+        else:
+            return eig_values
 
     @staticmethod
     def convert_to_eigenvalue(params, char_root):
@@ -263,9 +306,9 @@ class SecondOrderEigenVector(Function):
             char_root (complex): characteristic_root
         """
         return real(params.a2 / params.a0 * (
-            char_root**2
-            + char_root*params.a1/params.a2
-            + .5 * (params.a1/params.a2)**2
+            char_root ** 2
+            + char_root * params.a1 / params.a2
+            + .5 * (params.a1 / params.a2) ** 2
         ))
 
     @staticmethod
@@ -283,11 +326,10 @@ class SecondOrderEigenVector(Function):
             params (bunch): system parameters, see TODO.
             eigenvalue (real): eigenvalue :math:`\lambda`
         """
-        return (-params.a1(2*params.a2)
-                + 1j*np.sqrt(
-                    (params.a1/(2*params.a2))**2
-                    - params.a0/params.a2 * eigenvalue
-                )
+        return (-params.a1/(2 * params.a2)
+                + 1j * np.sqrt(
+                        (params.a1 / (2 * params.a2)) ** 2
+                        - params.a0 / params.a2 * eigenvalue)
                 )
 
 
@@ -689,7 +731,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         try:
             om = list(
                 find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag], rtol=int(np.log10(l) - 3),
-                           cmplx=True))  #, get_all=True))
+                           cmplx=True))  # , get_all=True))
         except ValueError:
             om = list()
 

@@ -147,7 +147,6 @@ class FiniteTransformTest(unittest.TestCase):
 
 
 class TestSecondOrderEigenVector(unittest.TestCase):
-    # TODO test for conversion functions
 
     def setUp(self):
         self.domain = pi.Domain(bounds=(0, 1), num=100)
@@ -160,6 +159,9 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                               alpha1=0,
                                               beta0=1,
                                               beta1=0)
+        self.lambda_dirichlet = np.array([0, np.pi, 2*np.pi, 3*np.pi],
+                                         dtype=complex)
+
         self.params_neumann = pi.Parameters(a2=1,
                                             a1=0,
                                             a0=1,
@@ -167,40 +169,80 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                             alpha1=1,
                                             beta0=0,
                                             beta1=1)
+        self.lambda_neumann = np.array([0, np.pi, 2*np.pi, 3*np.pi],
+                                       dtype=complex)
+
         self.params_robin = pi.Parameters(a2=1,
                                           a1=0,
                                           a0=1,
                                           alpha0=2,
                                           alpha1=1,
-                                          beta0=2,
+                                          beta0=-2,
                                           beta1=1)
+        self.lambda_robin = np.array([2.39935728j, 0, 5.59677209, 8.98681892])
 
     def test_dirichlet(self):
-        self._test_helper(self.params_dirichlet)
+        self._test_helper(self.params_dirichlet,
+                          self.lambda_dirichlet)
 
     def test_neumann(self):
-        self._test_helper(self.params_neumann)
+        self._test_helper(self.params_neumann,
+                          self.lambda_neumann)
 
     def test_robin(self):
-        self._test_helper(self.params_robin)
+        self._test_helper(self.params_robin,
+                          self.lambda_robin)
 
-    def _test_helper(self, params):
+    def _test_helper(self, params, lambda_ref):
+        # test eigenvalues
+        lamda = pi.SecondOrderEigenVector.calculate_eigenvalues(
+            self.domain,
+            params,
+            count=len(lambda_ref),
+            debug=True
+        )
+        self.assertEqual(len(lamda), len(lambda_ref))
+
+        """ TODO make clear what we are testing here !
+         the values copied from the tests below are eigenfrequencies, which would
+         correspond to the imaginary part '\nu'' of the characteristic root 'p'.
+         But some of them have imaginary parts, I don't get it.
+        """
+        if 0:
+            np.testing.assert_array_equal(
+                pi.SecondOrderEigenVector.convert_to_characteristic_root(
+                    params,
+                    lamda),
+                lambda_ref,
+                verbose=True)
+
+        # test eigenvectors
         eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
                                                        params,
-                                                       count=self.cnt,
+                                                       count=len(lambda_ref),
                                                        derivative_order=2,
                                                        debug=False)
+
         if show_plots:
             pi.visualize_functions(eig_base.fractions)
 
-        for frac in eig_base.fractions:
-            # test whether the bcs are fulfilled
-            bc1 = (params.alpha0 * frac(self.domain.bounds[0])
-                   + params.alpha1 * frac.derive(1)(self.domain.bounds[0]))
+        # check for correct length
+        self.assertEqual(len(eig_base.fractions), len(lambda_ref))
+
+        # test whether the bcs are fulfilled
+        for fraction in eig_base.fractions:
+            bc1 = (params.alpha0 * fraction(self.domain.bounds[0])
+                   + params.alpha1 * fraction.derive(1)(self.domain.bounds[0]))
             self.assertAlmostEqual(bc1, 0)
-            bc2 = (params.beta0 * frac(self.domain.bounds[1])
-                   + params.beta1 * frac.derive(1)(self.domain.bounds[1]))
+            bc2 = (params.beta0 * fraction(self.domain.bounds[1])
+                   + params.beta1 * fraction.derive(1)(self.domain.bounds[1]))
             self.assertAlmostEqual(bc2, 0)
+
+        # check if they are orthonormal
+        product_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                         eig_base,
+                                                         eig_base)
+        np.testing.assert_array_almost_equal(product_mat, np.eye(len(lambda_ref)))
 
         return eig_base
 

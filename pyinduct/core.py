@@ -20,7 +20,8 @@ __all__ = ["Domain", "EvalData", "Parameters",
            "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
            "project_on_base", "change_projection_base", "back_project_from_base",
            "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
-           "calculate_expanded_base_transformation_matrix", "dot_product_l2"]
+           "calculate_expanded_base_transformation_matrix", "dot_product_l2",
+           "generic_scalar_product"]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -1238,16 +1239,20 @@ def calculate_base_transformation_matrix(src_base, dst_base):
 
 def normalize_base(b1, b2=None):
     """
-    Takes two :py:class:`Base` s :math:`\\boldsymbol{b}_1` and  :math:`\\boldsymbol{b}_1` and
-    normalizes them so that :math:`\\langle\\boldsymbol{b}_{1i}\\,,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
-    If only one base is given, :math:`\\boldsymbol{b}_2` is set to :math:`\\boldsymbol{b}_1`.
+    Takes two :py:class:`Base` s :math:`\\boldsymbol{b}_1` ,
+    :math:`\\boldsymbol{b}_1` and normalizes them so that
+    :math:`\\langle\\boldsymbol{b}_{1i}\\,
+    ,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
+    If only one base is given, :math:`\\boldsymbol{b}_2`
+    defaults to :math:`\\boldsymbol{b}_1`.
 
     Args:
         b1 (:py:class:`Base`): :math:`\\boldsymbol{b}_1`
         b2 (:py:class:`Base`): :math:`\\boldsymbol{b}_2`
 
     Raises:
-        ValueError: If :math:`\\boldsymbol{b}_1` and :math:`\\boldsymbol{b}_2` are orthogonal.
+        ValueError: If :math:`\\boldsymbol{b}_1`
+            and :math:`\\boldsymbol{b}_2` are orthogonal.
 
     Return:
         :py:class:`Base` : if *b2* is None,
@@ -1255,8 +1260,48 @@ def normalize_base(b1, b2=None):
     """
     auto_normalization = False
     if b2 is None:
-        b2 = b1
         auto_normalization = True
+
+    res = generic_scalar_product(b1, b2)
+
+    if any(res < np.finfo(float).eps):
+        if any(np.isclose(res, 0)):
+            raise ValueError("given base fractions are orthogonal. "
+                             "no normalization possible.")
+        else:
+            raise ValueError("imaginary scale required. "
+                             "no normalization possible.")
+
+    scale_factors = np.sqrt(1 / res)
+    b1_scaled = b1.__class__(
+        [frac.scale(factor)
+         for frac, factor in zip(b1.fractions, scale_factors)])
+
+    if auto_normalization:
+        return b1_scaled
+    else:
+        b2_scaled = b2.__class__(
+            [frac.scale(factor)
+             for frac, factor in zip(b2.fractions, scale_factors)])
+        return b1_scaled, b2_scaled
+
+
+def generic_scalar_product(b1, b2=None):
+    """
+    Calculates the pairwise scalar product between the elements
+    of the :py:class:`Base` *b1* and *b2*.
+
+    Args:
+        b1 (:py:class:`Base`): first basis
+        b2 (:py:class:`Base`): second basis, if omitted
+            defaults to *b1*
+
+    Note:
+        If *b2* is omitted, the result can be used to normalize
+        *b1* in terms of its scalar product.
+    """
+    if b2 is None:
+        b2 = b1
 
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
@@ -1264,24 +1309,12 @@ def normalize_base(b1, b2=None):
     hints = b1.scalar_product_hint()
     res = np.zeros(b1.fractions.shape)
     for idx, hint in enumerate(hints):
-        members_1 = np.array([fraction.get_member(idx) for fraction in b1.fractions])
-        members_2 = np.array([fraction.get_member(idx) for fraction in b2.fractions])
+        members_1 = np.array([fraction.get_member(idx)
+                              for fraction in b1.fractions])
+        members_2 = np.array([fraction.get_member(idx)
+                              for fraction in b2.fractions])
         res += hint(members_1, members_2)
-
-    if any(res < np.finfo(float).eps):
-        if any(np.isclose(res, 0)):
-            raise ValueError("given base fractions are orthogonal. no normalization possible.")
-        else:
-            raise ValueError("imaginary scale required. no normalization possible.")
-
-    scale_factors = np.sqrt(1 / res)
-    b1_scaled = b1.__class__(np.array([frac.scale(factor) for frac, factor in zip(b1.fractions, scale_factors)]))
-
-    if auto_normalization:
-        return b1_scaled
-    else:
-        b2_scaled = b2.__class__(np.array([frac.scale(factor) for frac, factor in zip(b2.fractions, scale_factors)]))
-        return b1_scaled, b2_scaled
+    return res
 
 
 def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
