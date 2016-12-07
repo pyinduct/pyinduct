@@ -147,8 +147,7 @@ class FiniteTransformTest(unittest.TestCase):
 
 
 class TestSecondOrderEigenVector(unittest.TestCase):
-    # TODO test for conversion functions, dirichlet,
-    # neuman and robin conditions
+    # TODO test for conversion functions
 
     def setUp(self):
         self.domain = pi.Domain(bounds=(0, 1), num=100)
@@ -177,15 +176,15 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                           beta1=1)
 
     def test_dirichlet(self):
-        self._cure_helper(self.params_dirichlet)
+        self._test_helper(self.params_dirichlet)
 
     def test_neumann(self):
-        self._cure_helper(self.params_neumann)
+        self._test_helper(self.params_neumann)
 
     def test_robin(self):
-        self._cure_helper(self.params_robin)
+        self._test_helper(self.params_robin)
 
-    def _cure_helper(self, params):
+    def _test_helper(self, params):
         eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
                                                        params,
                                                        count=self.cnt,
@@ -193,6 +192,17 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                                        debug=False)
         if show_plots:
             pi.visualize_functions(eig_base.fractions)
+
+        for frac in eig_base.fractions:
+            # test whether the bcs are fulfilled
+            bc1 = (params.alpha0 * frac(self.domain.bounds[0])
+                   + params.alpha1 * frac.derive(1)(self.domain.bounds[0]))
+            self.assertAlmostEqual(bc1, 0)
+            bc2 = (params.beta0 * frac(self.domain.bounds[1])
+                   + params.beta1 * frac.derive(1)(self.domain.bounds[1]))
+            self.assertAlmostEqual(bc2, 0)
+
+        return eig_base
 
 
 class TestEigenvalues(unittest.TestCase):

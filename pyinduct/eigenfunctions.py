@@ -28,14 +28,14 @@ class SecondOrderEigenVector(Function):
     This class provides the eigen vectors corresponding to a
     linear second order spatial operator denoted by
 
-    .. math:: (Ax)(z) = \partial_z^2 a_2 x(z) + \partial_z a_1 x(z) + a_0 x(z)
+    .. math:: (Ax)(z) = a_2 \partial_z^2 x(z) + a_1 \partial_z x(z) + a_0 x(z)
 
     where the :math:`a_i` are constant.
 
     With the boundary conditions:
 
-    .. math:: \alpha_1 x'(z_1) + \alpha_0 x(z_1) &= 0 \\
-              \beta_1 x'(z_2) + \beta_0 x(z_2) &= 0 .
+    .. math:: \alpha_1 \partial_z x(z_1) + \alpha_0 x(z_1) &= 0 \\
+              \beta_1 \partial_z x(z_2) + \beta_0 x(z_2) &= 0 .
 
     The calculate the corresponding eigenvectors, the problem
 
@@ -106,6 +106,40 @@ class SecondOrderEigenVector(Function):
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
         """
+        eig_vals, char_roots, kappa = SecondOrderEigenVector.calculate_eigenvalues(
+            domain,
+            params,
+            count,
+            extended_output=True)
+
+        eig_vectors = Base([SecondOrderEigenVector(
+            char_root=r,
+            kappa=k,
+            domain=domain.bounds,
+            derivative_order=derivative_order)
+                            for r, k in zip(char_roots, kappa)])
+
+        return normalize_base(eig_vectors)
+
+    @staticmethod
+    def calculate_eigenvalues(domain, params, count, **kwargs):
+        r"""
+        Determine the eigenvalues of the problem given by *parameters*
+        on *domain* .
+
+        Parameters:
+            domain (:py:class:`core.domain`): Domain of the
+                spatial problem.
+            params (bunch-like): Parameters of the system, see
+                :py:func:`__init__` for details on their definition.
+                Long story short, it must contain
+                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and } \beta_1` .
+            count (int): Amount of eigenvectors to generate.
+
+        Keyword Arguments:
+            debug (bool): If provided, this parameter will cause several debug
+                windows to open.
+        """
         if (params.alpha0 == 0 and params.alpha1 == 0
                 or params.beta0 == 0 and params.beta1 == 0):
             raise ValueError("Provided boundary conditions are useless.")
@@ -119,12 +153,13 @@ class SecondOrderEigenVector(Function):
 
         kappa = np.zeros((count, 2))
 
-        # check special case of dirichlet boundary, defined at zero
-        if params.alpha1 == 0 and params.alpha0 != 0 and 0 in domain.bounds:
+        # check special case of a dirichlet boundary defined at zero
+        if (params.alpha1 == 0 and params.alpha0 != 0 and bounds[0] == 0
+                or params.beta1 == 0 and params.beta0 != 0 and bounds[1] == 0):
             # since kappa1 is equal to sol evaluated at z=0
             gen_sol = gen_sol.subs(kappa2, 1)
             kappa[:, 0] = 0
-            # kappa2 is the arbitrary scaling factor
+            # use kappa2 as the arbitrary scaling factor
             gen_sol = gen_sol.subs(kappa1, 0)
             kappa[:, 1] = 1
             settled_bc = domain.bounds.index(0)
@@ -169,6 +204,7 @@ class SecondOrderEigenVector(Function):
             If the limit exists it is used to lift poles of the
             function.
             """
+            # TODO add cache for lifted poles to speed up the process
             try:
                 return char_num(_z)
             except FloatingPointError:
@@ -182,13 +218,15 @@ class SecondOrderEigenVector(Function):
 
         # search roots
         iter_limit = count * 10
+        # TODO make stepwidth depend on parameters
+        cnt = 100
         nu_num = find_roots(char_func,
                             n_roots=count,
-                            grid=[np.linspace(0, iter_limit, 1e2)])
+                            grid=[np.linspace(0, iter_limit, cnt)])
 
         if kwargs.get("debug", False):
             visualize_roots(nu_num,
-                            [np.linspace(0, iter_limit, 1e3)],
+                            [np.linspace(0, iter_limit, 1000)],
                             char_func)
 
         # resolve kappa2
@@ -200,20 +238,25 @@ class SecondOrderEigenVector(Function):
         char_roots = np.array([eta + 1j * nu
                                for eta, nu in zip(eta_num, nu_num)])
 
-        eig_vectors = Base([SecondOrderEigenVector(
-            char_root=r,
-            kappa=k,
-            domain=domain.bounds,
-            derivative_order=derivative_order)
-                            for r, k in zip(char_roots, kappa)])
+        eig_vals = SecondOrderEigenVector.convert_to_eigenvalue(params,
+                                                                char_roots)
+        if kwargs.get("extended_output", False):
+            return eig_vals, char_roots, kappa
+        else:
+            return eig_vals
 
-        return normalize_base(eig_vectors)
 
     @staticmethod
     def convert_to_eigenvalue(params, char_root):
-        """
-        Converts a given characteristic into an
-        eigenvalue.
+        r"""
+        Converts a characteristic root :math:`p` into an
+        eigenvalue :math:`\lambda` by using the provided
+        parameters. The relation is given by
+
+        .. math:: \lambda = \frac{a_2}{a_0}\left(
+                                p_ 1^2 + p_1\frac{a_1}{a_2}
+                                + \frac{a_1^2}{2a_2^2}
+                                \right)
 
         Parameters:
             params (bunch): system parameters, see TODO.
@@ -228,8 +271,13 @@ class SecondOrderEigenVector(Function):
     @staticmethod
     def convert_to_characteristic_root(params, eigenvalue):
         r"""
-        Converts a given characteristic into an
-        eigenvalue.
+        Converts a given eigenvalue :math:`\lambda` into a
+        characteristic root :math:`p` by using the provided
+        parameters. The relation is given by
+
+        .. math:: p = -\frac{a_1}{a_2}
+                        + j\sqrt{\left(\frac{a_1}{2a_2}\right)^2
+                                - \frac{a_0}{a_2}\lambda}
 
         Parameters:
             params (bunch): system parameters, see TODO.
