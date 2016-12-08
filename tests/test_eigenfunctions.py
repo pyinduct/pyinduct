@@ -199,7 +199,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             self.domain,
             params,
             count=len(lambda_ref),
-            debug=True
+            debug=False
         )
         self.assertEqual(len(lamda), len(lambda_ref))
 

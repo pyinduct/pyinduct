@@ -115,7 +115,8 @@ class SecondOrderEigenVector(Function):
                 domain,
                 params,
                 count + diff,
-                extended_output=True)
+                extended_output=True,
+                **kwargs)
 
             sing_sols = np.where(np.isnan(kappa[:, 1]))
             # eig_values = np.delete(eig_values, sing_sols)
@@ -212,47 +213,69 @@ class SecondOrderEigenVector(Function):
         char_eq = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
                    + c1 * gen_sol.diff(z).subs(z, bounds[1 - settled_bc]))
 
+        # extract numerator and denominator
+        numer, denom = char_eq.as_numer_denom()
+
         if kwargs.get("debug", False):
             sp.init_printing()
             print("characteristic equation:")
             sp.pretty_print(char_eq)
             sp.plot(char_eq)
+            print("numerator:")
+            sp.pretty_print(numer)
+            sp.plot(numer)
+            print("denominator:")
+            sp.pretty_print(denom)
+            sp.plot(denom)
 
         # lambdify
-        char_num = sp.lambdify(nu, char_eq, modules="numpy")
+        char_func = sp.lambdify(nu, char_eq, modules="numpy")
+        numer_func = sp.lambdify(nu, numer, modules="numpy")
+        denom_func = sp.lambdify(nu, denom, modules="numpy")
 
-        def char_func(_z):
-            """
-            Characteristic function of the spatial eigenvalue problem.
-            If the limit exists it is used to lift poles of the
-            function.
-            """
-            # TODO add cache for lifted poles to speed up the process
-            # TODO export into own wrapper class
-            # (see LambdifiedSympyExpression)
-            try:
-                return char_num(_z)
-            except FloatingPointError:
-                lim_p = np.float(sp.limit(char_eq, nu, _z, dir="+"))
-                lim_m = np.float(sp.limit(char_eq, nu, _z, dir="-"))
-                if np.isclose(lim_p, lim_m):
-                    return lim_m
-                else:
-                    # gained by dice roll, guaranteed to be fair.
-                    return 5
+        diff = 1
+        while diff > 0:
+            # search roots
+            iter_limit = np.pi * (count + diff)
+            search_grid = Domain(bounds=(0, iter_limit),
+                                 step=np.pi/4)
+            num_roots = find_roots(numer_func,
+                                   n_roots=count + diff,
+                                   grid=[search_grid.points])
 
-        # search roots
-        iter_limit = np.pi * count
-        search_grid = Domain(bounds=(0, iter_limit),
-                             step=np.pi/4)
-        nu_num = find_roots(char_func,
-                            n_roots=count,
-                            grid=[search_grid.points])
+            # check for common roots of numerator and denominator
+            nu_num = []
+            for root in num_roots:
+                if not np.isclose(denom_func(root), 0):
+                    nu_num.append(root)
+
+            diff = max(0, count - len(nu_num))
+
+        nu_num = np.array(nu_num[:count])
 
         if kwargs.get("debug", False):
+            def patched_func(_z):
+                """
+                A patched version of a sympy expression.
+                If the limit exists it is used to lift poles of the
+                function.
+                """
+                # TODO add cache for lifted poles to speed up the process
+                # TODO export into own wrapper class
+                # (see LambdifiedSympyExpression)
+                try:
+                    return char_func(_z)
+                except FloatingPointError:
+                    lim_p = np.float(sp.limit(char_eq, nu, _z, dir="+"))
+                    lim_m = np.float(sp.limit(char_eq, nu, _z, dir="-"))
+                    if np.isclose(lim_p, lim_m):
+                        return lim_m
+                    else:
+                        # gained by dice roll, guaranteed to be fair.
+                        return 5
             visualize_roots(nu_num,
                             [np.linspace(0, iter_limit, 1000)],
-                            char_func)
+                            patched_func)
 
         # resolve kappa2
         if kappa[0, 0] == 1:
