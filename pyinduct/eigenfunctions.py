@@ -819,7 +819,7 @@ class TransformedSecondOrderEigenfunction(Function):
     def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
 
         if not all([isinstance(state, (int, float)) for state in init_state_vect]) and len(init_state_vect) == 4 \
-            and isinstance(init_state_vect, (list, tuple)):
+                and isinstance(init_state_vect, (list, tuple)):
             raise TypeError
         if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) and all(
             [isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
@@ -947,7 +947,7 @@ class FiniteTransformFunction(Function):
         self.function = function
         self.M = M
         self.l = l
-        if scale_func == None:
+        if scale_func is None:
             self.scale_func = lambda z: 1
         else:
             self.scale_func = scale_func
@@ -1004,46 +1004,21 @@ class FiniteTransformFunction(Function):
         return to_return
 
 
-# def real(to_return):
-#     """
-#     Check if the imaginary part of :code:`to_return` vanishes
-#     and return the real part.
-#
-#     Args:
-#         to_return (numbers.Number or array_like): Variable to check.
-#
-#     Raises:
-#         ValueError: If (all) imaginary part(s) not vanishes.
-#
-#     Return:
-#         numbers.Number or array_like: Real part of :code:`to_return`.
-#     """
-#     if not isinstance(to_return, (Number, list, np.ndarray)):
-#         raise TypeError
-#     if isinstance(to_return, (list, np.ndarray)):
-#         if not all([isinstance(num, Number) for num in to_return]):
-#             raise TypeError
-#
-#     maybe_real = np.atleast_1d(np.real_if_close(to_return))
-#
-#     if maybe_real.dtype == 'complex':
-#         raise ValueError("Something goes wrong, imaginary part does not vanish")
-#     else:
-#         if maybe_real.shape == (1,):
-#             maybe_real = maybe_real[0]
-#         return maybe_real
-
-
 def transform_to_intermediate(param, l=None):
     """
-    Apply a transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
-    which eliminates the advection term :math:`a_1 x(z,t)` from the reaction-advection-diffusion equation
+    Apply a transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z
+    \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
+    which eliminates the advection term :math:`a_1 x(z,t)`
+    from the reaction-advection-diffusion equation
 
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t)
+    .. math:: \\dot x(z,t) = a_2 x''(z,t)
+                                + a_1(z) x'(z,t)
+                                + a_0(z) x(z,t)
 
     with robin
 
-    .. math:: x'(0,t) = \\alpha x(0,t), \\quad x'(l,t) = -\\beta x(l,t) \\quad,
+    .. math:: x'(0,t) = \\alpha x(0,t),
+        \\quad x'(l,t) = -\\beta x(l,t) \\quad,
 
     dirichlet
 
@@ -1052,35 +1027,43 @@ def transform_to_intermediate(param, l=None):
     or mixed boundary conditions.
 
     Note:
-        To successfully transform the system, the first spatial derivative of :math`a_1(z)` is needed.
+        To successfully transform the system, the first spatial
+        derivative of :math`a_1(z)` is needed.
 
     Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
+        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha,
+            \\beta \\Big)^T`
         l (numbers.Number): End of the domain (start is 0).
 
     Raises:
-        TypeError: If :math:`a_1(z)` is callable but no derivative handle is defined for it.
+        TypeError: If :math:`a_1(z)` is callable but no
+            derivative handle is defined for it.
 
     Return:
         tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z), \\tilde \\alpha, \\tilde \\beta \\big)` for
+            Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z),
+                \\tilde \\alpha, \\tilde \\beta \\big)` of
             the transformed system
 
-            .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t) + \\tilde a_0(z) \\tilde x(z,t)
+            .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t)
+                            + \\tilde a_0(z) \\tilde x(z,t)
 
-            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None for dirichlet
+            and the corresponding boundary conditions
+            (:math:`\\alpha` and/or :math:`\\beta` set to None for dirichlet
             boundary conditions).
-
     """
     if not isinstance(param, (tuple, list)) or not len(param) == 5:
-        raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or list")
+        raise TypeError("pyinduct.utils.transform_2_intermediate(): "
+                        "argument param must from type tuple or list")
 
     a2, a1, a0, alpha, beta = param
-    if isinstance(a1, collections.Callable) or isinstance(a0, collections.Callable):
-        if not len(a1._derivative_handles) >= 1:
-            raise TypeError
-        a0_z = ut.function_wrapper(a0)
-        a0_n = lambda z: a0_z(z) - a1(z) ** 2 / 4 / a2 - a1.derive(1)(z) / 2
+    if isinstance(a1, collections.Callable) \
+            or isinstance(a0, collections.Callable):
+        a0_z = Function.from_constant(a0)
+
+        def a0_n(z):
+            return (a0_z(z) - a1(z) ** 2 / 4 / a2
+                    - a1.derive(1)(z) / 2)
     else:
         a0_n = a0 - a1 ** 2 / 4 / a2
 
