@@ -119,7 +119,6 @@ class SecondOrderEigenVector(Function):
                 **kwargs)
 
             sing_sols = np.where(np.isnan(kappa[:, 1]))
-            # eig_values = np.delete(eig_values, sing_sols)
             char_roots = np.delete(char_roots, sing_sols)
             kappa = np.delete(kappa, sing_sols, axis=0)
 
@@ -164,7 +163,7 @@ class SecondOrderEigenVector(Function):
                 windows to open.
         """
         if (params.alpha0 == 0 and params.alpha1 == 0
-            or params.beta0 == 0 and params.beta1 == 0):
+                or params.beta0 == 0 and params.beta1 == 0):
             raise ValueError("Provided boundary conditions are useless.")
 
         bounds = domain.bounds

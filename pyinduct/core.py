@@ -12,6 +12,7 @@ from numbers import Number
 from scipy import integrate
 from scipy.linalg import block_diag
 from scipy.optimize import root
+from scipy.interpolate import interp1d
 
 from . import registry as rg
 
@@ -428,7 +429,7 @@ class Function(BaseFraction):
 
         Args:
             constant (number): value to return
-            **kwargs: all kwargs get to :py:class:`Function`
+            **kwargs: all kwargs get passed to :py:class:`Function`
 
         Returns:
             :py:class:`Function`: A constant function
@@ -437,6 +438,37 @@ class Function(BaseFraction):
             return constant
 
         func = Function(eval_handle=f, **kwargs)
+        return func
+
+    @staticmethod
+    def from_data(x, y, **kwargs):
+        """
+        Create a :py:class:`Function` based on discrete data by
+        interpolating.
+
+        The interpolation is done by using :py:class:`interp1d` from scipy,
+        the *kwargs* will be passed.
+
+        Args:
+            x (array-like): Places where the function has been evaluated .
+            y (array-like): Function values at *x*.
+            **kwargs: all kwargs get passed to :py:class:`Function`
+
+        Returns:
+            :py:class:`Function`: A constant function
+        """
+        dom = kwargs.pop("domain", None)
+        if dom is None:
+            dom = (min(x), max(x))
+        nonzero = kwargs.pop("nonzero", dom)
+        der_handles = kwargs.pop("derivative_handles", None)
+
+        interp = interp1d(x, y, **kwargs)
+
+        func = Function(eval_handle=interp,
+                        domain=dom,
+                        nonzero=nonzero,
+                        derivative_handles=der_handles)
         return func
 
 
@@ -964,7 +996,9 @@ def project_on_base(function, base):
         raise TypeError("Only pyinduct.core.Base accepted as base")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2, Base(function), base).flatten()
+    projections = calculate_scalar_product_matrix(dot_product_l2,
+                                                  Base(function),
+                                                  base).flatten()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
@@ -974,7 +1008,8 @@ def project_on_base(function, base):
 
 def back_project_from_base(weights, base):
     """
-    Build evaluation handle for a distributed variable that was approximated as a set of *weights* om a certain *base*.
+    Build evaluation handle for a distributed variable that was approximated
+    as a set of *weights* om a certain *base*.
 
     Args:
         weights (numpy.ndarray): Weight vector.
@@ -986,24 +1021,22 @@ def back_project_from_base(weights, base):
     if isinstance(weights, Number):
         weights = np.asarray([weights])
     if weights.shape[0] != base.fractions.shape[0]:
-        raise ValueError("Lengths of weights and initial_initial_functions do not match!")
+        raise ValueError("Lengths of weights and initial_initial_functions "
+                         "do not match!")
 
     def eval_handle(z):
         # TODO call uniform complex converter instead
-        res = np.real_if_close(sum([weights[i] * base.fractions[i](z) for i in range(weights.shape[0])]), tol=1e6)
-        if not all(np.imag(res) == 0):
-            print(("warning: complex values encountered! {0}".format(np.max(np.imag(res)))))
-            return np.zeros_like(z)
-
-        return res
+        res = sum([weights[i] * base.fractions[i](z)
+                   for i in range(weights.shape[0])])
+        return real(res)
 
     return eval_handle
 
 
 def change_projection_base(src_weights, src_base, dst_base):
     """
-    Converts given weights that form an approximation using *src_base* to the best possible fit using
-    *dst_base*. Bases can be given as :py:class:`BaseFraction` array.
+    Converts given weights that form an approximation using *src_base*
+    to the best possible fit using *dst_base*.
 
     Args:
         src_weights (numpy.ndarray): Vector of numbers.
@@ -1022,12 +1055,15 @@ def project_weights(projection_matrix, src_weights):
     Project *src_weights* on new basis using the provided *projection_matrix*.
 
     Args:
-        projection_matrix (:py:class:`numpy.ndarray`): projection between the source and the target basis;
+        projection_matrix (:py:class:`numpy.ndarray`): projection between
+            the source and the target basis;
             dimension (m, n)
-        src_weights (:py:class:`numpy.ndarray`): weights in the source basis; dimension (1, m)
+        src_weights (:py:class:`numpy.ndarray`): weights in the source basis;
+            dimension (1, m)
 
     Return:
-        :py:class:`numpy.ndarray`: weights in the target basis; dimension (1, n)
+        :py:class:`numpy.ndarray`: weights in the target basis;
+            dimension (1, n)
     """
     src_weights = sanitize_input(src_weights, Number)
     return np.dot(projection_matrix, src_weights)
@@ -1035,17 +1071,22 @@ def project_weights(projection_matrix, src_weights):
 
 class TransformationInfo:
     """
-    Structure that holds information about transformations between different bases.
+    Structure that holds information about transformations between different
+    bases.
 
-    This class serves as an easy to use structure to aggregate information, describing transformations between different
-    :py:class:`BaseFraction` s. It can be tested for equality to check the equity of transformations and is hashable
+    This class serves as an easy to use structure to aggregate information,
+    describing transformations between different
+    :py:class:`BaseFraction` s. It can be tested for equality to check the
+    equity of transformations and is hashable
     which makes it usable as dictionary key to cache different transformations.
 
     Attributes:
         src_lbl(str): label of source basis
         dst_lbl(str): label destination basis
-        src_base(:obj:`numpy.ndarray`): source basis in form of an array of the source Fractions
-        dst_base(:obj:`numpy.ndarray`): destination basis in form of an array of the destination Fractions
+        src_base(:obj:`numpy.ndarray`): source basis in form of an array of
+            the source Fractions
+        dst_base(:obj:`numpy.ndarray`): destination basis in form of an
+            array of the destination Fractions
         src_order: available temporal derivative order of source weights
         dst_order: needed temporal derivative order for destination weights
     """
@@ -1067,7 +1108,8 @@ class TransformationInfo:
 
     def mirror(self):
         """
-        Factory method, that creates a new TransformationInfo object by mirroring *src* and *dst* terms.
+        Factory method, that creates a new TransformationInfo object by
+        mirroring *src* and *dst* terms.
         This helps handling requests to different bases.
         """
         new_info = TransformationInfo()
@@ -1082,22 +1124,26 @@ class TransformationInfo:
 
 def get_weight_transformation(info):
     """
-    Create a handle that will transform weights from *info.src_base* into weights for *info-dst_base*
-    while paying respect to the given derivative orders.
+    Create a handle that will transform weights from *info.src_base* into
+    weights for *info-dst_base* while paying respect to the given derivative
+    orders.
 
-    This is accomplished by recursively iterating through source and destination bases and evaluating their
-    :attr:`transformation_hints`.
+    This is accomplished by recursively iterating through source and
+    destination bases and evaluating their :attr:`transformation_hints`.
 
     Args:
-        info(py:class:`TransformationInfo`): information about the requested transformation.
+        info(py:class:`TransformationInfo`): information about the requested
+            transformation.
 
     Return:
         callable: transformation function handle
     """
     # trivial case
     if info.src_lbl == info.dst_lbl:
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base,
-                                                            info.src_order, info.dst_order, True)
+        mat = calculate_expanded_base_transformation_matrix(
+            info.src_base, info.dst_base,
+            info.src_order, info.dst_order,
+            True)
 
         def identity(weights):
             return np.dot(mat, weights)
@@ -1195,16 +1241,20 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
 
 def calculate_base_transformation_matrix(src_base, dst_base):
     """
-    Calculates the transformation matrix :math:`V` , so that the a set of weights, describing a function in the
-    *src_base* will express the same function in the *dst_base*, while minimizing the reprojection error.
+    Calculates the transformation matrix :math:`V` , so that the a
+    set of weights, describing a function in the
+    *src_base* will express the same function in the *dst_base*, while
+     minimizing the reprojection error.
     An quadratic error is used as the error-norm for this case.
 
     Warning:
-        This method assumes that all members of the given bases have the same type and that their
+        This method assumes that all members of the given bases have
+        the same type and that their
         :py:class:`BaseFraction` s, define compatible scalar products.
 
     Raises:
-        TypeError: If given bases do not provide an :py:func:`scalar_product_hint` method.
+        TypeError: If given bases do not provide an
+            :py:func:`scalar_product_hint` method.
 
     Args:
         src_base (:py:class:`Base`): Current projection base.
@@ -1220,14 +1270,22 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     p_matrices = []
     q_matrices = []
     for idx, (s_hint, d_hint) in enumerate(zip(s_hints, d_hints)):
-        dst_members = Base([dst_frac.get_member(idx) for dst_frac in dst_base.fractions])
-        src_members = Base([src_frac.get_member(idx) for src_frac in src_base.fractions])
+        dst_members = Base([dst_frac.get_member(idx)
+                            for dst_frac in dst_base.fractions])
+        src_members = Base([src_frac.get_member(idx)
+                            for src_frac in src_base.fractions])
 
-        # compute P_n matrix: <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
-        p_matrices.append(calculate_scalar_product_matrix(s_hint, dst_members, src_members))
+        # compute P_n matrix:
+        # <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
+        p_matrices.append(calculate_scalar_product_matrix(s_hint,
+                                                          dst_members,
+                                                          src_members))
 
-        # compute Q_n matrix: <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
-        q_matrices.append(calculate_scalar_product_matrix(d_hint, dst_members, dst_members))
+        # compute Q_n matrix:
+        # <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
+        q_matrices.append(calculate_scalar_product_matrix(d_hint,
+                                                          dst_members,
+                                                          dst_members))
 
     p_mat = np.sum(p_matrices, axis=0)
     q_mat = np.sum(q_matrices, axis=0)
@@ -1393,15 +1451,16 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
 
         # check whether root is already present in cache
         rounded_root = np.round(calculated_root, -rtol)
-        cmp_arr = [all(identical_roots)
-                   for identical_roots in np.isclose(rounded_root,
-                                                     rounded_roots[:found_roots])]
+        cmp_arr = [all(identical_roots)for identical_roots in np.isclose(
+                rounded_root,
+                rounded_roots[:found_roots])]
         if any(cmp_arr):
             idx = cmp_arr.index(True)
             if errors[idx] > error:
                 roots[idx] = calculated_root
                 errors[idx] = error
-            # TODO check jacobian (if provided) to identify roots of higher order
+            # TODO check jacobian (if provided) to identify roots of
+            # higher order
             continue
 
         roots[found_roots] = calculated_root
@@ -1412,7 +1471,9 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
 
     if found_roots < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(found_roots, n_roots))
+                         "Try to increase the area to search in.".format(
+            found_roots, n_roots)
+        )
 
     valid_roots = roots[:found_roots]
 
@@ -1461,7 +1522,8 @@ def complex_wrapper(func):
 class Parameters:
     """
     Handy class to collect system parameters.
-    This class can be instantiated with a dict, whose keys will the become attributes of the object.
+    This class can be instantiated with a dict, whose keys will the
+    become attributes of the object.
     (Bunch approach)
 
     Args:
@@ -1474,7 +1536,8 @@ class Parameters:
 
 class Domain(object):
     """
-    Helper class that manages ranges for data evaluation, containing parameters.
+    Helper class that manages ranges for data evaluation, containing
+    parameters.
 
     Args:
         bounds (tuple): Interval bounds.
@@ -1498,17 +1561,25 @@ class Domain(object):
         elif bounds and num:
             self._limits = bounds
             self._num = num
-            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
+            self._values, self._step = np.linspace(bounds[0],
+                                                   bounds[1],
+                                                   num,
+                                                   retstep=True)
             if step is not None and not np.isclose(self._step, step):
-                raise ValueError("could not satisfy both redundant requirements for num and step!")
+                raise ValueError("could not satisfy both redundant "
+                                 "requirements for num and step!")
         elif bounds and step:
             self._limits = bounds
             # calculate number of needed points but save correct step size
             self._num = int((bounds[1] - bounds[0]) / step + 1.5)
-            self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
+            self._values, self._step = np.linspace(bounds[0],
+                                                   bounds[1],
+                                                   self._num,
+                                                   retstep=True)
             if np.abs(step - self._step) > 1e-1:
-                warnings.warn("desired step-size {} doesn't fit to given interval,"
-                              " changing to {}".format(step, self._step))
+                warnings.warn("desired step-size {} doesn't fit to given "
+                              "interval, changing to {}".format(step,
+                                                                self._step))
         else:
             raise ValueError("not enough arguments provided!")
 

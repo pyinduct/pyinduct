@@ -26,7 +26,7 @@ class TestAddMulFunction(unittest.TestCase):
         self.assertAlmostEqual([4, 40, 300], [x[0](4), x[1](20), x[2](100)])
 
 
-class TextSecondOrderEigenfunction(unittest.TestCase):
+class TestSecondOrderEigenfunction(unittest.TestCase):
     def test_error_raiser(self):
         param = [1, 1, 1, 1, 1]
         l = 1
@@ -203,12 +203,12 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         )
         self.assertEqual(len(lamda), len(lambda_ref))
 
-        """ TODO make clear what we are testing here !
-         the values copied from the tests below are eigenfrequencies, which would
-         correspond to the imaginary part '\nu'' of the characteristic root 'p'.
-         But some of them have imaginary parts, I don't get it.
-        """
         if 0:
+            """ TODO make clear what we are testing here !
+             the values copied from the tests below are eigenfrequencies, which would
+             correspond to the imaginary part '\nu'' of the characteristic root 'p'.
+             But some of them have imaginary parts, I don't get it.
+            """
             np.testing.assert_array_equal(
                 pi.SecondOrderEigenVector.convert_to_characteristic_root(
                     params,
