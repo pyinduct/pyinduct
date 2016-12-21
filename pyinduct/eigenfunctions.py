@@ -262,7 +262,8 @@ class SecondOrderEigenVector(Function):
                 extract_trig(arg)
 
         extract_trig(numer)
-        char_freq = min(freqs)
+        max_freq = float(max(freqs))
+        root_dist = np.pi/(max_freq)
 
         if kwargs.get("debug", False):
             sp.init_printing()
@@ -275,6 +276,7 @@ class SecondOrderEigenVector(Function):
             print("denominator:")
             sp.pretty_print(denom)
             # sp.plot(denom, (z, *domain.bounds))
+            print("estimated root distance of: {}".format(root_dist))
 
         # lambdify
         char_func = sp.lambdify(nu, char_eq, modules="numpy")
@@ -284,13 +286,15 @@ class SecondOrderEigenVector(Function):
         diff = 1
         while diff > 0:
             # search roots
-            iter_limit = np.pi * (count + diff)
+            # an upper limit is hard to guess
+            iter_limit = 10 * root_dist * (count + diff)
             search_grid = Domain(bounds=(0, iter_limit),
-                                 step=1/(2*char_freq))
-            print(search_grid.points)
+                                 step=root_dist)
             num_roots = find_roots(numer_func,
                                    n_roots=count + diff,
-                                   grid=[search_grid.points])
+                                   grid=[search_grid.points],
+                                   rtol=int(np.log10(root_dist) - .5) - 1
+                                   )
 
             # check for common roots of numerator and denominator
             nu_num = []

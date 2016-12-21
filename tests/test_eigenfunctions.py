@@ -97,7 +97,7 @@ class FiniteTransformTest(unittest.TestCase):
 
     def test_const(self):
 
-        n = 5
+        n = 50
         k = 5
         b_desired = 2
         l = 5

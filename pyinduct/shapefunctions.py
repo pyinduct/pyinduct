@@ -470,4 +470,8 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     else:
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return nodes, Base(fractions)
+    # TODO make this uniform all over the place
+    if isinstance(fractions, Base):
+        return nodes, fractions
+    else:
+        return nodes, Base(fractions)
