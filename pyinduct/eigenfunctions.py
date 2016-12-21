@@ -7,21 +7,55 @@ the predefined eigenfunctions in order to handle transformations and reduce
 effort within the controller implementation.
 """
 
+import collections
+from abc import ABCMeta, abstractstaticmethod
+from functools import partial
+from numbers import Number
+
+import matplotlib.pyplot as plt
 import numpy as np
+import scipy.integrate as si
 import sympy as sp
 from sympy.utilities.lambdify import lambdify
-import scipy.integrate as si
-from numbers import Number
-from functools import partial
-import collections
-import matplotlib.pyplot as plt
-from abc import ABCMeta, abstractstaticmethod
 
-from .core import (Domain, Base, Function, generic_scalar_product, normalize_base,
-                   find_roots, real)
+from .core import (Domain, Base, Function, generic_scalar_product,
+                   normalize_base, find_roots, real, Parameters)
 from .visualization import visualize_roots
 
-__all__ = ["SecondOrderEigenVector", "SecondOrderDirichletEigenfunction"]
+__all__ = ["SecondOrderParameters", "SecondOrderEigenVector", "SecondOrderEigenfunction",
+           "SecondOrderDirichletEigenfunction", "SecondOrderRobinEigenfunction",
+           "TransformedSecondOrderEigenfunction", "AddMulFunction",
+           "LambdifiedSympyExpression", "FiniteTransformFunction"]
+
+
+class SecondOrderParameters(Parameters):
+    """
+    Interface class to collect all important parameters that describe
+    a second order ordinary differential equation.
+
+    Args:
+        a2(Number or callable): coefficient :math:`a_2`.
+        a1(Number or callable): coefficient :math:`a_1`.
+        a0(Number or callable): coefficient :math:`a_0`.
+        alpha1(Number): coefficient :math:` \alpha_1`.
+        alpha0(Number): coefficient :math:` \alpha_0`.
+        beta1(Number): coefficient :math:` \beta_1`.
+        beta1(Number): coefficient :math:` \beta_0`.
+    """
+    def __init__(self, a2=0, a1=0, a0=0,
+                 alpha1=0, alpha0=0,
+                 beta1=0, beta0=0):
+        super().__init__(a2=a2, a1=a1, a0=a0,
+                         alpha1=alpha1, alpha0=alpha0,
+                         beta1=beta1, beta0=beta0)
+
+    @staticmethod
+    def from_list(param_list):
+        return SecondOrderParameters(*param_list)
+
+    @staticmethod
+    def from_dict(param_dict):
+        return SecondOrderParameters(**param_dict)
 
 
 class SecondOrderEigenVector(Function):
@@ -109,6 +143,9 @@ class SecondOrderEigenVector(Function):
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
         """
+        # if isinstance(params, list):
+        #     params = SecondOrderParameters.from_list(params)
+
         diff = 1
         while diff > 0:
             eig_values, char_roots, kappa = SecondOrderEigenVector.calculate_eigenvalues(
@@ -146,7 +183,7 @@ class SecondOrderEigenVector(Function):
         on *domain* .
 
         Parameters:
-            domain (:py:class:`core.domain`): Domain of the
+            domain (:py:class:`core.Domain`): Domain of the
                 spatial problem.
             params (bunch-like): Parameters of the system, see
                 :py:func:`__init__` for details on their definition.
@@ -215,17 +252,29 @@ class SecondOrderEigenVector(Function):
         # extract numerator and denominator
         numer, denom = char_eq.as_numer_denom()
 
+        freqs = []
+
+        def extract_trig(expr):
+            if expr.func == sp.sin or expr.func == sp.cos:
+                freqs.append(sp.collect(expr.args[0], nu, evaluate=False)[nu])
+
+            for arg in expr.args:
+                extract_trig(arg)
+
+        extract_trig(numer)
+        char_freq = min(freqs)
+
         if kwargs.get("debug", False):
             sp.init_printing()
             print("characteristic equation:")
             sp.pretty_print(char_eq)
-            sp.plot(char_eq)
+            # sp.plot(char_eq, (z, *domain.bounds))
             print("numerator:")
             sp.pretty_print(numer)
-            sp.plot(numer)
+            # sp.plot(numer, (z, *domain.bounds))
             print("denominator:")
             sp.pretty_print(denom)
-            sp.plot(denom)
+            # sp.plot(denom, (z, *domain.bounds))
 
         # lambdify
         char_func = sp.lambdify(nu, char_eq, modules="numpy")
@@ -237,7 +286,8 @@ class SecondOrderEigenVector(Function):
             # search roots
             iter_limit = np.pi * (count + diff)
             search_grid = Domain(bounds=(0, iter_limit),
-                                 step=np.pi/4)
+                                 step=1/(2*char_freq))
+            print(search_grid.points)
             num_roots = find_roots(numer_func,
                                    n_roots=count + diff,
                                    grid=[search_grid.points])
@@ -272,6 +322,7 @@ class SecondOrderEigenVector(Function):
                     else:
                         # gained by dice roll, guaranteed to be fair.
                         return 5
+
             visualize_roots(nu_num,
                             [np.linspace(0, iter_limit, 1000)],
                             patched_func)
@@ -293,18 +344,18 @@ class SecondOrderEigenVector(Function):
                     fulfill the given boundary condition."""
                     pass
 
-        # reconstruct eigenvalues
+        # reconstruct characteristic roots
         eta_num = np.ones_like(nu_num) * (-params.a1 / (2 * params.a2))
         char_roots = np.array([eta + 1j * nu
                                for eta, nu in zip(eta_num, nu_num)])
 
+        # reconstruct eigenvalues
         eig_values = SecondOrderEigenVector.convert_to_eigenvalue(params,
                                                                   char_roots)
 
-        # test condition for complex-valued eigenvalues
-        condition = (eig_values - .25 * params.a1 ** 2 / params.a2 - params.a0)
-        np.testing.assert_array_less(condition,
-                                     np.zeros_like(eig_values))
+        if kwargs.get("debug", False):
+            print("roots: {}".format(char_roots))
+            print("eig_vals: {}".format(eig_values))
 
         if kwargs.get("extended_output", False):
             return eig_values, char_roots, kappa
@@ -318,7 +369,7 @@ class SecondOrderEigenVector(Function):
         eigenvalue :math:`\lambda` by using the provided
         parameters. The relation is given by
 
-        .. math:: \lambda = \frac{a_2}{a_0}\left(
+        .. math:: \lambda = a_0 - a_2\left(
                                 p_ 1^2 + p_1\frac{a_1}{a_2}
                                 + \frac{a_1^2}{2a_2^2}
                                 \right)
@@ -327,10 +378,9 @@ class SecondOrderEigenVector(Function):
             params (bunch): system parameters, see TODO.
             char_root (complex): characteristic_root
         """
-        return real(params.a2 / params.a0 * (
+        return real(params.a0 + params.a2 * (
             char_root ** 2
             + char_root * params.a1 / params.a2
-            + .5 * (params.a1 / params.a2) ** 2
         ))
 
     @staticmethod
@@ -369,9 +419,13 @@ class LambdifiedSympyExpression(Function):
     """
 
     def __init__(self, sympy_funcs, spat_symbol, spatial_domain):
-        self._funcs = [lambdify(spat_symbol, sp_func, 'numpy') for sp_func in sympy_funcs]
-        funcs = [self._func_factory(der_ord) for der_ord in range(len(sympy_funcs))]
-        Function.__init__(self, funcs[0], nonzero=spatial_domain, derivative_handles=funcs[1:])
+        self._funcs = [lambdify(spat_symbol, sp_func, 'numpy')
+                       for sp_func in sympy_funcs]
+        funcs = [self._func_factory(der_ord)
+                 for der_ord in range(len(sympy_funcs))]
+        super().__init__(funcs[0],
+                         nonzero=spatial_domain,
+                         derivative_handles=funcs[1:])
 
     def _func_factory(self, der_order):
         func = self._funcs[der_order]
@@ -738,9 +792,12 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
             z_real = np.linspace(-15, 15)
             z_imag = np.linspace(-5, 5)
             vec_function = np.vectorize(characteristic_equation)
-            plt.plot(z_real, vec_function(z_real))
-            plt.plot(z_imag, vec_function(z_imag * 1j))
-            plt.plot(z_real, char_eq(z_real))
+            plt.plot(z_real, np.real(vec_function(z_real)))
+            plt.plot(z_real, np.imag(vec_function(z_real)))
+            plt.plot(z_imag, np.real(vec_function(z_imag * 1j)))
+            plt.plot(z_imag, np.imag(vec_function(z_imag * 1j)))
+            plt.plot(z_real, np.real(char_eq(z_real)))
+            plt.plot(z_real, np.imag(char_eq(z_real)))
             plt.show()
 
         # assume 1 root per pi/l (safety factor = 3)

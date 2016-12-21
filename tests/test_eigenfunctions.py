@@ -10,11 +10,10 @@ if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
 else:
     show_plots = True
-    # show_plots = False
 
 if show_plots:
     import pyqtgraph as pg
-    app = pg.mkQApp()
+    pg.mkQApp()
 
 
 class TestAddMulFunction(unittest.TestCase):
@@ -76,9 +75,18 @@ class FiniteTransformTest(unittest.TestCase):
         l = 5
         k = 5
         b_desired = 2
-        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        m_mat = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
-        shifted_func = pi.FiniteTransformFunction(np.cos, m_mat, l, nested_lambda=self.nested_lambda)
+        k1, k2, b = parabolic.control.split_domain(k,
+                                                   b_desired,
+                                                   l,
+                                                   mode='coprime')[0:3]
+        m_mat = np.linalg.inv(
+            parabolic.general.get_in_domain_transformation_matrix(k1,
+                                                                  k2,
+                                                                  mode="2n"))
+        shifted_func = pi.FiniteTransformFunction(np.cos, m_mat,
+                                                  l,
+                                                  nested_lambda=self.nested_lambda)
+
         z = np.linspace(0, l, 1000)
         if show_plots:
             for i in [0]:
@@ -89,24 +97,54 @@ class FiniteTransformTest(unittest.TestCase):
 
     def test_const(self):
 
-        param = [2., 1.5, -3., -1., -.5]
-        l = 5
-        spatial_domain = (0, l)
-        n = 1
+        n = 5
         k = 5
         b_desired = 2
-        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
-        M = np.linalg.inv(parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
-        eig_freq, eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n, show_plot=show_plots)
-        eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om, param, spatial_domain[-1]) for om in eig_freq])
-        shifted_eig_funcs = np.array(
-            [pi.FiniteTransformFunction(func, M, l, nested_lambda=self.nested_lambda) for func in eig_funcs])
+        l = 5
+
+        param = pi.SecondOrderParameters(
+            a2=2., a1=1.5, a0=-3.,
+            alpha1=1, alpha0=1.,
+            beta1=1, beta0=-.5)
+        limits = (0, l)
+
+        k1, k2, b = parabolic.control.split_domain(k,
+                                                   b_desired,
+                                                   l,
+                                                   mode='coprime')[0:3]
+        M = np.linalg.inv(
+            parabolic.general.get_in_domain_transformation_matrix(k1,
+                                                                  k2,
+                                                                  mode="2n"))
+
+        # eig_freq, eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
+        #     param, l, n, show_plot=show_plots)
+        # eig_funcs = np.array(
+        #     [pi.SecondOrderRobinEigenfunction(om, param, limits[-1])
+        #      for om in eig_freq])
+        # shifted_eig_funcs = pi.Base([pi.FiniteTransformFunction(
+        #     func, M, l, nested_lambda=self.nested_lambda)
+        #                              for func in eig_funs])
+
+        nodes, eig_base = pi.cure_interval(shapefunction_class=pi.SecondOrderEigenVector,
+                                           interval=limits,
+                                           node_count=n,
+                                           params=param,
+                                           count=n,
+                                           derivative_order=2,
+                                           debug=True)
+        shifted_eig_base = pi.Base([pi.FiniteTransformFunction(
+            func, M, l, nested_lambda=self.nested_lambda)
+                                     for func in eig_base.fractions])
+
         z = np.linspace(0, l, 1000)
         if show_plots:
             for i in range(n):
                 plt.figure()
-                plt.plot(z, shifted_eig_funcs[i](z))
-                plt.plot(z, eig_funcs[i](z))
+                # plt.plot(z, np.real(shifted_eig_funcs[i](z)))
+                # plt.plot(z, np.imag(shifted_eig_funcs[i](z)))
+                # plt.plot(z, np.real(eig_funcs[i](z)))
+                # plt.plot(z, np.imag(eig_funcs[i](z)))
             plt.show()
 
     def test_segmentation_fault(self):
@@ -152,44 +190,47 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         self.domain = pi.Domain(bounds=(0, 1), num=100)
         self.cnt = 5
 
-        self.params_dirichlet = pi.Parameters(a2=1,
-                                              a1=0,
-                                              a0=1,
-                                              alpha0=1,
-                                              alpha1=0,
-                                              beta0=1,
-                                              beta1=0)
+        self.params_dirichlet = pi.SecondOrderParameters(a2=1,
+                                                         a1=0,
+                                                         a0=1,
+                                                         alpha1=0,
+                                                         alpha0=1,
+                                                         beta1=0,
+                                                         beta0=1)
         self.lambda_dirichlet = np.array([0, np.pi, 2*np.pi, 3*np.pi],
                                          dtype=complex)
 
-        self.params_neumann = pi.Parameters(a2=1,
-                                            a1=0,
-                                            a0=1,
-                                            alpha0=0,
-                                            alpha1=1,
-                                            beta0=0,
-                                            beta1=1)
+        self.params_neumann = pi.SecondOrderParameters(a2=1,
+                                                       a1=0,
+                                                       a0=1,
+                                                       alpha1=1,
+                                                       alpha0=0,
+                                                       beta1=1,
+                                                       beta0=0)
         self.lambda_neumann = np.array([0, np.pi, 2*np.pi, 3*np.pi],
                                        dtype=complex)
 
         self.params_robin = pi.Parameters(a2=1,
                                           a1=0,
                                           a0=1,
-                                          alpha0=2,
                                           alpha1=1,
-                                          beta0=-2,
-                                          beta1=1)
+                                          alpha0=2,
+                                          beta1=1,
+                                          beta0=-2)
         self.lambda_robin = np.array([2.39935728j, 0, 5.59677209, 8.98681892])
 
     def test_dirichlet(self):
+        print("dirichlet case")
         self._test_helper(self.params_dirichlet,
                           self.lambda_dirichlet)
 
     def test_neumann(self):
+        print("neumann case")
         self._test_helper(self.params_neumann,
                           self.lambda_neumann)
 
     def test_robin(self):
+        print("robin case")
         self._test_helper(self.params_robin,
                           self.lambda_robin)
 
@@ -203,18 +244,25 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         )
         self.assertEqual(len(lamda), len(lambda_ref))
 
+        char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+            params,
+            lamda),
         if 0:
             """ TODO make clear what we are testing here !
              the values copied from the tests below are eigenfrequencies, which would
              correspond to the imaginary part '\nu'' of the characteristic root 'p'.
              But some of them have imaginary parts, I don't get it.
             """
-            np.testing.assert_array_equal(
-                pi.SecondOrderEigenVector.convert_to_characteristic_root(
-                    params,
-                    lamda),
-                lambda_ref,
-                verbose=True)
+            np.testing.assert_array_equal(char_roots,
+                                          lambda_ref,
+                                          verbose=True)
+
+        # test condition for complex-valued eigenvalues
+        condition = (params.a1 / (2 * params.a2)**2
+                     - (params.a0 - lamda) / params.a2)
+        np.testing.assert_array_less(condition,
+                                     np.zeros_like(lamda),
+                                     verbose=True)
 
         # test eigenvectors
         eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
@@ -242,7 +290,8 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         product_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
                                                          eig_base,
                                                          eig_base)
-        np.testing.assert_array_almost_equal(product_mat, np.eye(len(lambda_ref)))
+        np.testing.assert_array_almost_equal(product_mat,
+                                             np.eye(len(lambda_ref)))
 
         return eig_base
 

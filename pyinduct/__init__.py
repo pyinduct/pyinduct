@@ -3,12 +3,12 @@ import os
 import numpy as np
 import matplotlib as mpl
 
-# since this is a serious toolbox
-np.seterr(all="raise")
-
 # make everybody use qt5
 mpl.use('Qt5Agg')
 os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+
+# since this is a serious toolbox
+np.seterr(all="raise")
 
 # noinspection PyUnresolvedReferences
 from .core import *

@@ -162,6 +162,7 @@ class Function(BaseFraction):
                 if isinstance(val, tuple):
                     val = [val]
                 else:
+                    print(domain)
                     raise TypeError("List or tuple has to be provided for {0}".format(kw))
             setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
 
@@ -198,6 +199,8 @@ class Function(BaseFraction):
         if test_value is np.inf:
             test_value = 1
         if not isinstance(eval_handle(test_value), Number):
+            print(test_value)
+            print(type(eval_handle(test_value)))
             raise TypeError("callable must return number when called with scalar")
 
         self._function_handle = eval_handle
@@ -452,23 +455,29 @@ class Function(BaseFraction):
         Args:
             x (array-like): Places where the function has been evaluated .
             y (array-like): Function values at *x*.
-            **kwargs: all kwargs get passed to :py:class:`Function`
+            **kwargs: all kwargs get passed to :py:class:`Function` .
 
         Returns:
-            :py:class:`Function`: A constant function
+            :py:class:`Function`: An interpolating function.
         """
-        dom = kwargs.pop("domain", None)
-        if dom is None:
-            dom = (min(x), max(x))
+        dom = kwargs.pop("domain", (min(x), max(x)))
         nonzero = kwargs.pop("nonzero", dom)
         der_handles = kwargs.pop("derivative_handles", None)
 
         interp = interp1d(x, y, **kwargs)
 
-        func = Function(eval_handle=interp,
+        # TODO fix this behaviour
+        def wrapper(z):
+            res = interp(z)
+            if res.size == 1:
+                return np.float(res)
+            return res
+
+        func = Function(eval_handle=wrapper,
                         domain=dom,
                         nonzero=nonzero,
                         derivative_handles=der_handles)
+
         return func
 
 
@@ -775,7 +784,7 @@ def _dot_product_l2(first, second):
         by the second.
         """
         first_res = first(z)
-        return (np.real(first_res) - np.imag(first_res)) * second(z)
+        return np.conj(first(z)) * second(z)
 
     result, error = integrate_function(function, areas)
     return real(result)
@@ -973,11 +982,13 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
         return out if not transposed else out.T
 
     else:
-        i, j = np.mgrid[0:base_a.fractions.shape[0], 0:base_b.fractions.shape[0]]
+        i, j = np.mgrid[0:base_a.fractions.shape[0],
+                        0:base_b.fractions.shape[0]]
         fractions_i = base_a.fractions[i]
         fractions_j = base_b.fractions[j]
 
-        res = scalar_product_handle(fractions_i.flatten(), fractions_j.flatten())
+        res = scalar_product_handle(fractions_i.flatten(),
+                                    fractions_j.flatten())
         return res.reshape(fractions_i.shape)
 
 
@@ -998,7 +1009,7 @@ def project_on_base(function, base):
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(dot_product_l2,
                                                   Base(function),
-                                                  base).flatten()
+                                                  base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
@@ -1617,14 +1628,17 @@ def real(data):
     Return:
         numbers.Number or array_like: Real part of :code:`data`.
     """
-    data = sanitize_input(data, Number)
     candidates = np.real_if_close(data, tol=100)
 
     if candidates.dtype == 'complex':
         raise ValueError("Imaginary part does not vanish, "
                          + "check for implementation errors.")
 
-    return candidates.squeeze()
+    # TODO make numpy array to common data type (even for scalar values)
+    if candidates.size == 1:
+        return float(candidates)
+
+    return candidates
 
 
 class EvalData:

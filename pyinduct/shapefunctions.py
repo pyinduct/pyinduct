@@ -465,9 +465,9 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     """
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
-    try:
+    if hasattr(shapefunction_class, "cure_hint"):
         nodes, fractions = shapefunction_class.cure_hint(domain, **kwargs)
-    except AttributeError:
+    else:
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
     return nodes, Base(fractions)
