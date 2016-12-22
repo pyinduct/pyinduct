@@ -174,7 +174,8 @@ class SecondOrderEigenVector(Function):
 
             diff = max(0, count - len(eig_vectors))
 
-        return normalize_base(Base(eig_vectors[:count]))
+        base = normalize_base(Base(eig_vectors[:count]))
+        return domain, base
 
     @staticmethod
     def calculate_eigenvalues(domain, params, count, **kwargs):
@@ -731,11 +732,15 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
             sp_funcs.append(sp_funcs[-1].diff(z))
         self._funcs = LambdifiedSympyExpression(sp_funcs, z, (0, l))
 
-        zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0) for sp_func in sp_funcs]
-        self._zero_limit_funcs = LambdifiedSympyExpression(zero_limit_sp_funcs, z, (0, 1))
+        zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0)
+                               for sp_func in sp_funcs]
+        self._zero_limit_funcs = LambdifiedSympyExpression(
+            zero_limit_sp_funcs, z, (0, 1))
 
-        funcs = [self._eig_func_factory(der_ord) for der_ord in range(max_der_order + 1)]
-        Function.__init__(self, funcs[0], nonzero=(0, l), derivative_handles=funcs[1:])
+        funcs = [self._eig_func_factory(der_ord)
+                 for der_ord in range(max_der_order + 1)]
+        Function.__init__(self, funcs[0], domain=(0, l),
+                          derivative_handles=funcs[1:])
 
     def _eig_func_factory(self, der_order):
         om_is_close = self._om_is_close
@@ -859,33 +864,46 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
 
 class TransformedSecondOrderEigenfunction(Function):
-    """
-    This class provides an eigenfunction :math:`\\varphi(z)` to the eigenvalue problem given by
+    r"""
+    This class provides an eigenfunction :math:`\varphi(z)` to the eigenvalue
+     problem given by
 
-    .. math:: a_2(z)\\varphi''(z) + a_1(z)\\varphi'(z) + a_0(z)\\varphi(z) = \\lambda\\varphi(z) \\quad,
+    .. math:: a_2(z)\varphi''(z) + a_1(z)\varphi'(z) + a_0(z)\varphi(z)
+        = \lambda\varphi(z) \quad,
 
-    where :math:`\\lambda \\in \\mathbb{C}` denotes an eigenvalue and :math:`z \\in [z_0, \dotsc, z_n]` the domain.
+    where :math:`\lambda \in \mathbb{C}` denotes an eigenvalue and
+    :math:`z \in [z_0, \dotsc, z_n]` the domain.
 
     Args:
-        target_eigenvalue (numbers.Number): :math:`\\lambda`
-        init_state_vect (array_like):
-            .. math:: \\Big(\\text{Re}\\{\\varphi(0)\\}, \\text{Re}\\{\\varphi'(0)\\}, \\text{Im}\\{\\varphi(0)\\}, \\text{Im}\\{\\varphi'(0)\\}\\Big)^T
+        target_eigenvalue (numbers.Number): :math:`\lambda`
+        init_state_vector (array_like):
+            .. math:: \Big(\text{Re}\{\varphi(0)\}, \text{Re}\{\varphi'(0)\},
+                \text{Im}\{\varphi(0)\}, \text{Im}\{\varphi'(0)\}\Big)^T
         dgl_coefficients (array_like): Function handles
-            :math:`\\Big( a2(z), a1(z), a0(z) \\Big)^T` .
-        domain (array_like):
-            :math:`\\Big( z_0, ..... , z_n \\Big)`
+            :math:`\Big( a2(z), a1(z), a0(z) \Big)^T` .
+        domain (:py:class:pyinduct.core.Domain): Spatial domain of the problem
+            :math:`\Big( z_0, ..... , z_n \Big)`
     """
 
-    def __init__(self, target_eigenvalue, init_state_vect, dgl_coefficients, domain):
+    def __init__(self, target_eigenvalue, init_state_vector, dgl_coefficients,
+                 domain):
 
-        if not all([isinstance(state, (int, float)) for state in init_state_vect]) and len(init_state_vect) == 4 \
-                and isinstance(init_state_vect, (list, tuple)):
+        if (not all([isinstance(state, (int, float))
+                     for state in init_state_vector])
+                and len(init_state_vector) == 4
+                and isinstance(init_state_vector, (list, tuple))):
             raise TypeError
-        if not len(dgl_coefficients) == 3 and isinstance(dgl_coefficients, (list, tuple)) and all(
-            [isinstance(coef, collections.Callable) or isinstance(coef, (int, float)) for coef in dgl_coefficients]):
+
+        if (not len(dgl_coefficients) == 3
+            and isinstance(dgl_coefficients, (list, tuple))
+            and all([isinstance(coef, collections.Callable)
+                     or isinstance(coef, (int, float))
+                     for coef in dgl_coefficients])):
             raise TypeError
-        if not isinstance(domain, (np.ndarray, list)) or not all([isinstance(num, (int, float)) for num in domain]):
-            raise TypeError
+
+        # if (not isinstance(domain, (np.ndarray, list)) or
+        #         not all([isinstance(num, (int, float)) for num in domain])):
+        #     raise TypeError
 
         if isinstance(target_eigenvalue, complex):
             self._eig_val_real = target_eigenvalue.real
@@ -896,30 +914,38 @@ class TransformedSecondOrderEigenfunction(Function):
         else:
             raise TypeError
 
-        self._init_state_vect = init_state_vect
-        self._a2, self._a1, self._a0 = [coef  # Function.from_constant(coef, domain=domain)
-                                        for coef in dgl_coefficients]
+        self._init_state_vector = init_state_vector
+        self._a2, self._a1, self._a0 = dgl_coefficients
         self._domain = domain
 
-        state_vect = self._transform_eigenfunction()
-        self._transf_eig_func_real, self._transf_d_eig_func_real = state_vect[0:2]
-        self._transf_eig_func_imag, self._transf_d_eig_func_imag = state_vect[2:4]
+        state_vector = self._transform_eigenfunction()
+        self._transf_eig_func_real = state_vector[0]
+        self._transf_d_eig_func_real = state_vector[1]
+        self._transf_eig_func_imag = state_vector[2]
+        self._transf_d_eig_func_imag = state_vector[3]
 
-        Function.__init__(self, self._phi, nonzero=(domain[0], domain[-1]), derivative_handles=[self._d_phi])
+        Function.__init__(self, self._phi,
+                          domain=domain.bounds,
+                          derivative_handles=[self._d_phi])
 
     def _ff(self, y, z):
         a2, a1, a0 = [self._a2, self._a1, self._a0]
         wr = self._eig_val_real
         wi = self._eig_val_imag
-        d_y = np.array([y[1], -(a0(z) - wr) / a2(z) * y[0] - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2], y[3],
-                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2] - a1(z) / a2(z) * y[3]])
+        d_y = np.array([y[1],
+                        -(a0(z) - wr) / a2(z) * y[0]
+                        - a1(z) / a2(z) * y[1] - wi / a2(z) * y[2],
+                        y[3],
+                        wi / a2(z) * y[0] - (a0(z) - wr) / a2(z) * y[2]
+                        - a1(z) / a2(z) * y[3]])
         return d_y
 
     def _transform_eigenfunction(self):
-
-        eigenfunction = si.odeint(self._ff, self._init_state_vect, self._domain)
-
-        return [eigenfunction[:, 0], eigenfunction[:, 1], eigenfunction[:, 2], eigenfunction[:, 3]]
+        eigenfunction = si.odeint(self._ff,
+                                  self._init_state_vector,
+                                  self._domain.points)
+        return eigenfunction.T
+        # return [eigenfunction[:, 0], eigenfunction[:, 1], eigenfunction[:, 2], eigenfunction[:, 3]]
 
     def _phi(self, z):
         return np.interp(z, self._domain, self._transf_eig_func_real)
@@ -999,7 +1025,8 @@ class FiniteTransformFunction(Function):
 
         if not isinstance(function, collections.Callable):
             raise TypeError
-        if not isinstance(M, np.ndarray) or len(M.shape) != 2 or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0:
+        if (not isinstance(M, np.ndarray) or len(M.shape) != 2
+                or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0):
             raise TypeError
         if not all([isinstance(num, (int, float)) for num in [l, ]]):
             raise TypeError
@@ -1018,7 +1045,8 @@ class FiniteTransformFunction(Function):
 
         if not nested_lambda:
             # iteration mode
-            Function.__init__(self, self._call_transformed_func, nonzero=(0, l), derivative_handles=[])
+            Function.__init__(self, self._call_transformed_func,
+                              domain=(0, l), derivative_handles=[])
         else:
             # nested lambda mode
             self.x_func_vec = list()

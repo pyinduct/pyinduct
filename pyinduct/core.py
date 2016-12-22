@@ -146,10 +146,12 @@ class Function(BaseFraction):
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None):
         """
         Args:
-            eval_handle: Callable object that can be evaluated.
-            domain: Domain on which the eval_handle is defined.
-            nonzero: Region in which the eval_handle will give nonzero output.
-            derivative_handles (list): List of callable(s) that contain derivatives of eval_handle
+            eval_handle (callable): Callable object that can be evaluated.
+            domain((list of) tuples: Domain on which the eval_handle is defined.
+            nonzero(tuple): Region in which the eval_handle will return
+                nonzero output. Must be a subset of *domain*
+            derivative_handles (list): List of callable(s) that contain
+                derivatives of eval_handle
         """
         super().__init__(self)
         self._vectorial = False
