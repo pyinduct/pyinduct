@@ -60,23 +60,33 @@ class SecondOrderParameters(Parameters):
 
 class SecondOrderEigenVector(Function):
     r"""
-    This class provides the eigen vectors corresponding to a
-    linear second order spatial operator denoted by
+    This class provides eigenvectors of the form
 
-    .. math:: (Ax)(z) = a_2 \partial_z^2 x(z) + a_1 \partial_z x(z) + a_0 x(z)
+    .. math:: \varphi(z) =  e^{\eta z} \big(\kappa_1 \cos(\nu z)
+                            + \sin(\nu z) \big) \:,
 
-    where the :math:`a_i` are constant.
+    of a linear second order spatial operator :math:`\textup{A}` denoted by
 
-    With the boundary conditions:
+    .. math:: (\textup{A}\varphi)(z) = a_2 \partial_z^2 \varphi(z)
+                                        + a_1 \partial_z \varphi(z)
+                                        + a_0 \varphi(z)
+
+    where the :math:`a_i` are constant and whose boundary conditions are given
+    by
 
     .. math:: \alpha_1 \partial_z x(z_1) + \alpha_0 x(z_1) &= 0 \\
               \beta_1 \partial_z x(z_2) + \beta_0 x(z_2) &= 0 .
 
-    The calculate the corresponding eigenvectors, the problem
+    To calculate the corresponding eigenvectors, the problem
 
-    .. math:: (Ax)(z) = \lambda x(z)
+    .. math:: (\textup{A}\varphi)(z) = \lambda \varphi(z)
 
-    is solved for the eigenvalues :math:`\lambda` .
+    is solved for the eigenvalues :math:`\lambda` , making use of the
+    characteristic roots :math:`p` given by
+
+    .. math:: p = \underbrace{-\frac{a_1}{a_2}}_{=:\eta}
+                    + j\underbrace{\sqrt{ \frac{a_0 - \lambda}{a_2}
+                            - \left(\frac{a_1}{2a_2}\right)^2 }}_{=:\nu}
 
     Note:
         To easily instantiate a set of eigenvectors for a certain
@@ -99,12 +109,15 @@ class SecondOrderEigenVector(Function):
             (Can be obtained by :py:func:`convert_to_characteristic_root`)
         kappa (tuple): Constants of the exponential ansatz solution.
 
+    Returns:
+        :py:class:`SecondOrderEigenvector` : The eigenvector.
     """
 
     def __init__(self, char_root, kappa, domain, derivative_order):
         # build generic solution
         z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
-        gen_sols = [sp.exp(eta * z) * (kappa1 * sp.cos(nu * z) + kappa2 * sp.sin(nu * z))]
+        gen_sols = [sp.exp(eta * z) * (kappa1 * sp.cos(nu * z)
+                                       + kappa2 * sp.sin(nu * z))]
 
         gen_sols[0] = gen_sols[0].subs([(kappa1, kappa[0]),
                                         (kappa2, kappa[1]),
@@ -134,7 +147,8 @@ class SecondOrderEigenVector(Function):
             params (bunch-like): Parameters of the system, see
                 :py:func:`__init__` for details on their definition.
                 Long story short, it must contain
-                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and } \beta_1` .
+                :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and }
+                \beta_1` .
             count (int): Amount of eigenvectors to generate.
             derivative_order (int): Amount of derivative handles to provide.
             kwargs: will be passed to :py:func:`calculate_eigenvalues`
@@ -142,18 +156,19 @@ class SecondOrderEigenVector(Function):
         Keyword Arguments:
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
-        """
-        # if isinstance(params, list):
-        #     params = SecondOrderParameters.from_list(params)
 
+        Returns:
+            tuple of (Domain, Array): Pair of the spatial Domain and an array
+            holding the Eigenvectors.
+        """
         diff = 1
         while diff > 0:
-            eig_values, char_roots, kappa = SecondOrderEigenVector.calculate_eigenvalues(
-                domain,
-                params,
-                count + diff,
-                extended_output=True,
-                **kwargs)
+            eig_values, char_roots, kappa = \
+                SecondOrderEigenVector.calculate_eigenvalues(domain,
+                                                             params,
+                                                             count + diff,
+                                                             True,
+                                                             **kwargs)
 
             sing_sols = np.where(np.isnan(kappa[:, 1]))
             char_roots = np.delete(char_roots, sing_sols)
@@ -178,10 +193,11 @@ class SecondOrderEigenVector(Function):
         return domain, base
 
     @staticmethod
-    def calculate_eigenvalues(domain, params, count, **kwargs):
+    def calculate_eigenvalues(domain, params, count, extended_output=False,
+                              **kwargs):
         r"""
         Determine the eigenvalues of the problem given by *parameters*
-        on *domain* .
+        defined on *domain* .
 
         Parameters:
             domain (:py:class:`core.Domain`): Domain of the
@@ -191,14 +207,19 @@ class SecondOrderEigenVector(Function):
                 Long story short, it must contain
                 :math:`a_2, a_1, a_0, \alpha_0, \alpha_1,
                 \beta_0 \text{ and } \beta_1` .
-            count (int): Amount of eigenvectors to generate.
-
-        Keyword Arguments:
+            count (int): Amount of eigenvalues to generate.
             extended_output (bool): If true, not only eigenvalues but also
                 the corresponding characteristic roots and coefficients
                 of the eigenvectors are returned
+
+        Keyword Arguments:
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
+
+        Returns:
+            array or tuple of arrays: :math:`\lambda` , ordered in increasing
+            order or tuple of (:math:`\lambda, p, \boldsymbol{\kappa}` )
+            if *extended_output* is True.
         """
         if (params.alpha0 == 0 and params.alpha1 == 0
                 or params.beta0 == 0 and params.beta1 == 0):
@@ -263,8 +284,11 @@ class SecondOrderEigenVector(Function):
                 extract_trig(arg)
 
         extract_trig(numer)
-        max_freq = float(max(freqs))
-        root_dist = np.pi/(max_freq)
+        try:
+            max_freq = float(max(freqs))
+            root_dist = np.pi/max_freq
+        except ValueError:
+            root_dist = .1
 
         if kwargs.get("debug", False):
             sp.init_printing()
@@ -374,19 +398,15 @@ class SecondOrderEigenVector(Function):
         eigenvalue :math:`\lambda` by using the provided
         parameters. The relation is given by
 
-        .. math:: \lambda = a_0 - a_2\left(
-                                p_ 1^2 + p_1\frac{a_1}{a_2}
-                                + \frac{a_1^2}{2a_2^2}
-                                \right)
+        .. math:: \lambda = a_2 p^2 + a_1 p + a_0
 
         Parameters:
-            params (bunch): system parameters, see TODO.
+            params (:py:class:`SecondOrderParamters`): system parameters, see .
             char_root (complex): characteristic_root
         """
-        return real(params.a0 + params.a2 * (
-            char_root ** 2
-            + char_root * params.a1 / params.a2
-        ))
+        return real(params.a2 * char_root ** 2
+                    + params.a1 * char_root
+                    + params.a0)
 
     @staticmethod
     def convert_to_characteristic_root(params, eigenvalue):
@@ -396,18 +416,19 @@ class SecondOrderEigenVector(Function):
         parameters. The relation is given by
 
         .. math:: p = -\frac{a_1}{a_2}
-                        + j\sqrt{\left(\frac{a_1}{2a_2}\right)^2
-                                - \frac{a_0}{a_2}\lambda}
+                    + j\sqrt{ \frac{a_0 - \lambda}{a_2}
+                            - \left(\frac{a_1}{2a_2}\right)^2 }
 
         Parameters:
-            params (bunch): system parameters, see TODO.
+            params (bunch): system parameters, see :py:func:`cure_hint` .
             eigenvalue (real): eigenvalue :math:`\lambda`
+
+        Returns:
+            complex number: characteristic root :math:`p`
         """
         return (-params.a1/(2 * params.a2)
-                + 1j * np.sqrt(
-                        (params.a1 / (2 * params.a2)) ** 2
-                        - params.a0 / params.a2 * eigenvalue)
-                )
+                + 1j * np.sqrt((params.a0 - eigenvalue) / params.a2
+                               - (params.a1 / (2 * params.a2)) ** 2))
 
 
 class LambdifiedSympyExpression(Function):
@@ -866,7 +887,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 class TransformedSecondOrderEigenfunction(Function):
     r"""
     This class provides an eigenfunction :math:`\varphi(z)` to the eigenvalue
-     problem given by
+    problem given by
 
     .. math:: a_2(z)\varphi''(z) + a_1(z)\varphi'(z) + a_0(z)\varphi(z)
         = \lambda\varphi(z) \quad,
@@ -881,8 +902,8 @@ class TransformedSecondOrderEigenfunction(Function):
                 \text{Im}\{\varphi(0)\}, \text{Im}\{\varphi'(0)\}\Big)^T
         dgl_coefficients (array_like): Function handles
             :math:`\Big( a2(z), a1(z), a0(z) \Big)^T` .
-        domain (:py:class:pyinduct.core.Domain): Spatial domain of the problem
-            :math:`\Big( z_0, ..... , z_n \Big)`
+        domain (:py:class:`pyinduct.core.Domain`): Spatial domain of the
+            problem.
     """
 
     def __init__(self, target_eigenvalue, init_state_vector, dgl_coefficients,
@@ -945,7 +966,6 @@ class TransformedSecondOrderEigenfunction(Function):
                                   self._init_state_vector,
                                   self._domain.points)
         return eigenfunction.T
-        # return [eigenfunction[:, 0], eigenfunction[:, 1], eigenfunction[:, 2], eigenfunction[:, 3]]
 
     def _phi(self, z):
         return np.interp(z, self._domain, self._transf_eig_func_real)

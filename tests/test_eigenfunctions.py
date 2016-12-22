@@ -285,8 +285,15 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         # check for correct length
         self.assertEqual(len(eig_base.fractions), len(lambda_ref))
 
-        # test whether the bcs are fulfilled
-        for fraction in eig_base.fractions:
+        for fraction, lam in zip(eig_base.fractions, lamda):
+            # test whether the operator is satisfied
+            left = (params.a2 * fraction.diff(2)(self.domain.points)
+                    + params.a1 * fraction.diff(1)(self.domain.points)
+                    + params.a0 * fraction(self.domain.points))
+            right = lam * fraction(self.domain.points)
+            self.assertTrue(np.allclose(left, right))
+
+            # test whether the bcs are fulfilled
             bc1 = (params.alpha0 * fraction(self.domain.bounds[0])
                    + params.alpha1 * fraction.derive(1)(self.domain.bounds[0]))
             self.assertAlmostEqual(bc1, 0)

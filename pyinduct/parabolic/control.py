@@ -13,18 +13,19 @@ __all__ = ["get_parabolic_robin_backstepping_controller", "split_domain"]
 
 def split_domain(n, a_desired, l, mode='coprime'):
     """
-    Consider a domain [0,l] which is divided into the two sub domains [0,a] and [a,l]
-    with:
+    Consider a domain [0,l] which is divided into the two sub domains [0,a]
+    and [a,l] with:
 
     -the discretization l_0 = l/n
 
     -and a partition a+b=l.
 
-    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close to a_desired modes:
+    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close
+    to a_desired modes:
 
-    - 'force_k2_as_prime_number': k2 is an prime number (k1,k2 are coprime)
+    - 'force_k2_as_prime_number': k2 is an prime number (k1, k2 are coprime)
 
-    - 'coprime': k1,k2 are coprime
+    - 'coprime': k1, k2 are coprime
 
     - 'one_even_one_odd': just meet the specification from the doc (default)
 
@@ -96,8 +97,8 @@ def split_domain(n, a_desired, l, mode='coprime'):
 
 def scale_equation_term_list(eqt_list, factor):
     """
-    Temporary function, as long :py:class:`pyinduct.placeholder.EquationTerm` can only be scaled individually.
-    Return a scaled copy of eqt_list.
+    Temporary function, as long :py:class:`pyinduct.placeholder.EquationTerm`
+    can only be scaled individually.
 
     Args:
         eqt_list (list):
@@ -121,8 +122,14 @@ def scale_equation_term_list(eqt_list, factor):
     return eqt_list_copy
 
 
-def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_state, approx_target_state,
-                                                d_approx_target_state, integral_kernel_zz, original_beta, target_beta,
+def get_parabolic_robin_backstepping_controller(state,
+                                                approx_state,
+                                                d_approx_state,
+                                                approx_target_state,
+                                                d_approx_target_state,
+                                                integral_kernel_zz,
+                                                original_beta,
+                                                target_beta,
                                                 scale=None):
     # TODO add docstring for this method
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
@@ -139,12 +146,16 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
     beta = original_beta
     beta_t = target_beta
 
-    unsteady_term = scale_equation_term_list(state, beta - beta_t - integral_kernel_zz)
+    unsteady_term = scale_equation_term_list(state, beta - beta_t
+                                             - integral_kernel_zz)
+
     first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
     first_sum_2nd_term = scale_equation_term_list(approx_state, beta_t)
+
     second_sum_1st_term = scale_equation_term_list(d_approx_target_state, -1)
     second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
-    second_sum_3rd_term = scale_equation_term_list(approx_state, integral_kernel_zz)
+    second_sum_3rd_term = scale_equation_term_list(approx_state,
+                                                   integral_kernel_zz)
 
     control_law = (unsteady_term
                    + first_sum_1st_term
@@ -163,10 +174,8 @@ def get_parabolic_robin_backstepping_controller(state, approx_state, d_approx_st
 
 
 # TODO: change to factory, rename: function_wrapper
-def _convert_to_function(coef):
-    if not isinstance(coef, collections.Callable):
-        return lambda z: coef
-    else:
-        return coef
-
-
+# def _convert_to_function(coef):
+#     if not isinstance(coef, collections.Callable):
+#         return lambda z: coef
+#     else:
+#         return coef
