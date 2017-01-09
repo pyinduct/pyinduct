@@ -798,10 +798,12 @@ def integrate_function(function, interval):
 
     Args:
         function(callable): Function to integrate.
-        interval(Tuple): (start, end) values of the Interval to integrate on.
+        interval(list of tuples): List of (start, end) values of the intervals
+            to integrate on.
 
     Return:
-        tuple: (Result of the Integration, errors that occurred during the integration).
+        tuple: (Result of the Integration, errors that occurred during the
+            integration).
 
     """
     result = 0

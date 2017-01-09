@@ -30,8 +30,8 @@ class ConstantTrajectory(SimulationInput):
         const (numbers.Number): Desired constant value of the output.
     """
 
-    def __init__(self, const=0):
-        SimulationInput.__init__(self)
+    def __init__(self, const=0, name=""):
+        super().__init__(name)
         self._const = const
 
     def _calc_output(self, **kwargs):
