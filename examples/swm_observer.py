@@ -161,7 +161,7 @@ def build_observer_can(sys_approx_label, obs_approx_label, sys_input, params):
         ph.ScalarTerm(eta3(-1).derive(spat_order=1), scale=-params.m / 2),
         ph.ScalarTerm(eta3(1).derive(spat_order=1), scale=-params.m / 2),
         ph.ScalarTerm(eta1(0), scale=-params.m / 2),
-    ]))
+    ]), weighted_initial_error=0.1)
     u_vec = sim.SimulationInputVector([sys_input, obs_err])
 
     d_eta1 = sim.WeakFormulation(

@@ -758,7 +758,6 @@ def convert_cfs_to_state_space(list_of_cfs):
         slice_begin = 0 if len(odict_info) == 1 else list(odict_info.values())[-2]["slice_indices"][1]
         odict_info[label]["slice_indices"] = (slice_begin, slice_begin + cfs.len_weights)
 
-
     input_function_set = set(
         [cfs.dynamic_form.input_function for cfs in list_of_cfs if not cfs.dynamic_form.input_function is None]
     )
@@ -1486,7 +1485,7 @@ class Observer(StateSpace):
         \\dot{\\boldsymbol{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) + \\boldsymbol{L} \\tilde{\\boldsymbol{y}} \\\\
         \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
 
-    Where :math:`\tilde{\\boldsymbol{y}}` is the observer error.
+    Where :math:`\\tilde{\\boldsymbol{y}}` is the observer error.
     The corresponding infinite dimensional observer has been approximated by a base given by weight_label.
 
     Args:
@@ -1536,14 +1535,31 @@ class ObserverError(SimulationInput):
     Args:
         sys_part (:py:class:`FeedbackLaw`): Hold the terms which approximated from system weights.
         obs_part (:py:class:`FeedbackLaw`): Hold the terms which approximated from observer weights.
+
+    Keyword Args:
+        weighted_initial_error (numbers.Number): Time :math:`t^*` (default: None). If the kwarg is given
+            the observer error will be weighted
+            :math:`\\tilde{y}_{\\varphi}(t) = \\varphi(t)\\tilde{y}(t)` with the function
+
+            .. math::
+                :nowrap:
+
+                \\begin{align*}
+                    \\varphi(t) =  \\left\\{\\begin{array}{lll}
+                        0 & \\forall & t < 0 \\\\
+                        (1-\\cos\\pi\\frac{t}{t^*}) / 2 & \\forall & t \\in [0, 1] \\\\
+                        1 & \\forall  & t > 1.
+                    \\end{array}\\right.
+                \\end{align*}
     """
 
-    def __init__(self, sys_part, obs_part):
+    def __init__(self, sys_part, obs_part, weighted_initial_error=None):
         SimulationInput.__init__(self, name="observer error: " + sys_part.name + " + " + obs_part.name)
         sys_c_forms = approximate_feedback_law(sys_part)
         self._sys_evaluator = LawEvaluator(sys_c_forms)
         obs_c_forms = approximate_feedback_law(obs_part)
         self._obs_evaluator = LawEvaluator(obs_c_forms)
+        self._weighted_initial_error = weighted_initial_error
 
     def _calc_output(self, **kwargs):
         """
@@ -1560,7 +1576,12 @@ class ObserverError(SimulationInput):
         """
         sp = self._sys_evaluator(kwargs["sys_weights"], kwargs["sys_weights_lbl"], kwargs["sys_fam_tree"])["output"]
         op = self._obs_evaluator(kwargs["obs_weights"], kwargs["obs_weights_lbl"], kwargs["obs_fam_tree"])["output"]
-        return dict(output=sp + op)
+        if self._weighted_initial_error is None or np.isclose(self._weighted_initial_error, 0):
+            return dict(output=sp + op)
+        else:
+            t = np.clip(kwargs["time"], 0, self._weighted_initial_error)
+            phi = (1 - np.cos(t / self._weighted_initial_error * np.pi)) * .5
+            return dict(output=phi * (sp + op))
 
 
 def build_observer_from_state_space(state_space):
