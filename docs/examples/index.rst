@@ -9,3 +9,4 @@ For more examples, which might not be part of the documentation, have a look at 
 
     transport_system
     rad_dirichlet_fem
+    swm_sim_ctrl_obs
