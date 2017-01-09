@@ -175,7 +175,7 @@ def build_observer_can(sys_approx_label, obs_approx_label, sys_input, params):
     d_eta2 = sim.WeakFormulation(
         [
             ph.ScalarTerm(eta2(0).derive(temp_order=1), scale=-1),
-            ph.ScalarTerm(eta1(0)),
+            ph.ScalarTerm(eta1(0)), # index error in paper
             ph.ScalarTerm(ph.Input(u_vec, index=0), scale=2 / params.m),
             ph.ScalarTerm(ph.Input(u_vec, index=1), scale=-(1 + params.alpha_ob) * params.k1_ob - 2 * params.k0_ob)
         ],
@@ -184,7 +184,7 @@ def build_observer_can(sys_approx_label, obs_approx_label, sys_input, params):
     d_eta3 = sim.WeakFormulation(
         [
             ph.IntegralTerm(ph.Product(eta3.derive(temp_order=1), psi), limits=limits, scale=-1),
-            ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits),
+            ph.IntegralTerm(ph.Product(ph.Product(obs_scale1, psi), ph.Input(u_vec, index=0)), limits=limits, scale=-1), # sign error in paper
             ph.IntegralTerm(ph.Product(ph.Product(obs_scale2, psi), ph.Input(u_vec, index=1)), limits=limits),
             # \hat y
             ph.IntegralTerm(ph.Product(eta3(-1).derive(spat_order=1), psi), limits=limits, scale=1 / 2),
