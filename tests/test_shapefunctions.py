@@ -10,7 +10,6 @@ import pyinduct.shapefunctions as sh
 import sympy as sp
 import tests.test_data.test_shapefunctions_data as shape_data
 from pyinduct.visualization import create_colormap
-import test_data.test_shapefunctions_data
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False

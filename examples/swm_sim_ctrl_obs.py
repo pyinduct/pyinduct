@@ -180,69 +180,61 @@ def build_control_law(approx_label, params):
     # (sphinx directive) end build_control_law
 
 
-def build_observer_org(sys_approx_label, obs_approx_label1, obs_approx_label2, sys_input, params):
+def build_observer_org(sys_approx_label, obs_approx_label, sys_input, params):
     """
     """
     limits = (0, 1)
+    psi = ph.TestFunction(obs_approx_label)
 
-    def dummy_one(z):
-        return 1
-
-    x1_hat = ph.FieldVariable(obs_approx_label1)
-    x2_hat = ph.FieldVariable(obs_approx_label2)
-    register_base("xi1_hat", cr.Function(dummy_one, domain=limits))
-    register_base("xi2_hat", cr.Function(dummy_one, domain=limits))
-    xi1_hat = ph.FieldVariable("xi1_hat")
-    xi2_hat = ph.FieldVariable("xi2_hat")
-    psi1 = ph.TestFunction(obs_approx_label1)
-    psi2 = ph.TestFunction(obs_approx_label2)
-
+    # system variable
     x = ph.FieldVariable(sys_approx_label)
-    obs_err = sim.ObserverError(sim.FeedbackLaw([
-        ph.ScalarTerm(x(0), scale=-1)
-    ]), sim.FeedbackLaw([
-        ph.ScalarTerm(x1_hat(0)),
-    ]))
-    u_vec = sim.SimulationInputVector([sys_input, obs_err])
+    # observer variables
+    x1 = ph.FieldVariable(obs_approx_label)
+    x2 = x1.derive(temp_order=1)
+    xi1 = x1(0)
+    xi2 = x2(0)
+    # obserer gain
+    L = np.array([-params.m/2*(params.alpha_ob-1)*params.k0_ob,
+                  0,
+                  1/2*(params.alpha_ob+1)*params.k1_ob,
+                  1/2*(params.alpha_ob+1)*params.k0_ob])
 
-    d_x1_hat = sim.WeakFormulation(
+    obs_err = sim.ObserverError(sim.FeedbackLaw([ph.ScalarTerm(x(0), scale=-1)]),
+                                sim.FeedbackLaw([ph.ScalarTerm(x1(0))]))
+    d_obs_err = sim.ObserverError(sim.FeedbackLaw([ph.ScalarTerm(x.derive(temp_order=1)(0), scale=-1)]),
+                                sim.FeedbackLaw([ph.ScalarTerm(x1.derive(temp_order=1)(0))]))
+    u_vec = sim.SimulationInputVector([sys_input, obs_err, d_obs_err])
+
+    wf = sim.WeakFormulation(
         [
-            ph.IntegralTerm(ph.Product(x1_hat.derive(temp_order=1), psi1.derive(order=1)), limits=limits, scale=-1),
-            ph.ScalarTerm(ph.Product(x2_hat(1), psi1(1))),
-            ph.ScalarTerm(ph.Product(x1_hat.derive(temp_order=1)(0), psi1(0)), scale=-1),
-            ph.IntegralTerm(ph.Product(x2_hat.derive(spat_order=1), psi1), limits=limits, scale=-1),
-            # (sphinx directive) observer gain
-            ph.IntegralTerm(ph.Product(ph.Input(u_vec, index=1), psi1), limits=limits,
-                            scale=params.m / 2 * (1 + params.alpha_ob)),
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi1(0)),
-                          scale=-.5 * ((1 + params.alpha_ob) * params.k1_ob + 2 * params.k0_ob)),
-            # dummy
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=0), psi1(1)), scale=0),
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi1(1)), scale=0),
-        ],
-        dynamic_weights="x1_hat"
-    )
-    d_x2_hat = sim.WeakFormulation(
-        [
-            ph.IntegralTerm(ph.Product(x2_hat.derive(temp_order=1), psi2), limits=limits, scale=-1),
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=0), psi2(1))),
-            ph.ScalarTerm(ph.Product(x2_hat.derive(temp_order=1)(0), psi2(0)), scale=-params.m),
-            ph.IntegralTerm(ph.Product(x1_hat.derive(spat_order=1), psi2.derive(order=1)), limits=limits, scale=-1),
+            ph.IntegralTerm(ph.Product(x1.derive(temp_order=1), psi), limits=limits, scale=-1),
+            ph.IntegralTerm(ph.Product(x2.derive(temp_order=1), psi), limits=limits, scale=-1),
+            ph.ScalarTerm(ph.Product(xi1.derive(temp_order=1), psi(0)), scale=-1),
+            ph.ScalarTerm(ph.Product(xi2.derive(temp_order=1), psi(0)), scale=-1),
+            ph.IntegralTerm(ph.Product(x2, psi), limits=limits),
+            # shift of <x1'', psi>
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=0), psi(1))),
+            ph.ScalarTerm(ph.Product(x1.derive(spat_order=1)(0), psi(0)), scale=-1),
+            ph.IntegralTerm(ph.Product(x1.derive(spat_order=1), psi.derive(order=1)), limits=limits, scale=-1),
+            # shift end
+            ph.ScalarTerm(ph.Product(xi2, psi(0))),
+            ph.ScalarTerm(ph.Product(x1.derive(spat_order=1)(0), psi(0)), scale=1/params.m),
             # observer gain
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi2(0)), scale=-params.m / 2 * (1 + params.alpha_ob)),
-            # dummy
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=0), psi2(1)), scale=0),
-            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi2(1)), scale=0),
-        ],
-        dynamic_weights="x2_hat"
+            # from <\dot xi1, psi(0)> and the bc \xi1 = y + (alpha-1) \tilde y
+            # ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=2), psi(0)), scale=-(params.alpha_ob-1)),
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=2), psi(0)), scale=0),
+            # from <\dot x1, psi> = <x2, psi> - <L[0] \tilde y, psi>
+            ph.IntegralTerm(ph.Product(ph.Input(u_vec, index=1), psi), limits=limits, scale=-L[0]),
+            # from <\dot xi1, psi(0)> = <xi2, psi(0)> - <L[2] \tilde y, psi(0)>
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi(0)), scale=-L[2]),
+            # from <\dot xi2, psi(0)> = m <x1'(0), psi(0)> - <L[3] \tilde y, psi(0)>
+            ph.ScalarTerm(ph.Product(ph.Input(u_vec, index=1), psi(0)), scale=-L[3]),
+        ]
     )
 
-    d_x1_cfs = sim.parse_weak_formulation(d_x1_hat)
-    d_x2_cfs = sim.parse_weak_formulation(d_x2_hat)
+    cf = sim.parse_weak_formulation(wf)
 
-    obs_ss = sim.convert_cfs_to_state_space([d_x1_cfs, d_x2_cfs])
-
-    return sim.build_observer_from_state_space(obs_ss)
+    return sim.build_observer_from_state_space(cf.convert_to_state_space())
 
 
 def build_observer_can(sys_approx_label, obs_approx_label, sys_input, params):
@@ -311,13 +303,15 @@ def build_observer_can(sys_approx_label, obs_approx_label, sys_input, params):
     eta3 = ph.FieldVariable(obs_approx_label)
     psi = ph.TestFunction(obs_approx_label)
 
-    obs_err = sim.ObserverError(sim.FeedbackLaw([
-        ph.ScalarTerm(ph.FieldVariable(sys_approx_label, location=0), scale=-1)
-    ]), sim.FeedbackLaw([
-        ph.ScalarTerm(eta3(-1).derive(spat_order=1), scale=-params.m / 2),
-        ph.ScalarTerm(eta3(1).derive(spat_order=1), scale=-params.m / 2),
-        ph.ScalarTerm(eta1(0), scale=-params.m / 2),
-    ]), weighted_initial_error=0.1)
+    obs_err = sim.ObserverError(
+        sim.FeedbackLaw([
+            ph.ScalarTerm(ph.FieldVariable(sys_approx_label, location=0), scale=-1)]),
+        sim.FeedbackLaw([
+            ph.ScalarTerm(eta3(-1).derive(spat_order=1), scale=-params.m / 2),
+            ph.ScalarTerm(eta3(1).derive(spat_order=1), scale=-params.m / 2),
+            ph.ScalarTerm(eta1(0), scale=-params.m / 2)]),
+        # weighted_initial_error=0.1
+    )
     u_vec = sim.SimulationInputVector([sys_input, obs_err])
 
     d_eta1 = sim.WeakFormulation(
@@ -399,7 +393,7 @@ if __name__ == "__main__":
     nf_observer = True
 
     # temporal and spatial domain specification
-    t_end = 8
+    t_end = 20
     temp_domain = sim.Domain(bounds=(0, t_end), step=.01)
     spat_domain = sim.Domain(bounds=(0, 1), step=.01)
 
@@ -429,12 +423,8 @@ if __name__ == "__main__":
         obs_can_nodes, obs_can_funcs = sh.cure_interval(sh.LagrangeNthOrder, (-1, 1), node_count=25, order=4)
         register_base("obs_can", obs_can_funcs)
     else:
-        obs_org_nodes1, obs_org_funcs1 = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=9,
-                                                          order=2)
-        obs_org_nodes2, obs_org_funcs2 = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=9,
-                                                          order=2)
-        register_base("x1_hat", obs_org_funcs1)
-        register_base("x2_hat", obs_org_funcs1)
+        obs_org_nodes, obs_org_funcs = sh.cure_interval(sh.LagrangeNthOrder, spat_domain.bounds, node_count=9, order=2)
+        register_base("obs_org", obs_org_funcs)
 
     # system input
     if 1:
@@ -452,18 +442,18 @@ if __name__ == "__main__":
         u = sim.SimulationInputSum([tr.ConstantTrajectory(0)])
 
     # system state space
-    sys_ss = build_system_state_space("sim", spat_domain.bounds, u, params)
+    sys_ss = build_system_state_space("sim", u, params)
     sys_init = np.zeros(sys_ss.A[1].shape[0])
-    # sys_init = np.hstack((np.ones(sys_funcs.shape[0]), np.zeros(sys_funcs.shape[0])))
+    # sys_init = np.hstack((.5*np.ones(sys_funcs.shape[0]), np.zeros(sys_funcs.shape[0])))
 
     # observer state space
     if nf_observer:
         obs_ss = build_observer_can("sim", "obs_can", u, params)
         obs_init = np.ones(obs_ss.A[1].shape[0])
     else:
-        obs_ss = build_observer_org("sim", "x1_hat", "x2_hat", u, params)
-        # obs_init = np.zeros(obs_ss.A[1].shape[0])
-        obs_init = np.hstack((np.ones(obs_org_funcs1.shape[0]), np.zeros(obs_org_funcs2.shape[0])))
+        obs_ss = build_observer_org("sim", "obs_org", u, params)
+        obs_init = np.zeros(obs_ss.A[1].shape[0])
+        # obs_init = np.hstack((np.ones(obs_org_funcs.shape[0]), np.zeros(obs_org_funcs.shape[0])))
 
     # simulation
     if nf_observer:
@@ -471,7 +461,7 @@ if __name__ == "__main__":
             sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init
         )
     else:
-        sim_domain, x_w, x1_w, x2_w = sim.simulate_state_space(
+        sim_domain, x_w, x1_w = sim.simulate_state_space(
             sys_ss, sys_init, temp_domain, obs_ss=obs_ss, obs_init_state=obs_init
         )
 
@@ -485,7 +475,7 @@ if __name__ == "__main__":
             dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data
         ))
     else:
-        x_obs_data = sim.process_sim_data("x1_hat", x1_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e1), 0, 0)[0]
+        x_obs_data = sim.process_sim_data("obs_org", x1_w, sim_domain, sim.Domain(bounds=(0, 1), num=1e1), 0, 0)[0]
 
     # animation
     plot1 = vis.PgAnimatedPlot([x_data, x_obs_data])
