@@ -105,8 +105,9 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
 
     def __init__(self, data):
-        pg.QtCore.QObject.__init__(self)
         DataPlot.__init__(self, data)
+        pg.mkQApp()
+        pg.QtCore.QObject.__init__(self)
 
 
 class PgAnimatedPlot(PgDataPlot):
@@ -195,7 +196,7 @@ class PgAnimatedPlot(PgDataPlot):
         self._curr_frame = 0
         self._t = 0
 
-        self._timer = pg.QtCore.QTimer()
+        self._timer = pg.QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_plot)
         self._timer.start(self._tr)
 
@@ -249,47 +250,114 @@ class PgSurfacePlot(PgDataPlot):
     Plot as 3d surface.
     """
 
-    def __init__(self, data, grid_height=None, title=""):
+    def __init__(self, data, scales=None, title=""):
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
+        self.gl_widget.setCameraPosition(distance=1, azimuth=-45)
         self.gl_widget.show()
 
-        if grid_height is None:
-            grid_height = max([data.output_data.max() for data in self._data])
+        # calculate minima and maxima
+        maxima = np.max(
+            [np.array([max(abs(entry)) for entry in data_set.input_data])
+             for data_set in self._data],
+            axis=0)
+        maxima =  np.hstack((maxima,
+                             max([data_set.max for data_set in self._data])))
+        print(maxima)
 
-        max_0 = max([max(data.input_data[0]) for data in self._data])
-        max_1 = max([max(data.input_data[1]) for data in self._data])
+        if scales is None:
+            # scale all axes uniformly
+            self.scales = [1/value for value in maxima]
+        else:
+            self.scales = scales
 
-        # because gl.GLGridItem.setSize() is broken gl.GLGridItem.scale() must be used
-        grid_height_s = grid_height / 20
-        max_0_s = max_0 / 20
-        max_1_s = max_1 / 20
+        print(self.scales)
 
-        for n in range(len(self._data)):
-            plot_item = gl.GLSurfacePlotItem(x=np.atleast_1d(self._data[n].input_data[0]),
-                                             y=np.flipud(np.atleast_1d(self._data[n].input_data[1])),
-                                             z=self._data[n].output_data, shader='normalColor')
-            plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
-            self.gl_widget.addItem(plot_item)
+        self.plot_items = []
+        if len(data.input_data) == 3:
+            # 2d system over time -> animate
+            # assume that for 4d data, the first axis is the time
+            for idx, data_set in enumerate(self._data):
+                plot_item = gl.GLSurfacePlotItem(
+                    x=self.scales[1] * np.atleast_1d(data_set.input_data[1]),
+                    y=self.scales[2] * np.flipud(
+                        np.atleast_1d(data_set.input_data[2])),
+                    z=self.scales[3] * data_set.output_data[0],
+                    shader="normalColor")
 
-        self._xgrid = gl.GLGridItem()
-        self._xgrid.scale(x=max_0_s, y=max_1_s, z=grid_height_s)
-        self._xgrid.translate(0, 0, -grid_height / 2)
-        self.gl_widget.addItem(self._xgrid)
+                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
+                self.gl_widget.addItem(plot_item)
+                self.plot_items.append(plot_item)
 
-        self._ygrid = gl.GLGridItem()
-        self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
-        self._ygrid.rotate(90, 0, 1, 0)
-        self._ygrid.translate(max_0 / 2, 0, 0)
-        self.gl_widget.addItem(self._ygrid)
+            self.index_offset = 1
+            self.t_idx = 0
+            self._timer = pg.QtCore.QTimer(self)
+            self._timer.timeout.connect(self._update_plot)
+            self._timer.start(100)
+        else:
+            # 1d system over time -> static
+            self.index_offset = 0
+            for idx, item in enumerate(self._data):
+                plot_item = gl.GLSurfacePlotItem(
+                    x=self.scales[0] * np.atleast_1d(
+                        self._data[idx].input_data[0]),
+                    y=self.scales[1] * np.flipud(np.atleast_1d(
+                        self._data[idx].input_data[1])),
+                    z=self.scales[2] * self._data[idx].output_data,
+                    shader="normalColor")
 
-        self._zgrid = gl.GLGridItem()
-        self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
-        self._zgrid.rotate(90, 1, 0, 0)
-        self._zgrid.translate(0, max_1 / 2, 0)
-        self.gl_widget.addItem(self._zgrid)
+                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
+                self.gl_widget.addItem(plot_item)
+                self.plot_items.append(plot_item)
 
+        # sinc gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
+        # self._xygrid = gl.GLGridItem()
+        # self._xygrid.scale(x=self.scales[0 + self.index_offset],
+        #                    y=self.scales[1 + self.index_offset],
+        #                    z=0)
+        # self._xygrid.translate(0, 0, -maxima[-1]*self.scales[-1]/2)
+        # self.gl_widget.addItem(self._xygrid)
+
+        # self._ygrid = gl.GLGridItem()
+        # self._ygrid.scale(x=self.scales[0 + self.index_offset],
+        #                   y=self.scales[1 + self.index_offset],
+        #                   z=self.scales[-1])
+        # self._ygrid.rotate(90, 0, 1, 0)
+        # self._ygrid.translate(0,
+        #                       -maxima[1 + self.index_offset]*
+        #                       self.scales[1 + self.index_offset]/2,
+        #                       0)
+        # self.gl_widget.addItem(self._ygrid)
+
+        # self._ygrid = gl.GLGridItem()
+        # self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
+        # self._ygrid.rotate(90, 0, 1, 0)
+        # self._ygrid.translate(max_0 / 2, 0, 0)
+        # self.gl_widget.addItem(self._ygrid)
+        #
+        # self._zgrid = gl.GLGridItem()
+        # self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
+        # self._zgrid.rotate(90, 1, 0, 0)
+        # self._zgrid.translate(0, max_1 / 2, 0)
+        # self.gl_widget.addItem(self._zgrid)
+
+    def _update_plot(self):
+        """
+        Update the rendering
+        """
+        for idx, item in enumerate(self.plot_items):
+            x_data = self.scales[1] * np.atleast_1d(self._data[idx].input_data[1])
+            y_data = self.scales[2] * np.flipud(
+                np.atleast_1d(self._data[idx].input_data[2]))
+            z_data = self.scales[3] * self._data[idx].output_data[self.t_idx]
+            item.setData(x=x_data, y=y_data, z=z_data)
+
+        self.t_idx += 1
+
+        # TODO check if array has enough timestamps in it
+        if self.t_idx >= len(self._data[0].input_data[0]):
+            self.t_idx = 0
 
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
