@@ -196,9 +196,8 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         b_mat = -self.param[0] * np.atleast_2d(
             [fraction.derive()(self.l)
              for fraction in self.eig_base.fractions]).T
-        ss = pi.StateSpace(a_mat, b_mat,
-                           input_handle=control_law,
-                           base_lbl="eig_base")
+        ss = pi.StateSpace(a_mat, b_mat, base_lbl="eig_base",
+                           input_handle=control_law)
 
         # simulate
         t, q = pi.simulate_state_space(ss, initial_weights, self.dt)
@@ -220,7 +219,6 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         pi.deregister_base("eig_base_t")
 
 
-# @unittest.skip
 class RadRobinControlApproxTest(unittest.TestCase):
     """
     """
@@ -240,11 +238,6 @@ class RadRobinControlApproxTest(unittest.TestCase):
                                             beta1=1, beta0=beta)
         self.adjoint_param = self.param.get_adjoint_problem()
 
-        if 0:
-            self.param = [a2, a1, a0, alpha, beta]
-            self.adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(
-                self.param)
-
         # target system parameters (controller parameters)
         a1_t = -5
         a0_t = -25
@@ -252,12 +245,8 @@ class RadRobinControlApproxTest(unittest.TestCase):
         beta_t = 2
 
         self.param_t = pi.SecondOrderOperator(a2=a2, a1=a1_t, a0=a0_t,
-                                              alpha1=1, alpha0=alpha_t,
+                                              alpha1=1, alpha0=-alpha_t,
                                               beta1=1, beta0=beta_t)
-
-        if 0:
-            # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
-            self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti")
         # system parameters
@@ -276,23 +265,32 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         self.modal_order = 10
 
-        # create  eigenfunctions
-        _eig_base = pi.SecondOrderEigenVector.cure_hint(
+        # calculate eigenvalues and eigenvectors of original and adjoint system
+        self.eig_values, _eig_base = pi.SecondOrderEigenVector.cure_hint(
             domain=self.dz,
             params=self.param,
             count=self.modal_order,
-            derivative_order=2,
-            debug=True)
-        _adjoint_eig_base = pi.SecondOrderEigenVector.cure_hint(
-            domain=self.dz,
-            params=self.adjoint_param,
-            count=self.modal_order,
-            derivative_order=2,
-            debug=True)
+            derivative_order=2)
+        self.adjoint_eig_values, _adjoint_eig_base = \
+            pi.SecondOrderEigenVector.cure_hint(domain=self.dz,
+                                                params=self.adjoint_param,
+                                                count=self.modal_order,
+                                                derivative_order=2)
 
-        # normalize eigenfunctions and adjoint eigenfunctions
+        # normalize
         self.eig_base, self.adjoint_eig_base = pi.normalize_base(
-            _eig_base, _adjoint_eig_base)
+            _eig_base, _adjoint_eig_base
+        )
+
+        # bases should be bi-orthonormal
+        test_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                      self.eig_base,
+                                                      self.adjoint_eig_base)
+        np.testing.assert_array_equal(test_mat, np.eye(self.modal_order))
+
+        # adjoint operator must have the same eigenvalues
+        np.testing.assert_array_almost_equal(self.eig_values,
+                                             self.adjoint_eig_values)
 
         if 0:
             # create (un-normalized) eigenfunctions
@@ -314,17 +312,18 @@ class RadRobinControlApproxTest(unittest.TestCase):
                 init_eig_funcs,
                 init_adjoint_eig_funcs)
 
-        # eigenfunctions from target system ("_t")
-        _eig_base_t = pi.SecondOrderEigenVector.cure_hint(
+        # eigenfunctions of the target system ("_t")
+        _, _eig_base_t = pi.SecondOrderEigenVector.cure_hint(
             domain=self.dz,
             params=self.param_t,
             count=self.modal_order,
-            derivative_order=2,
-            debug=True)
+            derivative_order=2)
 
-        scale_factors = [frac(0) for frac in self.eig_base.fractions]
+        scale_factors = np.divide(
+            np.array([frac(0) for frac in self.eig_base.fractions]),
+            np.array([frac(0) for frac in _eig_base_t.fractions]))
         self.eig_base_t = pi.Base([frac.scale(factor) for frac, factor in
-                                   zip(self.eig_base.fractions, scale_factors)])
+                                   zip(_eig_base_t.fractions, scale_factors)])
 
         if 0:
             _eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2
@@ -341,8 +340,12 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
         # register eigenfunctions
         pi.register_base("eig_base", self.eig_base)
-        pi.register_base("adjoint_eig_funcs", self.adjoint_eig_base)
+        pi.register_base("adjoint_eig_base", self.adjoint_eig_base)
         pi.register_base("eig_base_t", self.eig_base_t)
+
+        pi.visualize_functions(self.eig_base.fractions)
+        pi.visualize_functions(self.adjoint_eig_base.fractions)
+        pi.visualize_functions(self.eig_base_t.fractions)
 
     def test_controller(self):
         # controller initialization
@@ -355,30 +358,30 @@ class RadRobinControlApproxTest(unittest.TestCase):
         xdz_t_at_l = x_t.derive(spat_order=1)(self.l)
 
         def combined_transform(z):
-            return np.exp((self.param_t[1]
-                           - self.param[1]) / 2 / self.param[0] * z)
+            return np.exp((self.param_t.a1
+                           - self.param.a1) / 2 / self.param.a2 * z)
 
         def int_kernel_zz(z):
-            return (self.param_ti[3]
-                    - self.param_i[3]
-                    + (self.param_i[2]
-                       - self.param_ti[0]) / 2 / self.param[0] * z)
+            return (-self.param_ti.alpha0
+                    + self.param_i.alpha0
+                    + (self.param_i.a0
+                       - self.param_ti.a0) / 2 / self.param.a2 * z)
 
         law = pi.WeakFormulation([
             pi.ScalarTerm(x_at_l,
-                          self.param_i[4]
-                          - self.param_ti[4]
+                          self.param_i.beta0
+                          - self.param_ti.beta0
                           - int_kernel_zz(self.l)),
             pi.ScalarTerm(x_t_at_l,
-                          -self.param_ti[4] * combined_transform(self.l)),
-            pi.ScalarTerm(x_at_l, self.param_ti[4]),
+                          -self.param_ti.beta0 * combined_transform(self.l)),
+            pi.ScalarTerm(x_at_l, self.param_ti.beta0),
             pi.ScalarTerm(xdz_t_at_l, -combined_transform(self.l)),
             pi.ScalarTerm(x_t_at_l,
-                          -self.param_t[1] / 2 /
-                          self.param[0] * combined_transform(self.l)),
+                          -self.param_t.a1 / 2 /
+                          self.param.a2 * combined_transform(self.l)),
             pi.ScalarTerm(xdz_at_l, 1),
             pi.ScalarTerm(x_at_l,
-                          self.param[1] / 2 / self.param[0]
+                          self.param.a1 / 2 / self.param.a2
                           + int_kernel_zz(self.l))],
             name="Rad_Robin-Controller")
         controller = control.Controller(law)
@@ -395,10 +398,13 @@ class RadRobinControlApproxTest(unittest.TestCase):
         control_law = pi.SimulationInputSum([trajectory, controller])
 
         # determine (A,B) with modal-transformation
-        a_mat = np.diag(np.real(self.eig_val))
-        b_mat = self.param[0] * np.array(
-            [fraction(self.l) for fraction in self.adjoint_eig_base.fractions])
-        ss_modal = pi.StateSpace(a_mat, b_mat, input_handle=control_law)
+        a_mat = np.diag(np.real(self.eig_values))
+        b_mat = self.param.a2 * np.atleast_2d(
+            [fraction(self.l)
+             for fraction in self.adjoint_eig_base.fractions]).T
+        ss_modal = pi.StateSpace(a_mat, b_mat,
+                                 base_lbl="adjoint_eig_base",
+                                 input_handle=control_law)
 
         # derive initial field variable x(z,0) and weights
         start_state = pi.Function.from_constant(0, domain=(0, self.l))
@@ -421,7 +427,7 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
     def tearDown(self):
         pi.deregister_base("eig_base")
-        pi.deregister_base("adjoint_eig_funcs")
+        pi.deregister_base("adjoint_eig_base")
         pi.deregister_base("eig_base_t")
 
 

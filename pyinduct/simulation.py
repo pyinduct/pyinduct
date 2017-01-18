@@ -162,7 +162,8 @@ class StateSpace(object):
         d_matrix: :math:`\boldsymbol{D}`
     """
 
-    def __init__(self, a_matrices, b_matrices, input_handle=None, c_matrix=None, d_matrix=None, base_lbl=None):
+    def __init__(self, a_matrices, b_matrices, base_lbl,
+                 input_handle=None, c_matrix=None, d_matrix=None):
         self.C = c_matrix
         self.D = d_matrix
         self.base_lbl = base_lbl
@@ -225,8 +226,9 @@ class StateSpace(object):
         return q_t
 
 
-def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, derivative_orders=(0, 0),
-                    settings=None):
+def simulate_system(weak_form, initial_states,
+                    temporal_domain, spatial_domain,
+                    derivative_orders=(0, 0), settings=None):
     """
     Convenience wrapper for :py:func:`simulate_systems`.
 
@@ -573,7 +575,8 @@ class CanonicalForm(object):
 
         a_matrices.update({0: f_mat})
 
-        ss = StateSpace(a_matrices, b_matrices, input_handle=self.input_function)
+        ss = StateSpace(a_matrices, b_matrices,
+                        input_handle=self.input_function)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
@@ -851,7 +854,8 @@ def create_state_space(canonical_equations):
                 b_order_mats.update({p: b_power_mat})
             b_matrices.update({order: b_order_mats})
 
-    dom_ss = StateSpace(a_matrices, b_matrices, input_handle=state_space_props.input, base_lbl=new_name)
+    dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
+                        input_handle=state_space_props.input)
     return dom_ss
 
 

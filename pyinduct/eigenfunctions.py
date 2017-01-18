@@ -28,8 +28,8 @@ __all__ = ["SecondOrderOperator", "SecondOrderEigenVector", "SecondOrderEigenfun
            "LambdifiedSympyExpression", "FiniteTransformFunction"]
 
 
-class SecondOrderOperator(Parameters):
-    """
+class SecondOrderOperator:
+    r"""
     Interface class to collect all important parameters that describe
     a second order ordinary differential equation.
 
@@ -37,19 +37,27 @@ class SecondOrderOperator(Parameters):
         a2(Number or callable): coefficient :math:`a_2`.
         a1(Number or callable): coefficient :math:`a_1`.
         a0(Number or callable): coefficient :math:`a_0`.
-        alpha1(Number): coefficient :math:` \alpha_1`.
-        alpha0(Number): coefficient :math:` \alpha_0`.
-        beta1(Number): coefficient :math:` \beta_1`.
-        beta1(Number): coefficient :math:` \beta_0`.
+        alpha1(Number): coefficient :math:`\alpha_1`.
+        alpha0(Number): coefficient :math:`\alpha_0`.
+        beta1(Number): coefficient :math:`\beta_1`.
+        beta0(Number): coefficient :math:`\beta_0`.
     """
     def __init__(self, a2=0, a1=0, a0=0,
                  alpha1=0, alpha0=0,
                  beta1=0, beta0=0,
                  domain=(-np.inf, np.inf)):
-        super().__init__(a2=a2, a1=a1, a0=a0,
-                         alpha1=alpha1, alpha0=alpha0,
-                         beta1=beta1, beta0=beta0,
-                         domain=domain)
+
+        self.a2 = a2
+        self.a1 = a1
+        self.a0 = a0
+
+        self.alpha1 = alpha1
+        self.alpha0 = alpha0
+
+        self.beta1 = beta1
+        self.beta0 = beta0
+
+        self.domain = domain
 
     @staticmethod
     def from_list(param_list, domain=None):
@@ -61,12 +69,12 @@ class SecondOrderOperator(Parameters):
 
     def get_adjoint_problem(self):
         r"""
-        Return the parameters of the operator :math:`A^*` which describes
-        the adjoint eigenvalue problem.
+        Return the parameters of the operator :math:`A^*` describing the
+        the problem
 
         .. math:: (\textup{A}^*\psi)(z) = \bar a_2 \partial_z^2 \psi(z)
                                             + \bar a_1 \partial_z \psi(z)
-                                            + \bar a_0 \psi(z)
+                                            + \bar a_0 \psi(z) \:,
 
         where the :math:`\bar a_i` are constant and whose boundary conditions
         are given by
@@ -78,22 +86,26 @@ class SecondOrderOperator(Parameters):
 
         The following mapping is used:
 
-        .. math:: \bar a_2 = a_2, \bar a_1 = -a_1, \bar a_0 = a_0, \\
-                \bar\alpha_1 = \alpha_1, \bar\alpha_0 =
-                    \alpha_0 + \frac{a_1}{a_2}, \\
-                \bar\beta_1 = \beta_1, \bar\beta_0 = \frac{a_1}{a_2} - \beta_0 .
+        .. math:: \bar a_2 = a_2,  \quad\bar a_1 = -a_1, \quad\bar a_0 = a_0, \\
+                \bar\alpha_1 = -1, \quad
+                     \bar\alpha_0 = \frac{a_1}{a_2} - \frac{\alpha_0}{\alpha_1}
+                     , \\
+                \bar\beta_1 = -1, \quad
+                    \bar\beta_0 = \frac{a_1}{a_2} - \frac{\beta_0}{\beta_1} \:.
 
         Return:
-            :py:class:`SecondOrderOperator`: Parameter set describing
-                :math:`A^*` .
+            :py:class:`SecondOrderOperator` : Parameter set describing
+            :math:`A^*` .
         """
         return SecondOrderOperator(a2=self.a2,
                                    a1=-self.a1,
                                    a0=self.a0,
-                                   alpha1=self.alpha1,
-                                   alpha0=(self.a1/self.a2 + self.alpha0),
-                                   beta1=self.beta1,
-                                   beta0=(self.a1/self.a2 - self.beta0),
+                                   alpha1=-1,
+                                   alpha0=(self.a1/self.a2
+                                           - self.alpha0 / self.alpha1),
+                                   beta1=-1,
+                                   beta0=(self.a1/self.a2
+                                          - self.beta0 / self.beta1),
                                    )
 
 
@@ -210,6 +222,7 @@ class SecondOrderEigenVector(Function):
                                                              **kwargs)
 
             sing_sols = np.where(np.isnan(kappa[:, 1]))
+            eig_values = np.delete(eig_values, sing_sols)
             char_roots = np.delete(char_roots, sing_sols)
             kappa = np.delete(kappa, sing_sols, axis=0)
 
@@ -223,13 +236,13 @@ class SecondOrderEigenVector(Function):
             # if we can't normalize it, we can't use it
             norm = generic_scalar_product(eig_base)
             orthogonal_sols = np.where(np.isclose(norm, 0))
-            eig_vectors = np.delete(eig_base.fractions,
-                                    orthogonal_sols)[:count]
+            eig_values = np.delete(eig_values, orthogonal_sols)[:count]
+            eig_vectors = np.delete(eig_base.fractions, orthogonal_sols)[:count]
 
             diff = max(0, count - len(eig_vectors))
 
         base = normalize_base(Base(eig_vectors[:count]))
-        return domain, base
+        return eig_values, base
 
     @staticmethod
     def calculate_eigenvalues(domain, params, count, extended_output=False,
@@ -249,7 +262,7 @@ class SecondOrderEigenVector(Function):
             count (int): Amount of eigenvalues to generate.
             extended_output (bool): If true, not only eigenvalues but also
                 the corresponding characteristic roots and coefficients
-                of the eigenvectors are returned
+                of the eigenvectors are returned. Defaults to False.
 
         Keyword Arguments:
             debug (bool): If provided, this parameter will cause several debug
@@ -425,7 +438,7 @@ class SecondOrderEigenVector(Function):
             print("roots: {}".format(char_roots))
             print("eig_vals: {}".format(eig_values))
 
-        if kwargs.get("extended_output", False):
+        if extended_output:
             return eig_values, char_roots, kappa
         else:
             return eig_values
@@ -440,7 +453,7 @@ class SecondOrderEigenVector(Function):
         .. math:: \lambda = a_2 p^2 + a_1 p + a_0
 
         Parameters:
-            params (:py:class:`SecondOrderParamters`): system parameters, see .
+            params (:py:class:`SecondOrderOperator`): system parameters, see .
             char_root (complex): characteristic_root
         """
         return real(params.a2 * char_root ** 2

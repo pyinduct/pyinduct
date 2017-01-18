@@ -161,6 +161,10 @@ def eliminate_advection_term(param, domain_end=None):
         TypeError: If :math:`a_1(z)` is callable but no derivative handle is defined for it.
 
     Return:
+        SecondOrderOperator:
+
+        or
+
         tuple:
             Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z), \\tilde \\alpha, \\tilde \\beta \\big)` for
             the transformed system

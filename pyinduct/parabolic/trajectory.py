@@ -1,5 +1,6 @@
 import numpy as np
 
+from ..eigenfunctions import SecondOrderOperator
 from ..trajectory import (sigma_tanh, K_tanh, gevrey_tanh,
                           power_series_flat_out, InterpolationTrajectory)
 
@@ -56,7 +57,6 @@ class RadTrajectory(InterpolationTrajectory):
 
         self._l = l
         self._T = T
-        self._a1_original = param_original[1]
         self._param = eliminate_advection_term(param_original)
         self._bound_cond_type = bound_cond_type
         self._actuation_type = actuation_type
@@ -69,7 +69,14 @@ class RadTrajectory(InterpolationTrajectory):
         x, d_x = power_series_flat_out(self._z, t,
                                        self._n, self._param, y, bound_cond_type)
 
-        a2, a1, a0, alpha, beta = self._param
+        if isinstance(self._param, SecondOrderOperator):
+            self._a1_original = param_original.a1
+            a2 = self._param.a2
+            beta = self._param.beta0
+        else:
+            a2, a1, a0, alpha, beta = self._param
+            self._a1_original = param_original[1]
+
         if self._actuation_type is 'dirichlet':
             u = x[:, -1]
         elif self._actuation_type is 'robin':
@@ -77,10 +84,12 @@ class RadTrajectory(InterpolationTrajectory):
         else:
             raise NotImplementedError
 
-        # actually the algorithm consider the pde
-        # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
-        # with the following back transformation are also
-        # pde's with advection term a_1 x'(z,t) considered
+        """
+        actually the algorithm only considers the pde
+        d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
+        but with the following back transformation also
+        pdes with advection term a_1 x'(z,t) can be considered
+        """
         u *= np.exp(-self._a1_original / 2. / a2 * l)
 
         InterpolationTrajectory.__init__(self, t, u, **kwargs)

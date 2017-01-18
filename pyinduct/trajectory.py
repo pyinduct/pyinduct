@@ -15,6 +15,7 @@ import sympy as sp
 
 from .core import Domain
 from .simulation import SimulationInput
+from .eigenfunctions import SecondOrderOperator
 
 __all__ = ["ConstantTrajectory", "InterpolationTrajectory",
            "SmoothTransition",  "SignalGenerator",
@@ -222,8 +223,18 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
         Field variable x(z,t) and spatial derivative x'(z,t).
     """
     # TODO: documentation
-    print(param)
-    a2, a1, a0, alpha, beta = param
+    # TODO this is more a feedforward than a trajectory -> move
+
+    if isinstance(param, SecondOrderOperator):
+        a2 = param.a2
+        a1 = param.a1
+        a0 = param.a0
+        alpha = -param.alpha0
+        beta = param.beta0
+
+    else:
+        a2, a1, a0, alpha, beta = param
+
     shape = (len(t), len(z))
     x = np.nan * np.ones(shape)
     d_x = np.nan * np.ones(shape)
