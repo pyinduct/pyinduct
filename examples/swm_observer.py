@@ -1,4 +1,5 @@
 import core
+import hyperbolic.feedforward
 import parabolic.control
 import pyinduct.trajectory as tr
 import pyinduct.core as cr
@@ -141,7 +142,7 @@ if 1:
     u = sim.SimulationInputSum([closed_loop_traj, ctrl])
 else:
     # trajectory for the original input (open_loop_traj)
-    open_loop_traj = tr.FlatString(y0=x_zt(0, 0), y1=1, z0=z_start, z1=z_end, t0=1, dt=3, params=params)
+    open_loop_traj = hyperbolic.feedforward.FlatString(y0=x_zt(0, 0), y1=1, z0=z_start, z1=z_end, t0=1, dt=3, params=params)
     u = sim.SimulationInputSum([open_loop_traj])
 
 # weak formulation

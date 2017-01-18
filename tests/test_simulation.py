@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 from pickle import dump
 
+import hyperbolic.feedforward
 import pyinduct as pi
 from pyinduct import \
     registry as reg, \
@@ -516,7 +517,7 @@ class StringMassTest(unittest.TestCase):
 
         self.y_end = 10
 
-        self.u = tr.FlatString(0, self.y_end, z_start, z_end, 0, 5, self.params)
+        self.u = hyperbolic.feedforward.FlatString(0, self.y_end, z_start, z_end, 0, 5, self.params)
 
         def x(z, t):
             """

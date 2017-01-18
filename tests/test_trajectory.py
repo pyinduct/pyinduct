@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 import scipy.signal as sig
 
+import hyperbolic.feedforward
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
@@ -55,8 +56,8 @@ class SmoothTransitionTestCase(unittest.TestCase):
 
     def test_trajectory(self):
         # build flatness based trajectory generator
-        fs = pi.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2,
-                           params=self.params)
+        fs = hyperbolic.feedforward.FlatString(y0=self.y0, y1=self.y1, z0=self.z_start, z1=self.z_end, t0=self.t_start, dt=2,
+                                               params=self.params)
         zz, tt = np.meshgrid(self.z_values, self.t_values)
         x_values = fs.system_state(zz, tt)
         u_values = fs.control_input(self.t_values)

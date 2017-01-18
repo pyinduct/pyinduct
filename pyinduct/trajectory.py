@@ -19,8 +19,7 @@ from .simulation import SimulationInput
 __all__ = ["ConstantTrajectory", "InterpolationTrajectory",
            "SmoothTransition",  "SignalGenerator",
            "gevrey_tanh", "power_series", "temporal_derived_power_series",
-           "coefficient_recursion",
-           "FlatString"]
+           "coefficient_recursion"]
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
@@ -126,77 +125,6 @@ class SmoothTransition:
                 y[order] = ya + (self.yd[1] - self.yd[0]) * dphi((t - self.t0) / self.dt) * 1 / self.dt ** order
 
         return y
-
-
-class FlatString(SimulationInput):
-    """
-    Class that implements a flatness based control approach
-    for the "string with mass" model.
-    """
-    # TODO move into hyperbolic submodule
-
-    def __init__(self, y0, y1, z0, z1, t0, dt, params):
-        SimulationInput.__init__(self)
-
-        # store params
-        self._tA = t0
-        self._dt = dt
-        self._dz = z1 - z0
-        self._m = params.m  # []=kg mass at z=0
-        self._tau = params.tau  # []=m/s speed of wave translation in string
-        self._sigma = params.sigma  # []=kgm/s**2 pretension of string
-
-        # construct trajectory generator for yd
-        ts = max(t0, self._dz * self._tau)  # never too early
-        self.trajectory_gen = SmoothTransition((y0, y1), (ts, ts + dt), method="poly", differential_order=2)
-
-        # create vectorized functions
-        self.control_input = np.vectorize(self._control_input, otypes=[np.float])
-        self.system_state = np.vectorize(self._system_sate, otypes=[np.float])
-
-    def _control_input(self, t):
-        """
-        Control input for system gained through flatness based approach that will
-        satisfy the target trajectory for y.
-
-        Args:
-            t: time
-
-        Return:
-            input force f
-        """
-        yd1 = self.trajectory_gen(t - self._dz * self._tau)
-        yd2 = self.trajectory_gen(t + self._dz * self._tau)
-
-        return 0.5 * self._m * (yd2[2] + yd1[2]) + self._sigma * self._tau / 2 * (yd2[1] - yd1[1])
-
-    def _system_sate(self, z, t):
-        """
-        x(z, t) of string-mass system for given flat output y.
-
-        Args:
-            z: location
-            t: time
-
-        Return:
-            state (deflection of string)
-        """
-        yd1 = self.trajectory_gen(t - z * self._tau)
-        yd2 = self.trajectory_gen(t + z * self._tau)
-
-        return self._m / (2 * self._sigma * self._tau) * (yd2[1] - yd1[1]) + .5 * (yd1[0] + yd2[0])
-
-    def _calc_output(self, **kwargs):
-        """
-        Use time to calculate system input and return force.
-
-        Keyword Args:
-            time:
-
-        Return:
-            dict: Result is the value of key "output".
-        """
-        return dict(output=self._control_input(kwargs["time"]))
 
 
 # TODO: kwarg: t_step
