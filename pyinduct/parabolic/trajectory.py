@@ -1,12 +1,14 @@
 import numpy as np
 
-from ..trajectory import sigma_tanh, K_tanh, gevrey_tanh, _power_series_flat_out, InterpolationTrajectory
+from ..trajectory import (sigma_tanh, K_tanh, gevrey_tanh,
+                          power_series_flat_out, InterpolationTrajectory)
 
 from .general import eliminate_advection_term
 
 __all__ = ["RadTrajectory"]
 
 
+# TODO rename and move to FeedForward
 class RadTrajectory(InterpolationTrajectory):
     """
     Class that implements a flatness based control approach
@@ -64,7 +66,8 @@ class RadTrajectory(InterpolationTrajectory):
 
         self._z = np.array([self._l])
         y, t = gevrey_tanh(self._T, self._n + 2, self._sigma, self._K)
-        x, d_x = _power_series_flat_out(self._z, t, self._n, self._param, y, bound_cond_type)
+        x, d_x = power_series_flat_out(self._z, t,
+                                       self._n, self._param, y, bound_cond_type)
 
         a2, a1, a0, alpha, beta = self._param
         if self._actuation_type is 'dirichlet':

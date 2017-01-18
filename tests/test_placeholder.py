@@ -3,7 +3,9 @@ import unittest
 
 import numpy as np
 
-from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph
+from placeholder import evaluate_placeholder_function
+from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph, \
+    Function, register_base, Base, TestFunction, deregister_base
 from pyinduct import register_base, deregister_base, LagrangeFirstOrder, cure_interval
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
@@ -377,3 +379,27 @@ class WeakFormulationTest(unittest.TestCase):
 
     def tearDown(self):
         deregister_base("ini_funcs")
+
+
+class EvaluatePlaceholderTestCase(unittest.TestCase):
+    def setUp(self):
+        self.f = np.cos
+        self.psi = Function(np.sin)
+        register_base("funcs", Base(self.psi), overwrite=True)
+        self.funcs = TestFunction("funcs")
+
+    def test_eval(self):
+        eval_values = np.array(list(range(10)))
+
+        # supply a non-placeholder
+        self.assertRaises(TypeError,
+                          evaluate_placeholder_function,
+                          self.f,
+                          eval_values)
+
+        # check for correct results
+        res = evaluate_placeholder_function(self.funcs, eval_values)
+        self.assertTrue(np.allclose(self.psi(eval_values), res))
+
+    def tearDown(self):
+        deregister_base("funcs")

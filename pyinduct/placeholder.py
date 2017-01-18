@@ -1,39 +1,48 @@
 """
-In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term definitions.
+In :py:mod:`pyinduct.placeholder` you find placeholders for symbolic Term
+definitions.
 """
-import unittest
-from abc import ABCMeta
+
+import collections
 import copy
+from abc import ABCMeta
 from numbers import Number
 
 import numpy as np
-import collections
 
-from .registry import register_base, deregister_base, get_base, is_registered
 from .core import sanitize_input, Base, Function
+from .registry import register_base, get_base, is_registered
 
-__all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable", "Input",
-           "Product"
-           "ScalarTerm", "IntegralTerm"]
+__all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
+           "Input",
+           "Product", "ScalarTerm", "IntegralTerm"]
+
 
 class Placeholder(object):
     """
-    Base class that works as a placeholder for terms that are later parsed into a canonical form.
+    Base class that works as a placeholder for terms that are later parsed into
+    a canonical form.
 
     Args:
         data (arbitrary): data to store in the placeholder.
-        order (tuple): (temporal_order, spatial_order) derivative orders  that are to be applied before evaluation.
-        location (numbers.Number): Location to evaluate at before further computation.
+        order (tuple): (temporal_order, spatial_order) derivative orders  that
+            are to be applied before evaluation.
+        location (numbers.Number): Location to evaluate at before further
+            computation.
 
     Todo:
-        convert order and location into attributes with setter and getter methods. This will close the gap of unchecked
-        values for order and location that can be sneaked in by the copy constructors by circumventing code doubling.
+        convert order and location into attributes with setter and getter
+        methods. This will close the gap of unchecked values for order and
+        location that can be sneaked in by the copy constructors by
+        circumventing code doubling.
     """
 
     def __init__(self, data, order=(0, 0), location=None):
         self.data = data
 
-        if not isinstance(order, tuple) or any([not isinstance(o, int) or o < 0 for o in order]):
+        if (not isinstance(order, tuple)
+                or any([not isinstance(o, int)
+                or o < 0 for o in order])):
             raise ValueError("invalid derivative order.")
         self.order = order
 
@@ -47,22 +56,27 @@ class Placeholder(object):
         Mimics a copy constructor and adds the given derivative orders.
 
         Note:
-            The desired derivative order :code:`order` is added to the original order.
+            The desired derivative order :code:`order` is added to the original
+            order.
 
         Args:
             temp_order: Temporal derivative order to be added.
             spat_order: Spatial derivative order to be added.
 
         Returns:
-            New :py:class:`Placeholder` instance with the desired derivative order.
+            New :py:class:`Placeholder` instance with the desired derivative
+            order.
         """
         new_obj = copy.deepcopy(self)
-        new_obj.order = tuple(der + a for der, a in zip(self.order, (temp_order, spat_order)))
+        new_obj.order = tuple(der + a
+                              for der, a in zip(self.order,
+                                                (temp_order, spat_order)))
         return new_obj
 
     def __call__(self, location):
         """
-        Mimics a copy constructor and adds the given location for spatial evaluation.
+        Mimics a copy constructor and adds the given location for spatial
+        evaluation.
 
         Args:
             location: Spatial Location to be set.
@@ -78,7 +92,8 @@ class Placeholder(object):
 class SpatialPlaceholder(Placeholder):
     """
     Base class for all spatially-only dependent placeholders.
-    The deeper meaning of this abstraction layer is to offer an easier to use interface.
+    The deeper meaning of this abstraction layer is to offer an easier to use
+    interface.
     """
 
     def __init__(self, data, order=0, location=None):
@@ -94,8 +109,8 @@ class Scalars(Placeholder):
     gained by the projection of the pde onto the test basis.
 
     Note:
-        The arguments *target_term* and *target_form* are used inside the parser.
-        For frontend use, just specify the *values*.
+        The arguments *target_term* and *target_form* are used inside the
+        parser. For frontend use, just specify the *values*.
 
     Args:
         values: Iterable object containing the scalars for every k-th equation.
@@ -124,9 +139,9 @@ class ScalarFunction(SpatialPlaceholder):
         location: location to evaluate at
 
     Warn:
-        There seems to be a problem when this function is used in combination witch the
-        :py:class:`Product` class. Make sure to provide this class as first argument to
-        any product you define.
+        There seems to be a problem when this function is used in combination
+        with the :py:class:`Product` class. Make sure to provide this class as
+        first argument to any product you define.
 
     Todo:
         see warning.
@@ -135,9 +150,12 @@ class ScalarFunction(SpatialPlaceholder):
 
     def __init__(self, function_label, order=0, location=None):
         if not is_registered(function_label):
-            raise ValueError("Unknown function label '{0}'!".format(function_label))
+            raise ValueError("Unknown function label"
+                             " '{0}'!".format(function_label))
 
-        super().__init__({"func_lbl": function_label}, order=order, location=location)
+        super().__init__({"func_lbl": function_label},
+                         order=order,
+                         location=location)
 
     @staticmethod
     def from_scalars(scalars, label, **kwargs):
@@ -145,10 +163,10 @@ class ScalarFunction(SpatialPlaceholder):
         create a :py:class:`ScalarFunction` from scalar values.
 
         Args:
-            scalars (array like): Input that is used the generate the placeholder.
-                # If a number is given, a constant function will be created, if
-                it is callable it will be wrapped in a :py:class:`core.Function`
-                and registered.
+            scalars (array like): Input that is used the generate the
+                placeholder. If a number is given, a constant function will be
+                created, if it is callable it will be wrapped in a
+                :py:class:`core.Function` and registered.
             label (string): Label to register the created base.
             **kwargs: All kwargs that are not mentioned below will be passed
                 to :py:class:`core.Function`.
@@ -186,13 +204,17 @@ class Input(Placeholder):
     Class that works as a placeholder for an input of the system.
 
     Args:
-        function_handle (callable): handle that will be called by the simulation unit
-        index (int): If the system's input is vectorial, specify the element to be used.
-        order (int): temporal derivative order of this term (See :py:class:`Placeholder`).
+        function_handle (callable): Handle that will be called by the simulation
+            unit.
+        index (int): If the system's input is vectorial, specify the element to
+            be used.
+        order (int): temporal derivative order of this term
+            (See :py:class:`Placeholder`).
         exponent (numbers.Number): See :py:class:`FieldVariable`.
 
     Note:
-        if *order* is nonzero, the callable has to provide the temporal derivatives.
+        if *order* is nonzero, the callable has to provide the temporal
+        derivatives.
     """
 
     def __init__(self, function_handle, index=0, order=0, exponent=1):
@@ -200,7 +222,10 @@ class Input(Placeholder):
             raise TypeError("callable object has to be provided.")
         if not isinstance(index, int) or index < 0:
             raise TypeError("index must be a positive integer.")
-        super().__init__(dict(input=function_handle, index=index, exponent=exponent), order=(order, 0))
+        super().__init__(dict(input=function_handle,
+                              index=index,
+                              exponent=exponent),
+                         order=(order, 0))
 
 
 class TestFunction(SpatialPlaceholder):
@@ -215,7 +240,8 @@ class TestFunction(SpatialPlaceholder):
 
     def __init__(self, function_label, order=0, location=None):
         if not is_registered(function_label):
-            raise ValueError("Unknown function label '{0}'!".format(function_label))
+            raise ValueError("Unknown function label "
+                             "'{0}'!".format(function_label))
 
         super().__init__({"func_lbl": function_label}, order, location=location)
 
@@ -225,19 +251,23 @@ class FieldVariable(Placeholder):
     Class that represents terms of the systems field variable :math:`x(z, t)`.
 
     Note:
-        Use :py:class:`TemporalDerivedFieldVariable` and :py:class:`SpatialDerivedFieldVariable` if no mixed
-        derivatives occur.
+        Use :py:class:`TemporalDerivedFieldVariable` and
+        :py:class:`SpatialDerivedFieldVariable` if no mixed derivatives occur.
 
     Args:
-        function_label (str): Label of shapefunctions to use for approximation, see :py:func:`register_base`
-            for more information about how to register an approximation basis.
-        order tuple of int: Tuple of temporal_order and spatial_order derivation order.
-        weight_label (str): Label of weights for which coefficients are to be calculated (defaults to function_label).
+        function_label (str): Label of shapefunctions to use for approximation,
+            see :py:func:`register_base` for more information about how to
+            register an approximation basis.
+        order tuple of int: Tuple of temporal_order and spatial_order derivation
+            order.
+        weight_label (str): Label of weights for which coefficients are to be
+            calculated (defaults to function_label).
         location: Where the expression is to be evaluated.
         exponent: Exponent of the term.
 
     Examples:
-        Assuming some shapefunctions have been registered under the label ``"phi"`` the following expressions hold:
+        Assuming some shapefunctions have been registered under the label
+        ``"phi"`` the following expressions hold:
 
         - :math:`\\frac{\\partial^{2}}{\\partial t \\partial z}x(z, t)`
 
@@ -252,8 +282,9 @@ class FieldVariable(Placeholder):
         >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
     """
 
-    def __init__(self, function_label, order=(0, 0), weight_label=None, location=None, exponent=1,
-                 raised_spatially=False):
+    def __init__(self, function_label, order=(0, 0),
+                 weight_label=None, location=None,
+                 exponent=1, raised_spatially=False):
         """
         """
         # derivative orders
@@ -271,7 +302,8 @@ class FieldVariable(Placeholder):
 
         # basis
         if not is_registered(function_label):
-            raise ValueError("Unknown function label '{0}'!".format(function_label))
+            raise ValueError("Unknown function label "
+                             "'{0}'!".format(function_label))
         if weight_label is None:
             weight_label = function_label
         elif not isinstance(weight_label, str):
@@ -287,19 +319,30 @@ class FieldVariable(Placeholder):
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
 
-        super().__init__({"func_lbl": function_label, "weight_lbl": weight_label, "exponent": exponent}, order=order,
+        super().__init__({"func_lbl": function_label,
+                          "weight_lbl": weight_label,
+                          "exponent": exponent},
+                         order=order,
                          location=location)
 
 
 # TODO: remove
 class TemporalDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
-        FieldVariable.__init__(self, function_label, (order, 0), weight_label, location)
+        FieldVariable.__init__(self,
+                               function_label,
+                               (order, 0),
+                               weight_label,
+                               location)
 
 
 class SpatialDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
-        FieldVariable.__init__(self, function_label, (0, order), weight_label, location)
+        FieldVariable.__init__(self,
+                               function_label,
+                               (0, order),
+                               weight_label,
+                               location)
 
 
 class Product(object):
@@ -333,7 +376,8 @@ class Product(object):
             b = b.args[0]
 
         # check for allowed terms
-        if not isinstance(a, Placeholder) or (b is not None and not isinstance(b, Placeholder)):
+        if (not isinstance(a, Placeholder)
+                or (b is not None and not isinstance(b, Placeholder))):
             raise TypeError("argument not allowed in product")
 
         a, b = self._simplify_product(a, b)
@@ -351,7 +395,8 @@ class Product(object):
         for idx, arg in enumerate(args):
             if getattr(arg, "location", None) is not None:
                 # evaluate term and add scalar
-                # print("WARNING: converting Placeholder that is to be evaluated into 'Scalars' object.")
+                # print("WARNING: converting Placeholder that is to be evaluated
+                #  into 'Scalars' object.")
                 new_args.append(_evaluate_placeholder(arg))
             else:
                 new_args.append(arg)
@@ -370,33 +415,38 @@ class Product(object):
                     break
 
         if scalar_func and other_func:
-            s_func = get_base(scalar_func.data["func_lbl"]).derive(scalar_func.order[1]).fractions
-            o_func = get_base(other_func.data["func_lbl"]).derive(other_func.order[1]).fractions
+            s_func = get_base(scalar_func.data["func_lbl"]).derive(
+                scalar_func.order[1]).fractions
+            o_func = get_base(other_func.data["func_lbl"]).derive(
+                other_func.order[1]).fractions
 
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
                     # only one function provided, use it for all others
                     s_func = s_func[[0 for i in range(o_func.shape[0])]]
                 else:
-                    raise ValueError("Cannot simplify Product due to dimension mismatch!")
+                    raise ValueError("Cannot simplify Product due to dimension "
+                                     "mismatch!")
 
             exp = other_func.data.get("exponent", 1)
             new_base = Base(np.asarray(
-                [func.raise_to(exp).scale(scale_func) for func, scale_func in zip(o_func, s_func)]))
+                [func.raise_to(exp).scale(scale_func)
+                 for func, scale_func in zip(o_func, s_func)]))
             # TODO change name generation to more sane behaviour
             new_name = new_base.fractions.tobytes()
             register_base(new_name, new_base)
 
             # overwrite spatial derivative order since derivation took place
             if isinstance(other_func, (ScalarFunction, TestFunction)):
-                a = other_func.__class__(function_label=new_name, order=0, location=other_func.location)
+                a = other_func.__class__(function_label=new_name,
+                                         order=0,
+                                         location=other_func.location)
+
             elif isinstance(other_func, FieldVariable):
                 a = copy.deepcopy(other_func)
                 a.data["func_lbl"] = new_name
                 a.order = (other_func.order[0], 0)
-                # a = FieldVariable(function_label=new_name, weight_label=other_func.data["weight_lbl"],
-                #                   order=(other_func.order[0], 0), location=other_func.location,
-                #                   exponent=other_func.data["exponent"])
+
             b = None
 
         return a, b
@@ -451,8 +501,10 @@ class ScalarTerm(EquationTerm):
     def __init__(self, argument, scale=1.0):
         EquationTerm.__init__(self, scale, argument)
 
-        if any([True for arg in self.arg.args if isinstance(arg, (FieldVariable, TestFunction))]):
-            raise ValueError("cannot leave z dependency. specify location to evaluate expression.")
+        if any([True for arg in self.arg.args
+                if isinstance(arg, (FieldVariable, TestFunction))]):
+            raise ValueError("cannot leave z dependency. specify location to "
+                             "evaluate expression.")
 
 
 class IntegralTerm(EquationTerm):
@@ -468,7 +520,8 @@ class IntegralTerm(EquationTerm):
     def __init__(self, integrand, limits, scale=1.0):
         EquationTerm.__init__(self, scale, integrand)
 
-        if not any([isinstance(arg, (FieldVariable, TestFunction)) for arg in self.arg.args]):
+        if not any([isinstance(arg, (FieldVariable, TestFunction))
+                    for arg in self.arg.args]):
             raise ValueError("nothing to integrate")
         if not isinstance(limits, tuple):
             raise TypeError("limits must be provided as tuple")
@@ -490,16 +543,21 @@ def _evaluate_placeholder(placeholder):
     if isinstance(placeholder, (Scalars, Input)):
         raise TypeError("provided type cannot be evaluated")
 
-    fractions = get_base(placeholder.data['func_lbl']).derive(placeholder.order[1]).fractions
+    fractions = get_base(placeholder.data['func_lbl']).derive(
+        placeholder.order[1]).fractions
     location = placeholder.location
     exponent = placeholder.data.get("exponent", 1)
     if getattr(placeholder, "raised_spatially", False):
         exponent = 1
-    values = np.atleast_2d([frac.raise_to(exponent)(location) for frac in fractions])
+
+    values = np.atleast_2d([frac.raise_to(exponent)(location)
+                            for frac in fractions])
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values,
-                       target_term=dict(name="E", order=placeholder.order[0], exponent=placeholder.data["exponent"]),
+                       target_term=dict(name="E",
+                                        order=placeholder.order[0],
+                                        exponent=placeholder.data["exponent"]),
                        target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
         # target form doesn't matter, since the f vector is added independently
@@ -510,7 +568,8 @@ def _evaluate_placeholder(placeholder):
 
 def get_common_target(scalars):
     """
-    Extracts the common target from list of scalars while making sure that targets are equivalent.
+    Extracts the common target from list of scalars while making sure that
+    targets are equivalent.
 
     Args:
         scalars (:py:class:`Scalars`):
@@ -518,7 +577,8 @@ def get_common_target(scalars):
     Return:
         dict: Common target.
     """
-    e_targets = [scalar.target_term for scalar in scalars if scalar.target_term["name"] == "E"]
+    e_targets = [scalar.target_term for scalar in scalars
+                 if scalar.target_term["name"] == "E"]
     if e_targets:
         if len(e_targets) == 1:
             return e_targets[0]
@@ -539,7 +599,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     Evaluate a given placeholder object, that contains functions.
 
     Args:
-        placeholder: Instance of :py:class:`FieldVariable`, :py:class:`TestFunction` or :py:class:`ScalarFunction`.
+        placeholder: Instance of :py:class:`FieldVariable`,
+            :py:class:`TestFunction` or :py:class:`ScalarFunction`.
         input_values: Values to evaluate at.
 
     Return:
@@ -550,26 +611,3 @@ def evaluate_placeholder_function(placeholder, input_values):
 
     base = get_base(placeholder.data["func_lbl"]).derive(placeholder.order[1])
     return np.array([func(input_values) for func in base.fractions])
-
-
-class EvaluatePlaceholderTestCase(unittest.TestCase):
-    def setUp(self):
-        self.f = np.cos
-        self.psi = Function(np.sin)
-        register_base("funcs", Base(self.psi), overwrite=True)
-        self.funcs = TestFunction("funcs")
-
-    def test_eval(self):
-        eval_values = np.array(list(range(10)))
-
-        # supply a non-placeholder
-        self.assertRaises(TypeError, evaluate_placeholder_function, self.f, eval_values)
-
-        # check for correct results
-        res = evaluate_placeholder_function(self.funcs, eval_values)
-        self.assertTrue(np.allclose(self.psi(eval_values), res))
-
-    def tearDown(self):
-        deregister_base("funcs")
-
-

@@ -207,7 +207,7 @@ def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
     return phi, t_init
 
 
-def _power_series_flat_out(z, t, n, param, y, bound_cond_type):
+def power_series_flat_out(z, t, n, param, y, bound_cond_type):
     """
     Provide the power series approximation for x(z,t) and x'(z,t).
 
