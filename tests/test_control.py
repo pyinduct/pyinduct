@@ -286,7 +286,9 @@ class RadRobinControlApproxTest(unittest.TestCase):
         test_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
                                                       self.eig_base,
                                                       self.adjoint_eig_base)
-        np.testing.assert_array_equal(test_mat, np.eye(self.modal_order))
+        np.testing.assert_array_almost_equal(test_mat,
+                                             np.eye(self.modal_order),
+                                             decimal=10)
 
         # adjoint operator must have the same eigenvalues
         np.testing.assert_array_almost_equal(self.eig_values,
@@ -313,11 +315,23 @@ class RadRobinControlApproxTest(unittest.TestCase):
                 init_adjoint_eig_funcs)
 
         # eigenfunctions of the target system ("_t")
-        _, _eig_base_t = pi.SecondOrderEigenVector.cure_hint(
+        _eig_values_t, _eig_base_t = pi.SecondOrderEigenVector.cure_hint(
             domain=self.dz,
             params=self.param_t,
             count=self.modal_order,
             derivative_order=2)
+
+        char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+            self.param,
+            self.eig_values
+        )
+
+        eig_values_t = pi.SecondOrderEigenVector.convert_to_eigenvalue(
+            self.param_t,
+            char_roots
+        )
+
+        np.testing.assert_array_almost_equal(_eig_values_t, eig_values_t)
 
         scale_factors = np.divide(
             np.array([frac(0) for frac in self.eig_base.fractions]),
