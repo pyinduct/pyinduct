@@ -279,19 +279,19 @@ class PgSurfacePlot(PgDataPlot):
         self.gl_widget.setCameraPosition(distance=1, azimuth=-45)
         self.gl_widget.show()
 
-        self.gridsize = 20
+        self.grid_size = 20
 
         # calculate minima and maxima
         maxima = np.max(
             [np.array([max(abs(entry)) for entry in data_set.input_data])
              for data_set in self._data],
             axis=0)
-        maxima =  np.hstack((maxima,
+        maxima = np.hstack((maxima,
                              max([data_set.max for data_set in self._data])))
 
         if scales is None:
             # scale all axes uniformly if no scales are given
-            self.scales = (1/value for value in maxima)
+            self.scales = tuple(1/value for value in maxima)
         else:
             self.scales = scales
 
@@ -335,13 +335,13 @@ class PgSurfacePlot(PgDataPlot):
                 self.plot_items.append(plot_item)
 
         # since gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
-        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(self.gridsize,
-                                                             self.gridsize,
+        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(self.grid_size,
+                                                             self.grid_size,
                                                              1))
 
         # TODO find new compromise here and ad grids again
-        self._xygrid.scale(x=1/self.gridsize,
-                           y=1/self.gridsize,
+        self._xygrid.scale(x=1/self.grid_size,
+                           y=1/self.grid_size,
                            z=1)
         # self._xygrid.translate(0, 0, -maxima[-1]*self.scales[-1]/2)
         self._xygrid.translate(1, 1, 0)

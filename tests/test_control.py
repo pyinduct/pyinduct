@@ -22,7 +22,9 @@ if show_plots:
 class CollocatedTestCase(unittest.TestCase):
     def setUp(self):
         spat_dom = pi.Domain((0, 1), 10)
-        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder, spat_dom.bounds, 3)
+        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder,
+                                       spat_dom.bounds,
+                                       3)
         pi.register_base("base", base)
 
         x = pi.FieldVariable("base")
@@ -42,7 +44,8 @@ class CollocatedTestCase(unittest.TestCase):
         self.weights = np.array([1, 1, 1, 2, 2, 2])
 
     def _build_case(self, term):
-        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"), finalize=False)
+        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"),
+                                       finalize=False)
         evaluator = pi.LawEvaluator(ce)
         return evaluator(self.weights, self.weight_label)["output"]
 
@@ -86,7 +89,8 @@ class ContinuousTestCase(unittest.TestCase):
         self.weights = np.array([1, 1, 1, 2, 2, 2])
 
     def _build_case(self, term):
-        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"), finalize=False)
+        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"),
+                                       finalize=False)
         evaluator = pi.LawEvaluator(ce)
         return evaluator(self.weights, self.weight_label)["output"]
 
@@ -117,8 +121,9 @@ class RadDirichletControlApproxTest(unittest.TestCase):
         self.param = [a2, a1, a0, None, None]
 
         # target system parameters (controller parameters)
+        # attention: only a2 = 1., a1 =0 and a0 =0 supported in this test case
         a1_t = 0
-        a0_t = 0  # attention: only a2 = 1., a1 =0 and a0 =0 supported in this test case
+        a0_t = 0
         self.param_t = [a2, a1_t, a0_t, None, None]
 
         # system/simulation parameters
@@ -137,24 +142,27 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # eigenvalues /-functions of the original system
         eig_freq, self.eig_values = \
-            pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(self.param,
-                                                                     self.l,
-                                                                     self.modal_order)
+            pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(
+                self.param,
+                self.l,
+                self.modal_order)
         norm_fac = np.ones(eig_freq.shape) * np.sqrt(2)
-        self.eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(eig_freq[i],
-                                                                      self.param,
-                                                                      self.dz.bounds[-1],
-                                                                      scale=norm_fac[i])
+        self.eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(
+            eig_freq[i],
+            self.param,
+            self.dz.bounds[-1],
+            scale=norm_fac[i])
                                  for i in range(self.modal_order)])
         pi.register_base("eig_base", self.eig_base)
 
         # eigenfunctions of the target system
         eig_freq_t = np.sqrt(-self.eig_values.astype(complex))
         norm_fac_t = norm_fac * eig_freq / eig_freq_t
-        self.eig_base_t = pi.Base([pi.SecondOrderDirichletEigenfunction(eig_freq_t[i],
-                                                                        self.param_t,
-                                                                        self.dz.bounds[-1],
-                                                                        norm_fac_t[i])
+        self.eig_base_t = pi.Base([pi.SecondOrderDirichletEigenfunction(
+            eig_freq_t[i],
+            self.param_t,
+            self.dz.bounds[-1],
+            norm_fac_t[i])
                                    for i in range(self.modal_order)])
         pi.register_base("eig_base_t", self.eig_base_t)
 
@@ -172,19 +180,25 @@ class RadDirichletControlApproxTest(unittest.TestCase):
 
         # init controller
         x_at_1 = pi.FieldVariable("eig_base", location=1)
-        xt_at_1 = pi.FieldVariable("eig_base_t", weight_label="eig_base", location=1)
-        controller = pi.Controller(pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
-                                                       pi.ScalarTerm(xt_at_1, -1)],
-                                                      name="control_law"))
+        xt_at_1 = pi.FieldVariable("eig_base_t",
+                                   weight_label="eig_base",
+                                   location=1)
+        controller = pi.Controller(
+            pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
+                                pi.ScalarTerm(xt_at_1, -1)],
+                               name="control_law"))
 
         # input with feedback
         control_law = pi.SimulationInputSum([trajectory, controller])
 
         # determine (A, B) with modal transformation
         a_mat = np.diag(self.eig_values)
-        b_mat = -self.param[0] * np.atleast_2d([fraction.derive()(self.l)
-                                                for fraction in self.eig_base.fractions]).T
-        ss = pi.StateSpace(a_mat, b_mat, input_handle=control_law, base_lbl="eig_base")
+        b_mat = -self.param[0] * np.atleast_2d(
+            [fraction.derive()(self.l)
+             for fraction in self.eig_base.fractions]).T
+        ss = pi.StateSpace(a_mat, b_mat,
+                           input_handle=control_law,
+                           base_lbl="eig_base")
 
         # simulate
         t, q = pi.simulate_state_space(ss, initial_weights, self.dt)
@@ -213,70 +227,122 @@ class RadRobinControlApproxTest(unittest.TestCase):
 
     def setUp(self):
         # original system parameters
+        self.l = 1
+        domain = (0, self.l)
         a2 = 1.5
         a1 = 2.5
         a0 = 28
         alpha = -2
         beta = -3
-        self.param = [a2, a1, a0, alpha, beta]
-        self.adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(self.param)
+
+        self.param = pi.SecondOrderOperator(a2=a2, a1=a1, a0=a0,
+                                            alpha1=1, alpha0=-alpha,
+                                            beta1=1, beta0=beta)
+        self.adjoint_param = self.param.get_adjoint_problem()
+
+        if 0:
+            self.param = [a2, a1, a0, alpha, beta]
+            self.adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(
+                self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
         a0_t = -25
         alpha_t = 3
         beta_t = 2
-        # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
-        self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
-        # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        # _, _, a0_i, alpha_i, beta_i = parabolic.eliminate_advection_term(self.param)
-        # _, _, a0_ti, alpha_ti, beta_ti = parabolic.eliminate_advection_term(self.param_t)
+        self.param_t = pi.SecondOrderOperator(a2=a2, a1=a1_t, a0=a0_t,
+                                              alpha1=1, alpha0=alpha_t,
+                                              beta1=1, beta0=beta_t)
+
+        if 0:
+            # a1_t = a1; a0_t = a0; alpha_t = alpha; beta_t = beta
+            self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
+
+        # original intermediate ("_i") and target intermediate ("_ti")
+        # system parameters
         self.param_i = parabolic.eliminate_advection_term(self.param)
         self.param_ti = parabolic.eliminate_advection_term(self.param_t)
 
         # system/simulation parameters
         self.actuation_type = 'robin'
         self.bound_cond_type = 'robin'
-        self.l = 1
         spatial_disc = 10
-        self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
+        self.dz = pi.Domain(bounds=domain, num=spatial_disc)
 
         self.t_end = 1.
         temporal_disc = 100
-        self.dt = pi.Domain(bounds=(0, self.t_end), num=temporal_disc)
+        self.dt = pi.Domain(bounds=domain, num=temporal_disc)
 
         self.modal_order = 10
 
-        # create (not normalized) eigenfunctions
-        self.eig_freq, self.eig_val = \
-            pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param,
-                                                                 self.l,
-                                                                 self.modal_order)
-        init_eig_funcs = pi.Base(
-            [pi.SecondOrderRobinEigenfunction(om, self.param, self.l)
-             for om in self.eig_freq])
-        init_adjoint_eig_funcs = pi.Base(
-            [pi.SecondOrderRobinEigenfunction(om, self.adjoint_param, self.l)
-             for om in self.eig_freq])
+        # create  eigenfunctions
+        _eig_base = pi.SecondOrderEigenVector.cure_hint(
+            domain=self.dz,
+            params=self.param,
+            count=self.modal_order,
+            derivative_order=2,
+            debug=True)
+        _adjoint_eig_base = pi.SecondOrderEigenVector.cure_hint(
+            domain=self.dz,
+            params=self.adjoint_param,
+            count=self.modal_order,
+            derivative_order=2,
+            debug=True)
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        eig_base, self.adjoint_eig_base = pi.normalize_base(init_eig_funcs,
-                                                            init_adjoint_eig_funcs)
+        self.eig_base, self.adjoint_eig_base = pi.normalize_base(
+            _eig_base, _adjoint_eig_base)
+
+        if 0:
+            # create (un-normalized) eigenfunctions
+            self.eig_freq, self.eig_val = \
+                pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
+                    self.param,
+                    self.l,
+                    self.modal_order)
+
+            init_eig_funcs = pi.Base(
+                [pi.SecondOrderRobinEigenfunction(om, self.param, self.l)
+                 for om in self.eig_freq])
+            init_adjoint_eig_funcs = pi.Base(
+                [pi.SecondOrderRobinEigenfunction(om, self.adjoint_param, self.l)
+                 for om in self.eig_freq])
+
+            # normalize eigenfunctions and adjoint eigenfunctions
+            self.eig_base, self.adjoint_eig_base = pi.normalize_base(
+                init_eig_funcs,
+                init_adjoint_eig_funcs)
 
         # eigenfunctions from target system ("_t")
-        eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2
-                             + (a0_t - self.eig_val) / a2)
-        eig_base_t = pi.Base(
-            [pi.SecondOrderRobinEigenfunction(eig_freq_t[i],
-                                              self.param_t,
-                                              self.l).scale(eig_base.fractions[i](0))
-             for i in range(self.modal_order)])
+        _eig_base_t = pi.SecondOrderEigenVector.cure_hint(
+            domain=self.dz,
+            params=self.param_t,
+            count=self.modal_order,
+            derivative_order=2,
+            debug=True)
+
+        scale_factors = [frac(0) for frac in self.eig_base.fractions]
+        self.eig_base_t = pi.Base([frac.scale(factor) for frac, factor in
+                                   zip(self.eig_base.fractions, scale_factors)])
+
+        if 0:
+            _eig_freq_t = np.sqrt(-a1_t ** 2 / 4 / a2 ** 2
+                                  + (a0_t - self.eig_val) / a2)
+            _roots_t = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+                self.param_t,
+                _eig_freq_t)
+
+            self.eig_base_t = pi.Base([pi.SecondOrderEigenVector(
+                    eig_freq_t[i],
+                    self.param_t,
+                    self.l).scale(eig_base.fractions[i](0))
+                 for i in range(self.modal_order)])
 
         # register eigenfunctions
-        pi.register_base("eig_base", eig_base)
+        pi.register_base("eig_base", self.eig_base)
         pi.register_base("adjoint_eig_funcs", self.adjoint_eig_base)
-        pi.register_base("eig_base_t", eig_base_t)
+        pi.register_base("eig_base_t", self.eig_base_t)
 
     def test_controller(self):
         # controller initialization
@@ -289,25 +355,31 @@ class RadRobinControlApproxTest(unittest.TestCase):
         xdz_t_at_l = x_t.derive(spat_order=1)(self.l)
 
         def combined_transform(z):
-            return np.exp((self.param_t[1] - self.param[1]) / 2 / self.param[0] * z)
+            return np.exp((self.param_t[1]
+                           - self.param[1]) / 2 / self.param[0] * z)
 
         def int_kernel_zz(z):
             return (self.param_ti[3]
                     - self.param_i[3]
-                    + (self.param_i[2] - self.param_ti[0]) / 2 / self.param[0] * z)
+                    + (self.param_i[2]
+                       - self.param_ti[0]) / 2 / self.param[0] * z)
 
         law = pi.WeakFormulation([
             pi.ScalarTerm(x_at_l,
-                          self.param_i[4] - self.param_ti[4] - int_kernel_zz(self.l)),
+                          self.param_i[4]
+                          - self.param_ti[4]
+                          - int_kernel_zz(self.l)),
             pi.ScalarTerm(x_t_at_l,
                           -self.param_ti[4] * combined_transform(self.l)),
             pi.ScalarTerm(x_at_l, self.param_ti[4]),
             pi.ScalarTerm(xdz_t_at_l, -combined_transform(self.l)),
             pi.ScalarTerm(x_t_at_l,
-                          -self.param_t[1] / 2 / self.param[0] * combined_transform(self.l)),
+                          -self.param_t[1] / 2 /
+                          self.param[0] * combined_transform(self.l)),
             pi.ScalarTerm(xdz_at_l, 1),
             pi.ScalarTerm(x_at_l,
-                          self.param[1] / 2 / self.param[0] + int_kernel_zz(self.l))],
+                          self.param[1] / 2 / self.param[0]
+                          + int_kernel_zz(self.l))],
             name="Rad_Robin-Controller")
         controller = control.Controller(law)
 

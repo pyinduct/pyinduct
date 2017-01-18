@@ -1112,4 +1112,4 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
         return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temp_domain, spat_domain], data, name=name)
+    return EvalData([temp_domain.points, spat_domain.points], data, name=name)

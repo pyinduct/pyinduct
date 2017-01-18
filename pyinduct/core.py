@@ -1260,7 +1260,7 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     Calculates the transformation matrix :math:`V` , so that the a
     set of weights, describing a function in the
     *src_base* will express the same function in the *dst_base*, while
-     minimizing the reprojection error.
+    minimizing the reprojection error.
     An quadratic error is used as the error-norm for this case.
 
     Warning:

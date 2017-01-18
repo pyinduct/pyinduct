@@ -22,13 +22,13 @@ from .core import (Domain, Base, Function, generic_scalar_product,
                    normalize_base, find_roots, real, Parameters)
 from .visualization import visualize_roots
 
-__all__ = ["SecondOrderParameters", "SecondOrderEigenVector", "SecondOrderEigenfunction",
+__all__ = ["SecondOrderOperator", "SecondOrderEigenVector", "SecondOrderEigenfunction",
            "SecondOrderDirichletEigenfunction", "SecondOrderRobinEigenfunction",
            "TransformedSecondOrderEigenfunction", "AddMulFunction",
            "LambdifiedSympyExpression", "FiniteTransformFunction"]
 
 
-class SecondOrderParameters(Parameters):
+class SecondOrderOperator(Parameters):
     """
     Interface class to collect all important parameters that describe
     a second order ordinary differential equation.
@@ -44,18 +44,57 @@ class SecondOrderParameters(Parameters):
     """
     def __init__(self, a2=0, a1=0, a0=0,
                  alpha1=0, alpha0=0,
-                 beta1=0, beta0=0):
+                 beta1=0, beta0=0,
+                 domain=(-np.inf, np.inf)):
         super().__init__(a2=a2, a1=a1, a0=a0,
                          alpha1=alpha1, alpha0=alpha0,
-                         beta1=beta1, beta0=beta0)
+                         beta1=beta1, beta0=beta0,
+                         domain=domain)
 
     @staticmethod
-    def from_list(param_list):
-        return SecondOrderParameters(*param_list)
+    def from_list(param_list, domain=None):
+        return SecondOrderOperator(*param_list, domain=domain)
 
     @staticmethod
-    def from_dict(param_dict):
-        return SecondOrderParameters(**param_dict)
+    def from_dict(param_dict, domain=None):
+        return SecondOrderOperator(**param_dict, domain=domain)
+
+    def get_adjoint_problem(self):
+        r"""
+        Return the parameters of the operator :math:`A^*` which describes
+        the adjoint eigenvalue problem.
+
+        .. math:: (\textup{A}^*\psi)(z) = \bar a_2 \partial_z^2 \psi(z)
+                                            + \bar a_1 \partial_z \psi(z)
+                                            + \bar a_0 \psi(z)
+
+        where the :math:`\bar a_i` are constant and whose boundary conditions
+        are given by
+
+        .. math:: \bar\alpha_1 \partial_z \psi(z_1) + \bar\alpha_0 \psi(z_1)
+                    &= 0 \\
+                  \bar\beta_1 \partial_z \psi(z_2) + \bar\beta_0 \psi(z_2)
+                    &= 0 .
+
+        The following mapping is used:
+
+        .. math:: \bar a_2 = a_2, \bar a_1 = -a_1, \bar a_0 = a_0, \\
+                \bar\alpha_1 = \alpha_1, \bar\alpha_0 =
+                    \alpha_0 + \frac{a_1}{a_2}, \\
+                \bar\beta_1 = \beta_1, \bar\beta_0 = \frac{a_1}{a_2} - \beta_0 .
+
+        Return:
+            :py:class:`SecondOrderOperator`: Parameter set describing
+                :math:`A^*` .
+        """
+        return SecondOrderOperator(a2=self.a2,
+                                   a1=-self.a1,
+                                   a0=self.a0,
+                                   alpha1=self.alpha1,
+                                   alpha0=(self.a1/self.a2 + self.alpha0),
+                                   beta1=self.beta1,
+                                   beta0=(self.a1/self.a2 - self.beta0),
+                                   )
 
 
 class SecondOrderEigenVector(Function):
@@ -167,7 +206,7 @@ class SecondOrderEigenVector(Function):
                 SecondOrderEigenVector.calculate_eigenvalues(domain,
                                                              params,
                                                              count + diff,
-                                                             True,
+                                                             extended_output=True,
                                                              **kwargs)
 
             sing_sols = np.where(np.isnan(kappa[:, 1]))
@@ -429,6 +468,7 @@ class SecondOrderEigenVector(Function):
         return (-params.a1/(2 * params.a2)
                 + 1j * np.sqrt((params.a0 - eigenvalue) / params.a2
                                - (params.a1 / (2 * params.a2)) ** 2))
+
 
 
 class LambdifiedSympyExpression(Function):
@@ -804,19 +844,25 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         a2, a1, a0, alpha, beta = param
         eta = -a1 / 2. / a2
 
-        # characteristic equations for eigen vectors: phi = c1 e^(eta z) + c2 z e^(eta z)
-        char_eq = np.polynomial.Polynomial([alpha * beta * l + alpha + beta, alpha * l - beta * l, -l])
+        # characteristic equations for eigen vectors:
+        # phi = c1 e^(eta z) + c2 z e^(eta z)
+        char_eq = np.polynomial.Polynomial([alpha * beta * l + alpha + beta,
+                                            alpha * l - beta * l,
+                                            -l])
 
-        # characteristic equations for eigen vectors: phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
+        # characteristic equations for eigen vectors:
+        # phi = e^(eta z) (c1 cos(om z) + c2 sin(om z))
         def characteristic_equation(omega):
             if np.isclose(omega, 0):
-                return (alpha + beta) + (eta + beta) * (alpha - eta) * l
+                return alpha + beta + (eta + beta) * (alpha - eta) * l
                 # return ((alpha + beta) * np.cos(omega * l)
                 #         + (eta + beta) * (alpha - eta) * l
                 #         - omega * np.sin(omega * l))
             else:
-                return (alpha + beta) * np.cos(omega * l) \
-                       + ((eta + beta) * (alpha - eta) / omega - omega) * np.sin(omega * l)
+                print(omega)
+                return ((alpha + beta) * np.cos(omega * l)
+                        + ((eta + beta) * (alpha - eta) / omega
+                           - omega) * np.sin(omega * l))
 
         if show_plot:
             z_real = np.linspace(-15, 15)
@@ -833,41 +879,58 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         # assume 1 root per pi/l (safety factor = 3)
         search_begin = np.pi / l * .1
         search_end = 3 * n_roots * np.pi / l
-        start_values_real = np.linspace(search_begin, search_end, search_end / np.pi * l * 100)
-        start_values_imag = np.linspace(search_begin, search_end, search_end / np.pi * l * 20)
+        start_values_real = np.linspace(search_begin,
+                                        search_end,
+                                        search_end / np.pi * l * 100)
+        start_values_imag = np.linspace(search_begin,
+                                        search_end,
+                                        search_end / np.pi * l * 20)
 
         # search imaginary roots
         try:
-            om = list(
-                find_roots(characteristic_equation, 100, [np.array([0]), start_values_imag], rtol=int(np.log10(l) - 3),
-                           cmplx=True))  # , get_all=True))
+            om = list(find_roots(characteristic_equation,
+                                 100,
+                                 [np.array([0]), start_values_imag],
+                                 rtol=int(np.log10(l) - 3),
+                                 cmplx=True))  # , get_all=True))
         except ValueError:
             om = list()
 
         # search real roots
-        om += find_roots(characteristic_equation, 2 * n_roots, [start_values_real, np.array([0])],
-                         rtol=int(np.log10(l) - 3), cmplx=True).tolist()
+        om += find_roots(characteristic_equation, 2 * n_roots,
+                         [start_values_real],
+                         rtol=int(np.log10(l) - 3),
+                         cmplx=False).tolist()
 
-        # only "real" roots and complex roots with imaginary part != 0 and real part == 0 considered
-        if any([not np.isclose(root.real, 0) and not np.isclose(root.imag, 0) for root in om]):
+        # only "real" roots and complex roots with imaginary part != 0
+        # and real part == 0 considered
+        if any([not np.isclose(root.real, 0)
+                and not np.isclose(root.imag, 0) for root in om]):
             raise NotImplementedError("This case is currently not considered.")
 
         # read out complex roots
-        _complex_roots = [root for root in om if np.isclose(root.real, 0) and not np.isclose(root.imag, 0)]
+        _complex_roots = [root for root in om if np.isclose(root.real, 0)
+                          and not np.isclose(root.imag, 0)]
         complex_roots = list()
         for complex_root in _complex_roots:
-            if not any([np.isclose(np.abs(complex_root), _complex_root) for _complex_root in complex_roots]):
+            if not any([np.isclose(np.abs(complex_root), _complex_root)
+                        for _complex_root in complex_roots]):
                 complex_roots.append(complex_root)
 
         # sort out all complex roots and roots with negative real part
-        om = [root.real + 0j for root in om if root.real >= 0 and np.isclose(root.imag, 0)]
+        om = [root.real + 0j for root in om
+              if root.real >= 0 and np.isclose(root.imag, 0)]
 
         # delete all around om = 0
-        for i in [ind for ind, val in enumerate(np.isclose(np.array(om), 0, atol=1e-4)) if val]:
+        for i in [ind for ind, val in enumerate(np.isclose(np.array(om),
+                                                           0,
+                                                           atol=1e-4)) if val]:
             om.pop(i)
 
-        # if om = 0 is a root and the corresponding characteristic equation is satisfied then add 0 to the list
-        if np.isclose(np.abs(characteristic_equation(0)), 0) and any(np.isclose(char_eq.roots(), 0)):
+        # if om = 0 is a root and the corresponding characteristic equation
+        # is satisfied then add 0 to the list
+        if (np.isclose(np.abs(characteristic_equation(0)), 0)
+                and any(np.isclose(char_eq.roots(), 0))):
             om.insert(0, 0)
 
         # add complex root

@@ -104,9 +104,9 @@ class FiniteTransformTest(unittest.TestCase):
         b_desired = 2
         l = 5
 
-        params = pi.SecondOrderParameters(a2=2., a1=1.5, a0=-3.,
-                                          alpha1=1, alpha0=1.,
-                                          beta1=1, beta0=-.5)
+        params = pi.SecondOrderOperator(a2=2., a1=1.5, a0=-3.,
+                                        alpha1=1, alpha0=1.,
+                                        beta1=1, beta0=-.5)
         limits = (0, l)
 
         k1, k2, b = parabolic.control.split_domain(k,
@@ -197,23 +197,23 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         self.domain = pi.Domain(bounds=(0, 1), num=100)
         self.cnt = 5
 
-        self.params_dirichlet = pi.SecondOrderParameters(a2=1,
-                                                         a1=0,
-                                                         a0=1,
-                                                         alpha1=0,
-                                                         alpha0=1,
-                                                         beta1=0,
-                                                         beta0=1)
+        self.params_dirichlet = pi.SecondOrderOperator(a2=1,
+                                                       a1=0,
+                                                       a0=1,
+                                                       alpha1=0,
+                                                       alpha0=1,
+                                                       beta1=0,
+                                                       beta0=1)
         self.lambda_dirichlet = np.array([0, np.pi, 2*np.pi, 3*np.pi],
                                          dtype=complex)
 
-        self.params_neumann = pi.SecondOrderParameters(a2=1,
-                                                       a1=0,
-                                                       a0=1,
-                                                       alpha1=1,
-                                                       alpha0=0,
-                                                       beta1=1,
-                                                       beta0=0)
+        self.params_neumann = pi.SecondOrderOperator(a2=1,
+                                                     a1=0,
+                                                     a0=1,
+                                                     alpha1=1,
+                                                     alpha0=0,
+                                                     beta1=1,
+                                                     beta0=0)
         self.lambda_neumann = np.array([0, np.pi, 2*np.pi, 3*np.pi],
                                        dtype=complex)
 

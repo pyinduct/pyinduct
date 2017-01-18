@@ -5,6 +5,7 @@ import numpy as np
 from scipy.optimize import fsolve
 
 from ..core import Domain, Function, find_roots
+from ..eigenfunctions import SecondOrderOperator
 from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTerm,
                            IntegralTerm, Input, Product)
 from ..simulation import WeakFormulation
@@ -134,7 +135,8 @@ def eliminate_advection_term(param, domain_end=None):
     """
     This method performs a transformation
 
-    .. math:: \\tilde x(z,t)=x(z,t)e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z} ,
+    .. math:: \\tilde x(z,t)=x(z,t)
+            e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z} ,
 
     on the system, which eliminates the advection term :math:`a_1 x(z,t)` from a
     reaction-advection-diffusion equation of the type:
@@ -169,10 +171,22 @@ def eliminate_advection_term(param, domain_end=None):
             boundary condition).
 
     """
-    if not isinstance(param, (tuple, list)) or not len(param) == 5:
-        raise TypeError("pyinduct.utils.transform_2_intermediate(): argument param must from type tuple or list")
+    # TODO remove this compatibility wrapper and promote use of new Operator
+    # class over the entire toolbox.
+    if isinstance(param, SecondOrderOperator):
+        a2 = param.a2
+        a1 = param.a1
+        a0 = param.a0
+        alpha = -param.alpha0
+        beta = param.beta0
 
-    a2, a1, a0, alpha, beta = param
+    else:
+        if not isinstance(param, (tuple, list)) or not len(param) == 5:
+            raise TypeError("pyinduct.utils.transform_2_intermediate(): "
+                            "argument param must from type tuple or list")
+
+        a2, a1, a0, alpha, beta = param
+
     if isinstance(a1, Function):
         if not isinstance(a0, collections.Callable):
             a0_z = Function.from_constant(a0)
@@ -201,7 +215,13 @@ def eliminate_advection_term(param, domain_end=None):
     a2_n = a2
     a1_n = 0
 
-    return a2_n, a1_n, a0_n, alpha_n, beta_n
+    # TODO see above.
+    if isinstance(param, SecondOrderOperator):
+        return SecondOrderOperator(a2=a2_n, a1=0, a0=a0_n,
+                                   alpha1=param.beta1, alpha0=-alpha_n,
+                                   beta1=param.beta1, beta0=beta_n)
+    else:
+        return a2_n, a1_n, a0_n, alpha_n, beta_n
 
 
 def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input_handle, param, spatial_domain):
