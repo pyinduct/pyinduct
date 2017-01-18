@@ -247,15 +247,39 @@ class PgAnimatedPlot(PgDataPlot):
 
 class PgSurfacePlot(PgDataPlot):
     """
-    Plot as 3d surface.
+    Plot 3 dimensional data as a surface using OpenGl.
+
+    Args:
+        data (py:class:`pi.EvalData`): Data to display, if the the input-vector
+            has length of 2, a 3d surface is plotted, if has length 3, this
+            surface is animated. Hereby, the time axis is assumed to be the
+            first entry of the input vector.
+        scales (tuple): Factors to scale the displayed data, each entry
+            corresponds to an axis in the input vector with on additional scale
+            for the *output_data*. It therefore must be of the size:
+            `len(input_data) + 1` . If no scale is given, all axis are scaled
+            uniformly.
+        animation_axis (int): Index of the axis to use for animation.
+            Not implemented, yet and therefore defaults to 0 by now.
+        title (str): Window title to display.
+
+    Note:
+        For animation this object spawns a `QTimer` which needs an running
+        event loop. Therefore remember to store a reference to this object.
     """
 
-    def __init__(self, data, scales=None, title=""):
+    def __init__(self, data, scales=None, animation_axis=0, title=""):
+        """
+
+        :type data: object
+        """
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
         self.gl_widget.setCameraPosition(distance=1, azimuth=-45)
         self.gl_widget.show()
+
+        self.gridsize = 20
 
         # calculate minima and maxima
         maxima = np.max(
@@ -264,11 +288,10 @@ class PgSurfacePlot(PgDataPlot):
             axis=0)
         maxima =  np.hstack((maxima,
                              max([data_set.max for data_set in self._data])))
-        print(maxima)
 
         if scales is None:
-            # scale all axes uniformly
-            self.scales = [1/value for value in maxima]
+            # scale all axes uniformly if no scales are given
+            self.scales = (1/value for value in maxima)
         else:
             self.scales = scales
 
@@ -311,13 +334,18 @@ class PgSurfacePlot(PgDataPlot):
                 self.gl_widget.addItem(plot_item)
                 self.plot_items.append(plot_item)
 
-        # sinc gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
-        # self._xygrid = gl.GLGridItem()
-        # self._xygrid.scale(x=self.scales[0 + self.index_offset],
-        #                    y=self.scales[1 + self.index_offset],
-        #                    z=0)
+        # since gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
+        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(self.gridsize,
+                                                             self.gridsize,
+                                                             1))
+
+        # TODO find new compromise here and ad grids again
+        self._xygrid.scale(x=1/self.gridsize,
+                           y=1/self.gridsize,
+                           z=1)
         # self._xygrid.translate(0, 0, -maxima[-1]*self.scales[-1]/2)
-        # self.gl_widget.addItem(self._xygrid)
+        self._xygrid.translate(1, 1, 0)
+        self.gl_widget.addItem(self._xygrid)
 
         # self._ygrid = gl.GLGridItem()
         # self._ygrid.scale(x=self.scales[0 + self.index_offset],
