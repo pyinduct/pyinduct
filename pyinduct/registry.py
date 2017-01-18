@@ -2,7 +2,7 @@
 :py:mod:`pyinduct.registry` covers the interface for registration of bases (a base is a set of initial functions).
 """
 
-import numpy as np
+__all__ = ["register_base", "is_registered", "deregister_base", "get_base"]
 
 _registry = {}
 

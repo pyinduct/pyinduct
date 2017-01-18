@@ -21,7 +21,7 @@ from numbers import Number
 from mpl_toolkits.mplot3d import axes3d
 
 from .core import complex_wrapper, EvalData, Domain
-from . import utils as ut
+from .utils import create_animation, create_dir
 
 __all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
            "visualize_roots", "visualize_functions"]
@@ -169,7 +169,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._exporter = pg.exporters.ImageExporter(self._pw.plotItem)
             self._exporter.parameters()['width'] = 1e3
 
-            picture_path = ut.create_dir(self._res_path)
+            picture_path = create_dir(self._res_path)
             export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
             # ffmpeg uses c-style format strings
             ff_name = "_".join(
@@ -225,7 +225,7 @@ class PgAnimatedPlot(PgDataPlot):
                 self._export_complete = True
                 print("saved pictures using mask: " + self._ff_mask)
                 if self.create_video:
-                    ut.create_animation(input_file_mask=self._ff_mask)
+                    create_animation(input_file_mask=self._ff_mask)
 
         if self.save_pics and not self._export_complete:
             if new_indexes != self._plot_indexes:
@@ -601,7 +601,7 @@ def save_2d_pg_plot(plot, filename):
         tuple of 2 str's: Path with filename and path only.
     """
 
-    path = ut.create_dir('pictures_plot') + os.path.sep
+    path = create_dir('pictures_plot') + os.path.sep
     path_filename = path + filename + '.png'
     exporter = pg.exporters.ImageExporter(plot.plotItem)
     exporter.parameters()['width'] = 1e3

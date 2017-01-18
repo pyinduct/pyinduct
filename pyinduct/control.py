@@ -6,12 +6,13 @@ as well as their implementation for simulation purposes.
 import numpy as np
 from itertools import chain
 
-from . import registry as rg
-from . import core as cr
-from . import simulation as sim
+from .core import real, get_weight_transformation, TransformationInfo
+from .registry import get_base
+from .simulation import SimulationInput, parse_weak_formulation
 
+__all__ = ["Controller", "LawEvaluator"]
 
-class Controller(sim.SimulationInput):
+class Controller(SimulationInput):
     """
     Wrapper class for all controllers that have to interact with the simulation environment.
 
@@ -21,8 +22,8 @@ class Controller(sim.SimulationInput):
     """
 
     def __init__(self, control_law):
-        sim.SimulationInput.__init__(self, name=control_law.name)
-        ce = sim.parse_weak_formulation(control_law, finalize=False)
+        SimulationInput.__init__(self, name=control_law.name)
+        ce = parse_weak_formulation(control_law, finalize=False)
         self._evaluator = LawEvaluator(ce, self._value_storage)
 
     def _calc_output(self, **kwargs):
@@ -100,11 +101,11 @@ class LawEvaluator(object):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
-                info = cr.TransformationInfo()
+                info = TransformationInfo()
                 info.src_lbl = weight_label
                 info.dst_lbl = lbl
-                info.src_base = rg.get_base(weight_label)
-                info.dst_base = rg.get_base(lbl)
+                info.src_base = get_base(weight_label)
+                info.dst_base = get_base(lbl)
                 info.src_order = int(weights.size / info.src_base.fractions.size) - 1
                 info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size
                                      / info.dst_base.fractions.size) - 1
@@ -112,7 +113,7 @@ class LawEvaluator(object):
                 # look up transformation
                 if info not in self._transformations.keys():
                     # fetch handle
-                    handle = cr.get_weight_transformation(info)
+                    handle = get_weight_transformation(info)
                     self._transformations[info] = handle
 
                 # transform weights
@@ -130,5 +131,5 @@ class LawEvaluator(object):
         if "f" in static_terms:
             output = output + static_terms["f"]
 
-        res["output"] = cr.real(output)
+        res["output"] = real(output)
         return res

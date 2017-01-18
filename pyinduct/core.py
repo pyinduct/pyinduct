@@ -14,7 +14,7 @@ from scipy.linalg import block_diag
 from scipy.optimize import root
 from scipy.interpolate import interp1d
 
-from . import registry as rg
+from .registry import get_base
 
 __all__ = ["Domain", "EvalData", "Parameters",
            "find_roots", "sanitize_input",
@@ -1153,6 +1153,7 @@ def get_weight_transformation(info):
     Return:
         callable: transformation function handle
     """
+    # TODO since this lives in core now, get rid ob base labels
     # trivial case
     if info.src_lbl == info.dst_lbl:
         mat = calculate_expanded_base_transformation_matrix(
@@ -1197,7 +1198,7 @@ def get_weight_transformation(info):
         for dep_lbl, dep_order in hint.extras.items():
             new_info = copy(info)
             new_info.dst_lbl = dep_lbl
-            new_info.dst_base = rg.get_base(dep_lbl)
+            new_info.dst_base = get_base(dep_lbl)
             new_info.dst_order = dep_order
             dep_handle = get_weight_transformation(new_info)
             kwargs[dep_lbl] = dep_handle

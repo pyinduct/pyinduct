@@ -12,6 +12,9 @@ import collections
 from .registry import register_base, deregister_base, get_base, is_registered
 from .core import sanitize_input, Base, Function
 
+__all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable", "Input",
+           "Product"
+           "ScalarTerm", "IntegralTerm"]
 
 class Placeholder(object):
     """

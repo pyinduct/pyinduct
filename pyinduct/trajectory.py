@@ -16,6 +16,11 @@ import sympy as sp
 from .core import Domain
 from .simulation import SimulationInput
 
+__all__ = ["ConstantTrajectory", "InterpolationTrajectory",
+           "SmoothTransition",  "SignalGenerator",
+           "gevrey_tanh", "power_series", "temporal_derived_power_series",
+           "coefficient_recursion",
+           "FlatString"]
 
 # TODO move this to a more feasible location
 sigma_tanh = 1.1
@@ -128,6 +133,7 @@ class FlatString(SimulationInput):
     Class that implements a flatness based control approach
     for the "string with mass" model.
     """
+    # TODO move into hyperbolic submodule
 
     def __init__(self, y0, y1, z0, z1, t0, dt, params):
         SimulationInput.__init__(self)
