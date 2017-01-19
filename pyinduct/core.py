@@ -908,8 +908,8 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     Args:
         scalar_product_handle (callable): function handle that is called to calculate the scalar product.
             This function has to be able to cope with (1d) vectorial input.
-        base_a (:py:class:`Base`): Basis a
-        base_b (:py:class:`Base`): Basis b
+        base_a (:py:class:`Base` or fraction array): Basis a
+        base_b (:py:class:`Base` or fraction array): Basis b
         optimize (bool): switch to turn on the symmetry based speed up. For development purposes only.
 
     TODO:
@@ -918,6 +918,11 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     Return:
         numpy.ndarray: matrix :math:`A`
     """
+    if isinstance(base_a, Base):
+        a = base_a.fractions
+    if isinstance(base_b, Base):
+        b = base_b.fractions
+
     if optimize:
         raise NotImplementedError("this approach leads to wrong results atm.")
         # There are certain conditions that have to be satisfied to make use of a symmetrical product matrix
@@ -986,10 +991,10 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
         return out if not transposed else out.T
 
     else:
-        i, j = np.mgrid[0:base_a.fractions.shape[0],
-                        0:base_b.fractions.shape[0]]
-        fractions_i = base_a.fractions[i]
-        fractions_j = base_b.fractions[j]
+        i, j = np.mgrid[0:a.shape[0],
+                        0:b.shape[0]]
+        fractions_i = a[i]
+        fractions_j = b[j]
 
         res = scalar_product_handle(fractions_i.flatten(),
                                     fractions_j.flatten())
@@ -1391,7 +1396,8 @@ def generic_scalar_product(b1, b2=None):
     return res
 
 
-def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
+def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
+               cmplx=False):
     r"""
     Searches *n_roots* roots of the *function* :math:`f(\boldsymbol{x})`
     on the given *grid* and checks them for uniqueness with aid of *rtol*.
@@ -1409,12 +1415,13 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
     Args:
         function (callable): Function handle for math:`f(\boldsymbol{x})`
             whose roots shall be found.
-        n_roots (int): Number of roots to find.
         grid (list): Grid to use as starting point for root detection.
             The :math:`i` th element of this list provides sample points
             for the :math:`i` th parameter of :math:`\boldsymbol{x}` .
-        rtol: Magnitude to be exceeded for the difference of two roots
-            to be unique: :math:`f(r1) - f(r2) > 10^{\textrm{rtol}}` .
+        n_roots (int): Number of roots to find. If none is given, return
+            all roots that could be found in the given area.
+        rtol: Tolerance to be exceeded for the difference of two roots
+            to be unique: :math:`f(r1) - f(r2) > \textrm{rtol}` .
         atol: Absolute tolerance to zero: :math:`f(x^0) < \textrm{atol}` .
         cmplx: Set to True if the given *function* is complex valued.
 
@@ -1430,17 +1437,15 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
         assert dim == 2
         function = complex_wrapper(function)
 
-    roots = np.full((n_roots, dim), np.nan)
-    rounded_roots = np.full((n_roots, dim), np.nan)
-    errors = np.full((n_roots,), np.nan)
-    found_roots = 0
+    roots = []
+    errors = []
 
     grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
 
     # iterate over test_values
     val = iter(values)
-    while found_roots < n_roots:
+    while True:  # found_roots < n_roots:
         try:
             res = root(function, next(val), tol=atol)
         except StopIteration:
@@ -1459,47 +1464,44 @@ def find_roots(function, n_roots, grid, rtol=0, atol=1e-7, cmplx=False):
         # check if root lies in expected area
         abort = False
         for rt, ar in zip(calculated_root, grid):
-            if ar.min() > rt or ar.max() < rt:
+            if ar.min() - atol > rt or ar.max() + atol < rt:
                 abort = True
                 break
         if abort:
             continue
 
-        # check whether root is already present in cache
-        rounded_root = np.round(calculated_root, -rtol)
-        cmp_arr = [all(identical_roots)for identical_roots in np.isclose(
-                rounded_root,
-                rounded_roots[:found_roots])]
-        if any(cmp_arr):
-            idx = cmp_arr.index(True)
-            if errors[idx] > error:
-                roots[idx] = calculated_root
-                errors[idx] = error
-            # TODO check jacobian (if provided) to identify roots of
-            # higher order
-            continue
+        if roots:
+            # check whether root is already present in cache
+            cmp_arr = np.isclose(calculated_root, roots, atol=rtol)
+            cmp_vec = [all(elements) for elements in cmp_arr]
+            if any(cmp_vec):
+                idx = cmp_vec.index(True)
+                if errors[idx] > error:
+                    roots[idx] = calculated_root
+                    errors[idx] = error
+                # TODO check jacobian (if provided)
+                # to identify roots of higher order
+                continue
 
-        roots[found_roots] = calculated_root
-        rounded_roots[found_roots] = rounded_root
-        errors[found_roots] = error
+        roots.append(calculated_root)
+        errors.append(error)
 
-        found_roots += 1
-
-    if found_roots < n_roots:
+    if n_roots is not None and len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(
-            found_roots, n_roots)
-        )
+                            len(roots), n_roots)
+                        )
 
-    valid_roots = roots[:found_roots]
+    valid_roots = np.array(roots)
 
     # sort roots
     # completely sort first column before we start
     idx = np.argsort(valid_roots[:, 0])
     sorted_roots = valid_roots[idx, :]
+
     for layer in range(valid_roots.shape[1] - 1):
         for rt in sorted_roots[:, layer]:
-            eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=10**rtol)
+            eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=rtol)
             idx = np.argsort(sorted_roots[eq_mask, layer + 1])
             sorted_roots[eq_mask] = sorted_roots[eq_mask][idx, :]
 

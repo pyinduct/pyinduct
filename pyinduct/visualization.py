@@ -647,6 +647,7 @@ def visualize_roots(roots, grid, function, cmplx=False):
     abs_values = np.array(absolute)
 
     # plot roots
+    pg.mkQApp()
     pw = pg.GraphicsLayoutWidget()
     pw.setWindowTitle("Root Visualization")
 
@@ -675,7 +676,9 @@ def visualize_roots(roots, grid, function, cmplx=False):
             p_img.addItem(img)
 
             # add roots on top
-            p_img.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+            p_img.plot(roots[:, 0], roots[:, 1],
+                       pen=None,
+                       symbolPen=pg.mkPen("g"))
 
             hist = pg.HistogramLUTItem()
             hist.setImageItem(img)
@@ -702,4 +705,4 @@ def visualize_roots(roots, grid, function, cmplx=False):
         p_abs.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
 
     pw.show()
-    pg.QtGui.QApplication.instance().exec_()
+    pg.QAPP.exec_()

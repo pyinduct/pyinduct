@@ -19,7 +19,8 @@ import sympy as sp
 from sympy.utilities.lambdify import lambdify
 
 from .core import (Domain, Base, Function, generic_scalar_product,
-                   normalize_base, find_roots, real, Parameters)
+                   calculate_scalar_product_matrix, dot_product_l2,
+                   normalize_base, find_roots, real)
 from .visualization import visualize_roots
 
 __all__ = ["SecondOrderOperator", "SecondOrderEigenVector", "SecondOrderEigenfunction",
@@ -158,22 +159,20 @@ class SecondOrderEigenVector(Function):
             eigenvalue :math:`\lambda` for which the eigenvector is
             to be determined.
             (Can be obtained by :py:func:`convert_to_characteristic_root`)
-        kappa (tuple): Constants of the exponential ansatz solution.
+        coeffs (tuple): Constants of the exponential ansatz solution.
 
     Returns:
         :py:class:`SecondOrderEigenvector` : The eigenvector.
     """
 
-    def __init__(self, char_root, kappa, domain, derivative_order):
+    def __init__(self, char_roots, coefficients, domain, derivative_order):
         # build generic solution
-        z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
-        gen_sols = [sp.exp(eta * z) * (kappa1 * sp.cos(nu * z)
-                                       + kappa2 * sp.sin(nu * z))]
-
-        gen_sols[0] = gen_sols[0].subs([(kappa1, kappa[0]),
-                                        (kappa2, kappa[1]),
-                                        (eta, np.real(char_root)),
-                                        (nu, np.imag(char_root)),
+        z, p1, p2, c1, c2 = sp.symbols("z p1 p2 c1 c2")
+        gen_sols = [c1 * sp.exp(p1 * z) + c2 * sp.exp(p2 * z)]
+        gen_sols[0] = gen_sols[0].subs([(c1, coefficients[0]),
+                                        (c2, coefficients[1]),
+                                        (p1, char_roots[0]),
+                                        (p2, char_roots[1]),
                                         ])
         # derive
         for d in range(derivative_order):
@@ -195,8 +194,8 @@ class SecondOrderEigenVector(Function):
         Parameters:
             domain (:py:class:`core.domain`): Domain of the
                 spatial problem.
-            params (bunch-like): Parameters of the system, see
-                :py:func:`__init__` for details on their definition.
+            params (:py:class:`SecondOrderOperator`): Parameters of the system,
+                see :py:func:`__init__` for details on their definition.
                 Long story short, it must contain
                 :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and }
                 \beta_1` .
@@ -209,31 +208,37 @@ class SecondOrderEigenVector(Function):
                 windows to open.
 
         Returns:
-            tuple of (Domain, Array): Pair of the spatial Domain and an array
-            holding the Eigenvectors.
+            tuple of (array, :py:class:`Base`): An array holding the eigenvalues
+            paired with a basis spanned by the eigenvectors.
         """
         diff = 1
         while diff > 0:
-            eig_values, char_roots, kappa = \
-                SecondOrderEigenVector.calculate_eigenvalues(domain,
-                                                             params,
-                                                             count + diff,
-                                                             extended_output=True,
-                                                             **kwargs)
+            eig_values, char_roots, coefficients = \
+                SecondOrderEigenVector.calculate_eigenvalues(
+                    domain,
+                    params,
+                    count + diff,
+                    extended_output=True,
+                    **kwargs)
 
-            sing_sols = np.where(np.isnan(kappa[:, 1]))
-            eig_values = np.delete(eig_values, sing_sols)
-            char_roots = np.delete(char_roots, sing_sols)
-            kappa = np.delete(kappa, sing_sols, axis=0)
+            fractions = []
+            for root_set, coeffs in zip(char_roots, coefficients):
+                frac = SecondOrderEigenVector(char_roots=root_set,
+                                              coefficients=coeffs,
+                                              domain=domain.bounds,
+                                              derivative_order=derivative_order)
+                if fractions:
+                    # test orthogonal properties
+                    grades = calculate_scalar_product_matrix(dot_product_l2,
+                                                             frac,
+                                                             fractions)
+                    if not np.allclose(grades, 0):
+                        continue
 
-            eig_base = Base([SecondOrderEigenVector(
-                char_root=r,
-                kappa=k,
-                domain=domain.bounds,
-                derivative_order=derivative_order)
-                                for r, k in zip(char_roots, kappa)])
+                fractions.append(frac)
 
             # if we can't normalize it, we can't use it
+            eig_base = Base(fractions)
             norm = generic_scalar_product(eig_base)
             orthogonal_sols = np.where(np.isclose(norm, 0))
             eig_values = np.delete(eig_values, orthogonal_sols)[:count]
@@ -280,185 +285,213 @@ class SecondOrderEigenVector(Function):
         bounds = domain.bounds
 
         # again, build generic solution
-        z, nu, eta, kappa1, kappa2 = sp.symbols("z nu eta kappa1 kappa2")
-        gen_sol = sp.exp(eta * z) * (kappa1 * sp.cos(nu * z)
-                                     + kappa2 * sp.sin(nu * z))
-        gen_sol = gen_sol.subs([(eta, -params.a1 / (2 * params.a2))])
+        z, nu, c1, c2 = sp.symbols("z nu c_1 c_2")
+        mu = -.5*params.a1 / params.a2
+        p1 = mu + nu
+        p2 = mu - nu
+        gen_sol = (c1 * sp.exp(p1 * z) + c2 * sp.exp(p2 * z))
 
-        kappa = np.nan * np.ones((count, 2))
 
         # check special case of a dirichlet boundary defined at zero
         if (params.alpha1 == 0 and params.alpha0 != 0 and bounds[0] == 0
                 or params.beta1 == 0 and params.beta0 != 0 and bounds[1] == 0):
-            # since kappa1 is equal to sol evaluated at z=0
-            gen_sol = gen_sol.subs(kappa2, 1)
-            kappa[:, 0] = 0
-            # use kappa2 as the arbitrary scaling factor
-            gen_sol = gen_sol.subs(kappa1, 0)
-            kappa[:, 1] = 1
+            # since c1 + c2 is equal to sol evaluated at z=0 (c1 + c2 = 0)
+            gen_sol = gen_sol.subs(c2, -c1)
+            # choose arbitrary scaling to be one
+            gen_sol = gen_sol.subs(c1, 1)
+            dirichlet_zero = True
             settled_bc = domain.bounds.index(0)
-
         else:
-            # choose the arbitrary scaling to be one
-            gen_sol = gen_sol.subs(kappa1, 1)
-            kappa[:, 0] = 1
+            # choose the arbitrary scaling to be one (c1 + c2 = 1)
+            gen_sol = gen_sol.subs(c2, 1 - c1)
+            dirichlet_zero = True
 
             # incorporate the first boundary condition
             bc1 = (params.alpha0 * gen_sol.subs(z, bounds[0])
                    + params.alpha1 * gen_sol.diff(z).subs(z, bounds[0]))
-            kappa2_sol = sp.solve(bc1, kappa2)[0]
-            gen_sol = gen_sol.subs(kappa2, kappa2_sol)
+            c1_sol = sp.solve(bc1, c1)[0]
+            gen_sol = gen_sol.subs(c1, c1_sol)
             settled_bc = 0
 
-        # resolve 2nd boundary condition to extract char. function
         if settled_bc == 1:
-            c0 = params.alpha0
-            c1 = params.alpha1
+            ci = c1
+            g0 = params.alpha0
+            g1 = params.alpha1
         elif settled_bc == 0:
-            c0 = params.beta0
-            c1 = params.beta1
+            ci = c2
+            g0 = params.beta0
+            g1 = params.beta1
         else:
             raise ValueError
 
-        char_eq = (c0 * gen_sol.subs(z, bounds[1 - settled_bc])
-                   + c1 * gen_sol.diff(z).subs(z, bounds[1 - settled_bc]))
+        char_eq = (g0 * gen_sol.subs(z, bounds[1 - settled_bc])
+                   + g1 * gen_sol.diff(z).subs(z, bounds[1 - settled_bc]))
 
-        # extract numerator and denominator
-        numer, denom = char_eq.as_numer_denom()
-
-        freqs = []
-
-        def extract_trig(expr):
-            if expr.func == sp.sin or expr.func == sp.cos:
-                freqs.append(sp.collect(expr.args[0], nu, evaluate=False)[nu])
-
-            for arg in expr.args:
-                extract_trig(arg)
-
-        extract_trig(numer)
-        try:
-            max_freq = float(max(freqs))
-            root_dist = np.pi/max_freq
-        except ValueError:
-            root_dist = .1
+        # lambdify
+        char_func = sp.lambdify(nu, char_eq, modules="numpy")
 
         if kwargs.get("debug", False):
             sp.init_printing()
             print("characteristic equation:")
             sp.pretty_print(char_eq)
-            # sp.plot(char_eq, (z, *domain.bounds))
-            print("numerator:")
-            sp.pretty_print(numer)
-            # sp.plot(numer, (z, *domain.bounds))
-            print("denominator:")
-            sp.pretty_print(denom)
-            # sp.plot(denom, (z, *domain.bounds))
-            print("estimated root distance of: {}".format(root_dist))
 
-        # lambdify
-        char_func = sp.lambdify(nu, char_eq, modules="numpy")
-        numer_func = sp.lambdify(nu, numer, modules="numpy")
-        denom_func = sp.lambdify(nu, denom, modules="numpy")
+        cache = {}
 
-        diff = 1
-        while diff > 0:
-            # search roots
-            # an upper limit is hard to guess
-            iter_limit = 10 * root_dist * (count + diff)
-            search_grid = Domain(bounds=(0, iter_limit),
-                                 step=root_dist)
-            num_roots = find_roots(numer_func,
-                                   n_roots=count + diff,
-                                   grid=[search_grid.points],
-                                   rtol=int(np.log10(root_dist) - .5) - 1
-                                   )
+        def patched_func(_z):
+            """
+            A patched version of a sympy expression.
+            If the limit exists it is used to lift poles of the
+            function.
+            """
+            # TODO add cache for lifted poles to speed up the process
+            # TODO export into own wrapper class
+            # (see LambdifiedSympyExpression)
 
-            # check for common roots of numerator and denominator
-            nu_num = []
-            for root in num_roots:
-                if not np.isclose(denom_func(root), 0):
-                    nu_num.append(root)
-
-            diff = max(0, count - len(nu_num))
-
-        nu_num = np.array(nu_num[:count])
-
-        if kwargs.get("debug", False):
-            def patched_func(_z):
-                """
-                A patched version of a sympy expression.
-                If the limit exists it is used to lift poles of the
-                function.
-                """
-                # TODO add cache for lifted poles to speed up the process
-                # TODO export into own wrapper class
-                # (see LambdifiedSympyExpression)
-                try:
-                    return char_func(_z)
-                except FloatingPointError:
+            try:
+                return char_func(_z)
+            except FloatingPointError:
+                if _z in cache:
+                    return cache[_z]
+                else:
                     lim_p = np.float(sp.limit(char_eq, nu, _z, dir="+"))
                     lim_m = np.float(sp.limit(char_eq, nu, _z, dir="-"))
                     if np.isclose(lim_p, lim_m):
+                        cache[_z] = lim_m
                         return lim_m
                     else:
+                        print("Unsteady function")
                         # gained by dice roll, guaranteed to be fair.
                         return 5
 
-            visualize_roots(nu_num,
-                            [np.linspace(0, iter_limit, 1000)],
-                            patched_func)
+        # TODO introduce step heuristic, again.
+        if 0:
+            # extract numerator and denominator
+            numer, denom = char_eq.as_numer_denom()
 
-        # resolve kappa2
-        if kappa[0, 0] == 1:
-            # kappa1 has been set to one, determine kappa2
-            k2_handle = sp.lambdify(nu,
-                                    kappa2_sol,
-                                    modules="numpy")
+            freqs = []
 
-            for idx, nu_ in enumerate(nu_num):
-                try:
-                    kappa[idx, 1] = k2_handle(nu_)
-                except FloatingPointError:
-                    """ These errors occur if there is practically no
-                    eigenvector for this characteristic root. Therefore
-                    the corresponding coefficient becomes infinite to
-                    fulfill the given boundary condition."""
-                    pass
+            def extract_trig(expr):
+                if expr.func == sp.sin or expr.func == sp.cos:
+                    freqs.append(sp.collect(expr.args[0], nu, evaluate=False)[nu])
 
-        # reconstruct characteristic roots
-        eta_num = np.ones_like(nu_num) * (-params.a1 / (2 * params.a2))
-        char_roots = np.array([eta + 1j * nu
-                               for eta, nu in zip(eta_num, nu_num)])
+                for arg in expr.args:
+                    extract_trig(arg)
+
+            extract_trig(numer)
+            try:
+                max_freq = float(max(freqs))
+                root_dist = np.pi/max_freq
+            except ValueError:
+                root_dist = .1
+
+            if kwargs.get("debug", False):
+                sp.init_printing()
+                print("characteristic equation:")
+                sp.pretty_print(char_eq)
+                # sp.plot(char_eq, (z, *domain.bounds))
+                print("numerator:")
+                sp.pretty_print(numer)
+                # sp.plot(numer, (z, *domain.bounds))
+                print("denominator:")
+                sp.pretty_print(denom)
+                # sp.plot(denom, (z, *domain.bounds))
+                print("estimated root distance of: {}".format(root_dist))
+
+            numer_func = sp.lambdify(nu, numer, modules="numpy")
+            denom_func = sp.lambdify(nu, denom, modules="numpy")
+
+            diff = 1
+            while diff > 0:
+                # search roots
+                # an upper limit is hard to guess
+                iter_limit = 10 * root_dist * (count + diff)
+                search_grid = Domain(bounds=(0, iter_limit),
+                                     step=root_dist)
+                num_roots = find_roots(numer_func, grid=[search_grid.points],
+                                       n_roots=count + diff,
+                                       rtol=int(np.log10(root_dist) - .5) - 1)
+
+                # check for common roots of numerator and denominator
+                nu_num = []
+                for root in num_roots:
+                    if not np.isclose(denom_func(root), 0):
+                        nu_num.append(root)
+
+                diff = max(0, count - len(nu_num))
+
+            nu_num = np.array(nu_num[:count])
+
+        roots = find_roots(function=patched_func,
+                           grid=[np.linspace(-2, 2), np.linspace(-10, 10)],
+                           cmplx=True)
+        np.testing.assert_almost_equal(char_func(roots), 0, verbose=True)
+
+        if kwargs.get("debug", False):
+            visualize_roots(roots,
+                            grid=[np.linspace(-2, 2), np.linspace(-10, 10)],
+                            function=patched_func,
+                            cmplx=True)
+
+        # reconstruct characteristic pairs p1 and p2
+        char_pairs = np.hstack([np.atleast_2d(mu + roots).T,
+                                np.atleast_2d(mu - roots).T])
+
+        # sort all pairs
+        char_pairs = np.sort(char_pairs, axis=1)
+
+        # filter out the unique pairs
+        unique_pairs = np.vstack({tuple(row) for row in char_pairs})
+
+        # sort roots by absolute value in increasing order
+        # sorted_roots = np.array(sorted(unique_pairs, key=np.abs)[:count])
+        # TODO add sorting and choose one member of the pairs to sort by
+        sorted_pairs = unique_pairs[:count]
+
+        # resolve coefficients
+        c = np.nan * np.ones((len(sorted_pairs), 2))
+        if dirichlet_zero:
+            # c1 has been set to one, determine c2 = -c1
+            c[:, 1] = 1
+            c[:, 1] = -c[:, 0]
+        else:
+            # c1 + c2 has been set to one, determine c2 = 1 - c1
+            c1_handle = sp.lambdify(nu, c1_sol, modules="numpy")
+            c[:, 0] = c1_handle(sorted_roots)
+            c[:, 1] = 1 - c[:, 0]
 
         # reconstruct eigenvalues
         eig_values = SecondOrderEigenVector.convert_to_eigenvalue(params,
-                                                                  char_roots)
+                                                                  sorted_roots)
 
         if kwargs.get("debug", False):
             print("roots: {}".format(char_roots))
             print("eig_vals: {}".format(eig_values))
 
         if extended_output:
-            return eig_values, char_roots, kappa
+            return eig_values, char_roots, c
         else:
             return eig_values
 
     @staticmethod
-    def convert_to_eigenvalue(params, char_root):
+    def convert_to_eigenvalue(params, char_roots):
         r"""
-        Converts a characteristic root :math:`p` into an
-        eigenvalue :math:`\lambda` by using the provided
-        parameters. The relation is given by
+        Converts a pair of characteristic roots :math:`p_{1,2}` into an
+        eigenvalue :math:`\lambda` by using the provided parameters.
+        The relation is given by
 
         .. math:: \lambda = a_2 p^2 + a_1 p + a_0
 
         Parameters:
-            params (:py:class:`SecondOrderOperator`): system parameters, see .
-            char_root (complex): characteristic_root
+            params (:py:class:`SecondOrderOperator`): System parameters.
+            char_roots (tuple or array of tuples): Characteristic roots
         """
-        return real(params.a2 * char_root ** 2
-                    + params.a1 * char_root
-                    + params.a0)
+        l1, l2 = (params.a2 * char_roots[0] ** 2
+                  + params.a1 * char_roots[0]
+                  + params.a0,
+                  params.a2 * char_roots[1] ** 2
+                  + params.a1 * char_roots[1]
+                  + params.a0)
+        return l1, l2
 
     @staticmethod
     def convert_to_characteristic_root(params, eigenvalue):
@@ -478,10 +511,14 @@ class SecondOrderEigenVector(Function):
         Returns:
             complex number: characteristic root :math:`p`
         """
-        return (-params.a1/(2 * params.a2)
-                + 1j * np.sqrt((params.a0 - eigenvalue) / params.a2
-                               - (params.a1 / (2 * params.a2)) ** 2))
+        res = (-params.a1 / (2 * params.a2)
+               + np.sqrt((params.a1 / 2 / params.a2) ** 2
+                         - (params.a0 - eigenvalue) / params.a2),
+               -params.a1 / (2 * params.a2)
+               - np.sqrt((params.a1 / 2 / params.a2) ** 2
+                         - (params.a0 - eigenvalue) / params.a2))
 
+        return res
 
 
 class LambdifiedSympyExpression(Function):
@@ -902,17 +939,14 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         # search imaginary roots
         try:
             om = list(find_roots(characteristic_equation,
-                                 100,
-                                 [np.array([0]), start_values_imag],
-                                 rtol=int(np.log10(l) - 3),
-                                 cmplx=True))  # , get_all=True))
+                                 [np.array([0]), start_values_imag], 100,
+                                 rtol=int(np.log10(l) - 3), cmplx=True))  # , get_all=True))
         except ValueError:
             om = list()
 
         # search real roots
-        om += find_roots(characteristic_equation, 2 * n_roots,
-                         [start_values_real],
-                         rtol=int(np.log10(l) - 3),
+        om += find_roots(characteristic_equation, [start_values_real],
+                         2 * n_roots, rtol=int(np.log10(l) - 3),
                          cmplx=False).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0

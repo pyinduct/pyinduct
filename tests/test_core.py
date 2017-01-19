@@ -520,10 +520,8 @@ class FindRootsTestCase(unittest.TestCase):
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
-        roots = pi.find_roots(function=self.frequent_eq,
-                              n_roots=self.n_roots,
-                              grid=grid,
-                              rtol=self.rtol)
+        roots = pi.find_roots(function=self.frequent_eq, grid=grid,
+                              n_roots=self.n_roots, rtol=self.rtol)
 
         if show_plots:
             pi.visualize_roots(roots,
@@ -534,7 +532,8 @@ class FindRootsTestCase(unittest.TestCase):
         np.testing.assert_array_almost_equal(roots, real_roots)
 
     def test_in_fact_roots(self):
-        roots = pi.find_roots(function=self.char_eq, n_roots=self.n_roots, grid=self.grid, rtol=self.rtol)
+        roots = pi.find_roots(function=self.char_eq, grid=self.grid,
+                              n_roots=self.n_roots, rtol=self.rtol)
         pi.visualize_roots(roots, self.grid, self.char_eq)
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
@@ -542,25 +541,27 @@ class FindRootsTestCase(unittest.TestCase):
     def test_enough_roots(self):
         # small area -> not enough roots -> Exception
         with self.assertRaises(ValueError):
-            pi.find_roots(self.char_eq, self.n_roots, self.small_grid, self.rtol)
+            pi.find_roots(self.char_eq, self.small_grid, self.n_roots,
+                          self.rtol)
 
         # bigger area check good amount
-        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
 
     def test_rtol(self):
-        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
         self.assertGreaterEqual(np.log10(
             min(np.abs(np.diff(roots)))), self.rtol)
 
     def test_in_area(self):
-        roots = pi.find_roots(self.char_eq, self.n_roots, self.grid, self.rtol)
+        roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
         for root in roots:
             self.assertTrue(root >= 0.)
 
     def test_complex_func(self):
         grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
-        roots = pi.find_roots(function=self.complex_eq, n_roots=5, grid=grid, rtol=-1, cmplx=True)
+        roots = pi.find_roots(function=self.complex_eq, grid=grid, n_roots=5,
+                              rtol=-1, cmplx=True)
         self.assertTrue(np.allclose(
             [self.complex_eq(root) for root in roots],
             [0] * len(roots)))
@@ -572,7 +573,8 @@ class FindRootsTestCase(unittest.TestCase):
     def test_n_dim_func(self):
         grid = [np.linspace(0, 10),
                 np.linspace(0, 2)]
-        roots = pi.find_roots(function=self.univariate_eq, n_roots=6, grid=grid, rtol=self.rtol)
+        roots = pi.find_roots(function=self.univariate_eq, grid=grid, n_roots=6,
+                              rtol=self.rtol)
         grid = [np.arange(0, 10, .1), np.arange(0, 10, .1)]
         pi.visualize_roots(roots, grid, self.univariate_eq)
 

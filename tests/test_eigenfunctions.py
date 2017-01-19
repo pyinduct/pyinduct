@@ -195,17 +195,17 @@ class TestSecondOrderEigenVector(unittest.TestCase):
 
     def setUp(self):
         self.domain = pi.Domain(bounds=(0, 1), num=100)
-        self.cnt = 5
+        self.cnt = 4
 
         self.params_dirichlet = pi.SecondOrderOperator(a2=1,
-                                                       a1=0,
-                                                       a0=1,
+                                                       a1=2,
+                                                       a0=3,
                                                        alpha1=0,
                                                        alpha0=1,
                                                        beta1=0,
                                                        beta0=1)
-        self.lambda_dirichlet = np.array([0, np.pi, 2*np.pi, 3*np.pi],
-                                         dtype=complex)
+        self.p_dirichlet = np.array([0, np.pi, 2 * np.pi, 3 * np.pi],
+                                    dtype=complex)
 
         self.params_neumann = pi.SecondOrderOperator(a2=1,
                                                      a1=0,
@@ -214,8 +214,8 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                                      alpha0=0,
                                                      beta1=1,
                                                      beta0=0)
-        self.lambda_neumann = np.array([0, np.pi, 2*np.pi, 3*np.pi],
-                                       dtype=complex)
+        self.p_neumann = np.array([0, np.pi, 2 * np.pi, 3 * np.pi],
+                                  dtype=complex)
 
         self.params_robin = pi.Parameters(a2=1,
                                           a1=0,
@@ -224,58 +224,49 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                           alpha0=2,
                                           beta1=1,
                                           beta0=-2)
-        self.lambda_robin = np.array([2.39935728j, 0, 5.59677209, 8.98681892])
+        self.p_robin = np.array([2.39935728j, 0, 5.59677209, 8.98681892])
 
     def test_dirichlet(self):
         print("dirichlet case")
         self._test_helper(self.params_dirichlet,
-                          self.lambda_dirichlet)
+                          self.p_dirichlet)
 
     def test_neumann(self):
         print("neumann case")
         self._test_helper(self.params_neumann,
-                          self.lambda_neumann)
+                          self.p_neumann)
 
     def test_robin(self):
         print("robin case")
         self._test_helper(self.params_robin,
-                          self.lambda_robin)
+                          self.p_robin)
 
-    def _test_helper(self, params, lambda_ref):
+    def _test_helper(self, params, p_ref):
         # test eigenvalues
-        lamda = pi.SecondOrderEigenVector.calculate_eigenvalues(
-            self.domain,
-            params,
-            count=len(lambda_ref),
-            debug=False
-        )
-        self.assertEqual(len(lamda), len(lambda_ref))
+        lamda, char_roots, coeffs \
+            = pi.SecondOrderEigenVector.calculate_eigenvalues(
+                self.domain,
+                params,
+                count=len(p_ref),
+                extended_output=True,
+                debug=False
+            )
+        self.assertEqual(len(lamda), len(p_ref))
 
-        char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+        _char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
             params,
-            lamda),
-        if 0:
-            """ TODO make clear what we are testing here !
-             the values copied from the tests below are eigenfrequencies,
-             which would correspond to the imaginary part '\nu'' of the
-             characteristic root 'p'.
-             But some of them have imaginary parts, I don't get it.
-            """
-            np.testing.assert_array_equal(char_roots,
-                                          lambda_ref,
-                                          verbose=True)
+            lamda)
 
-        # test condition for complex-valued eigenvalues
-        condition = (params.a1 / (2 * params.a2)**2
-                     - (params.a0 - lamda) / params.a2)
-        np.testing.assert_array_less(condition,
-                                     np.zeros_like(lamda),
-                                     verbose=True)
+        np.testing.assert_array_equal(char_roots, _char_roots, verbose=True)
+
+        # np.testing.assert_array_equal(char_roots,
+        #                               p_ref,
+        #                               verbose=True)
 
         # test eigenvectors
         eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
                                                        params,
-                                                       count=len(lambda_ref),
+                                                       count=len(p_ref),
                                                        derivative_order=2,
                                                        debug=False)
 
@@ -283,7 +274,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             pi.visualize_functions(eig_base.fractions)
 
         # check for correct length
-        self.assertEqual(len(eig_base.fractions), len(lambda_ref))
+        self.assertEqual(len(eig_base.fractions), len(p_ref))
 
         for fraction, lam in zip(eig_base.fractions, lamda):
             # test whether the operator is satisfied
@@ -306,7 +297,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                                          eig_base,
                                                          eig_base)
         np.testing.assert_array_almost_equal(product_mat,
-                                             np.eye(len(lambda_ref)))
+                                             np.eye(len(p_ref)))
 
         return eig_base
 
