@@ -155,24 +155,24 @@ class SecondOrderEigenVector(Function):
         root 0+0j is ignored, since it leads to the zero function.
 
     Parameters:
-        char_root (complex): Characteristic root, corresponding to the
+        char_pair (tuple of complex): Characteristic root, corresponding to the
             eigenvalue :math:`\lambda` for which the eigenvector is
             to be determined.
             (Can be obtained by :py:func:`convert_to_characteristic_root`)
-        coeffs (tuple): Constants of the exponential ansatz solution.
+        coefficients (tuple): Constants of the exponential ansatz solution.
 
     Returns:
         :py:class:`SecondOrderEigenvector` : The eigenvector.
     """
 
-    def __init__(self, char_roots, coefficients, domain, derivative_order):
+    def __init__(self, char_pair, coefficients, domain, derivative_order):
         # build generic solution
         z, p1, p2, c1, c2 = sp.symbols("z p1 p2 c1 c2")
         gen_sols = [c1 * sp.exp(p1 * z) + c2 * sp.exp(p2 * z)]
         gen_sols[0] = gen_sols[0].subs([(c1, coefficients[0]),
                                         (c2, coefficients[1]),
-                                        (p1, char_roots[0]),
-                                        (p2, char_roots[1]),
+                                        (p1, char_pair[0]),
+                                        (p2, char_pair[1]),
                                         ])
         # derive
         for d in range(derivative_order):
@@ -223,22 +223,15 @@ class SecondOrderEigenVector(Function):
 
             fractions = []
             for root_set, coeffs in zip(char_roots, coefficients):
-                frac = SecondOrderEigenVector(char_roots=root_set,
+                frac = SecondOrderEigenVector(char_pair=root_set,
                                               coefficients=coeffs,
                                               domain=domain.bounds,
                                               derivative_order=derivative_order)
-                if fractions:
-                    # test orthogonal properties
-                    grades = calculate_scalar_product_matrix(dot_product_l2,
-                                                             frac,
-                                                             fractions)
-                    if not np.allclose(grades, 0):
-                        continue
-
                 fractions.append(frac)
 
-            # if we can't normalize it, we can't use it
             eig_base = Base(fractions)
+
+            # if we can't normalize it, we can't use it
             norm = generic_scalar_product(eig_base)
             orthogonal_sols = np.where(np.isclose(norm, 0))
             eig_values = np.delete(eig_values, orthogonal_sols)[:count]
@@ -290,7 +283,6 @@ class SecondOrderEigenVector(Function):
         p1 = mu + nu
         p2 = mu - nu
         gen_sol = (c1 * sp.exp(p1 * z) + c2 * sp.exp(p2 * z))
-
 
         # check special case of a dirichlet boundary defined at zero
         if (params.alpha1 == 0 and params.alpha0 != 0 and bounds[0] == 0
@@ -422,7 +414,8 @@ class SecondOrderEigenVector(Function):
             nu_num = np.array(nu_num[:count])
 
         roots = find_roots(function=patched_func,
-                           grid=[np.linspace(-2, 2), np.linspace(-10, 10)],
+                           grid=[np.linspace(-2, 2),
+                                 np.linspace(-20, 20, num=100)],
                            cmplx=True,
                            sort_mode="norm")
         np.testing.assert_almost_equal(char_func(roots), 0, verbose=True)
@@ -442,7 +435,7 @@ class SecondOrderEigenVector(Function):
                                                                   char_pairs)
 
         # sort out duplicates
-        _unique_entries = np.unique(eig_values)
+        _unique_entries = np.unique(np.round(eig_values, decimals=5))
 
         # order by abs and
         sort_idx = np.argsort(np.abs(_unique_entries))
@@ -468,6 +461,7 @@ class SecondOrderEigenVector(Function):
         if kwargs.get("debug", False):
             print("roots: {}".format(unique_pairs))
             print("eig_vals: {}".format(unique_values))
+            print("coefficients: {}".format(c))
 
         if extended_output:
             return unique_values, unique_pairs, c

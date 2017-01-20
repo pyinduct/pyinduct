@@ -169,7 +169,7 @@ class LagrangeNthOrder(Function):
             order (int): Order of the lagrange polynomials.
 
         Return:
-            tupel: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
+            tuple: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
         """
         order = kwargs["order"]
         nodes = np.array(domain)

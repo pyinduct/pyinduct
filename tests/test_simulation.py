@@ -1033,38 +1033,55 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 50
         dt = cr.Domain(bounds=(0, t_end), num=temporal_disc)
 
+        # TODO use eigfreq_eigval_hint to obtain eigenvalues
         omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
         eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
-        eig_base = cr.Base([ef.SecondOrderDirichletEigenfunction(omega[i], param, dz.bounds, norm_fak[i])
+        eig_base = cr.Base([ef.SecondOrderDirichletEigenfunction(omega[i],
+                                                                 param,
+                                                                 dz.bounds,
+                                                                 norm_fak[i])
                             for i in range(spatial_disc)])
         reg.register_base("eig_base", eig_base)
 
-        adjoint_eig_base = cr.Base([ef.SecondOrderDirichletEigenfunction(omega[i], adjoint_param, dz.bounds,
-                                                                         norm_fak[i]) for i in range(spatial_disc)])
-        reg.register_base("adjoint_eig_base", adjoint_eig_base, overwrite=True)
+        adjoint_eig_base = cr.Base(
+            [ef.SecondOrderDirichletEigenfunction(omega[i],
+                                                  adjoint_param,
+                                                  dz.bounds,
+                                                  norm_fak[i])
+             for i in range(spatial_disc)])
+        reg.register_base("adjoint_eig_base", adjoint_eig_base)
 
         # derive initial field variable x(z,0) and weights
         start_state = cr.Function(lambda z: 0., domain=(0, l))
         initial_weights = cr.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.RadTrajectory(l,
+                                    t_end,
+                                    param,
+                                    bound_cond_type,
+                                    actuation_type)
 
         # ------------- determine (A,B) with weak-formulation (pyinduct)
         # derive sate-space system
-        rad_pde = parabolic.get_parabolic_dirichlet_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
+        rad_pde = \
+            parabolic.get_parabolic_dirichlet_weak_form("eig_base",
+                                                        "adjoint_eig_base",
+                                                        u, param, dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss_weak = sim.create_state_space(ce)
 
         # ------------- determine (A,B) with modal transformation
         a_mat = np.diag(eig_values)
-        b_mat = -a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
+        b_mat = -a2 * np.atleast_2d(
+            [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
+        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])),
+                                    np.sort(np.linalg.eigvals(ss_modal.A[1])),
                                     rtol=3e-1, atol=0.))
         self.assertTrue(np.allclose(ss_weak.B[0][1], ss_modal.B[0][1]))
 
@@ -1072,7 +1089,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # TODO can the result be tested?
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
-            eval_d = sim.evaluate_approximation("eig_base", q, t, dz, spat_order=0)
+            eval_d = sim.evaluate_approximation("eig_base",
+                                                q,
+                                                t,
+                                                dz,
+                                                spat_order=0)
             win2 = vis.PgSurfacePlot(eval_d)
             app.exec_()
 

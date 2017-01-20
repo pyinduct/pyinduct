@@ -60,22 +60,59 @@ def visualize_functions(functions, points=100):
         points (int): Points to use for sampling
             the domain.
     """
-    cmap = cm.get_cmap(color_map)
-
-    pg.mkQApp()
-    pw = pg.plot(title="function set")
-    pw.addLegend()
+    # evaluate
+    _data = []
     for idx, func in enumerate(functions):
-        c = cmap(idx/len(functions), bytes=True)
         if len(func.domain) > 1:
             # TODO support funcs with multiple domains
             raise NotImplementedError
 
         dom = Domain(bounds=func.domain[0], num=points)
-        pw.plot(dom.points, func(dom),
-                name="eigenvector {}".format(idx),
-                pen=c)
+        val = func(dom)
+        _data.append((dom, np.real(val), np.imag(val)))
 
+    data = np.array(_data)
+
+    # plot
+    cmap = cm.get_cmap(color_map)
+    pg.mkQApp()
+    pw = pg.GraphicsLayoutWidget()
+    pw.setWindowTitle("function set visualization")
+
+    lbl = pg.LabelItem(text="Real Part",
+                       angle=-90,
+                       bold=True,
+                       size="10pt")
+    pw.addItem(lbl)
+
+    p_real = pg.PlotItem()
+    # p_real.addLegend()
+    for idx, row in enumerate(data):
+        c = cmap(idx/len(functions), bytes=True)
+        p_real.plot(row[0], row[1],
+                    name="vector {}".format(idx),
+                    pen=c)
+    pw.addItem(p_real)
+
+    if not np.allclose(data[..., 2], 0):
+        pw.nextRow()
+        # complex data present
+        lbl = pg.LabelItem(text="Imaginary Part",
+                           angle=-90,
+                           bold=True,
+                           size="10pt")
+        pw.addItem(lbl)
+
+        p_imag = pg.PlotItem()
+        # p_imag.addLegend()
+        for idx, row in enumerate(data):
+            c = cmap(idx/len(functions), bytes=True)
+            p_imag.plot(row[0], row[2],
+                        name="vector {}".format(idx),
+                        pen=c)
+        pw.addItem(p_imag)
+
+    pw.show()
     pg.QAPP.exec_()
 
 

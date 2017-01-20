@@ -191,6 +191,35 @@ class FiniteTransformTest(unittest.TestCase):
             plt.show()
 
 
+def calc_dirichlet_eigenvalues(params):
+    """
+    Estimate the eigenvalues of a 2nd order dirichlet problem .
+    by approximating it using polynomial shapefunctions.
+    """
+    spat_dom, lag_base = pi.cure_interval(pi.LagrangeNthOrder,
+                                          interval=params.domain,
+                                          order=3,
+                                          node_count=31)
+    pi.register_base("fem_base", lag_base)
+
+    old_params = [params.a2, params.a1, params.a0, -params.alpha0, params.beta0]
+    weak_form = pi.parabolic.get_parabolic_dirichlet_weak_form("fem_base",
+                                                               "fem_base",
+                                                               None,
+                                                               old_params,
+                                                               params.domain)
+    can_form = pi.parse_weak_formulation(weak_form, finalize=True)
+    ss_form = pi.create_state_space(can_form)
+    sys_mat = ss_form.A[1]
+    eig_vals, eig_vecs = np.linalg.eig(sys_mat)
+    real_idx = np.where(np.imag(eig_vals) == 0)
+    abs_idx = np.argsort(np.abs(eig_vals[real_idx]))
+    filtered_vals = eig_vals[real_idx][abs_idx]
+    print(filtered_vals)
+
+    return filtered_vals
+
+
 class TestSecondOrderEigenVector(unittest.TestCase):
 
     def setUp(self):
@@ -198,14 +227,27 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         self.cnt = 4
 
         self.params_dirichlet = pi.SecondOrderOperator(a2=1,
-                                                       a1=2,
-                                                       a0=3,
+                                                       a1=0,
+                                                       a0=1,
                                                        alpha1=0,
                                                        alpha0=1,
                                                        beta1=0,
-                                                       beta0=1)
-        self.p_dirichlet = np.array([0, np.pi, 2 * np.pi, 3 * np.pi],
-                                    dtype=complex)
+                                                       beta0=1,
+                                                       domain=(0, 1))
+
+        if 1:
+            self.eig_dirichlet = None
+            self.p_dirichlet = [(1j*n * np.pi, -1j * n * np.pi)
+                                for n in range(1, self.cnt + 1)]
+
+        else:
+            self.eig_dirichlet = \
+                calc_dirichlet_eigenvalues(self.params_dirichlet)[:self.cnt]
+            self.p_dirichlet = \
+                pi.SecondOrderEigenVector.convert_to_characteristic_root(
+                    self.params_dirichlet,
+                    self.eig_dirichlet
+                )
 
         self.params_neumann = pi.SecondOrderOperator(a2=1,
                                                      a1=0,
@@ -214,6 +256,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                                      alpha0=0,
                                                      beta1=1,
                                                      beta0=0)
+        self.eig_neumann = None
         self.p_neumann = np.array([0, np.pi, 2 * np.pi, 3 * np.pi],
                                   dtype=complex)
 
@@ -224,65 +267,55 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                           alpha0=2,
                                           beta1=1,
                                           beta0=-2)
+        self.eig_robin = None
         self.p_robin = np.array([2.39935728j, 0, 5.59677209, 8.98681892])
 
     def test_dirichlet(self):
         print("dirichlet case")
         self._test_helper(self.params_dirichlet,
+                          self.eig_dirichlet,
                           self.p_dirichlet)
 
     def test_neumann(self):
         print("neumann case")
         self._test_helper(self.params_neumann,
+                          self.eig_neumann,
                           self.p_neumann)
 
     def test_robin(self):
         print("robin case")
         self._test_helper(self.params_robin,
+                          self.eig_robin,
                           self.p_robin)
 
-    def _test_helper(self, params, p_ref):
-        # test eigenvalues
-        lamda, char_roots, coeffs \
-            = pi.SecondOrderEigenVector.calculate_eigenvalues(
-                self.domain,
-                params,
-                count=len(p_ref),
-                extended_output=True,
-                debug=False
-            )
-        self.assertEqual(len(char_roots), len(p_ref))
-
-        _char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+    def _test_helper(self, params, l_ref, p_ref):
+        eig_values, eig_base = pi.SecondOrderEigenVector.cure_hint(
+            self.domain,
             params,
-            lamda)
-
-        np.testing.assert_array_equal(char_roots, _char_roots, verbose=True)
-
-        # np.testing.assert_array_equal(char_roots,
-        #                               p_ref,
-        #                               verbose=True)
-
-        # test eigenvectors
-        eig_base = pi.SecondOrderEigenVector.cure_hint(self.domain,
-                                                       params,
-                                                       count=len(p_ref),
-                                                       derivative_order=2,
-                                                       debug=False)
+            count=len(p_ref),
+            derivative_order=2,
+            debug=False)
 
         if show_plots:
             pi.visualize_functions(eig_base.fractions)
 
-        # check for correct length
-        self.assertEqual(len(eig_base.fractions), len(p_ref))
+        # test eigenvalues
+        self.assertEqual(len(eig_values), self.cnt)
+        # np.testing.assert_array_equal(eig_values, l_ref, verbose=True)
 
-        for fraction, lam in zip(eig_base.fractions, lamda):
+        char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
+            params,
+            eig_values)
+        np.testing.assert_array_almost_equal(char_roots, p_ref, verbose=True)
+
+        # test eigenvectors
+        for fraction, lam in zip(eig_base.fractions, eig_values):
             # test whether the operator is satisfied
-            left = (params.a2 * fraction.diff(2)(self.domain.points)
-                    + params.a1 * fraction.diff(1)(self.domain.points)
+            left = (params.a2 * fraction.derive(2)(self.domain.points)
+                    + params.a1 * fraction.derive(1)(self.domain.points)
                     + params.a0 * fraction(self.domain.points))
             right = lam * fraction(self.domain.points)
-            self.assertTrue(np.allclose(left, right))
+            np.testing.assert_array_almost_equal(left, right, verbose=True)
 
             # test whether the bcs are fulfilled
             bc1 = (params.alpha0 * fraction(self.domain.bounds[0])
@@ -290,7 +323,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             self.assertAlmostEqual(bc1, 0)
             bc2 = (params.beta0 * fraction(self.domain.bounds[1])
                    + params.beta1 * fraction.derive(1)(self.domain.bounds[1]))
-            self.assertAlmostEqual(bc2, 0)
+            np.testing.assert_array_almost_equal(bc2, 0)
 
         # check if they are orthonormal
         product_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,

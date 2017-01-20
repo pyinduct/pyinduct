@@ -228,13 +228,34 @@ def eliminate_advection_term(param, domain_end=None):
         return a2_n, a1_n, a0_n, alpha_n, beta_n
 
 
-def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input_handle, param, spatial_domain):
+def get_parabolic_dirichlet_weak_form(init_func_label,
+                                      test_func_label,
+                                      input_handle,
+                                      param,
+                                      spatial_domain):
+    """
+    Return the weak formulation of a parabolic 2nd order system, using an
+    inhomogeneous dirichlet boundary at both sides.
+
+    Args:
+        init_func_label(str): Label of shape base to use.
+        test_func_label(str): Label of test base to use.
+        input_handle(:py:class:`pyinduct.simulation.SimulationInput`): Input.
+        param(tuple): Parameters of the spatial operator.
+        spatial_domain(tuple): Spatial domain of the problem.
+        # spatial_domain(:py:class:`pyinduct.core.Domain`): Spatial domain of the
+        #  problem.
+
+    Returns:
+        :py:class:`pyinduct.simulation.WeakFormulation`: Weak form of the system.
+    """
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
 
     x = FieldVariable(init_func_label)
     x_dt = x.derive(temp_order=1)
     x_dz = x.derive(spat_order=1)
+    x_ddz = x.derive(spat_order=2)
 
     psi = TestFunction(test_func_label)
     psi_dz = psi.derive(1)
@@ -243,8 +264,14 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input_ha
     # integral terms
     int1 = IntegralTerm(Product(x_dt, psi), spatial_domain)
     int2 = IntegralTerm(Product(x, psi_ddz), spatial_domain, -a2)
+    int2h = IntegralTerm(Product(x_ddz, psi), spatial_domain, -a2)
     int3 = IntegralTerm(Product(x, psi_dz), spatial_domain, a1)
     int4 = IntegralTerm(Product(x, psi), spatial_domain, -a0)
+
+    if input_handle is None:
+        # homogeneous case
+        return WeakFormulation([int1, int2h, int3, int4],
+                               name="parabolic_dirichlet_hom")
 
     # scalar terms
     s1 = ScalarTerm(Product(Input(input_handle), psi_dz(l)), a2)
@@ -252,8 +279,8 @@ def get_parabolic_dirichlet_weak_form(init_func_label, test_func_label, input_ha
     s3 = ScalarTerm(Product(x_dz(l), psi(l)), -a2)
     s4 = ScalarTerm(Product(x_dz(0), psi(0)), a2)
 
-    # derive state-space system
-    return WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4], name="parabolic_dirichlet")
+    return WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4],
+                           name="parabolic_dirichlet")
 
 
 def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handle, param, spatial_domain,

@@ -900,7 +900,8 @@ def calculate_scalar_matrix(values_a, values_b):
                                            sanitize_input(values_b, Number))
 
 
-def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optimize=False):
+def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
+                                    optimize=False):
     """
     Calculates a matrix :math:`A` , whose elements are the scalar products of each element from *base_a* and *base_b*,
     so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
@@ -908,8 +909,8 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     Args:
         scalar_product_handle (callable): function handle that is called to calculate the scalar product.
             This function has to be able to cope with (1d) vectorial input.
-        base_a (:py:class:`Base` or fraction array): Basis a
-        base_b (:py:class:`Base` or fraction array): Basis b
+        base_a (:py:class:`Base`): Basis a
+        base_b (:py:class:`Base`): Basis b
         optimize (bool): switch to turn on the symmetry based speed up. For development purposes only.
 
     TODO:
@@ -918,10 +919,8 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
     Return:
         numpy.ndarray: matrix :math:`A`
     """
-    if isinstance(base_a, Base):
-        a = base_a.fractions
-    if isinstance(base_b, Base):
-        b = base_b.fractions
+    fractions_a = base_a.fractions
+    fracstion_b = base_b.fractions
 
     if optimize:
         raise NotImplementedError("this approach leads to wrong results atm.")
@@ -991,10 +990,10 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b, optim
         return out if not transposed else out.T
 
     else:
-        i, j = np.mgrid[0:a.shape[0],
-                        0:b.shape[0]]
-        fractions_i = a[i]
-        fractions_j = b[j]
+        i, j = np.mgrid[0:fractions_a.shape[0],
+                        0:fracstion_b.shape[0]]
+        fractions_i = fractions_a[i]
+        fractions_j = fracstion_b[j]
 
         res = scalar_product_handle(fractions_i.flatten(),
                                     fractions_j.flatten())

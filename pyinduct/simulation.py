@@ -162,7 +162,7 @@ class StateSpace(object):
         d_matrix: :math:`\boldsymbol{D}`
     """
 
-    def __init__(self, a_matrices, b_matrices, base_lbl,
+    def __init__(self, a_matrices, b_matrices, base_lbl=None,
                  input_handle=None, c_matrix=None, d_matrix=None):
         self.C = c_matrix
         self.D = d_matrix
@@ -287,7 +287,8 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
     print(">>> creating state space system")
     state_space_form = create_state_space(canonical_equations)
 
-    # calculate initial state, assuming it will be constituted by the dominant systems
+    # calculate initial state, assuming it will be constituted by the
+    # dominant systems
     print(">>> deriving initial conditions")
     q0 = np.array([])
     for form in weak_forms:
@@ -553,14 +554,16 @@ class CanonicalForm(object):
             input_powers = set(chain.from_iterable([list(mat) for mat in self.matrices["G"].values()]))
             dim_u = next(iter(self.matrices["G"][max_temp_input_order].values())).shape[1]
 
-            # generate nested dict of B_o_p matrices where o is derivative order and p is power
+            # generate nested dict of B_o_p matrices where o is
+            # derivative order and p is power
             b_matrices = {}
             for order in range(max_temp_input_order + 1):
                 if order in self.matrices["G"]:
                     b_powers = {}
                     for q in input_powers:
                         b_mat = np.zeros((self.dim_xb, dim_u))
-                        # overwrite the last "block-line" in the matrices with input entries
+                        # overwrite the last "block-line" in the matrices
+                        # with input entries
                         b_mat[-self.dim_x:, :] = - self.e_n_pb_inv @ self.matrices["G"][order][q]
                         b_powers.update({q: b_mat})
 
@@ -766,12 +769,19 @@ def create_state_space(canonical_equations):
 
                 dominant_order = _eq.dominant_form.max_temp_order
                 if dominant_order <= coupling_order:
-                    # dominant order has to be at least one higher than the coupling order
+                    # dominant order has to be at least one higher than
+                    # the coupling order
                     raise ValueError("Formulations are not compatible")
 
-    # transform dominant forms into state-space representation and collect information
+    # transform dominant forms into state-space representation
+    # and collect information
     dominant_state_spaces = {}
-    state_space_props = Parameters(size=0, parts=OrderedDict(), powers=set(), input_powers=set(), dim_u=0, input=None)
+    state_space_props = Parameters(size=0,
+                                   parts=OrderedDict(),
+                                   powers=set(),
+                                   input_powers=set(),
+                                   dim_u=0,
+                                   input=None)
     for name, eq in canonical_equations.items():
         dom_lbl = eq.dominant_lbl
         dom_form = eq.dominant_form
