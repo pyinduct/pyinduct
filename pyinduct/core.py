@@ -785,11 +785,10 @@ def _dot_product_l2(first, second):
         Take the complex conjugate of the first element and multiply it
         by the second.
         """
-        first_res = first(z)
         return np.conj(first(z)) * second(z)
 
     result, error = integrate_function(function, areas)
-    return real(result)
+    return np.real_if_close(result)
 
 
 def integrate_function(function, interval):
@@ -873,14 +872,14 @@ def dot_product_l2(first, second):
     second = np.atleast_1d(second)
 
     # calculate output size and allocate output
-    out = np.ones(first.shape) * np.nan
+    out = np.ones(first.shape, dtype=complex) * np.nan
 
     # TODO propagate vectorization into _dot_product_l2 to save this loop
     # loop over entries
     for idx, (f, s) in enumerate(zip(first, second)):
         out[idx] = _dot_product_l2(f, s)
 
-    return out
+    return np.real_if_close(out)
 
 
 def calculate_scalar_matrix(values_a, values_b):
@@ -1342,7 +1341,7 @@ def normalize_base(b1, b2=None):
 
     res = generic_scalar_product(b1, b2)
 
-    if any(res < np.finfo(float).eps):
+    if any(res < np.finfo(float).eps) and False:
         if any(np.isclose(res, 0)):
             raise ValueError("given base fractions are orthogonal. "
                              "no normalization possible.")
@@ -1385,14 +1384,14 @@ def generic_scalar_product(b1, b2=None):
         raise TypeError("only arguments of same type allowed.")
 
     hints = b1.scalar_product_hint()
-    res = np.zeros(b1.fractions.shape)
+    res = np.zeros(b1.fractions.shape, dtype=complex)
     for idx, hint in enumerate(hints):
         members_1 = np.array([fraction.get_member(idx)
                               for fraction in b1.fractions])
         members_2 = np.array([fraction.get_member(idx)
                               for fraction in b2.fractions])
         res += hint(members_1, members_2)
-    return res
+    return np.real_if_close(res)
 
 
 def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,

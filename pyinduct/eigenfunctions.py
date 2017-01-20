@@ -926,7 +926,6 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                 #         + (eta + beta) * (alpha - eta) * l
                 #         - omega * np.sin(omega * l))
             else:
-                print(omega)
                 return ((alpha + beta) * np.cos(omega * l)
                         + ((eta + beta) * (alpha - eta) / omega
                            - omega) * np.sin(omega * l))
@@ -956,8 +955,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         # search imaginary roots
         try:
             om = list(find_roots(characteristic_equation,
-                                 [np.array([0]), start_values_imag], 100,
-                                 rtol=int(np.log10(l) - 3), cmplx=True))  # , get_all=True))
+                                 [np.array([0]), start_values_imag],
+                                 rtol=int(np.log10(l) - 3), cmplx=True))
         except ValueError:
             om = list()
 
@@ -1040,6 +1039,7 @@ class TransformedSecondOrderEigenfunction(Function):
                      for state in init_state_vector])
                 and len(init_state_vector) == 4
                 and isinstance(init_state_vector, (list, tuple))):
+            print(init_state_vector)
             raise TypeError
 
         if (not len(dgl_coefficients) == 3
