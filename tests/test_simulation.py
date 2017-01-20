@@ -1065,14 +1065,14 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(eig_values)
-        B = -a2 * np.array([adjoint_eig_funcs[i].derive()(l) for i in range(spatial_disc)])
+        B = -a2 * np.matrix([[adjoint_eig_funcs[i].derive()(l)] for i in range(spatial_disc)])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
                                     rtol=3e-1, atol=0.))
-        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
+        self.assertTrue(np.allclose(ss_weak.B[1], ss_modal.B[1]))
 
         # display results
         if show_plots:
@@ -1132,13 +1132,13 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         # determine (A,B) with modal-transfomation
         A = np.diag(np.real_if_close(eig_val))
-        B = a2 * np.array([adjoint_eig_funcs[i](l) for i in range(len(eig_freq))])
+        B = a2 * np.matrix([[adjoint_eig_funcs[i](l)] for i in range(len(eig_freq))])
         ss_modal = sim.StateSpace("eig_funcs", A, B, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
                                     rtol=1e-05, atol=0.))
-        self.assertTrue(np.allclose(np.array([i[0] for i in ss_weak.B[1]]), ss_modal.B[1]))
+        self.assertTrue(np.allclose(ss_weak.B[1], ss_modal.B[1]))
 
         # display results
         if show_plots:

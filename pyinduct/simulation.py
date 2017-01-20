@@ -620,7 +620,7 @@ class CanonicalForm(object):
             a_mat[:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order - 1)])
             # add "block-line" with feedback entries
             a_mat[-dim_x:, :] = -self._build_feedback("E", p, e_n_pb_inv)
-            a_matrices.update({p: a_mat})
+            a_matrices.update({p: np.asmatrix(a_mat)})
 
         # input matrices B_*
         if "G" in self._matrices:
@@ -635,7 +635,7 @@ class CanonicalForm(object):
                 b_mat = np.zeros((dim_xb, dim_ub))
                 # overwrite the last "block-line" in the matrices with input entries
                 b_mat[-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
-                b_matrices.update({q: b_mat})
+                b_matrices.update({q: np.asmatrix(b_mat)})
         else:
             b_matrices = None
 
