@@ -251,7 +251,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                 extended_output=True,
                 debug=False
             )
-        self.assertEqual(len(lamda), len(p_ref))
+        self.assertEqual(len(char_roots), len(p_ref))
 
         _char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
             params,

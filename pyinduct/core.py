@@ -1397,7 +1397,7 @@ def generic_scalar_product(b1, b2=None):
 
 
 def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
-               cmplx=False):
+               cmplx=False, sort_mode="norm"):
     r"""
     Searches *n_roots* roots of the *function* :math:`f(\boldsymbol{x})`
     on the given *grid* and checks them for uniqueness with aid of *rtol*.
@@ -1489,21 +1489,28 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     if n_roots is not None and len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(
-                            len(roots), n_roots)
-                        )
+                            len(roots), n_roots))
 
     valid_roots = np.array(roots)
 
     # sort roots
-    # completely sort first column before we start
-    idx = np.argsort(valid_roots[:, 0])
-    sorted_roots = valid_roots[idx, :]
+    if sort_mode == "norm":
+        # sort entries by their norm
+        idx = np.argsort(np.linalg.norm(valid_roots, axis=1))
+        sorted_roots = valid_roots[idx, :]
 
-    for layer in range(valid_roots.shape[1] - 1):
-        for rt in sorted_roots[:, layer]:
-            eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=rtol)
-            idx = np.argsort(sorted_roots[eq_mask, layer + 1])
-            sorted_roots[eq_mask] = sorted_roots[eq_mask][idx, :]
+    elif sort_mode == "component":
+        # completely sort first column before we start
+        idx = np.argsort(valid_roots[:, 0])
+        sorted_roots = valid_roots[idx, :]
+
+        for layer in range(valid_roots.shape[1] - 1):
+            for rt in sorted_roots[:, layer]:
+                eq_mask = np.isclose(sorted_roots[:, layer], rt, rtol=rtol)
+                idx = np.argsort(sorted_roots[eq_mask, layer + 1])
+                sorted_roots[eq_mask] = sorted_roots[eq_mask][idx, :]
+    else:
+        raise ValueError("Sort mode: {} not supported.".format(sort_mode))
 
     good_roots = sorted_roots
 

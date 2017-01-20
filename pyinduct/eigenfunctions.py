@@ -423,7 +423,8 @@ class SecondOrderEigenVector(Function):
 
         roots = find_roots(function=patched_func,
                            grid=[np.linspace(-2, 2), np.linspace(-10, 10)],
-                           cmplx=True)
+                           cmplx=True,
+                           sort_mode="norm")
         np.testing.assert_almost_equal(char_func(roots), 0, verbose=True)
 
         if kwargs.get("debug", False):
@@ -436,41 +437,42 @@ class SecondOrderEigenVector(Function):
         char_pairs = np.hstack([np.atleast_2d(mu + roots).T,
                                 np.atleast_2d(mu - roots).T])
 
-        # sort all pairs
-        char_pairs = np.sort(char_pairs, axis=1)
+        # reconstruct eigenvalues
+        eig_values = SecondOrderEigenVector.convert_to_eigenvalue(params,
+                                                                  char_pairs)
 
-        # filter out the unique pairs
-        unique_pairs = np.vstack({tuple(row) for row in char_pairs})
+        # sort out duplicates
+        _unique_entries = np.unique(eig_values)
 
-        # sort roots by absolute value in increasing order
-        # sorted_roots = np.array(sorted(unique_pairs, key=np.abs)[:count])
-        # TODO add sorting and choose one member of the pairs to sort by
-        sorted_pairs = unique_pairs[:count]
+        # order by abs and
+        sort_idx = np.argsort(np.abs(_unique_entries))
+        unique_values = _unique_entries[sort_idx][:count]
+
+        # recreate corresponding characteristic pairs
+        unique_pairs = SecondOrderEigenVector.convert_to_characteristic_root(
+            params,
+            unique_values)
 
         # resolve coefficients
-        c = np.nan * np.ones((len(sorted_pairs), 2))
+        c = np.nan * np.ones((len(unique_values), 2))
         if dirichlet_zero:
             # c1 has been set to one, determine c2 = -c1
-            c[:, 1] = 1
+            c[:, 0] = 1
             c[:, 1] = -c[:, 0]
         else:
             # c1 + c2 has been set to one, determine c2 = 1 - c1
             c1_handle = sp.lambdify(nu, c1_sol, modules="numpy")
-            c[:, 0] = c1_handle(sorted_roots)
+            c[:, 0] = c1_handle(unique_pairs)
             c[:, 1] = 1 - c[:, 0]
 
-        # reconstruct eigenvalues
-        eig_values = SecondOrderEigenVector.convert_to_eigenvalue(params,
-                                                                  sorted_roots)
-
         if kwargs.get("debug", False):
-            print("roots: {}".format(char_roots))
-            print("eig_vals: {}".format(eig_values))
+            print("roots: {}".format(unique_pairs))
+            print("eig_vals: {}".format(unique_values))
 
         if extended_output:
-            return eig_values, char_roots, c
+            return unique_values, unique_pairs, c
         else:
-            return eig_values
+            return unique_values
 
     @staticmethod
     def convert_to_eigenvalue(params, char_roots):
@@ -485,13 +487,18 @@ class SecondOrderEigenVector(Function):
             params (:py:class:`SecondOrderOperator`): System parameters.
             char_roots (tuple or array of tuples): Characteristic roots
         """
-        l1, l2 = (params.a2 * char_roots[0] ** 2
-                  + params.a1 * char_roots[0]
+        char_roots = np.atleast_2d(char_roots)
+        l1, l2 = (params.a2 * char_roots[:, 0] ** 2
+                  + params.a1 * char_roots[:, 0]
                   + params.a0,
-                  params.a2 * char_roots[1] ** 2
-                  + params.a1 * char_roots[1]
+                  params.a2 * char_roots[:, 1] ** 2
+                  + params.a1 * char_roots[:, 1]
                   + params.a0)
-        return l1, l2
+
+        if not np.allclose(l1, l2):
+            raise ValueError("Given characteristic root pair must resolve to"
+                             "a single eigenvalue.")
+        return l1
 
     @staticmethod
     def convert_to_characteristic_root(params, eigenvalue):
@@ -511,12 +518,14 @@ class SecondOrderEigenVector(Function):
         Returns:
             complex number: characteristic root :math:`p`
         """
-        res = (-params.a1 / (2 * params.a2)
-               + np.sqrt((params.a1 / 2 / params.a2) ** 2
-                         - (params.a0 - eigenvalue) / params.a2),
-               -params.a1 / (2 * params.a2)
-               - np.sqrt((params.a1 / 2 / params.a2) ** 2
-                         - (params.a0 - eigenvalue) / params.a2))
+        eig_values = np.atleast_1d(eigenvalue)
+        res = np.array([(-params.a1 / (2 * params.a2)
+                         + np.sqrt((params.a1 / 2 / params.a2) ** 2
+                                   - (params.a0 - val) / params.a2),
+                         -params.a1 / (2 * params.a2)
+                         - np.sqrt((params.a1 / 2 / params.a2) ** 2
+                                   - (params.a0 - val) / params.a2))
+                        for val in eig_values])
 
         return res
 
