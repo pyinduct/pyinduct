@@ -294,9 +294,9 @@ class SecondOrderEigenVector(Function):
             dirichlet_zero = True
             settled_bc = domain.bounds.index(0)
         else:
-            # choose the arbitrary scaling to be one (c1 + c2 = 1)
+            # choose the arbitrary scaling phi(0) to be one -> c1 + c2 = 1
             gen_sol = gen_sol.subs(c2, 1 - c1)
-            dirichlet_zero = True
+            dirichlet_zero = False
 
             # incorporate the first boundary condition
             bc1 = (params.alpha0 * gen_sol.subs(z, bounds[0])
@@ -355,7 +355,6 @@ class SecondOrderEigenVector(Function):
                         # gained by dice roll, guaranteed to be fair.
                         return 5
 
-        # TODO introduce step heuristic, again.
         if 0:
             # extract numerator and denominator
             numer, denom = char_eq.as_numer_denom()
@@ -413,9 +412,11 @@ class SecondOrderEigenVector(Function):
 
             nu_num = np.array(nu_num[:count])
 
+        # TODO introduce step heuristic, again.
+        limit = 4 * count * np.pi
         roots = find_roots(function=patched_func,
-                           grid=[np.linspace(-2, 2),
-                                 np.linspace(-20, 20, num=100)],
+                           grid=[np.array([0]),
+                                 np.linspace(-limit, limit, num=100)],
                            cmplx=True,
                            sort_mode="norm")
         np.testing.assert_almost_equal(char_func(roots), 0, verbose=True)
@@ -447,7 +448,7 @@ class SecondOrderEigenVector(Function):
             unique_values)
 
         # resolve coefficients
-        c = np.nan * np.ones((len(unique_values), 2))
+        c = np.zeros((len(unique_values), 2), dtype=complex)
         if dirichlet_zero:
             # c1 has been set to one, determine c2 = -c1
             c[:, 0] = 1
@@ -455,8 +456,21 @@ class SecondOrderEigenVector(Function):
         else:
             # c1 + c2 has been set to one, determine c2 = 1 - c1
             c1_handle = sp.lambdify(nu, c1_sol, modules="numpy")
-            c[:, 0] = c1_handle(unique_pairs)
+
+            def patched_c_handle(x):
+                try:
+                    return c1_handle(x)
+                except FloatingPointError:
+                    return np.NaN
+
+            c[:, 0] = [patched_c_handle(pair[0]) for pair in unique_pairs]
             c[:, 1] = 1 - c[:, 0]
+
+            # remove invalid entries (c1 or c2 is NaN)
+            invalid_idx = np.where(np.logical_and(*np.isnan(c).T))
+            unique_values = np.delete(unique_values, invalid_idx)
+            unique_pairs = np.delete(unique_pairs, invalid_idx, axis=0)
+            c = np.delete(c, invalid_idx, axis=0)
 
         if kwargs.get("debug", False):
             print("roots: {}".format(unique_pairs))
