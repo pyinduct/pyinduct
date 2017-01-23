@@ -701,6 +701,8 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
     """
     """
 
+    @unittest.skip("This takes about 22 minutes on my machine, Travis will"
+                   "quit after 10 minutes.")
     def test_it(self):
         # system/simulation parameters
         actuation_type = 'robin'
@@ -711,7 +713,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
         self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1.
-        temporal_disc = 100
+        temporal_disc = 10
         self.dt = pi.Domain(bounds=(0, self.T), num=temporal_disc)
 
         self.n = 10
