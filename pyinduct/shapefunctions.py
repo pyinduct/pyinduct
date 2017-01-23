@@ -244,7 +244,11 @@ class LagrangeFirstOrder(Function):
         else:
             funcs = self._function_factory(start, top, end, **kwargs)
 
-        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
+        Function.__init__(self,
+                          funcs[0],
+                          nonzero=(start, end),
+                          domain=kwargs.get("domain", None),
+                          derivative_handles=funcs[1:])
 
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
@@ -287,15 +291,29 @@ class LagrangeFirstOrder(Function):
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
-        funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
-                                      right_border=True if len(domain) == 2 else False)
-        funcs[-1] = LagrangeFirstOrder(domain[-2], domain[-2], domain[-1], half="right", right_border=True,
-                                       left_border=True if len(domain) == 2 else False)
+        funcs[0] = LagrangeFirstOrder(domain[0],
+                                      domain[1],
+                                      domain[1],
+                                      half="left",
+                                      left_border=True,
+                                      right_border=True if len(domain) == 2 else False,
+                                      domain=domain.bounds)
+
+        funcs[-1] = LagrangeFirstOrder(domain[-2],
+                                       domain[-2],
+                                       domain[-1],
+                                       half="right",
+                                       right_border=True,
+                                       left_border=True if len(domain) == 2 else False,
+                                       domain=domain.bounds)
 
         for idx in range(1, len(domain) - 1):
-            funcs[idx] = LagrangeFirstOrder(domain[idx - 1], domain[idx], domain[idx + 1],
+            funcs[idx] = LagrangeFirstOrder(domain[idx - 1],
+                                            domain[idx],
+                                            domain[idx + 1],
                                             left_border=True if idx == 1 else False,
-                                            right_border=True if idx == len(domain) - 2 else False)
+                                            right_border=True if idx == len(domain) - 2 else False,
+                                            domain=domain.bounds)
         return domain, funcs
 
 

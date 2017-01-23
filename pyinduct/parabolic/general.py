@@ -305,8 +305,8 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
     created_base_labels = ["a0_z", "a1_z"]
-    a0_z = ScalarFunction.from_scalars(a0, created_base_labels[0])
-    a1_z = ScalarFunction.from_scalars(a1, created_base_labels[1])
+    a0_z = ScalarFunction.from_scalar(a0, created_base_labels[0])
+    a1_z = ScalarFunction.from_scalar(a1, created_base_labels[1])
 
     x = FieldVariable(shape_base_label)
     x_dt = x.derive(temp_order=1)
@@ -324,10 +324,12 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     # scalar terms
     s1 = ScalarTerm(Product(x(0), psi(0)), a2 * alpha)
     s2 = ScalarTerm(Product(x(l), psi(l)), a2 * beta)
-    s3 = ScalarTerm(Product(Input(input_handle), psi(actuation_type_point)), -a2)
+    s3 = ScalarTerm(Product(Input(input_handle), psi(actuation_type_point)),
+                    -a2)
 
     # derive state-space system
-    weak_form = WeakFormulation([int1, int2, int3, int4, s1, s2, s3], name="parabolic_robin_{}".format(param))
+    weak_form = WeakFormulation([int1, int2, int3, int4, s1, s2, s3],
+                                name="parabolic_robin_{}".format(param))
     return weak_form, created_base_labels
 
 

@@ -86,7 +86,7 @@ def visualize_functions(functions, points=100):
     pw.addItem(lbl)
 
     p_real = pg.PlotItem()
-    # p_real.addLegend()
+    p_real.addLegend()
     for idx, row in enumerate(data):
         c = cmap(idx/len(functions), bytes=True)
         p_real.plot(row[0], row[1],
@@ -94,9 +94,9 @@ def visualize_functions(functions, points=100):
                     pen=c)
     pw.addItem(p_real)
 
-    if not np.allclose(data[..., 2], 0):
+    if not np.allclose(data[:, 2, :], 0):
+        # complex data is present
         pw.nextRow()
-        # complex data present
         lbl = pg.LabelItem(text="Imaginary Part",
                            angle=-90,
                            bold=True,

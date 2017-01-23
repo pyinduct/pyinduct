@@ -158,12 +158,12 @@ class ScalarFunction(SpatialPlaceholder):
                          location=location)
 
     @staticmethod
-    def from_scalars(scalars, label, **kwargs):
+    def from_scalar(scalar, label, **kwargs):
         """
         create a :py:class:`ScalarFunction` from scalar values.
 
         Args:
-            scalars (array like): Input that is used the generate the
+            scalar (array like): Input that is used to generate the
                 placeholder. If a number is given, a constant function will be
                 created, if it is callable it will be wrapped in a
                 :py:class:`core.Function` and registered.
@@ -180,20 +180,20 @@ class ScalarFunction(SpatialPlaceholder):
             :py:class:`placeholder.ScalarFunction` : Placeholder object that
             can be used in a weak formulation.
         """
-        # if isinstance(coefficient, Number):
-        #     fraction = Function(lambda z: coefficient)
-        # elif isinstance(coefficient, Function):
-        #     fraction = coefficient
-        # elif isinstance(coefficient, collections.Callable):
-        #     fraction = Function(coefficient)
-        # else:
-        #     raise TypeError("Coefficient type not understood.")
 
         order = kwargs.pop("order", 0)
         loc = kwargs.pop("location", None)
         over = kwargs.pop("overwrite", False)
 
-        f = Function.from_constant(scalars)
+        if isinstance(scalar, Number):
+            f = Function.from_constant(scalar, **kwargs)
+        elif isinstance(scalar, Function):
+            f = scalar
+        elif isinstance(scalar, collections.Callable):
+            f = Function(scalar, **kwargs)
+        else:
+            raise TypeError("Coefficient type not understood.")
+
         register_base(label, Base(f), overwrite=over)
 
         return ScalarFunction(label, order, loc)

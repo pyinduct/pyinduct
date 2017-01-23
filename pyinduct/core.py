@@ -442,7 +442,10 @@ class Function(BaseFraction):
         def f(z):
             return constant
 
-        func = Function(eval_handle=f, **kwargs)
+        def f_dz(z):
+            return 0
+
+        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
         return func
 
     @staticmethod
