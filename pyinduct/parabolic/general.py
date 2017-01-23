@@ -58,8 +58,10 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     # assume 1 root per pi/l (safety factor = 3)
     om_end = 3 * n_roots * np.pi / l
     start_values = np.arange(0, om_end, .1)
-    om = find_roots(characteristic_equation, start_values, 2 * n_roots,
-                    rtol=int(np.log10(l) - 6)).tolist()
+    om = find_roots(characteristic_equation,
+                    start_values,
+                    2 * n_roots,
+                    rtol=l*1e-6).tolist()
 
     # delete all around om = 0
     om.reverse()

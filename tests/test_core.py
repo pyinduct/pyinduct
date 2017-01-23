@@ -516,7 +516,7 @@ class FindRootsTestCase(unittest.TestCase):
         self.n_roots = 10
         self.small_grid = np.arange(0, 1, 1)
         self.grid = np.arange(0, 50, 1)
-        self.rtol = -1
+        self.rtol = .1
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
@@ -561,7 +561,7 @@ class FindRootsTestCase(unittest.TestCase):
     def test_complex_func(self):
         grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
         roots = pi.find_roots(function=self.complex_eq, grid=grid, n_roots=5,
-                              rtol=-1, cmplx=True)
+                              rtol=self.rtol, cmplx=True)
         self.assertTrue(np.allclose(
             [self.complex_eq(root) for root in roots],
             [0] * len(roots)))

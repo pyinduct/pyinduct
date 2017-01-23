@@ -629,8 +629,10 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = cr.find_roots(char_eq, grid=np.arange(0, 1e3, 2),
-                                        n_roots=order, rtol=-2)
+        eig_frequencies = cr.find_roots(char_eq,
+                                        grid=np.arange(0, 1e3, 2),
+                                        n_roots=order,
+                                        rtol=1e-2)
         print("eigenfrequencies:")
         print(eig_frequencies)
 

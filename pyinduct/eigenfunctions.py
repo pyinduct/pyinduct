@@ -400,7 +400,7 @@ class SecondOrderEigenVector(Function):
                                      step=root_dist)
                 num_roots = find_roots(numer_func, grid=[search_grid.points],
                                        n_roots=count + diff,
-                                       rtol=int(np.log10(root_dist) - .5) - 1)
+                                       rtol=root_dist*1e-2)
 
                 # check for common roots of numerator and denominator
                 nu_num = []
@@ -956,13 +956,13 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         try:
             om = list(find_roots(characteristic_equation,
                                  [np.array([0]), start_values_imag],
-                                 rtol=int(np.log10(l) - 3), cmplx=True))
+                                 rtol=1e-3*l, cmplx=True))
         except ValueError:
             om = list()
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
-                         2 * n_roots, rtol=int(np.log10(l) - 3),
+                         2 * n_roots, rtol=1e-3*l,
                          cmplx=False).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0
