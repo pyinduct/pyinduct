@@ -413,17 +413,18 @@ class SecondOrderEigenVector(Function):
             nu_num = np.array(nu_num[:count])
 
         # TODO introduce step heuristic, again.
-        limit = 4 * count * np.pi
+        limit_real = count * np.pi
+        limit_imag = 4 * count * np.pi
         roots = find_roots(function=patched_func,
-                           grid=[np.array([0]),
-                                 np.linspace(-limit, limit, num=100)],
+                           grid=[np.linspace(-limit_real, limit_real, num=100),
+                                 np.linspace(-limit_imag, limit_imag, num=100)],
                            cmplx=True,
                            sort_mode="norm")
         np.testing.assert_almost_equal(char_func(roots), 0, verbose=True)
 
         if kwargs.get("debug", False):
             visualize_roots(roots,
-                            grid=[np.linspace(-2, 2), np.linspace(-10, 10)],
+                            grid=[np.linspace(-2, 2), np.linspace(-30, 30)],
                             function=patched_func,
                             cmplx=True)
 

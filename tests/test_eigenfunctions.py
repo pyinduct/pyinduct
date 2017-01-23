@@ -241,6 +241,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                                 for n in range(1, self.cnt + 1)]
 
         else:
+            # TODO make computation by approximation work to check to other two
             self.eig_dirichlet = \
                 calc_dirichlet_eigenvalues(self.params_dirichlet)[:self.cnt]
             self.p_dirichlet = \
@@ -298,7 +299,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             params,
             count=self.cnt,
             derivative_order=2,
-            debug=False)
+            debug=True)
 
         if show_plots:
             pi.visualize_functions(eig_base.fractions)
@@ -312,8 +313,10 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             params,
             eig_values)
         if p_ref is not None:
+            print(char_roots)
+            print(p_ref)
             np.testing.assert_array_almost_equal(char_roots, p_ref,
-                                                 decimal=4, verbose=True)
+                                                 decimal=5, verbose=True)
 
         # test eigenvectors
         for fraction, lam in zip(eig_base.fractions, eig_values):
@@ -373,14 +376,15 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
         limits = (0, l)
 
         self.spatial_domain = pi.Domain(limits, num=100)
+        self.z = self.spatial_domain.points
         self.n = 10
 
         eig_freq, self.eig_val \
             = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
-            self.param,
-            l,
-            self.n,
-            show_plot=show_plots)
+                self.param,
+                l,
+                self.n,
+                show_plot=show_plots)
 
         self.eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om,
                                                                     self.param,

@@ -5,18 +5,10 @@ import unittest
 import numpy as np
 from pickle import dump
 
-import hyperbolic.feedforward
 import pyinduct as pi
-from pyinduct import \
-    registry as reg, \
-    eigenfunctions as ef, \
-    core as cr, \
-    simulation as sim, \
-    visualization as vis, \
-    trajectory as tr, \
-    placeholder as ph, \
-    shapefunctions as sf, \
-    parabolic as parabolic
+import pyinduct.simulation as sim
+import pyinduct.parabolic as parabolic
+import pyinduct.hyperbolic.feedforward as hff
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -115,7 +107,7 @@ class SimulationInputTest(unittest.TestCase):
         ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
-        res = sim.simulate_state_space(ss, ic, cr.Domain((0, 1), num=10))
+        res = sim.simulate_state_space(ss, ic, pi.Domain((0, 1), num=10))
 
     def test_storage(self):
         a = np.eye(2, 2)
@@ -125,7 +117,7 @@ class SimulationInputTest(unittest.TestCase):
         ss = sim.StateSpace(a, b, input_handle=u)
 
         # run simulation to fill the internal storage
-        domain = cr.Domain((0, 10), step=.1)
+        domain = pi.Domain((0, 10), step=.1)
         res = sim.simulate_state_space(ss, ic, domain)
 
         # don't return any entries that aren't there
@@ -140,7 +132,7 @@ class SimulationInputTest(unittest.TestCase):
         self.assertIsInstance(ed, np.ndarray)
 
         # return EvalData if corresponding flag is set
-        self.assertIsInstance(u.get_results(domain, as_eval_data=True), cr.EvalData)
+        self.assertIsInstance(u.get_results(domain, as_eval_data=True), pi.EvalData)
 
         # TODO interpolation methods and extrapolation errors
 
@@ -187,101 +179,105 @@ class CanonicalFormTest(unittest.TestCase):
 class ParseTest(unittest.TestCase):
     def setUp(self):
         # scalars
-        self.scalars = ph.Scalars(np.vstack(list(range(3))))
+        self.scalars = pi.Scalars(np.vstack(list(range(3))))
 
         # inputs
         self.u = np.sin
-        self.input = ph.Input(self.u)
-        self.input_squared = ph.Input(self.u, exponent=2)
+        self.input = pi.Input(self.u)
+        self.input_squared = pi.Input(self.u, exponent=2)
 
         # scale function
-        reg.register_base("heavyside", cr.Base(cr.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1))))
+        pi.register_base("heavyside", pi.Base(pi.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1))))
 
-        nodes, self.test_base = sf.cure_interval(sf.LagrangeFirstOrder, (0, 1), node_count=3)
-        reg.register_base("test_base", self.test_base, overwrite=True)
+        nodes, self.test_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1),
+                                                 node_count=3)
+        pi.register_base("test_base", self.test_base, overwrite=True)
 
         # TestFunctions
-        self.phi = ph.TestFunction("test_base")
-        self.phi_at0 = ph.TestFunction("test_base", location=0)
-        self.phi_at1 = ph.TestFunction("test_base", location=1)
-        self.dphi = ph.TestFunction("test_base", order=1)
-        self.dphi_at1 = ph.TestFunction("test_base", order=1, location=1)
+        self.phi = pi.TestFunction("test_base")
+        self.phi_at0 = self.phi(0)
+        self.phi_at1 = self.phi(1)
+        self.dphi = self.phi.derive(1)
+        self.dphi_at1 = self.dphi(1)
 
         # FieldVars
-        self.field_var = ph.FieldVariable("test_base")
-        self.field_var_squared = ph.FieldVariable("test_base", exponent=2)
+        self.field_var = pi.FieldVariable("test_base")
+        self.field_var_squared = pi.FieldVariable("test_base", exponent=2)
 
-        self.odd_weight_field_var = ph.FieldVariable("test_base", weight_label="special_weights")
-        self.field_var_at1 = ph.FieldVariable("test_base", location=1)
-        self.field_var_at1_squared = ph.FieldVariable("test_base", location=1, exponent=2)
+        self.odd_weight_field_var = pi.FieldVariable("test_base",
+                                                     weight_label="special_weights")
+        self.field_var_at1 = self.field_var(1)
+        self.field_var_at1_squared = pi.FieldVariable("test_base",
+                                                      location=1,
+                                                      exponent=2)
 
-        self.field_var_dz = ph.SpatialDerivedFieldVariable("test_base", 1)
-        self.field_var_dz_at1 = ph.SpatialDerivedFieldVariable("test_base", 1, location=1)
+        self.field_var_dz = self.field_var.derive(spat_order=1)
+        self.field_var_dz_at1 = self.field_var_dz(1)
 
-        self.field_var_ddt = ph.TemporalDerivedFieldVariable("test_base", 2)
-        self.field_var_ddt_at0 = ph.TemporalDerivedFieldVariable("test_base", 2, location=0)
-        self.field_var_ddt_at1 = ph.TemporalDerivedFieldVariable("test_base", 2, location=1)
+        self.field_var_ddt = self.field_var.derive(temp_order=2)
+        self.field_var_ddt_at0 = self.field_var_ddt(0)
+        self.field_var_ddt_at1 = self.field_var_ddt(1)
 
         # create all possible kinds of input variables
-        self.input_term1 = ph.ScalarTerm(ph.Product(self.phi_at1, self.input))
-        self.input_term1_swapped = ph.ScalarTerm(ph.Product(self.input, self.phi_at1))
-        self.input_term1_squared = ph.ScalarTerm(ph.Product(self.input_squared, self.phi_at1))
+        self.input_term1 = pi.ScalarTerm(pi.Product(self.phi_at1, self.input))
+        self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input, self.phi_at1))
+        self.input_term1_squared = pi.ScalarTerm(pi.Product(self.input_squared, self.phi_at1))
 
-        self.input_term2 = ph.ScalarTerm(ph.Product(self.dphi_at1, self.input))
-        self.func_term = ph.ScalarTerm(self.phi_at1)
+        self.input_term2 = pi.ScalarTerm(pi.Product(self.dphi_at1, self.input))
+        self.func_term = pi.ScalarTerm(self.phi_at1)
 
-        self.input_term3 = ph.IntegralTerm(ph.Product(self.phi, self.input), (0, 1))
-        self.input_term3_swapped = ph.IntegralTerm(ph.Product(self.input, self.phi), (0, 1))
-        self.input_term3_scaled = ph.IntegralTerm(
-            ph.Product(ph.Product(ph.ScalarFunction("heavyside"), self.phi), self.input), (0, 1))
+        self.input_term3 = pi.IntegralTerm(pi.Product(self.phi, self.input), (0, 1))
+        self.input_term3_swapped = pi.IntegralTerm(pi.Product(self.input, self.phi), (0, 1))
+        self.input_term3_scaled = pi.IntegralTerm(
+            pi.Product(pi.Product(pi.ScalarFunction("heavyside"), self.phi), self.input), (0, 1))
 
         # same goes for field variables
-        self.field_term_at1 = ph.ScalarTerm(self.field_var_at1)
-        self.field_term_at1_squared = ph.ScalarTerm(self.field_var_at1_squared)
-        self.field_term_dz_at1 = ph.ScalarTerm(self.field_var_dz_at1)
-        self.field_term_ddt_at1 = ph.ScalarTerm(self.field_var_ddt_at1)
+        self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
+        self.field_term_at1_squared = pi.ScalarTerm(self.field_var_at1_squared)
+        self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
+        self.field_term_ddt_at1 = pi.ScalarTerm(self.field_var_ddt_at1)
 
-        self.field_int = ph.IntegralTerm(self.field_var, (0, 1))
-        self.field_squared_int = ph.IntegralTerm(self.field_var_squared, (0, 1))
-        self.field_dz_int = ph.IntegralTerm(self.field_var_dz, (0, 1))
-        self.field_ddt_int = ph.IntegralTerm(self.field_var_ddt, (0, 1))
+        self.field_int = pi.IntegralTerm(self.field_var, (0, 1))
+        self.field_squared_int = pi.IntegralTerm(self.field_var_squared, (0, 1))
+        self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
+        self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
 
-        self.prod_term_fs_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.scalars))
-        self.prod_int_fs = ph.IntegralTerm(ph.Product(self.field_var, self.scalars), (0, 1))
-        self.prod_int_f_f = ph.IntegralTerm(ph.Product(self.field_var, self.phi), (0, 1))
-        self.prod_int_f_squared_f = ph.IntegralTerm(ph.Product(self.field_var_squared, self.phi), (0, 1))
-        self.prod_int_f_f_swapped = ph.IntegralTerm(ph.Product(self.phi, self.field_var), (0, 1))
+        self.prod_term_fs_at1 = pi.ScalarTerm(
+            pi.Product(self.field_var_at1, self.scalars))
+        self.prod_int_fs = pi.IntegralTerm(pi.Product(self.field_var, self.scalars), (0, 1))
+        self.prod_int_f_f = pi.IntegralTerm(pi.Product(self.field_var, self.phi), (0, 1))
+        self.prod_int_f_squared_f = pi.IntegralTerm(pi.Product(self.field_var_squared, self.phi), (0, 1))
+        self.prod_int_f_f_swapped = pi.IntegralTerm(pi.Product(self.phi, self.field_var), (0, 1))
 
-        self.prod_int_f_at1_f = ph.IntegralTerm(
-            ph.Product(self.field_var_at1, self.phi), (0, 1))
-        self.prod_int_f_at1_squared_f = ph.IntegralTerm(
-            ph.Product(self.field_var_at1_squared, self.phi), (0, 1))
+        self.prod_int_f_at1_f = pi.IntegralTerm(
+            pi.Product(self.field_var_at1, self.phi), (0, 1))
+        self.prod_int_f_at1_squared_f = pi.IntegralTerm(
+            pi.Product(self.field_var_at1_squared, self.phi), (0, 1))
 
-        self.prod_int_f_f_at1 = ph.IntegralTerm(
-            ph.Product(self.field_var, self.phi_at1), (0, 1))
-        self.prod_int_f_squared_f_at1 = ph.IntegralTerm(
-            ph.Product(self.field_var_squared, self.phi_at1), (0, 1))
+        self.prod_int_f_f_at1 = pi.IntegralTerm(
+            pi.Product(self.field_var, self.phi_at1), (0, 1))
+        self.prod_int_f_squared_f_at1 = pi.IntegralTerm(
+            pi.Product(self.field_var_squared, self.phi_at1), (0, 1))
 
-        self.prod_term_f_at1_f_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.phi_at1))
-        self.prod_term_f_at1_squared_f_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1_squared, self.phi_at1))
+        self.prod_term_f_at1_f_at1 = pi.ScalarTerm(
+            pi.Product(self.field_var_at1, self.phi_at1))
+        self.prod_term_f_at1_squared_f_at1 = pi.ScalarTerm(
+            pi.Product(self.field_var_at1_squared, self.phi_at1))
 
-        self.prod_int_fddt_f = ph.IntegralTerm(
-            ph.Product(self.field_var_ddt, self.phi), (0, 1))
-        self.prod_term_fddt_at0_f_at0 = ph.ScalarTerm(
-            ph.Product(self.field_var_ddt_at0, self.phi_at0))
+        self.prod_int_fddt_f = pi.IntegralTerm(
+            pi.Product(self.field_var_ddt, self.phi), (0, 1))
+        self.prod_term_fddt_at0_f_at0 = pi.ScalarTerm(
+            pi.Product(self.field_var_ddt_at0, self.phi_at0))
 
-        self.prod_term_f_at1_dphi_at1 = ph.ScalarTerm(
-            ph.Product(self.field_var_at1, self.dphi_at1))
+        self.prod_term_f_at1_dphi_at1 = pi.ScalarTerm(
+            pi.Product(self.field_var_at1, self.dphi_at1))
 
-        self.temp_int = ph.IntegralTerm(ph.Product(self.field_var_ddt, self.phi), (0, 1))
-        self.spat_int = ph.IntegralTerm(ph.Product(self.field_var_dz, self.dphi), (0, 1))
-        self.spat_int_asymmetric = ph.IntegralTerm(
-            ph.Product(self.field_var_dz, self.phi), (0, 1))
+        self.temp_int = pi.IntegralTerm(pi.Product(self.field_var_ddt, self.phi), (0, 1))
+        self.spat_int = pi.IntegralTerm(pi.Product(self.field_var_dz, self.dphi), (0, 1))
+        self.spat_int_asymmetric = pi.IntegralTerm(
+            pi.Product(self.field_var_dz, self.phi), (0, 1))
 
-        self.alternating_weights_term = ph.IntegralTerm(self.odd_weight_field_var, (0, 1))
+        self.alternating_weights_term = pi.IntegralTerm(self.odd_weight_field_var, (0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(
@@ -428,36 +424,38 @@ class ParseTest(unittest.TestCase):
                           sim.WeakFormulation([self.alternating_weights_term, self.field_int], name=""))
 
     def tearDown(self):
-        reg.deregister_base("heavyside")
-        reg.deregister_base("test_base")
+        pi.deregister_base("heavyside")
+        pi.deregister_base("test_base")
 
 
 class StateSpaceTests(unittest.TestCase):
     def setUp(self):
 
         # setup temp and spat domain
-        self.time_domain = cr.Domain((0, 1), num=10)
+        self.time_domain = pi.Domain((0, 1), num=10)
         node_cnt = 3
-        spat_domain = cr.Domain((0, 1), num=node_cnt)
-        nodes, lag_base = sf.cure_interval(sf.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
-        reg.register_base("swm_base", lag_base)
+        spat_domain = pi.Domain((0, 1), num=node_cnt)
+        nodes, lag_base = pi.cure_interval(pi.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
+        pi.register_base("swm_base", lag_base)
 
         # input
         self.u = CorrectInput(limits=(0, 10))
         # self.u = CorrectInput(limits=self.time_domain.bounds)
 
+        field_var = pi.FieldVariable("swm_base")
+        field_var_ddt = field_var.derive(temp_order=2)
+        field_var_dz = field_var.derive(spat_order=1)
+
+        psi = pi.TestFunction("swm_base")
+        psi_dz = psi.derive(1)
+
         # enter string with mass equations
-        int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("swm_base", 2),
-                       ph.TestFunction("swm_base")), spat_domain.bounds)
-        s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("swm_base", 2, location=0),
-                       ph.TestFunction("swm_base", location=0)))
-        int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable("swm_base", 1),
-                       ph.TestFunction("swm_base", order=1)), spat_domain.bounds)
-        s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("swm_base", location=1)), -1)
+        int1 = pi.IntegralTerm(pi.Product(field_var_ddt, psi),
+                               spat_domain.bounds)
+        s1 = pi.ScalarTerm(pi.Product(field_var_ddt(0), psi(0)))
+        int2 = pi.IntegralTerm(pi.Product(field_var_dz, psi_dz),
+                               spat_domain.bounds)
+        s2 = pi.ScalarTerm(pi.Product(pi.Input(self.u), psi(1)), -1)
 
         string_eq = sim.WeakFormulation([int1, s1, int2, s2], name="swm")
         self.ce = sim.parse_weak_formulation(string_eq)
@@ -492,7 +490,7 @@ class StateSpaceTests(unittest.TestCase):
         self.assertTrue(np.allclose(t.points, self.time_domain.points))
 
     def tearDown(self):
-        reg.deregister_base("swm_base")
+        pi.deregister_base("swm_base")
 
 
 class StringMassTest(unittest.TestCase):
@@ -501,14 +499,14 @@ class StringMassTest(unittest.TestCase):
         z_start = 0
         z_end = 1
         z_step = 0.1
-        self.dz = cr.Domain(bounds=(z_start, z_end), num=9)
+        self.dz = pi.Domain(bounds=(z_start, z_end), num=9)
 
         t_start = 0
         t_end = 10
         t_step = 0.01
-        self.dt = cr.Domain(bounds=(t_start, t_end), step=t_step)
+        self.dt = pi.Domain(bounds=(t_start, t_end), step=t_step)
 
-        self.params = cr.Parameters
+        self.params = pi.Parameters
         self.params.node_distance = 0.1
         self.params.m = 1.0
         self.params.order = 8
@@ -517,7 +515,7 @@ class StringMassTest(unittest.TestCase):
 
         self.y_end = 10
 
-        self.u = hyperbolic.feedforward.FlatString(0, self.y_end, z_start, z_end, 0, 5, self.params)
+        self.u = hff.FlatString(0, self.y_end, z_start, z_end, 0, 5, self.params)
 
         def x(z, t):
             """
@@ -533,8 +531,8 @@ class StringMassTest(unittest.TestCase):
 
         # initial conditions
         self.ic = np.array([
-            cr.Function(lambda z: x(z, 0)),  # x(z, 0)
-            cr.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
+            pi.Function(lambda z: x(z, 0)),  # x(z, 0)
+            pi.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
         ])
 
     def test_fem(self):
@@ -543,21 +541,31 @@ class StringMassTest(unittest.TestCase):
         """
 
         # enter string with mass equations
-        # nodes, ini_funcs = sf.cure_interval(sf.LagrangeFirstOrder,
-        nodes, fem_base = sf.cure_interval(sf.LagrangeSecondOrder,
+        nodes, fem_base = pi.cure_interval(pi.LagrangeSecondOrder,
                                            self.dz.bounds, node_count=11)
-        reg.register_base("init_funcs", fem_base, overwrite=True)
-        int1 = ph.IntegralTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2),
-                       ph.TestFunction("init_funcs")), self.dz.bounds, scale=self.params.sigma * self.params.tau ** 2)
-        s1 = ph.ScalarTerm(
-            ph.Product(ph.TemporalDerivedFieldVariable("init_funcs", 2, location=0),
-                       ph.TestFunction("init_funcs", location=0)), scale=self.params.m)
-        int2 = ph.IntegralTerm(
-            ph.Product(ph.SpatialDerivedFieldVariable("init_funcs", 1),
-                       ph.TestFunction("init_funcs", order=1)), self.dz.bounds, scale=self.params.sigma)
-        s2 = ph.ScalarTerm(
-            ph.Product(ph.Input(self.u), ph.TestFunction("init_funcs", location=1)), -self.params.sigma)
+        pi.register_base("fem_base", fem_base)
+
+        field_var = pi.FieldVariable("fem_base")
+        field_var_ddt = field_var.derive(temp_order=2)
+        field_var_dz = field_var.derive(spat_order=1)
+
+        psi = pi.TestFunction("fem_base")
+        psi_dz = psi.derive(1)
+
+        # enter string with mass equations
+        int1 = pi.IntegralTerm(pi.Product(field_var_ddt, psi),
+                               self.dz.bounds,
+                               scale=self.params.sigma)
+
+        s1 = pi.ScalarTerm(pi.Product(field_var_ddt(0), psi(0)),
+                           scale=self.params.m)
+
+        int2 = pi.IntegralTerm(pi.Product(field_var_dz, psi_dz),
+                               self.dz.bounds,
+                               scale=self.params.sigma)
+
+        s2 = pi.ScalarTerm(pi.Product(pi.Input(self.u), psi(1)),
+                           scale=-self.params.sigma)
 
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
@@ -565,7 +573,8 @@ class StringMassTest(unittest.TestCase):
         ss = sim.create_state_space({"swm": self.cf})
 
         # generate initial conditions for weights
-        q0 = np.array([cr.project_on_base(self.ic[idx], fem_base) for idx in range(2)]).flatten()
+        q0 = np.array([pi.project_on_base(self.ic[idx], fem_base)
+                       for idx in range(2)]).flatten()
 
         # simulate
         t, q = sim.simulate_state_space(ss, q0, self.dt)
@@ -573,21 +582,24 @@ class StringMassTest(unittest.TestCase):
         # calculate result data
         eval_data = []
         for der_idx in range(2):
-            eval_data.append(
-                sim.evaluate_approximation("init_funcs",
-                                           q[:, der_idx*fem_base.fractions.size:(der_idx + 1)*fem_base.fractions.size],
-                                           t, self.dz))
+            eval_data.append(sim.evaluate_approximation(
+                "fem_base",
+                q[:, der_idx*fem_base.fractions.size:(der_idx + 1)*fem_base.fractions.size],
+                t, self.dz))
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(
                 ["d" for x in range(der_idx)]) + "t" if der_idx > 0 else "")
 
         # display results
         if show_plots:
-            win = vis.PgAnimatedPlot(eval_data[:2], title="fem approx and derivative")
-            win2 = vis.PgSurfacePlot(eval_data[0])
+            win = pi.PgAnimatedPlot(eval_data[:2],
+                                    title="fem approx and derivative")
+            win2 = pi.PgSurfacePlot(eval_data[0])
             app.exec_()
 
         # test for correct transition
-        self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
+        self.assertAlmostEqual(eval_data[0].output_data[-1, 0],
+                               self.y_end,
+                               places=3)
 
         # save some test data for later use
         root_dir = os.getcwd()
@@ -602,6 +614,8 @@ class StringMassTest(unittest.TestCase):
         file_path = os.sep.join([res_dir, "test_data.res"])
         with open(file_path, "w+b") as f:
             dump(eval_data, f)
+
+        pi.deregister_base("fem_base")
 
     def test_modal(self):
         order = 8
@@ -629,7 +643,7 @@ class StringMassTest(unittest.TestCase):
                 raise ValueError
 
         # create eigenfunctions
-        eig_frequencies = cr.find_roots(char_eq,
+        eig_frequencies = pi.find_roots(char_eq,
                                         grid=np.arange(0, 1e3, 2),
                                         n_roots=order,
                                         rtol=1e-2)
@@ -637,7 +651,7 @@ class StringMassTest(unittest.TestCase):
         print(eig_frequencies)
 
         # create eigen function vectors
-        class SWMFunctionVector(cr.ComposedFunctionVector):
+        class SWMFunctionVector(pi.ComposedFunctionVector):
             """
             String With Mass Function Vector, necessary due to manipulated scalar product
             """
@@ -652,7 +666,7 @@ class StringMassTest(unittest.TestCase):
             def scalar(self):
                 return self.members["scalars"][0]
 
-        eig_vectors = np.array([SWMFunctionVector(cr.Function(phi_k_factory(eig_frequencies[n]),
+        eig_vectors = np.array([SWMFunctionVector(pi.Function(phi_k_factory(eig_frequencies[n]),
                                                               derivative_handles=[
                                                                   phi_k_factory(eig_frequencies[n], der_order)
                                                                   for der_order in range(1, 3)],
@@ -660,12 +674,12 @@ class StringMassTest(unittest.TestCase):
                                                               nonzero=self.dz.bounds),
                                                   phi_k_factory(eig_frequencies[n])(0))
                                 for n in range(order)])
-        composed_modal_base = cr.Base(eig_vectors)
+        composed_modal_base = pi.Base(eig_vectors)
 
         # normalize base
-        norm_comp_mod_base = cr.normalize_base(composed_modal_base)
-        norm_mod_base = cr.Base(np.array([vec.func for vec in norm_comp_mod_base.fractions]))
-        reg.register_base("norm_modal_base", norm_mod_base, overwrite=True)
+        norm_comp_mod_base = pi.normalize_base(composed_modal_base)
+        norm_mod_base = pi.Base(np.array([vec.func for vec in norm_comp_mod_base.fractions]))
+        pi.register_base("norm_modal_base", norm_mod_base, overwrite=True)
 
         # debug print eigenfunctions
         if 0:
@@ -688,24 +702,24 @@ class StringMassTest(unittest.TestCase):
             app.exec_()
 
         # create terms of weak formulation
-        terms = [ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_modal_base", order=(2, 0)),
-                                            ph.TestFunction("norm_modal_base")),
+        terms = [pi.IntegralTerm(pi.Product(pi.FieldVariable("norm_modal_base", order=(2, 0)),
+                                            pi.TestFunction("norm_modal_base")),
                                  self.dz.bounds, scale=-1),
-                 ph.ScalarTerm(ph.Product(
-                     ph.FieldVariable("norm_modal_base", order=(2, 0), location=0),
-                     ph.TestFunction("norm_modal_base", location=0)),
+                 pi.ScalarTerm(pi.Product(
+                     pi.FieldVariable("norm_modal_base", order=(2, 0), location=0),
+                     pi.TestFunction("norm_modal_base", location=0)),
                      scale=-1),
-                 ph.ScalarTerm(ph.Product(ph.Input(self.u),
-                                          ph.TestFunction("norm_modal_base", location=1))),
-                 ph.ScalarTerm(
-                     ph.Product(ph.FieldVariable("norm_modal_base", location=1),
-                                ph.TestFunction("norm_modal_base", order=1, location=1)),
+                 pi.ScalarTerm(pi.Product(pi.Input(self.u),
+                                          pi.TestFunction("norm_modal_base", location=1))),
+                 pi.ScalarTerm(
+                     pi.Product(pi.FieldVariable("norm_modal_base", location=1),
+                                pi.TestFunction("norm_modal_base", order=1, location=1)),
                      scale=-1),
-                 ph.ScalarTerm(ph.Product(ph.FieldVariable("norm_modal_base", location=0),
-                                          ph.TestFunction("norm_modal_base", order=1,
+                 pi.ScalarTerm(pi.Product(pi.FieldVariable("norm_modal_base", location=0),
+                                          pi.TestFunction("norm_modal_base", order=1,
                                                           location=0))),
-                 ph.IntegralTerm(ph.Product(ph.FieldVariable("norm_modal_base"),
-                                            ph.TestFunction("norm_modal_base", order=2)),
+                 pi.IntegralTerm(pi.Product(pi.FieldVariable("norm_modal_base"),
+                                            pi.TestFunction("norm_modal_base", order=2)),
                                  self.dz.bounds)]
         modal_pde = sim.WeakFormulation(terms, name="swm_lib-modal")
 
@@ -714,11 +728,11 @@ class StringMassTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            win = vis.PgAnimatedPlot(eval_data[0:2], title="modal approx and derivative")
-            win2 = vis.PgSurfacePlot(eval_data[0])
+            win = pi.PgAnimatedPlot(eval_data[0:2], title="modal approx and derivative")
+            win2 = pi.PgSurfacePlot(eval_data[0])
             app.exec_()
 
-        reg.deregister_base("norm_modal_base")
+        pi.deregister_base("norm_modal_base")
 
         # test for correct transition
         self.assertTrue(np.isclose(eval_data[0].output_data[-1, 0], self.y_end, atol=1e-3))
@@ -737,14 +751,14 @@ class MultiplePDETest(unittest.TestCase):
         l2 = 4
         l3 = 6
 
-        self.dz1 = cr.Domain(bounds=(0, l1), num=100)
-        self.dz2 = cr.Domain(bounds=(l1, l2), num=100)
-        self.dz3 = cr.Domain(bounds=(l2, l3), num=100)
+        self.dz1 = pi.Domain(bounds=(0, l1), num=100)
+        self.dz2 = pi.Domain(bounds=(l1, l2), num=100)
+        self.dz3 = pi.Domain(bounds=(l2, l3), num=100)
 
         t_start = 0
         t_end = 10
         t_step = 0.01
-        self.dt = cr.Domain(bounds=(t_start, t_end), step=t_step)
+        self.dt = pi.Domain(bounds=(t_start, t_end), step=t_step)
 
         v1 = 1
         v2 = 2
@@ -757,9 +771,9 @@ class MultiplePDETest(unittest.TestCase):
             return 0
 
         # initial conditions
-        self.ic1 = np.array([cr.Function(lambda z: x(z, 0))])
-        self.ic2 = np.array([cr.Function(lambda z: x(z, 0))])
-        self.ic3 = np.array([cr.Function(lambda z: x(z, 0))])
+        self.ic1 = np.array([pi.Function(lambda z: x(z, 0))])
+        self.ic2 = np.array([pi.Function(lambda z: x(z, 0))])
+        self.ic3 = np.array([pi.Function(lambda z: x(z, 0))])
 
         # weak formulations
         nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=3)
@@ -850,7 +864,7 @@ class MultiplePDETest(unittest.TestCase):
 
 class RadFemTrajectoryTest(unittest.TestCase):
     """
-    Test FEM simulation with cr.LagrangeFirstOrder and cr.LagrangeSecondOrder test functions and generic trajectory
+    Test FEM simulation with pi.LagrangeFirstOrder and pi.LagrangeSecondOrder test functions and generic trajectory
     generator RadTrajectory for the reaction-advection-diffusion equation.
     """
     def setUp(self):
@@ -859,19 +873,19 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         self.l = 1.
         spatial_disc = 11
-        self.dz = cr.Domain(bounds=(0, self.l), num=spatial_disc)
+        self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1.
         temporal_disc = 50
-        self.dt = cr.Domain(bounds=(0, self.T), num=temporal_disc)
+        self.dt = pi.Domain(bounds=(0, self.T), num=temporal_disc)
 
         # create test functions
-        self.nodes_1, self.base_1 = sf.cure_interval(sf.LagrangeFirstOrder, self.dz.bounds,
+        self.nodes_1, self.base_1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz.bounds,
                                                      node_count=spatial_disc)
-        reg.register_base("base_1", self.base_1)
-        self.nodes_2, self.base_2 = sf.cure_interval(sf.LagrangeSecondOrder, self.dz.bounds,
+        pi.register_base("base_1", self.base_1)
+        self.nodes_2, self.base_2 = pi.cure_interval(pi.LagrangeSecondOrder, self.dz.bounds,
                                                      node_count=spatial_disc)
-        reg.register_base("base_2", self.base_2)
+        pi.register_base("base_2", self.base_2)
 
     @unittest.skip  # needs border homogenization to work
     def test_dd(self):
@@ -892,8 +906,8 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # display results
         if show_plots:
             eval_d = sim.evaluate_approximation("base_1", q, t, self.dz, spat_order=1)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d)
+            win1 = pi.PgAnimatedPlot([eval_d], title="Test")
+            win2 = pi.PgSurfacePlot(eval_d)
             app.exec_()
 
         # TODO add Test here
@@ -908,23 +922,23 @@ class RadFemTrajectoryTest(unittest.TestCase):
         u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # integral terms
-        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("base_2", order=1),
-                                          ph.TestFunction("base_2", order=0)), self.dz.bounds)
-        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=0),
-                                          ph.TestFunction("base_2", order=2)), self.dz.bounds, -self.a2)
-        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=1),
-                                          ph.TestFunction("base_2", order=0)), self.dz.bounds, -self.a1)
-        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=0),
-                                          ph.TestFunction("base_2", order=0)), self.dz.bounds, -self.a0)
+        int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_2", order=1),
+                                          pi.TestFunction("base_2", order=0)), self.dz.bounds)
+        int2 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=0),
+                                          pi.TestFunction("base_2", order=2)), self.dz.bounds, -self.a2)
+        int3 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=1),
+                                          pi.TestFunction("base_2", order=0)), self.dz.bounds, -self.a1)
+        int4 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=0),
+                                          pi.TestFunction("base_2", order=0)), self.dz.bounds, -self.a0)
         # scalar terms from int 2
-        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=1, location=self.l),
-                                      ph.TestFunction("base_2", order=0, location=self.l)), -self.a2)
-        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=0, location=0),
-                                      ph.TestFunction("base_2", order=0, location=0)), self.a2 * self.alpha)
-        s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_2", order=0, location=0),
-                                      ph.TestFunction("base_2", order=1, location=0)), -self.a2)
-        s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                      ph.TestFunction("base_2", order=1, location=self.l)), self.a2)
+        s1 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=1, location=self.l),
+                                      pi.TestFunction("base_2", order=0, location=self.l)), -self.a2)
+        s2 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=0, location=0),
+                                      pi.TestFunction("base_2", order=0, location=0)), self.a2 * self.alpha)
+        s3 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_2", order=0, location=0),
+                                      pi.TestFunction("base_2", order=1, location=0)), -self.a2)
+        s4 = pi.ScalarTerm(pi.Product(pi.Input(u),
+                                      pi.TestFunction("base_2", order=1, location=self.l)), self.a2)
 
         # derive state-space system
         rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4], name="rad_pde")
@@ -937,30 +951,35 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         return t, q
 
+    @unittest.skip  # needs border homogenization to work
     def test_dr(self):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'robin'
-        u = parabolic.trajectory.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.trajectory.RadTrajectory(self.l,
+                                               self.T,
+                                               self.param,
+                                               bound_cond_type,
+                                               actuation_type)
 
         # integral terms
-        int1 = ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable("base_1", order=1),
-                                          ph.TestFunction("base_1", order=0)), self.dz.bounds)
-        int2 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=1),
-                                          ph.TestFunction("base_1", order=1)), self.dz.bounds, self.a2)
-        int3 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=0),
-                                          ph.TestFunction("base_1", order=1)), self.dz.bounds, self.a1)
-        int4 = ph.IntegralTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=0),
-                                          ph.TestFunction("base_1", order=0)), self.dz.bounds, -self.a0)
+        int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_1", order=1),
+                                          pi.TestFunction("base_1", order=0)), self.dz.bounds)
+        int2 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=1),
+                                          pi.TestFunction("base_1", order=1)), self.dz.bounds, self.a2)
+        int3 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=0),
+                                          pi.TestFunction("base_1", order=1)), self.dz.bounds, self.a1)
+        int4 = pi.IntegralTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=0),
+                                          pi.TestFunction("base_1", order=0)), self.dz.bounds, -self.a0)
         # scalar terms from int 2
-        s1 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=0, location=self.l),
-                                      ph.TestFunction("base_1", order=0, location=self.l)), -self.a1)
-        s2 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=0, location=self.l),
-                                      ph.TestFunction("base_1", order=0, location=self.l)), self.a2 * self.beta)
-        s3 = ph.ScalarTerm(ph.Product(ph.SpatialDerivedFieldVariable("base_1", order=1, location=0),
-                                      ph.TestFunction("base_1", order=0, location=0)), self.a2)
-        s4 = ph.ScalarTerm(ph.Product(ph.Input(u),
-                                      ph.TestFunction("base_1", order=0, location=self.l)), -self.a2)
+        s1 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=0, location=self.l),
+                                      pi.TestFunction("base_1", order=0, location=self.l)), -self.a1)
+        s2 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=0, location=self.l),
+                                      pi.TestFunction("base_1", order=0, location=self.l)), self.a2 * self.beta)
+        s3 = pi.ScalarTerm(pi.Product(pi.SpatialDerivedFieldVariable("base_1", order=1, location=0),
+                                      pi.TestFunction("base_1", order=0, location=0)), self.a2)
+        s4 = pi.ScalarTerm(pi.Product(pi.Input(u),
+                                      pi.TestFunction("base_1", order=0, location=self.l)), -self.a2)
         rad_pde = sim.WeakFormulation([int1, int2, int3, int4, s1, s2, s3, s4], "rad_pde")
 
         # derive state-space system
@@ -988,7 +1007,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss, np.zeros(self.base_1.fractions.shape), self.dt)
 
         for lbl in extra_labels:
-            reg.deregister_base(lbl)
+            pi.deregister_base(lbl)
 
         # check if (x(0,t_end) - 1.) < 0.1
         self.assertLess(np.abs(self.base_1.fractions[0].derive(0)(0) * q[-1, 0]) - 1, 0.1)
@@ -996,10 +1015,10 @@ class RadFemTrajectoryTest(unittest.TestCase):
     def test_rr_const_trajectory(self):
         # TODO if it is only testing ConstantTrajectory should it better be moved to test_visualization ?
         # const trajectory simulation call test
-        u = tr.ConstantTrajectory(1)
+        u = pi.ConstantTrajectory(1)
 
         # derive state-space system
-        rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
+        rad_pde, extra_labels = pi.parabolic.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss = sim.create_state_space(ce)
 
@@ -1008,13 +1027,13 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # deregister extra labels
         for lbl in extra_labels:
-            reg.deregister_base(lbl)
+            pi.deregister_base(lbl)
 
         # TODO add a Test here
 
     def tearDown(self):
-        reg.deregister_base("base_1")
-        reg.deregister_base("base_2")
+        pi.deregister_base("base_1")
+        pi.deregister_base("base_2")
 
 
 class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
@@ -1029,34 +1048,34 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         l = 1.
         spatial_disc = 10
-        dz = cr.Domain(bounds=(0, l), num=spatial_disc)
+        dz = pi.Domain(bounds=(0, l), num=spatial_disc)
 
         t_end = 1.
         temporal_disc = 50
-        dt = cr.Domain(bounds=(0, t_end), num=temporal_disc)
+        dt = pi.Domain(bounds=(0, t_end), num=temporal_disc)
 
         # TODO use eigfreq_eigval_hint to obtain eigenvalues
         omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
         eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
-        eig_base = cr.Base([ef.SecondOrderDirichletEigenfunction(omega[i],
+        eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(omega[i],
                                                                  param,
-                                                                 dz.bounds,
+                                                                 dz.bounds[-1],
                                                                  norm_fak[i])
                             for i in range(spatial_disc)])
-        reg.register_base("eig_base", eig_base)
+        pi.register_base("eig_base", eig_base)
 
-        adjoint_eig_base = cr.Base(
-            [ef.SecondOrderDirichletEigenfunction(omega[i],
+        adjoint_eig_base = pi.Base(
+            [pi.SecondOrderDirichletEigenfunction(omega[i],
                                                   adjoint_param,
-                                                  dz.bounds,
+                                                  dz.bounds[-1],
                                                   norm_fak[i])
              for i in range(spatial_disc)])
-        reg.register_base("adjoint_eig_base", adjoint_eig_base)
+        pi.register_base("adjoint_eig_base", adjoint_eig_base)
 
         # derive initial field variable x(z,0) and weights
-        start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_base(start_state, adjoint_eig_base)
+        start_state = pi.Function(lambda z: 0., domain=(0, l))
+        initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
         u = parabolic.RadTrajectory(l,
@@ -1096,11 +1115,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
                                                 t,
                                                 dz,
                                                 spat_order=0)
-            win2 = vis.PgSurfacePlot(eval_d)
+            win2 = pi.PgSurfacePlot(eval_d)
             app.exec_()
 
-        reg.deregister_base("eig_base")
-        reg.deregister_base("adjoint_eig_base")
+        pi.deregister_base("eig_base")
+        pi.deregister_base("adjoint_eig_base")
 
 
 class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
@@ -1115,29 +1134,36 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
 
         l = 1.
         spatial_disc = 10
-        dz = cr.Domain(bounds=(0, l), num=spatial_disc)
+        dz = pi.Domain(bounds=(0, l), num=spatial_disc)
 
         t_end = 1.
         temporal_disc = 50
-        dt = cr.Domain(bounds=(0, t_end), num=temporal_disc)
+        dt = pi.Domain(bounds=(0, t_end), num=temporal_disc)
         n = 10
 
-        eig_freq, eig_val = parabolic.compute_rad_robin_eigenfrequencies(param, l, n)
+        eig_freq, eig_val = parabolic.compute_rad_robin_eigenfrequencies(param,
+                                                                         l,
+                                                                         n)
 
-        init_eig_base = cr.Base([ef.SecondOrderRobinEigenfunction(om, param, dz.bounds) for om in eig_freq])
-        init_adjoint_eig_base = cr.Base([ef.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds)
-                                         for om in eig_freq])
+        init_eig_base = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, param, dz.bounds[-1])
+             for om in eig_freq])
+
+        init_adjoint_eig_base = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, adjoint_param, dz.bounds[-1])
+             for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        eig_base, adjoint_eig_base = cr.normalize_base(init_eig_base, init_adjoint_eig_base)
+        eig_base, adjoint_eig_base = pi.normalize_base(init_eig_base,
+                                                       init_adjoint_eig_base)
 
         # register bases
-        reg.register_base("eig_base", eig_base)
-        reg.register_base("adjoint_eig_base", adjoint_eig_base)
+        pi.register_base("eig_base", eig_base)
+        pi.register_base("adjoint_eig_base", adjoint_eig_base)
 
         # derive initial field variable x(z,0) and weights
-        start_state = cr.Function(lambda z: 0., domain=(0, l))
-        initial_weights = cr.project_on_base(start_state, adjoint_eig_base)
+        start_state = pi.Function(lambda z: 0., domain=(0, l))
+        initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
         u = parabolic.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
@@ -1161,36 +1187,42 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         if show_plots:
             t_end, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz, spat_order=1)
-            win1 = vis.PgAnimatedPlot([eval_d], title="Test")
-            win2 = vis.PgSurfacePlot(eval_d)
+            win1 = pi.PgAnimatedPlot([eval_d], title="Test")
+            win2 = pi.PgSurfacePlot(eval_d)
             app.exec_()
 
-        reg.deregister_base(extra_labels[0])
-        reg.deregister_base(extra_labels[1])
-        reg.deregister_base("eig_base")
-        reg.deregister_base("adjoint_eig_base")
+        pi.deregister_base(extra_labels[0])
+        pi.deregister_base(extra_labels[1])
+        pi.deregister_base("eig_base")
+        pi.deregister_base("adjoint_eig_base")
 
 
 class EvaluateApproximationTestCase(unittest.TestCase):
     def setUp(self):
         self.node_cnt = 5
         self.time_step = 1e-1
-        self.dates = np.arange(0, 10, self.time_step)
-        self.spat_int = (0, 1)
-        self.nodes = np.linspace(self.spat_int[0], self.spat_int[1], self.node_cnt)
+        self.dates = pi.Domain((0, 10), step=self.time_step)
+        self.spat_dom = pi.Domain((0, 1), num=self.node_cnt)
 
         # create initial functions
-        self.nodes, self.funcs = sf.cure_interval(sf.LagrangeFirstOrder, self.spat_int, node_count=self.node_cnt)
-        reg.register_base("approx_funcs", self.funcs, overwrite=True)
+        self.nodes, self.funcs = pi.cure_interval(pi.LagrangeFirstOrder,
+                                                  self.spat_dom.bounds,
+                                                  node_count=self.node_cnt)
+        pi.register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
-        self.weights = np.array(list(range(self.node_cnt * self.dates.size))).reshape(
-            (self.dates.size, len(self.nodes)))
+        self.weights = np.array(list(range(
+            self.node_cnt * self.dates.points.size))).reshape(
+            (self.dates.points.size, len(self.nodes)))
 
     def test_eval_helper(self):
-        eval_data = sim.evaluate_approximation("approx_funcs", self.weights, self.dates, self.spat_int, 1)
+        eval_data = sim.evaluate_approximation("approx_funcs",
+                                               self.weights,
+                                               self.dates,
+                                               self.spat_dom,
+                                               1)
         if show_plots:
-            p = vis.PgAnimatedPlot(eval_data)
+            p = pi.PgAnimatedPlot(eval_data)
             app.exec_()
             del p
 

@@ -3,10 +3,8 @@ import unittest
 
 import numpy as np
 
-from placeholder import evaluate_placeholder_function
-from pyinduct import core as cr, simulation as sim, utils as ut, placeholder as ph, \
-    Function, register_base, Base, TestFunction, deregister_base
-from pyinduct import register_base, deregister_base, LagrangeFirstOrder, cure_interval
+import pyinduct as pi
+import pyinduct.placeholder as ph
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -88,13 +86,13 @@ class TestCommonTarget(unittest.TestCase):
 
 class ScalarFunctionTest(unittest.TestCase):
     def setUp(self):
-        self.funcs = np.array([cr.Function(np.sin), cr.Function(np.cos)])
+        self.funcs = np.array([pi.Function(np.sin), pi.Function(np.cos)])
 
     def test_init(self):
         # label must be registered before
         self.assertRaises(ValueError, ph.ScalarFunction, "this one")
 
-        register_base("this", self.funcs)
+        pi.register_base("this", self.funcs)
         f = ph.ScalarFunction("this")
         self.assertEqual(f.order, (0, 0))  # default arg for order is 0
 
@@ -102,7 +100,7 @@ class ScalarFunctionTest(unittest.TestCase):
         self.assertEqual(f_dz.order, (0, 1))
 
     def tearDown(self):
-        deregister_base("this")
+        pi.deregister_base("this")
 
 
 class InputTestCase(unittest.TestCase):
@@ -137,8 +135,8 @@ class ScalarsTest(unittest.TestCase):
 
 class FieldVariableTest(unittest.TestCase):
     def setUp(self):
-        nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
-        register_base("test_funcs", ini_funcs, overwrite=True)
+        nodes, ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        pi.register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_FieldVariable(self):
         self.assertRaises(TypeError, ph.FieldVariable, "test_funcs", [0, 0])  # list instead of tuple
@@ -186,13 +184,13 @@ class FieldVariableTest(unittest.TestCase):
         self.assertTrue(a.order[1] != b.order[1] != c.order[1])
 
     def tearDown(self):
-        deregister_base("test_funcs")
+        pi.deregister_base("test_funcs")
 
 
 class TestFunctionTest(unittest.TestCase):
     def setUp(self):
-        nodes, ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
-        register_base("test_funcs", ini_funcs, overwrite=True)
+        nodes, ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        pi.register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_init(self):
         # init with invalid base
@@ -221,7 +219,7 @@ class TestFunctionTest(unittest.TestCase):
         self.assertTrue(a.order[1] != b.order[1] != c.order[1])
 
     def tearDown(self):
-        deregister_base("test_funcs")
+        pi.deregister_base("test_funcs")
 
 
 class ProductTest(unittest.TestCase):
@@ -234,23 +232,23 @@ class ProductTest(unittest.TestCase):
     def setUp(self):
         self.input = ph.Input(np.sin)
 
-        phi = cr.Function(np.sin)
-        psi = cr.Function(np.cos)
-        self.t_base = cr.Base([phi, psi])
-        register_base("test_base", self.t_base)
+        phi = pi.Function(np.sin)
+        psi = pi.Function(np.cos)
+        self.t_base = pi.Base([phi, psi])
+        pi.register_base("test_base", self.t_base)
         self.test_funcs = ph.TestFunction("test_base")
 
-        self.s_base = cr.Base([cr.Function(self.scale), cr.Function(self.scale)])
-        register_base("scale_base", self.s_base)
+        self.s_base = pi.Base([pi.Function(self.scale), pi.Function(self.scale)])
+        pi.register_base("scale_base", self.s_base)
         self.scale_funcs = ph.ScalarFunction("scale_base")
 
-        nodes, self.shape_base = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
-        register_base("prod_base", self.shape_base)
+        nodes, self.shape_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        pi.register_base("prod_base", self.shape_base)
         self.field_var = ph.FieldVariable("prod_base")
         self.field_var_dz = ph.SpatialDerivedFieldVariable("prod_base", 1)
 
     def test_product(self):
-        self.assertRaises(TypeError, ph.Product, cr.Function, cr.Function)  # only Placeholders allowed
+        self.assertRaises(TypeError, ph.Product, pi.Function, pi.Function)  # only Placeholders allowed
         p1 = ph.Product(self.input, self.test_funcs)
         p2 = ph.Product(self.test_funcs, self.field_var)
 
@@ -299,20 +297,20 @@ class ProductTest(unittest.TestCase):
         self.assertEqual(p2.get_arg_by_class(ph.FieldVariable), [self.field_var])
 
     def tearDown(self):
-        deregister_base("test_base")
-        deregister_base("scale_base")
-        deregister_base("prod_base")
+        pi.deregister_base("test_base")
+        pi.deregister_base("scale_base")
+        pi.deregister_base("prod_base")
 
 
 class EquationTermsTest(unittest.TestCase):
     def setUp(self):
         self.input = ph.Input(np.sin)
-        self.phi = np.array([cr.Function(lambda x: 2 * x)])
-        register_base("phi", self.phi)
+        self.phi = np.array([pi.Function(lambda x: 2 * x)])
+        pi.register_base("phi", self.phi)
         self.test_func = ph.TestFunction("phi")
 
-        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=2)
-        register_base("ini_funcs", self.ini_funcs)
+        nodes, self.ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        pi.register_base("ini_funcs", self.ini_funcs)
         self.xdt = ph.TemporalDerivedFieldVariable("ini_funcs", order=1)
         self.xdz_at1 = ph.SpatialDerivedFieldVariable("ini_funcs", order=1, location=1)
 
@@ -320,7 +318,7 @@ class EquationTermsTest(unittest.TestCase):
 
     def test_EquationTerm(self):
         self.assertRaises(TypeError, ph.EquationTerm, "eleven", self.input)  # scale is not a number
-        self.assertRaises(TypeError, ph.EquationTerm, 1, LagrangeFirstOrder(0, 1, 2))  # arg is invalid
+        self.assertRaises(TypeError, ph.EquationTerm, 1, pi.LagrangeFirstOrder(0, 1, 2))  # arg is invalid
         ph.EquationTerm(1, self.test_func)
         ph.EquationTerm(1, self.xdt)
         t1 = ph.EquationTerm(1, self.input)
@@ -329,7 +327,7 @@ class EquationTermsTest(unittest.TestCase):
 
     def test_ScalarTerm(self):
         self.assertRaises(TypeError, ph.ScalarTerm, 7)  # factor is number
-        self.assertRaises(TypeError, ph.ScalarTerm, cr.Function(np.sin))  # factor is Function
+        self.assertRaises(TypeError, ph.ScalarTerm, pi.Function(np.sin))  # factor is Function
         ph.ScalarTerm(self.input)
         self.assertRaises(ValueError, ph.ScalarTerm, self.test_func)  # integration has to be done
         t1 = ph.ScalarTerm(self.xdz_at1)
@@ -339,7 +337,7 @@ class EquationTermsTest(unittest.TestCase):
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, ph.IntegralTerm, 7, (0, 1))  # integrand is number
-        self.assertRaises(TypeError, ph.IntegralTerm, cr.Function(np.sin), (0, 1))  # integrand is Function
+        self.assertRaises(TypeError, ph.IntegralTerm, pi.Function(np.sin), (0, 1))  # integrand is Function
         self.assertRaises(ValueError, ph.IntegralTerm, self.xdz_at1, (0, 1))  # nothing left after evaluation
         self.assertRaises(TypeError, ph.IntegralTerm, self.xdt, [0, 1])  # limits is list
 
@@ -354,16 +352,16 @@ class EquationTermsTest(unittest.TestCase):
         self.assertEqual(t1.limits, (0, 1))
 
     def tearDown(self):
-        deregister_base("phi")
-        deregister_base("ini_funcs")
+        pi.deregister_base("phi")
+        pi.deregister_base("ini_funcs")
 
 
 class WeakFormulationTest(unittest.TestCase):
     def setUp(self):
         self.u = np.sin
         self.input = ph.Input(self.u)  # control input
-        nodes, self.ini_funcs = cure_interval(LagrangeFirstOrder, (0, 1), node_count=3)
-        register_base("ini_funcs", self.ini_funcs)
+        nodes, self.ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=3)
+        pi.register_base("ini_funcs", self.ini_funcs)
 
         self.phi = ph.TestFunction("ini_funcs")  # eigenfunction or something else
         self.dphi = ph.TestFunction("ini_funcs", order=1)  # eigenfunction or something else
@@ -372,34 +370,34 @@ class WeakFormulationTest(unittest.TestCase):
         self.field_var_at1 = ph.FieldVariable("ini_funcs", location=1)
 
     def test_init(self):
-        self.assertRaises(TypeError, sim.WeakFormulation, ["a", "b"])
-        sim.WeakFormulation(ph.ScalarTerm(self.field_var_at1), name="scalar")  # scalar case
-        sim.WeakFormulation([ph.ScalarTerm(self.field_var_at1), ph.IntegralTerm(self.field_var, (0, 1))],
-                            name="vector")  # vectorial case
+        self.assertRaises(TypeError, pi.WeakFormulation, ["a", "b"])
+        pi.WeakFormulation(ph.ScalarTerm(self.field_var_at1), name="scalar")  # scalar case
+        pi.WeakFormulation([ph.ScalarTerm(self.field_var_at1), ph.IntegralTerm(self.field_var, (0, 1))],
+                           name="vector")  # vectorial case
 
     def tearDown(self):
-        deregister_base("ini_funcs")
+        pi.deregister_base("ini_funcs")
 
 
 class EvaluatePlaceholderTestCase(unittest.TestCase):
     def setUp(self):
         self.f = np.cos
-        self.psi = Function(np.sin)
-        register_base("funcs", Base(self.psi), overwrite=True)
-        self.funcs = TestFunction("funcs")
+        self.psi = pi.Function(np.sin)
+        pi.register_base("funcs", pi.Base(self.psi), overwrite=True)
+        self.funcs = ph.TestFunction("funcs")
 
     def test_eval(self):
         eval_values = np.array(list(range(10)))
 
         # supply a non-placeholder
         self.assertRaises(TypeError,
-                          evaluate_placeholder_function,
+                          ph.evaluate_placeholder_function,
                           self.f,
                           eval_values)
 
         # check for correct results
-        res = evaluate_placeholder_function(self.funcs, eval_values)
+        res = ph.evaluate_placeholder_function(self.funcs, eval_values)
         self.assertTrue(np.allclose(self.psi(eval_values), res))
 
     def tearDown(self):
-        deregister_base("funcs")
+        pi.deregister_base("funcs")

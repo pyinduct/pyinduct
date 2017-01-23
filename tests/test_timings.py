@@ -8,12 +8,7 @@ import unittest
 
 import numpy as np
 
-import pyinduct.core as cr
-import pyinduct.placeholder as ph
-import pyinduct.registry as reg
-import pyinduct.shapefunctions as sh
-import pyinduct.simulation as sim
-import pyinduct.trajectory as tr
+import pyinduct as pi
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -41,58 +36,61 @@ def simulation_benchmark(spat_domain, settings):
     sys_name = 'transport system'
     v = 10
 
-    temp_domain = cr.Domain(bounds=(0, 5), num=100)
+    temp_domain = pi.Domain(bounds=(0, 5), num=100)
 
-    init_x = cr.Function(lambda z: 0)
+    init_x = pi.Function(lambda z: 0)
 
     _a = time.clock()
-    nodes, base = sh.cure_interval(**settings)
+    nodes, base = pi.cure_interval(**settings)
     _b = time.clock()
 
     func_label = 'base'
-    reg.register_base(func_label, base)
+    pi.register_base(func_label, base)
 
-    u = sim.SimulationInputSum([
-        tr.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2, offset=4, phase_shift=1),
-        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[15]),
-        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[25], scale=-4),
-        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[35]),
-        tr.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[60], scale=-2),
+    u = pi.SimulationInputSum([
+        pi.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2, offset=4, phase_shift=1),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[15]),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[25], scale=-4),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[35]),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[60], scale=-2),
     ])
 
     _c = time.clock()
-    weak_form = sim.WeakFormulation([
-        ph.IntegralTerm(ph.Product(ph.TemporalDerivedFieldVariable(func_label, 1), ph.TestFunction(func_label)),
+    weak_form = pi.WeakFormulation([
+        pi.IntegralTerm(pi.Product(pi.FieldVariable(func_label, order=(1, 0)),
+                                                    pi.TestFunction(func_label)),
                         spat_domain.bounds),
-        ph.IntegralTerm(ph.Product(ph.FieldVariable(func_label), ph.TestFunction(func_label, order=1)),
-                        spat_domain.bounds, scale=-v), ph.ScalarTerm(
-            ph.Product(ph.FieldVariable(func_label, location=spat_domain.bounds[-1]),
-                       ph.TestFunction(func_label, location=spat_domain.bounds[-1])), scale=v),
-        ph.ScalarTerm(ph.Product(ph.Input(u), ph.TestFunction(func_label, location=0)), scale=-v), ], name=sys_name)
+        pi.IntegralTerm(pi.Product(pi.FieldVariable(func_label),
+                                   pi.TestFunction(func_label, order=1)),
+                        spat_domain.bounds, scale=-v),
+        pi.ScalarTerm(
+            pi.Product(pi.FieldVariable(func_label, location=spat_domain.bounds[-1]),
+                       pi.TestFunction(func_label, location=spat_domain.bounds[-1])), scale=v),
+        pi.ScalarTerm(pi.Product(pi.Input(u), pi.TestFunction(func_label, location=0)), scale=-v), ], name=sys_name)
     _d = time.clock()
 
     initial_states = np.atleast_1d(init_x)
 
     _e = time.clock()
-    can_eq = sim.parse_weak_formulation(weak_form)
+    can_eq = pi.parse_weak_formulation(weak_form)
     _f = time.clock()
 
-    state_space_form = sim.create_state_space(can_eq)
+    state_space_form = pi.create_state_space(can_eq)
 
     _g = time.clock()
-    q0 = np.array([sim.project_on_base(initial_state, reg.get_base(can_eq.dominant_lbl))
+    q0 = np.array([pi.project_on_base(initial_state, pi.get_base(can_eq.dominant_lbl))
                    for initial_state in initial_states]).flatten()
     _h = time.clock()
 
-    sim_domain, q = sim.simulate_state_space(state_space_form, q0, temp_domain)
+    sim_domain, q = pi.simulate_state_space(state_space_form, q0, temp_domain)
 
     temporal_order = min(initial_states.size - 1, 0)
     _i = time.clock()
-    eval_data = sim.process_sim_data(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
+    eval_data = pi.process_sim_data(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
                                      name=can_eq.dominant_form.name)
     _j = time.clock()
 
-    reg.deregister_base("base")
+    pi.deregister_base("base")
 
     return _b - _a, _d - _c, _f - _e, _h - _g, _j - _i
 
@@ -102,11 +100,11 @@ def product_benchmark(base):
         return np.sin(2 * z) + np.exp(z)
 
     _t = time.clock()
-    res = cr.calculate_scalar_product_matrix(cr.dot_product_l2, base, base)
+    res = pi.calculate_scalar_product_matrix(pi.dot_product_l2, base, base)
     _t_mat = time.clock() - _t
 
     _t = time.clock()
-    res = cr.project_on_base(cr.Function(projection_func), base)
+    res = pi.project_on_base(pi.Function(projection_func), base)
     _t_proj = time.clock() - _t
 
     return _t_mat, _t_proj
@@ -125,20 +123,20 @@ class ShapeFunctionTestBench(unittest.TestCase):
 
     def setUp(self):
         self.node_cnt = 51
-        self.domain = cr.Domain(bounds=(0, 1), num=1e3)
+        self.domain = pi.Domain(bounds=(0, 1), num=1e3)
 
         # first one is used as reference
         if True:
             self.candidates = [
-                dict(shapefunction_class=sh.LagrangeFirstOrder, interval=self.domain.bounds, node_count=self.node_cnt),
-                dict(shapefunction_class=sh.LagrangeNthOrder, interval=self.domain.bounds, node_count=self.node_cnt,
+                dict(shapefunction_class=pi.LagrangeFirstOrder, interval=self.domain.bounds, node_count=self.node_cnt),
+                dict(shapefunction_class=pi.LagrangeNthOrder, interval=self.domain.bounds, node_count=self.node_cnt,
                      order=1), ]
         else:
             self.candidates = [
-                dict(shapefunction_class=sh.LagrangeSecondOrder,
+                dict(shapefunction_class=pi.LagrangeSecondOrder,
                      interval=self.domain.bounds,
                      node_count=self.node_cnt),
-                dict(shapefunction_class=sh.LagrangeNthOrder,
+                dict(shapefunction_class=pi.LagrangeNthOrder,
                      interval=self.domain.bounds,
                      node_count=self.node_cnt,
                      order=2),
@@ -181,7 +179,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
             print("running round {} of {}".format(i, n_iteration))
             results = []
             for candidate in self.candidates:
-                n, base = sh.cure_interval(**candidate)
+                n, base = pi.cure_interval(**candidate)
                 results.append(product_benchmark(base))
 
             timings.append(results)

@@ -247,7 +247,7 @@ class LagrangeFirstOrder(Function):
         Function.__init__(self,
                           funcs[0],
                           nonzero=(start, end),
-                          domain=kwargs.get("domain", None),
+                          domain=kwargs.get("domain", (-np.inf, np.inf)),
                           derivative_handles=funcs[1:])
 
     @staticmethod

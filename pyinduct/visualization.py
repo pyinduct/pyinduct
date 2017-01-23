@@ -328,7 +328,13 @@ class PgSurfacePlot(PgDataPlot):
 
         if scales is None:
             # scale all axes uniformly if no scales are given
-            self.scales = tuple(1/value for value in maxima)
+            _scales = []
+            for value in maxima:
+                if np.isclose(value, 0):
+                    _scales.append(1)
+                else:
+                    _scales.append(1/value)
+            self.scales = tuple(_scales)
         else:
             self.scales = scales
 

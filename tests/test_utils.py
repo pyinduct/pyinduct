@@ -3,7 +3,7 @@ import sys
 import unittest
 
 import pyinduct as pi
-from pyinduct import utils as ut
+import pyinduct.utils as ut
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -15,8 +15,6 @@ if show_plots:
     import pyqtgraph as pg
 
     app = pg.QtGui.QApplication([])
-
-
 
 
 class CreateDirTestCase(unittest.TestCase):

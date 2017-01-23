@@ -15,7 +15,8 @@ from .registry import register_base, get_base, is_registered
 
 __all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
            "Input",
-           "Product", "ScalarTerm", "IntegralTerm"]
+           "Product", "ScalarTerm", "IntegralTerm",
+           "Placeholder"]
 
 
 class Placeholder(object):

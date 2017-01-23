@@ -17,8 +17,10 @@ from scipy.interpolate import interp1d
 from .registry import get_base
 
 __all__ = ["Domain", "EvalData", "Parameters",
-           "find_roots", "sanitize_input",
-           "Base", "BaseFraction", "StackedBase", "Function", "normalize_base",
+           "find_roots", "sanitize_input", "real",
+           "Base", "BaseFraction", "StackedBase",
+           "Function", "ComposedFunctionVector",
+           "normalize_base",
            "project_on_base", "change_projection_base", "back_project_from_base",
            "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix", "dot_product_l2",
@@ -1344,7 +1346,7 @@ def normalize_base(b1, b2=None):
 
     res = generic_scalar_product(b1, b2)
 
-    if any(res < np.finfo(float).eps) and False:
+    if any(res < np.finfo(float).eps):
         if any(np.isclose(res, 0)):
             raise ValueError("given base fractions are orthogonal. "
                              "no normalization possible.")
@@ -1424,7 +1426,11 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
         rtol: Tolerance to be exceeded for the difference of two roots
             to be unique: :math:`f(r1) - f(r2) > \textrm{rtol}` .
         atol: Absolute tolerance to zero: :math:`f(x^0) < \textrm{atol}` .
-        cmplx: Set to True if the given *function* is complex valued.
+        cmplx(bool): Set to True if the given *function* is complex valued.
+        sort_mode(str): Specify tho order in which the extracted roots shall be
+            sorted. Default "norm" sorts entries by their :math:`l_2` norm,
+            while "component" will sort them in increasing order by every
+            component.
 
     Return:
         numpy.ndarray of roots; sorted in the order they are returned by
@@ -1446,7 +1452,7 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
 
     # iterate over test_values
     val = iter(values)
-    while True:  # found_roots < n_roots:
+    while True:
         try:
             res = root(function, next(val), tol=atol)
         except StopIteration:
@@ -1487,7 +1493,10 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
         roots.append(calculated_root)
         errors.append(error)
 
-    if n_roots is not None and len(roots) < n_roots:
+    if n_roots is None:
+        n_roots = len(roots)
+
+    if len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Try to increase the area to search in.".format(
                             len(roots), n_roots))
@@ -1513,7 +1522,7 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     else:
         raise ValueError("Sort mode: {} not supported.".format(sort_mode))
 
-    good_roots = sorted_roots
+    good_roots = sorted_roots[:n_roots]
 
     if cmplx:
         return good_roots[:, 0] + 1j * good_roots[:, 1]
