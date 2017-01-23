@@ -142,9 +142,9 @@ class FiniteTransformTest(unittest.TestCase):
                 func, M, l, nested_lambda=self.nested_lambda)
                                          for func in eig_base.fractions])
 
-        if show_plots:
-            pi.visualize_functions(eig_base.fractions, 1e3)
-            pi.visualize_functions(shifted_eig_base.fractions, 1e3)
+        # if show_plots:
+        #     pi.visualize_functions(eig_base.fractions, 1e3)
+        #     pi.visualize_functions(shifted_eig_base.fractions, 1e3)
 
     @unittest.skip
     def test_segmentation_fault(self):
@@ -301,8 +301,8 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             derivative_order=2,
             debug=True)
 
-        if show_plots:
-            pi.visualize_functions(eig_base.fractions)
+        # if show_plots:
+        #     pi.visualize_functions(eig_base.fractions)
 
         # test eigenvalues
         self.assertEqual(len(eig_values), self.cnt)

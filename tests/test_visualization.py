@@ -75,7 +75,9 @@ class PlotTestCase(unittest.TestCase):
             plt.show()
 
     def test_mpl_slice_plot(self):
-        vis.MplSlicePlot(self.test_data + self.test_data + self.test_data, spatial_point=0.5, ylabel='$x(0,t)$',
+        vis.MplSlicePlot(self.test_data + self.test_data + self.test_data,
+                         spatial_point=0.5,
+                         ylabel='$x(0,t)$',
                          legend_label=['1', '2', '3', '4', '5', '6'])
         if show_plots:
             plt.show()

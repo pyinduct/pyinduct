@@ -279,16 +279,16 @@ class RadRobinControlApproxTest(unittest.TestCase):
                                                 count=self.modal_order,
                                                 derivative_order=2)
 
-        pi.visualize_functions(_eig_base.fractions)
-        pi.visualize_functions(_adjoint_eig_base.fractions)
+        # pi.visualize_functions(_eig_base.fractions)
+        # pi.visualize_functions(_adjoint_eig_base.fractions)
 
         # normalize
         self.eig_base, self.adjoint_eig_base = pi.normalize_base(
             _eig_base, _adjoint_eig_base
         )
 
-        pi.visualize_functions(self.eig_base.fractions)
-        pi.visualize_functions(self.adjoint_eig_base.fractions)
+        # pi.visualize_functions(self.eig_base.fractions)
+        # pi.visualize_functions(self.adjoint_eig_base.fractions)
 
         # bases should be bi-orthonormal
         test_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
@@ -365,9 +365,9 @@ class RadRobinControlApproxTest(unittest.TestCase):
         pi.register_base("adjoint_eig_base", self.adjoint_eig_base)
         pi.register_base("eig_base_t", self.eig_base_t)
 
-        pi.visualize_functions(self.eig_base.fractions)
-        pi.visualize_functions(self.adjoint_eig_base.fractions)
-        pi.visualize_functions(self.eig_base_t.fractions)
+        # pi.visualize_functions(self.eig_base.fractions)
+        # pi.visualize_functions(self.adjoint_eig_base.fractions)
+        # pi.visualize_functions(self.eig_base_t.fractions)
 
     def test_controller(self):
         # controller initialization
@@ -779,9 +779,9 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
                                                 self.dz.bounds,
                                                 node_count=self.n)
 
-        if show_plots:
-            pi.visualize_functions(self.fem_base.fractions)
-            pi.visualize_functions(self.eig_base.fractions)
+        # if show_plots:
+        #     pi.visualize_functions(self.fem_base.fractions)
+        #     pi.visualize_functions(self.eig_base.fractions)
 
         # register functions
         pi.register_base("eig_base", self.eig_base)
