@@ -685,7 +685,7 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
              for om in eig_freq_t])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        eig_funcs_t, self.adjoint_eig_funcs_t =\
+        eig_funcs_t, self.adjoint_eig_base_t =\
             pi.normalize_base(init_eig_funcs_t, init_adjoint_eig_funcs_t)
 
         # transformed original eigenfunctions
@@ -710,11 +710,8 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
             pi.visualize_functions(self.eig_base.fractions)
 
         # register functions
-        pi.register_base("eig_base_t", eig_funcs_t)
-        pi.register_base("adjoint_eig_funcs_t",
-                         self.adjoint_eig_funcs_t,
-                         overwrite=True)
         pi.register_base("eig_base", self.eig_base)
+        pi.register_base("eig_base_t", eig_funcs_t)
         pi.register_base("fem_funcs", self.fem_base)
 
         # original () and target (_t) field variable
@@ -812,16 +809,13 @@ class RadRobinSpatiallyVaryingCoefficientControllerTest(unittest.TestCase):
             pi.deregister_base(lbl)
 
         pi.deregister_base("eig_base")
-        pi.deregister_base("adjoint_eig_funcs")
         pi.deregister_base("eig_base_t")
         pi.deregister_base("fem_funcs")
 
 
-@unittest.skip
 class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
     """
     """
-
     def test_fem(self):
 
         # system/simulation parameters
@@ -833,7 +827,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         self.dz = pi.Domain(bounds=(0, self.l), num=spatial_disc)
 
         self.T = 1.
-        temporal_disc = 1e2
+        temporal_disc = 100
         self.dt = pi.Domain(bounds=(0, self.T), num=temporal_disc)
         self.n = 12
 
@@ -844,7 +838,8 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         alpha = -2
         beta = -3
         self.param = [a2, a1, a0, alpha, beta]
-        adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(self.param)
+        adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(
+            self.param)
 
         # target system parameters (controller parameters)
         a1_t = -5
@@ -853,66 +848,104 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         beta_t = 2
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
-        # actuation_type by b which is close to b_desired on a k times subdivided spatial domain
+        # actuation_type by b which is close to
+        # b_desired on a k times subdivided spatial domain
         b_desired = self.l / 2
         k = 51  # = k1 + k2
-        k1, k2, self.b = parabolic.split_domain(k, b_desired, self.l, mode='coprime')[0:3]
-        M = np.linalg.inv(parabolic.get_inn_domain_transformation_matrix(k1, k2, mode="2n"))
+        k1, k2, self.b = parabolic.split_domain(k,
+                                                b_desired,
+                                                self.l,
+                                                mode='coprime')[0:3]
+        m_mat = np.linalg.inv(
+            parabolic.get_in_domain_transformation_matrix(k1, k2, mode="2n"))
 
-        # original intermediate ("_i") and traget intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = pi.transform_to_intermediate(self.param)
+        # original intermediate ("_i") and
+        # target intermediate ("_ti") system parameters
+        _, _, a0_i, self.alpha_i, self.beta_i =\
+            pi.parabolic.eliminate_advection_term(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = pi.transform_to_intermediate(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti =\
+            pi.parabolic.eliminate_advection_term(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # create (not normalized) eigenfunctions
-        eig_freq, self.eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param, self.l, self.n)
-        init_eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om, self.param, self.l) for om in eig_freq])
-        init_adjoint_eig_funcs = np.array(
-            [pi.SecondOrderRobinEigenfunction(om, adjoint_param, self.l) for om in eig_freq])
+        eig_freq, self.eig_val =\
+            pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param,
+                                                                 self.l,
+                                                                 self.n)
+
+        init_eig_funcs = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, self.param, self.l)
+             for om in eig_freq])
+
+        init_adjoint_eig_funcs = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(om, adjoint_param, self.l)
+             for om in eig_freq])
 
         # normalize eigenfunctions and adjoint eigenfunctions
-        eig_funcs, self.adjoint_eig_funcs = pi.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
+        eig_base, self.adjoint_eig_base = pi.normalize_base(
+            init_eig_funcs, init_adjoint_eig_funcs)
 
-        # eigenfunctions of the in-domain intermediate (_id) and the intermediate (_i) system
-        eig_freq_i, eig_val_i = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_i, self.l, self.n)
+        # eigenfunctions of the in-domain intermediate (_id)
+        # and the intermediate (_i) system
+        eig_freq_i, eig_val_i =\
+            pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(self.param_i,
+                                                                 self.l,
+                                                                 self.n)
+
+        # eigenvalues should not be touched by this transformation
         self.assertTrue(all(np.isclose(eig_val_i, self.eig_val)))
-        eig_funcs_id = np.array(
-            [pi.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l, eig_funcs[i](0)) for i in
-             range(self.n)])
-        eig_funcs_i = np.array([pi.SecondOrderRobinEigenfunction(eig_freq_i[i], self.param_i, self.l,
-                                                                 eig_funcs[i](0) * eig_funcs_id[i](self.l) /
-                                                                 eig_funcs_id[i](self.b)) for i in range(self.n)])
+
+        eig_base_id = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(eig_freq_i[i],
+                                              self.param_i,
+                                              self.l, fraction(0))
+             for i, fraction in enumerate(eig_base.fractions)])
+
+        eig_base_i = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(eig_freq_i[i],
+                                              self.param_i,
+                                              self.l,
+                                              frac(0) * frac_id(self.l) /
+                                              frac_id(self.b))
+             for i, (frac, frac_id) in enumerate(zip(eig_base.fractions,
+                                                     eig_base_id.fractions))])
 
         # eigenfunctions from target system ("_ti")
         eig_freq_ti = np.sqrt((a0_ti - self.eig_val) / a2)
-        eig_funcs_ti = np.array(
-            [pi.SecondOrderRobinEigenfunction(eig_freq_ti[i], self.param_ti, self.l, eig_funcs_i[i](0)) for i in
-             range(self.n)])
+        eig_base_ti = pi.Base(
+            [pi.SecondOrderRobinEigenfunction(eig_freq_ti[i],
+                                              self.param_ti,
+                                              self.l,
+                                              frac(0))
+             for i, frac in enumerate(eig_base_i.fractions)])
 
-        # create testfunctions
-        nodes, self.fem_funcs = pi.cure_interval(pi.LagrangeFirstOrder, self.dz.bounds, node_count=self.n)
+        # create test functions
+        nodes, self.fem_base = pi.cure_interval(pi.LagrangeFirstOrder,
+                                                self.dz.bounds,
+                                                node_count=self.n)
 
         # register eigenfunctions
-        # register_functions("eig_base", eig_funcs, overwrite=True)
-        pi.register_base("adjoint_eig_funcs", self.adjoint_eig_funcs, overwrite=True)
-        pi.register_base("eig_base", eig_funcs, overwrite=True)
-        pi.register_base("eig_base_i", eig_funcs_i, overwrite=True)
-        pi.register_base("eig_base_ti", eig_funcs_ti, overwrite=True)
-        pi.register_base("fem_funcs", self.fem_funcs, overwrite=True)
-
-        # init trajectory
-        self.traj = pi.RadTrajectory(self.l, self.T, self.param_ti, bound_cond_type, actuation_type)
+        pi.register_base("eig_base", eig_base)
+        pi.register_base("eig_base_i", eig_base_i)
+        pi.register_base("eig_base_ti", eig_base_ti)
+        pi.register_base("fem_base", self.fem_base)
 
         # original () and target (_t) field variable
-        fem_field_variable = pi.FieldVariable("fem_funcs", location=self.l)
-        field_variable_i = pi.FieldVariable("eig_base_i", weight_label="eig_base", location=self.l)
-        d_field_variable_i = pi.SpatialDerivedFieldVariable("eig_base_i", 1, weight_label="eig_base", location=self.l)
-        field_variable_ti = pi.FieldVariable("eig_base_ti", weight_label="eig_base", location=self.l)
-        d_field_variable_ti = pi.SpatialDerivedFieldVariable("eig_base_ti", 1, weight_label="eig_base",
-                                                             location=self.l)
+        fem_field_variable = pi.FieldVariable("fem_base", location=self.l)
 
-        # intermediate (_i) and target intermediate (_ti) field variable (list of scalar terms = sum of scalar terms)
+        field_variable_i = pi.FieldVariable("eig_base_i",
+                                            weight_label="eig_base",
+                                            location=self.l)
+        d_field_variable_i = field_variable_i.derive(spat_order=1)
+
+        field_variable_ti = pi.FieldVariable("eig_base_ti",
+                                             weight_label="eig_base",
+                                             location=self.l)
+        d_field_variable_ti = field_variable_ti.derive(spat_order=1)
+
+        # intermediate (_i) and target intermediate (_ti) field variable
+        # (list of scalar terms = sum of scalar terms)
         self.x_fem_i_at_l = [pi.ScalarTerm(fem_field_variable)]
         self.x_i_at_l = [pi.ScalarTerm(field_variable_i)]
         self.xd_i_at_l = [pi.ScalarTerm(d_field_variable_i)]
@@ -920,49 +953,79 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         self.xd_ti_at_l = [pi.ScalarTerm(d_field_variable_ti)]
 
         # shift transformation
-        shifted_fem_funcs_i = np.array(
-            [pi.FiniteTransformFunction(func, M, self.l, scale_func=lambda z: np.exp(a1 / 2 / a2 * z)) for func in
-             self.fem_funcs])
-        shifted_eig_funcs_id = np.array([pi.FiniteTransformFunction(func, M, self.l) for func in eig_funcs_id])
-        pi.register_base("sh_fem_funcs_i", shifted_fem_funcs_i, overwrite=True)
-        pi.register_base("sh_eig_funcs_id", shifted_eig_funcs_id, overwrite=True)
-        sh_fem_field_variable_i = pi.FieldVariable("sh_fem_funcs_i", weight_label="fem_funcs", location=self.l)
-        sh_field_variable_id = pi.FieldVariable("sh_eig_funcs_id", weight_label="eig_base", location=self.l)
+
+        def scale_func(z):
+            return np.exp(a1 / 2 / a2 * z)
+
+        shifted_fem_base_i = pi.Base(
+            [pi.FiniteTransformFunction(func,
+                                        m_mat,
+                                        self.l,
+                                        scale_func=scale_func)
+             for func in self.fem_base.fractions])
+
+        shifted_eig_base_id = pi.Base([pi.FiniteTransformFunction(frac,
+                                                                  m_mat,
+                                                                  self.l)
+                                       for frac in eig_base_id.fractions])
+
+        pi.register_base("sh_fem_base_i", shifted_fem_base_i)
+        pi.register_base("sh_eig_base_id", shifted_eig_base_id)
+
+        sh_fem_field_variable_i = pi.FieldVariable("sh_fem_base_i",
+                                                   weight_label="fem_base",
+                                                   location=self.l)
+        sh_field_variable_id = pi.FieldVariable("sh_eig_base_id",
+                                                weight_label="eig_base",
+                                                location=self.l)
         self.sh_x_fem_i_at_l = [pi.ScalarTerm(sh_fem_field_variable_i),
                                 pi.ScalarTerm(field_variable_i),
                                 pi.ScalarTerm(sh_field_variable_id, -1)]
 
         # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
-        self.int_kernel_zz = lambda z: self.alpha_ti - self.alpha_i + (a0_i - a0_ti) / 2 / a2 * z
+        self.int_kernel_zz = lambda z: (self.alpha_ti - self.alpha_i
+                                        + (a0_i - a0_ti) / 2 / a2 * z)
 
         a2, a1, _, _, _ = self.param
-        controller = parabolic.get_parabolic_robin_backstepping_controller(state=self.sh_x_fem_i_at_l,
-                                                                           approx_state=self.x_i_at_l,
-                                                                           d_approx_state=self.xd_i_at_l,
-                                                                           approx_target_state=self.x_ti_at_l,
-                                                                           d_approx_target_state=self.xd_ti_at_l,
-                                                                           integral_kernel_zz=self.int_kernel_zz(
-                                                                               self.l),
-                                                                           original_beta=self.beta_i,
-                                                                           target_beta=self.beta_ti,
-                                                                           trajectory=self.traj,
-                                                                           scale=np.exp(-a1 / 2 / a2 * self.b))
+        controller = parabolic.get_parabolic_robin_backstepping_controller(
+            state=self.sh_x_fem_i_at_l,
+            approx_state=self.x_i_at_l,
+            d_approx_state=self.xd_i_at_l,
+            approx_target_state=self.x_ti_at_l,
+            d_approx_target_state=self.xd_ti_at_l,
+            integral_kernel_zz=self.int_kernel_zz(self.l),
+            original_beta=self.beta_i,
+            target_beta=self.beta_ti,
+            scale=np.exp(-a1 / 2 / a2 * self.b))
+
+        # init trajectory
+        self.traj = pi.parabolic.RadTrajectory(self.l,
+                                               self.T,
+                                               self.param_ti,
+                                               bound_cond_type,
+                                               actuation_type,
+                                               scale=np.exp(-a1 / 2 / a2 * self.b))
 
         system_input = pi.SimulationInputSum([self.traj, controller])
 
         # determine (A,B) with modal transformation
-        rad_pde = parabolic.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", controller, self.param,
-                                                          self.dz.bounds,
-                                                          self.b)
+        rad_pde, lbls = parabolic.get_parabolic_robin_weak_form("fem_base",
+                                                                "fem_base",
+                                                                system_input,
+                                                                self.param,
+                                                                self.dz.bounds,
+                                                                self.b)
         cf = pi.parse_weak_formulation(rad_pde)
-        ss_weak = cf.convert_to_state_space()
+        ss_weak = pi.create_state_space(cf)
 
         # simulate
-        t, q = pi.simulate_state_space(ss_weak, np.zeros((len(self.fem_funcs))), self.dt)
+        t, q = pi.simulate_state_space(ss_weak,
+                                       np.zeros((self.n)),
+                                       self.dt)
 
         # weights of the intermediate system
-        mat = pi.calculate_base_transformation_matrix(self.fem_funcs, eig_funcs)
-        q_i = np.zeros((q.shape[0], len(eig_funcs_i)))
+        mat = pi.calculate_base_transformation_matrix(self.fem_base, eig_base)
+        q_i = np.zeros((q.shape[0], self.n))
         for i in range(q.shape[0]):
             q_i[i, :] = np.dot(q[i, :], np.transpose(mat))
 
@@ -974,7 +1037,7 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
 
         # display results
         if show_plots:
-            eval_d = pi.evaluate_approximation("fem_funcs", q, t, self.dz)
+            eval_d = pi.evaluate_approximation("fem_base", q, t, self.dz)
             win1 = pi.PgSurfacePlot(eval_i)
             win2 = pi.PgSurfacePlot(eval_d)
             app.exec_()
@@ -982,6 +1045,9 @@ class RadRobinInDomainBacksteppingControllerTest(unittest.TestCase):
         pi.deregister_base("eig_base")
         pi.deregister_base("eig_base_i")
         pi.deregister_base("eig_base_ti")
-        pi.deregister_base("fem_funcs")
-        pi.deregister_base("sh_fem_funcs_i")
-        pi.deregister_base("sh_eig_funcs_id")
+        pi.deregister_base("fem_base")
+        pi.deregister_base("sh_fem_base_i")
+        pi.deregister_base("sh_eig_base_id")
+
+        for lbl in lbls:
+            pi.deregister_base(lbl)
