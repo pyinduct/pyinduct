@@ -23,6 +23,8 @@ install:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
+  # add inso's channel since pyqt5 is not yet available from anaconda
+  - conda config -add channels inso
   - conda update -q conda
   - conda info -a
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file requirements.txt
