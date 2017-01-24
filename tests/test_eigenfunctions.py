@@ -136,7 +136,7 @@ class FiniteTransformTest(unittest.TestCase):
                                                params=params,
                                                count=n,
                                                derivative_order=2,
-                                               debug=True)
+                                               debug=False)
 
             shifted_eig_base = pi.Base([pi.FiniteTransformFunction(
                 func, M, l, nested_lambda=self.nested_lambda)
@@ -299,7 +299,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             params,
             count=self.cnt,
             derivative_order=2,
-            debug=True)
+            debug=False)
 
         # if show_plots:
         #     pi.visualize_functions(eig_base.fractions)
