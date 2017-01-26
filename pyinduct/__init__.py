@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import numpy as np
 import matplotlib as mpl
 
-# make everybody use qt5
-mpl.use('Qt5Agg')
-os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+# make everybody use the same qt version, try Qt5 first
+for qt in ["PyQt5", "PyQt4"]:
+    try:
+        __import__(qt)
+        os.environ["PYQTGRAPH_QT_LIB"] = qt
+        mpl.use(qt[2:]+"Agg")
+    except ImportError:
+        continue
 
 # since this is a serious toolbox
 np.seterr(all="raise")
