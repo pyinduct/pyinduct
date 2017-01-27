@@ -5,13 +5,13 @@ import numpy as np
 import matplotlib as mpl
 
 # make everybody use the same qt version, try Qt5 first
-for qt in ["PyQt5", "PyQt4"]:
-    try:
-        __import__(qt)
-        os.environ["PYQTGRAPH_QT_LIB"] = qt
-        mpl.use(qt[2:]+"Agg")
-    except ImportError:
-        continue
+try:
+    __import__("PyQt5")
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+    mpl.use("Qt5Agg")
+except ImportError:
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt4"
+    mpl.use("Qt4Agg")
 
 # since this is a serious toolbox
 np.seterr(all="raise")
