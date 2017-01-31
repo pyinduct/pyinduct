@@ -1,7 +1,7 @@
 # Config file for automatic testing at travis-ci.org
 
 branches:
-  # Exclude some branches (whose names start with branch2go) from travis
+  # Exclude some branches (whose names start with WIP) from travis
   except:
     - /^(WIP).*$/
 
