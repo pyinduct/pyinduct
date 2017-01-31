@@ -1,5 +1,3 @@
-import core
-import parabolic.trajectory
 import pyinduct.trajectory as tr
 import pyinduct.core as cr
 import pyinduct.shapefunctions as sh
