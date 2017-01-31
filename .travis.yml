@@ -3,7 +3,7 @@
 branches:
   # Exclude some branches (whose names start with branch2go) from travis
   except:
-    - /^(?i:branch2go)-.*$/
+    - /^(WIP).*$/
 
 language: python
 
