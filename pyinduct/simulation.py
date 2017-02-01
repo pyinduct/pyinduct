@@ -523,11 +523,14 @@ class CanonicalForm(object):
 
     def convert_to_state_space(self):
         """
-        Convert the canonical ode system of order n a into an ode system of order 1.
+        Convert the canonical ode system of order n a into an ode system of
+        order 1.
 
         Note:
-            This will only work if the highest derivative order of the given form can be isolated. This is the case if
-            the highest order is only present in one power and the equation system can therefore be solved for it.
+            This will only work if the highest derivative order of the given
+            form can be isolated. This is the case if the highest order is only
+            present in one power and the equation system can therefore be
+            solved for it.
 
         Return:
             :py:class:`StateSpace` object:
@@ -541,18 +544,23 @@ class CanonicalForm(object):
             a_mat = np.zeros((self.dim_xb, self.dim_xb))
 
             # add integrator chain
-            a_mat[:-self.dim_x:, self.dim_x:] = block_diag(*[np.eye(self.dim_x)
-                                                             for a in range(self.max_temp_order - 1)])
+            a_mat[:-self.dim_x:, self.dim_x:] = block_diag(
+                *[np.eye(self.dim_x) for a in range(self.max_temp_order - 1)])
 
             # add "block-line" with feedback entries
-            a_mat[-self.dim_x:, :] = -self._build_feedback("E", p, self.e_n_pb_inv)
+            a_mat[-self.dim_x:, :] = -self._build_feedback("E",
+                                                           p,
+                                                           self.e_n_pb_inv)
             a_matrices.update({p: a_mat})
 
         # input matrices B_*
         if "G" in self.matrices:
             max_temp_input_order = max(iter(self.matrices["G"]))
-            input_powers = set(chain.from_iterable([list(mat) for mat in self.matrices["G"].values()]))
-            dim_u = next(iter(self.matrices["G"][max_temp_input_order].values())).shape[1]
+            input_powers = set(chain.from_iterable(
+                [list(mat) for mat in self.matrices["G"].values()])
+            )
+            dim_u = next(iter(
+                self.matrices["G"][max_temp_input_order].values())).shape[1]
 
             # generate nested dict of B_o_p matrices where o is
             # derivative order and p is power
@@ -564,7 +572,8 @@ class CanonicalForm(object):
                         b_mat = np.zeros((self.dim_xb, dim_u))
                         # overwrite the last "block-line" in the matrices
                         # with input entries
-                        b_mat[-self.dim_x:, :] = - self.e_n_pb_inv @ self.matrices["G"][order][q]
+                        b_mat[-self.dim_x:, :] = \
+                            - self.e_n_pb_inv @ self.matrices["G"][order][q]
                         b_powers.update({q: b_mat})
 
                     b_matrices.update({order: b_powers})
