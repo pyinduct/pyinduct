@@ -133,12 +133,15 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
-        name (string): name of this weak form
+        name (string): Name of this weak form.
+        dominant_lbl (string): Name of the variable that dominates this weak
+            form.
     """
 
-    def __init__(self, terms, name):
+    def __init__(self, terms, name, dominant_lbl=None):
         self.terms = sanitize_input(terms, EquationTerm)
         self.name = name
+        self.dominant_lbl = dominant_lbl
 
 
 class StateSpace(object):
@@ -611,11 +614,15 @@ class CanonicalEquation(object):
     :py:func:`add_to` . When the parsing process is completed and all coefficients have been collected, calling
     :py:func:`finalize` is required to compute all necessary information for further processing.
     When finalized, this object provides access to the dominant form of this equation.
+
+    Args:
+        name (str): Unique identifier of this equation.
+        dominant_lbl (str): Label of the variable that dominates this equation.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, dominant_lbl=None):
         self.name = name
-        self.dominant_lbl = None
+        self.dominant_lbl = dominant_lbl
         self.dynamic_forms = {}
         self._static_form = CanonicalForm(self.name + "_static")
         self._finalized = False
@@ -666,10 +673,11 @@ class CanonicalEquation(object):
         """
         highest_dict = {}
         highest_list = []
-        # highest_orders = [(key, val.max_temp_order) for key, val in self._dynamic_forms]
+
         for lbl, form in self.dynamic_forms.items():
             # finalize dynamic forms
             form.finalize()
+
             # extract maximum derivative orders
             highest_dict[lbl] = form.max_temp_order
             highest_list.append(form.max_temp_order)
@@ -679,7 +687,11 @@ class CanonicalEquation(object):
         if max_order in highest_list:
             raise ValueError("Highest derivative order cannot be isolated.")
 
-        self.dominant_lbl = next((label for label, order in highest_dict.items() if order == max_order), None)
+        if self.dominant_lbl is None:
+            self.dominant_lbl = next(
+                (label for label, order in highest_dict.items()
+                 if order == max_order), None)
+
         if self.dynamic_forms[self.dominant_lbl].singular:
             raise ValueError("The form that has to be chosen is singular.")
 
@@ -896,7 +908,7 @@ def parse_weak_formulation(weak_form, finalize=True):
     if not isinstance(weak_form, WeakFormulation):
         raise TypeError("Only able to parse WeakFormulation")
 
-    ce = CanonicalEquation(weak_form.name)
+    ce = CanonicalEquation(weak_form.name, weak_form.dominant_lbl)
 
     # handle each term
     for term in weak_form.terms:

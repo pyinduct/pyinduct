@@ -746,58 +746,62 @@ class MultipleODETest(unittest.TestCase):
     def desired_test_pr12(self):
         """
         Let us consider the system of ordinary differential equations
+
             x1^(3)(t) = x2(t) + u(t)
             x2^(1)(t) = x1^(2)(t) + u(t).
-        Desired state space model for x = (x1, x1^(1), x^(2), x2)^T
+
+        Desired state space model for x = (x1, x1^(1), x1^(2), x2)^T
+
                     [   0   1   0   0   ]       [0]
            x^(1) =  [   0   0   1   0   ] x +   [0] u.
                     [   0   0   0   1   ]       [1]
                     [   0   0   1   0   ]       [1]
         """
-        desired_A = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
-        desired_b = np.array([[0], [0], [1], [1]])
+        a_desired = np.array([[0, 1, 0, 0],
+                              [0, 0, 1, 0],
+                              [0, 0, 0, 1],
+                              [0, 0, 1, 0]])
+        b_desired = np.array([[0], [0], [1], [1]])
 
         dummy_domain = pi.Domain(bounds=(-1, 1), num=2)
         dummy_point = 0
 
-        def dummy_one(z):
-            """ Dummy shapefunction """
-            return 1
-
-        pi.register_base("base_1", pi.Base(pi.Function(dummy_one, domain=dummy_domain.bounds)))
-        pi.register_base("base_2", pi.Base(pi.Function(dummy_one, domain=dummy_domain.bounds)))
+        pi.register_base("base_1", pi.Base(
+            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
+        pi.register_base("base_2", pi.Base(
+            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
 
         x1 = pi.FieldVariable("base_1")(dummy_point)
         x2 = pi.FieldVariable("base_2")(dummy_point)
         u = pi.Input(pi.ConstantTrajectory(0))
+
         weak_form_1 = pi.WeakFormulation([
             pi.ScalarTerm(x1.derive(temp_order=3), scale=-1),
             pi.ScalarTerm(x2),
             pi.ScalarTerm(u)
         ], name="sys_1")
+
         weak_form_2 = pi.WeakFormulation([
             pi.ScalarTerm(x2.derive(temp_order=1), scale=-1),
             pi.ScalarTerm(x1.derive(temp_order=2)),
             pi.ScalarTerm(u)
-        ], name="sys_1")
+        ], name="sys_2", dominant_lbl="base_2")
 
         weak_forms = [weak_form_1, weak_form_2]
-
-        canonical_equations = OrderedDict()
-        for form in weak_forms:
-            canonical_equations.update({form.name: pi.parse_weak_formulation(form)})
+        canonical_equations = OrderedDict([(form.name,
+                                            pi.parse_weak_formulation(form))
+                                           for form in weak_forms])
 
         state_space_form = pi.create_state_space(canonical_equations)
 
-        print(state_space_form.A)
-        print(state_space_form.B)
-        self.assertTrue(np.isclose(state_space_form.A[0], desired_A).all())
-        self.assertTrue(np.isclose(state_space_form.B[0], desired_b).all())
+        np.testing.assert_array_equal(state_space_form.A[1], a_desired)
+        np.testing.assert_array_equal(state_space_form.B[0][1], b_desired)
 
 
 class MultiplePDETest(unittest.TestCase):
     """
-    This TestCase covers the implementation of the parsing and simulation of coupled pde systems.
+    This TestCase covers the implementation of the parsing and simulation of
+    coupled pde systems.
     """
 
     def setUp(self):
