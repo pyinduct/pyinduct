@@ -3,13 +3,9 @@ import unittest
 
 import numpy as np
 import sympy as sp
-import time
 
 import pyinduct as pi
-import pyinduct.shapefunctions as sh
-import sympy as sp
 import tests.test_data.test_shapefunctions_data as shape_data
-from pyinduct.visualization import create_colormap
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     show_plots = False
@@ -25,16 +21,14 @@ if show_plots:
 
 class CureTestCase(unittest.TestCase):
     def test_init(self):
-        self.assertRaises(TypeError, sh.cure_interval, np.sin, [2, 3], 2)
-        self.assertRaises(ValueError, sh.cure_interval, sh.LagrangeFirstOrder,
+        self.assertRaises(TypeError, pi.cure_interval, np.sin, [2, 3], 2)
+        self.assertRaises(ValueError, pi.cure_interval, pi.LagrangeFirstOrder,
                           (0, 2), 2, 1)
 
     def test_smoothness(self):
         func_classes = [pi.LagrangeFirstOrder, pi.LagrangeSecondOrder]
-        derivatives = {pi.LagrangeFirstOrder: range(0, 2),
-                       pi.LagrangeSecondOrder: range(0, 3)}
-        tolerances = {pi.LagrangeFirstOrder: [5e0, 1.5e2],
-                      pi.LagrangeSecondOrder: [1e0, 1e2, 9e2]}
+        derivatives = {pi.LagrangeFirstOrder: range(0, 2), pi.LagrangeSecondOrder: range(0, 3)}
+        tolerances = {pi.LagrangeFirstOrder: [5e0, 1.5e2], pi.LagrangeSecondOrder: [1e0, 1e2, 9e2]}
 
         for func_cls in func_classes:
             for order in derivatives[func_cls]:
@@ -48,8 +42,8 @@ class CureTestCase(unittest.TestCase):
         dz = pi.Domain((0, 1), step=.001)
         dt = pi.Domain((0, 0), num=1)
 
-        nodes, funcs = pi.cure_interval(cls, dz.bounds, node_count=11)
-        pi.register_base("test", funcs, overwrite=True)
+        nodes, base = pi.cure_interval(cls, dz.bounds, node_count=11)
+        pi.register_base("test", base)
 
         # approx_func = pi.Function(np.cos, domain=dz.bounds,
         #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
@@ -58,12 +52,12 @@ class CureTestCase(unittest.TestCase):
 
         weights = approx_func(nodes)
 
-        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
-                                         temp_domain=dt, spat_domain=dz, spat_order=der_order)
+        hull = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=dz,
+                                         spat_order=der_order)
 
         if show_plots:
             # plot shapefunctions
-            c_map = create_colormap(len(funcs))
+            c_map = pi.create_colormap(len(base.fractions))
             pw = pg.plot(title="{}-Test".format(cls.__name__))
             pw.addLegend()
             pw.showGrid(x=True, y=True, alpha=0.5)
@@ -72,28 +66,29 @@ class CureTestCase(unittest.TestCase):
                                         weights[idx] * func.derive(der_order)(dz),
                                         pen=pg.mkPen(color=c_map[idx]),
                                         name="{}.{}".format(cls.__name__, idx)))
-             for idx, func in enumerate(funcs)]
+             for idx, func in enumerate(base.fractions)]
 
             # plot hull curve
-            pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :],
-                                       pen=pg.mkPen(width=2), name="hull-curve"))
+            pw.addItem(pg.PlotDataItem(np.array(hull.input_data[1]), hull.output_data[0, :], pen=pg.mkPen(width=2),
+                                       name="hull-curve"))
             # plot original function
             pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                        pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
             pg.QtCore.QCoreApplication.instance().exec_()
 
+        pi.deregister_base("test")
         return np.sum(np.abs(hull.output_data[0, :] - approx_func.derive(der_order)(dz)))
 
 
 class NthOrderCureTestCase(unittest.TestCase):
     def test_element(self):
         nodes = np.array([1, 2])
-        self.assertRaises(ValueError, sh.LagrangeNthOrder, 0, nodes)
-        self.assertRaises(ValueError, sh.LagrangeNthOrder, 1, np.array([2, 1]))
-        self.assertRaises(TypeError, sh.LagrangeNthOrder, 1, nodes, left=1)
-        self.assertRaises(TypeError, sh.LagrangeNthOrder, 1, nodes, right=1)
-        self.assertRaises(ValueError, sh.LagrangeNthOrder, 3, nodes, mid_num=3)
-        self.assertRaises(ValueError, sh.LagrangeNthOrder, 3, nodes)
+        self.assertRaises(ValueError, pi.LagrangeNthOrder, 0, nodes)
+        self.assertRaises(ValueError, pi.LagrangeNthOrder, 1, np.array([2, 1]))
+        self.assertRaises(TypeError, pi.LagrangeNthOrder, 1, nodes, left=1)
+        self.assertRaises(TypeError, pi.LagrangeNthOrder, 1, nodes, right=1)
+        self.assertRaises(ValueError, pi.LagrangeNthOrder, 3, nodes, mid_num=3)
+        self.assertRaises(ValueError, pi.LagrangeNthOrder, 3, nodes)
 
     def test_smoothness(self):
         self.tolerances = shape_data.tolerances
@@ -116,21 +111,21 @@ class NthOrderCureTestCase(unittest.TestCase):
 
         for order in orders:
             num_nodes = 1 + (1 + conf) * order
-            nodes, funcs = pi.cure_interval(sh.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
-            pi.register_base("test", funcs, overwrite=True)
+            nodes, base = pi.cure_interval(pi.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
+            pi.register_base("test", base)
             weights = approx_func(nodes)
 
             for der_order in derivatives[order]:
-                hull_test = pi.evaluate_approximation("test", np.atleast_2d(weights),
-                                                      temp_domain=dt, spat_domain=nodes, spat_order=der_order)
-                self.assertAlmostEqual(self.tolerances[(order, num_nodes, der_order)], np.sum(np.abs(
-                    hull_test.output_data[0, :] - approx_func.derive(der_order)(nodes))) / len(nodes))
+                hull_test = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=nodes,
+                                                      spat_order=der_order)
+                self.assertAlmostEqual(self.tolerances[(order, num_nodes, der_order)], np.sum(
+                    np.abs(hull_test.output_data[0, :] - approx_func.derive(der_order)(nodes))) / len(nodes))
 
                 if show_plots:
-                    hull_show = pi.evaluate_approximation("test", np.atleast_2d(weights),
-                                                          temp_domain=dt, spat_domain=dz, spat_order=der_order)
+                    hull_show = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt,
+                                                          spat_domain=dz, spat_order=der_order)
                     # plot shapefunctions
-                    c_map = create_colormap(len(funcs))
+                    c_map = pi.create_colormap(len(base.fractions))
                     win = pg.GraphicsWindow(title="Debug window")
                     win.resize(1500, 600)
                     pw1 = win.addPlot()
@@ -141,7 +136,7 @@ class NthOrderCureTestCase(unittest.TestCase):
                                                                                              der_order))
                     pw2.showGrid(x=True, y=True, alpha=0.5)
 
-                    for idx, func in enumerate(funcs):
+                    for idx, func in enumerate(base.fractions):
                         pw1.addItem(pg.PlotDataItem(np.array(dz),
                                                     weights[idx] * func.derive(der_order)(dz),
                                                     pen=pg.mkPen(color=c_map[idx]),
@@ -158,3 +153,5 @@ class NthOrderCureTestCase(unittest.TestCase):
                                                 pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine),
                                                 name="original"))
                     pg.QtCore.QCoreApplication.instance().exec_()
+
+            pi.deregister_base("test")

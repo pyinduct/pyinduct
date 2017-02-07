@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import numpy as np
 import unittest
+
+import pyinduct as pi
+import pyinduct.registry as rg
 
 """
 test_registry
@@ -14,20 +18,54 @@ Tests for `registry` module.
 # TODO add TestCases
 class RegistryTests(unittest.TestCase):
     def setUp(self):
-        pass
+        self.nodes, self.base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=10)
+        self.double_nodes, self.double_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 2), node_count=20)
 
     def test_registration(self):
-        pass
+        # base should not be registered
+        self.assertFalse(rg.is_registered("test_base"))
 
-    def test_deregistration(self):
-        pass
+        # get_base should therefore return an error
+        self.assertRaises(ValueError, rg.get_base, "test_base")
+
+        # register the base -------------------------------------------------
+        # label is not a string
+        self.assertRaises(TypeError, rg.register_base, 1, self.base)
+
+        # this should be fine
+        rg.register_base("test_base", self.base)
+
+        # base should now be registered
+        self.assertRaises(TypeError, rg.is_registered, 1)  # checking status per index
+        self.assertTrue(rg.is_registered, "test_base")
+
+        # double registration will raise an error
+        self.assertRaises(ValueError, rg.register_base, "test_base", self.double_base)
+
+        # de-register the base -------------------------------------------------
+        # de-register a base by index
+        self.assertRaises(TypeError, rg.deregister_base, 1)
+
+        # de-register a base that is not present
+        self.assertRaises(ValueError, rg.deregister_base, "test_base_extra")
+
+        # "test_base" was registered before, should work
+        rg.deregister_base("test_base")
+
+        # base should  be deleted from registry
+        self.assertFalse(rg.is_registered("test_base"))
+
+        # re-register the base -------------------------------------------------
+        # re-registration should work now
+        rg.register_base("test_base", self.double_base)
+
+        # base should now be registered
+        self.assertTrue(rg.is_registered, "test_base")
+
+        # base should be identical with local copy
+        self.assertTrue(np.array_equal(rg.get_base("test_base"), self.double_base))  # order should default to 0
+        self.assertTrue(np.array_equal(rg.get_base("test_base"), self.double_base))
 
     def tearDown(self):
-        pass
-
-
-if __name__ == '__main__':
-    pass
-    # initial_function_suite = test_initial_function.suite
-    # all_tests = unittest.TestSuite([initial_function_suite])
-    # unittest.TextTestRunner().run(all_tests)
+        if rg.is_registered("test_base"):
+            rg.deregister_base("test_base")

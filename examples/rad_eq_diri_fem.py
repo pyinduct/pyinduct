@@ -1,3 +1,5 @@
+import core
+import parabolic.trajectory
 import pyinduct.trajectory as tr
 import pyinduct.core as cr
 import pyinduct.shapefunctions as sh
@@ -15,8 +17,8 @@ l = 1
 param = [1, 0, 0, None, None]  # or try this: param = [1, -0.5, -8, None, None]     :)))
 a2, a1, a0, _, _ = param
 
-temp_domain = sim.Domain(bounds=(0, T), num=1e2)
-spat_domain = sim.Domain(bounds=(0, l), num=n_fem * 11)
+temp_domain = core.Domain(bounds=(0, T), num=1e2)
+spat_domain = core.Domain(bounds=(0, l), num=n_fem * 11)
 
 # initial and test functions
 nodes, fem_funcs = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=n_fem)
@@ -28,25 +30,23 @@ register_base("sim", not_act_fem_funcs)
 register_base("vis", vis_fems_funcs)
 
 # trajectory
-u = tr.RadTrajectory(l, T, param, "dirichlet", "dirichlet")
+u = parabolic.trajectory.RadTrajectory(l, T, param, "dirichlet", "dirichlet")
 
 # weak form ...
 x = ph.FieldVariable("sim")
 phi = ph.TestFunction("sim")
 act_phi = ph.ScalarFunction("act_func")
-not_acuated_weak_form = sim.WeakFormulation([
-    # ... of the homogeneous part of the system
+not_acuated_weak_form = sim.WeakFormulation([# ... of the homogeneous part of the system
     ph.IntegralTerm(ph.Product(x.derive(temp_order=1), phi), limits=spat_domain.bounds),
     ph.IntegralTerm(ph.Product(x.derive(spat_order=1), phi.derive(1)), limits=spat_domain.bounds, scale=a2),
     ph.IntegralTerm(ph.Product(x.derive(spat_order=1), phi), limits=spat_domain.bounds, scale=-a1),
     ph.IntegralTerm(ph.Product(x, phi), limits=spat_domain.bounds, scale=-a0),
     # ... of the inhomogeneous part of the system
     ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u, order=1)), limits=spat_domain.bounds),
-    ph.IntegralTerm(
-        ph.Product(ph.Product(act_phi.derive(1), phi.derive(1)), ph.Input(u)), limits=spat_domain.bounds, scale=a2),
+    ph.IntegralTerm(ph.Product(ph.Product(act_phi.derive(1), phi.derive(1)), ph.Input(u)), limits=spat_domain.bounds,
+        scale=a2),
     ph.IntegralTerm(ph.Product(ph.Product(act_phi.derive(1), phi), ph.Input(u)), limits=spat_domain.bounds, scale=-a1),
-    ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u)), limits=spat_domain.bounds, scale=-a0)
-])
+    ph.IntegralTerm(ph.Product(ph.Product(act_phi, phi), ph.Input(u)), limits=spat_domain.bounds, scale=-a0)])
 
 # system matrices \dot x = A x + b0 u + b1 \dot u
 cf = sim.parse_weak_formulation(not_acuated_weak_form)
@@ -65,7 +65,7 @@ b_bar = np.dot(A_tilde, np.dot(A, b1) + b0)
 start_func = cr.Function(lambda z: 0)
 start_state = np.array([sim.project_on_base(start_func, get_base(cf.weights, 0))]).flatten()
 transf_start_state = np.dot(A_tilde, start_state) - (b1 * u(time=0)).flatten()
-ss = sim.StateSpace("transf_sim", A_bar, b_bar, input_handle=u)
+ss = sim.StateSpace(A_bar, b_bar, input_handle=u)
 sim_temp_domain, sim_transf_weights = sim.simulate_state_space(ss, transf_start_state, temp_domain)
 
 # back-transformation

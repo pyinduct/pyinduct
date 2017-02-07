@@ -1,9 +1,9 @@
 # Config file for automatic testing at travis-ci.org
 
-# Exclude some branches (which names start with branch2go) from travis
 branches:
+  # Exclude some branches (whose names start with WIP) from travis
   except:
-    - /^(_).*$/
+    - /^(WIP).*$/
 
 language: python
 
@@ -12,13 +12,7 @@ python:
 
 install:
   - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r

@@ -1,24 +1,41 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
+import numpy as np
+import matplotlib as mpl
+
+# make everybody use the same qt version, try Qt5 first
+try:
+    __import__("PyQt5")
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+    mpl.use("Qt5Agg")
+except ImportError:
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt4"
+    mpl.use("Qt4Agg")
+
+# since this is a serious toolbox
+np.seterr(all="raise")
+
 # noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition, gevrey_tanh
+from .core import *
 # noinspection PyUnresolvedReferences
-from .registry import register_base, deregister_base, get_base, is_registered
+from .control import *
 # noinspection PyUnresolvedReferences
-from .core import Function, normalize_base
+from .eigenfunctions import *
 # noinspection PyUnresolvedReferences
-from pyinduct.simulation import FeedbackLaw, Feedback
+from .trajectory import *
 # noinspection PyUnresolvedReferences
-from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
-                          TemporalDerivedFieldVariable, Product, TestFunction, Input)
+from .registry import *
 # noinspection PyUnresolvedReferences
-from .simulation import (Domain, EvalData, SimulationInput, SimulationInputSum, WeakFormulation, simulate_system,
-                         process_sim_data, evaluate_approximation)
+from .placeholder import *
 # noinspection PyUnresolvedReferences
-from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
+from .simulation import *
 # noinspection PyUnresolvedReferences
-from .visualization import PgAnimatedPlot, PgSurfacePlot
+from .shapefunctions import *
 # noinspection PyUnresolvedReferences
-from .utils import find_roots
+from .visualization import *
+
+# noinspection PyUnresolvedReferences
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"

@@ -6,8 +6,10 @@ functions.
 
 import numpy as np
 import numpy.polynomial.polynomial as npoly
-from .core import Function
-from .simulation import Domain
+
+from .core import Base, Function, Domain
+
+__all__ = ["LagrangeFirstOrder", "LagrangeSecondOrder", "LagrangeNthOrder", "cure_interval"]
 
 
 class LagrangeNthOrder(Function):
@@ -25,8 +27,8 @@ class LagrangeNthOrder(Function):
             or 'order +1' (for boundary- and mid-polynomials).
         left (bool): State the first node (*nodes[0]*) to be the left boundary of the considered domain.
         right (bool): State the last node (*nodes[-1]*) to be the right boundary of the considered domain.
-        mid_num (int):  local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
-            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}
+        mid_num (int):  Local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
+            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}`
         boundary (str): provide "left" or "right" to instantiate the according boundary-polynomial.
     """
 
@@ -156,24 +158,29 @@ class LagrangeNthOrder(Function):
 
         .. math:: L = 1 + (1 + n) order \\quad \\forall n \\in \\mathbb N.
 
-        E.g.
-        - order = 1: :math:`L \\in \\{2, 3, 4, 5, ...\\}
-        - order = 2: :math:`L \\in \\{3, 5, 7, 9, ...\\}
-        - order = 3: :math:`L \\in \\{4, 7, 10, 13, ...\\}
+        E.g. \n
+        - order = 1 -> :math:`L \\in \\{2, 3, 4, 5, ...\\}`
+        - order = 2 -> :math:`L \\in \\{3, 5, 7, 9, ...\\}`
+        - order = 3 -> :math:`L \\in \\{4, 7, 10, 13, ...\\}`
         - and so on.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): Domain to be cured.
+            domain (:py:class:`core.Domain`): Domain to be cured.
             order (int): Order of the lagrange polynomials.
 
         Return:
-            tupel: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
+            tuple: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
         """
         order = kwargs["order"]
         nodes = np.array(domain)
-        if not len(nodes) in [(order + 1) + n * order for n in range(len(nodes))]:
-            raise ValueError("See LagrangeNthOrder.cure_hint docstring. "
-                             "There are some restrictions to the length of nodes/domain.")
+        possible_node_lengths = np.array([(order + 1) + n * order for n in range(len(nodes))], dtype=int)
+        if not len(nodes) in possible_node_lengths:
+            suggested_indices = np.where(np.isclose(possible_node_lengths, len(nodes), atol=order - 1))[0]
+            alternative_node_lengths = possible_node_lengths[suggested_indices]
+            raise ValueError("See LagrangeNthOrder.cure_hint docstring.\n"
+                             "\tThere are some restrictions to the length of nodes/domain.\n"
+                             "\tYour desired (invalid) node count is {}.\n"
+                             "\tSuggested valid node count(s): {}.".format(len(nodes), alternative_node_lengths))
 
         funcs = np.empty((len(nodes),), dtype=LagrangeNthOrder)
         no_peaks = True
@@ -237,7 +244,11 @@ class LagrangeFirstOrder(Function):
         else:
             funcs = self._function_factory(start, top, end, **kwargs)
 
-        Function.__init__(self, funcs[0], nonzero=(start, end), derivative_handles=funcs[1:])
+        Function.__init__(self,
+                          funcs[0],
+                          nonzero=(start, end),
+                          domain=kwargs.get("domain", (-np.inf, np.inf)),
+                          derivative_handles=funcs[1:])
 
     @staticmethod
     def _function_factory(start, mid, end, **kwargs):
@@ -274,23 +285,35 @@ class LagrangeFirstOrder(Function):
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
-        funcs[0] = LagrangeFirstOrder(domain[0], domain[1], domain[1], half="left", left_border=True,
-                                      right_border=True if len(domain) == 2 else False)
-        funcs[-1] = LagrangeFirstOrder(domain[-2], domain[-2], domain[-1], half="right", right_border=True,
-                                       left_border=True if len(domain) == 2 else False)
+        funcs[0] = LagrangeFirstOrder(domain[0],
+                                      domain[1],
+                                      domain[1],
+                                      half="left",
+                                      left_border=True,
+                                      right_border=True if len(domain) == 2 else False,
+                                      domain=domain.bounds)
+
+        funcs[-1] = LagrangeFirstOrder(domain[-2],
+                                       domain[-2],
+                                       domain[-1],
+                                       half="right",
+                                       right_border=True,
+                                       left_border=True if len(domain) == 2 else False,
+                                       domain=domain.bounds)
 
         for idx in range(1, len(domain) - 1):
             funcs[idx] = LagrangeFirstOrder(domain[idx - 1],
                                             domain[idx],
                                             domain[idx + 1],
                                             left_border=True if idx == 1 else False,
-                                            right_border=True if idx == len(domain) - 2 else False)
+                                            right_border=True if idx == len(domain) - 2 else False,
+                                            domain=domain.bounds)
         return domain, funcs
 
 
@@ -405,7 +428,7 @@ class LagrangeSecondOrder(Function):
         Hint function that will cure the given interval with LagrangeSecondOrder.
 
         Args:
-            domain (:py:class:`pyinduct.simulation.Domain`): domain to be cured
+            domain (:py:class:`core.Domain`): domain to be cured
 
         Return:
             tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeSecondOrder` shapefunctions.
@@ -416,23 +439,21 @@ class LagrangeSecondOrder(Function):
         funcs = np.empty((len(domain),), dtype=LagrangeSecondOrder)
 
         # boundary special cases
-        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
-                                       curvature="concave", half="left", left_border=True)
-        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
-                                        curvature="concave", half="right", right_border=True)
+        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2], curvature="concave", half="left",
+                                       left_border=True)
+        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1], curvature="concave", half="right",
+                                        right_border=True)
 
         # interior
         for idx in range(1, len(domain) - 1):
             if idx % 2 != 0:
                 funcs[idx] = LagrangeSecondOrder(domain[idx - 1], domain[idx], domain[idx + 1], curvature="convex",
                                                  left_border=True if idx == 1 else False,
-                                                 right_border=True if idx == len(domain) - 2 else False,
-                                                 )
+                                                 right_border=True if idx == len(domain) - 2 else False, )
             else:
                 funcs[idx] = LagrangeSecondOrder(domain[idx - 2], domain[idx], domain[idx + 2], curvature="concave",
                                                  left_border=True if idx == 2 else False,
-                                                 right_border=True if idx == len(domain) - 3 else False,
-                                                 )
+                                                 right_border=True if idx == len(domain) - 3 else False, )
 
         return domain, funcs
 
@@ -462,9 +483,13 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     """
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
-    try:
-        nodes, base = shapefunction_class.cure_hint(domain, **kwargs)
-    except AttributeError:
+    if hasattr(shapefunction_class, "cure_hint"):
+        nodes, fractions = shapefunction_class.cure_hint(domain, **kwargs)
+    else:
         raise TypeError("given function class {} offers no cure_hint!".format(shapefunction_class))
 
-    return nodes, base
+    # TODO make this uniform all over the place
+    if isinstance(fractions, Base):
+        return nodes, fractions
+    else:
+        return nodes, Base(fractions)

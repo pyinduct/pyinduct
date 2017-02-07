@@ -32,6 +32,19 @@ Shapefunction Types
         :scale: 70 %
         :align: center
 
+.. autoclass:: pyinduct.shapefunctions.LagrangeNthOrder
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    Example plot of the functions :code:`funcs` generated with
+
+    >>> nodes, funcs = pi.cure_interval(sh.LagrangeNthOrder, (0, 1), node_count=9, order=4)
+
+    .. image:: ../ressources/lag4th_order.png
+        :scale: 70 %
+        :align: center
+
 Curing an Interval
 ------------------
 All classes contained in this module can easily be used to cure a given interval.

@@ -8,22 +8,29 @@ as EvalData object.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-from numbers import Number
 import time
 import os
 import scipy.interpolate as si
-# axes3d not explicit used but needed
-from mpl_toolkits.mplot3d import axes3d
 import pyqtgraph as pg
 import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from numbers import Number
+# axes3d not explicit used but needed
+from mpl_toolkits.mplot3d import axes3d
 
-from . import utils as ut
+from .core import complex_wrapper, EvalData, Domain
+from .utils import create_animation, create_dir
+
+__all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
+           "visualize_roots", "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
-pg.setConfigOption('background', 'w')
-pg.setConfigOption('foreground', 'k')
+color_map = "viridis"
+
+# pg.setConfigOption('background', 'w')
+# pg.setConfigOption('foreground', 'k')
 
 
 def create_colormap(cnt):
@@ -42,40 +49,71 @@ def create_colormap(cnt):
     return col_map.map(indexes, mode="qcolor")
 
 
-class EvalData:
+def visualize_functions(functions, points=100):
     """
-    Convenience wrapper for function evaluation.
-    Contains the input data that was used for evaluation and the results.
+    Visualizes a set of :py:class:`core.Function` s on
+    their domain.
+
+    Parameters:
+        functions (iterable): collection of
+            :py:class:`core.Function` s to display.
+        points (int): Points to use for sampling
+            the domain.
     """
+    # evaluate
+    _data = []
+    for idx, func in enumerate(functions):
+        if len(func.domain) > 1:
+            # TODO support funcs with multiple domains
+            raise NotImplementedError
 
-    # TODO: add scipy n-D-interp function, min+max
+        dom = Domain(bounds=func.domain[0], num=points)
+        val = func(dom)
+        _data.append((dom, np.real(val), np.imag(val)))
 
-    def __init__(self, input_data, output_data, name=""):
-        # check type and dimensions
-        assert isinstance(input_data, list)
-        assert isinstance(output_data, np.ndarray)
+    data = np.array(_data)
 
-        # output_data has to contain at least len(input_data) dimensions
-        assert len(input_data) <= len(output_data.shape)
+    # plot
+    cmap = cm.get_cmap(color_map)
+    pg.mkQApp()
+    pw = pg.GraphicsLayoutWidget()
+    pw.setWindowTitle("function set visualization")
 
-        for dim in range(len(input_data)):
-            assert len(input_data[dim]) == output_data.shape[dim]
+    lbl = pg.LabelItem(text="Real Part",
+                       angle=-90,
+                       bold=True,
+                       size="10pt")
+    pw.addItem(lbl)
 
-        self.input_data = input_data
-        if output_data.size == 0:
-            raise ValueError("No initialisation possible with an empty array!")
-        self.output_data = output_data
-        self.min = output_data.min()
-        self.max = output_data.max()
-        self.name = name
+    p_real = pg.PlotItem()
+    p_real.addLegend()
+    for idx, row in enumerate(data):
+        c = cmap(idx/len(functions), bytes=True)
+        p_real.plot(row[0], row[1],
+                    name="vector {}".format(idx),
+                    pen=c)
+    pw.addItem(p_real)
 
-        # self._interpolator = si.interp2d(input_data[0], input_data[1], output_data, bounds_error=True)
+    if not np.allclose(data[:, 2, :], 0):
+        # complex data is present
+        pw.nextRow()
+        lbl = pg.LabelItem(text="Imaginary Part",
+                           angle=-90,
+                           bold=True,
+                           size="10pt")
+        pw.addItem(lbl)
 
-    def __call__(self, *args):
-        return self._interpolator(*args)
+        p_imag = pg.PlotItem()
+        # p_imag.addLegend()
+        for idx, row in enumerate(data):
+            c = cmap(idx/len(functions), bytes=True)
+            p_imag.plot(row[0], row[2],
+                        name="vector {}".format(idx),
+                        pen=c)
+        pw.addItem(p_imag)
 
-    def interpolation_handle(self, desired_coordinates):
-        return si.interpn(tuple(self.input_data), self.output_data, desired_coordinates)
+    pw.show()
+    pg.QAPP.exec_()
 
 
 class DataPlot:
@@ -93,7 +131,8 @@ class DataPlot:
             assert isinstance(data[0], EvalData)
 
         self._data = data
-        # Test input vectors to be Domain objects and use their .step attribute here
+        # TODO Test input vectors to be Domain objects and use
+        # their .step attribute here
         self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
@@ -103,8 +142,9 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
 
     def __init__(self, data):
-        pg.QtCore.QObject.__init__(self)
         DataPlot.__init__(self, data)
+        pg.mkQApp()
+        pg.QtCore.QObject.__init__(self)
 
 
 class PgAnimatedPlot(PgDataPlot):
@@ -126,8 +166,8 @@ class PgAnimatedPlot(PgDataPlot):
 
     _res_path = "animation_output"
 
-    def __init__(self, data, title="", refresh_time=40, replay_gain=1,
-                 save_pics=False, create_video=False, labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, create_video=False,
+                 labels=None):
         PgDataPlot.__init__(self, data)
 
         self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
@@ -166,17 +206,14 @@ class PgAnimatedPlot(PgDataPlot):
             self._exporter = pg.exporters.ImageExporter(self._pw.plotItem)
             self._exporter.parameters()['width'] = 1e3
 
-            picture_path = ut.create_dir(self._res_path)
+            picture_path = create_dir(self._res_path)
             export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
             # ffmpeg uses c-style format strings
-            ff_name = "_".join([title.replace(" ", "_"),
-                                     self._time_stamp.replace(":", "_"),
-                                     "%0{}d".format(export_digits),
-                                     ".png"])
-            file_name = "_".join([title.replace(" ", "_"),
-                                  self._time_stamp.replace(":", "_"),
-                                  "{"+":0{}d".format(export_digits)+"}",
-                                  ".png"])
+            ff_name = "_".join(
+                [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "%0{}d".format(export_digits), ".png"])
+            file_name = "_".join(
+                [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "{" + ":0{}d".format(export_digits) + "}",
+                 ".png"])
             self._ff_mask = os.sep.join([picture_path, ff_name])
             self._file_mask = os.sep.join([picture_path, file_name])
             self._file_name_counter = 0
@@ -196,7 +233,7 @@ class PgAnimatedPlot(PgDataPlot):
         self._curr_frame = 0
         self._t = 0
 
-        self._timer = pg.QtCore.QTimer()
+        self._timer = pg.QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_plot)
         self._timer.start(self._tr)
 
@@ -206,18 +243,18 @@ class PgAnimatedPlot(PgDataPlot):
         """
         new_indexes = []
         for idx, data_set in enumerate(self._data):
-            # find nearest time index
-            t_idx = ut.find_nearest_idx(self.time_data[idx], self._t)
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
             new_indexes.append(t_idx)
 
             # TODO draw grey line if value is outdated
 
             # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx],
-                                               y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
+        self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
 
         if self._t > self._endtime:
             self._t = 0
@@ -225,7 +262,7 @@ class PgAnimatedPlot(PgDataPlot):
                 self._export_complete = True
                 print("saved pictures using mask: " + self._ff_mask)
                 if self.create_video:
-                    ut.create_animation(input_file_mask=self._ff_mask)
+                    create_animation(input_file_mask=self._ff_mask)
 
         if self.save_pics and not self._export_complete:
             if new_indexes != self._plot_indexes:
@@ -247,51 +284,151 @@ class PgAnimatedPlot(PgDataPlot):
 
 class PgSurfacePlot(PgDataPlot):
     """
-    Plot as 3d surface.
+    Plot 3 dimensional data as a surface using OpenGl.
+
+    Args:
+        data (py:class:`pi.EvalData`): Data to display, if the the input-vector
+            has length of 2, a 3d surface is plotted, if has length 3, this
+            surface is animated. Hereby, the time axis is assumed to be the
+            first entry of the input vector.
+        scales (tuple): Factors to scale the displayed data, each entry
+            corresponds to an axis in the input vector with on additional scale
+            for the *output_data*. It therefore must be of the size:
+            `len(input_data) + 1` . If no scale is given, all axis are scaled
+            uniformly.
+        animation_axis (int): Index of the axis to use for animation.
+            Not implemented, yet and therefore defaults to 0 by now.
+        title (str): Window title to display.
+
+    Note:
+        For animation this object spawns a `QTimer` which needs an running
+        event loop. Therefore remember to store a reference to this object.
     """
 
-    def __init__(self, data, grid_height=None, title=""):
+    def __init__(self, data, scales=None, animation_axis=0, title=""):
+        """
+
+        :type data: object
+        """
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
+        self.gl_widget.setCameraPosition(distance=1, azimuth=-45)
         self.gl_widget.show()
 
-        if grid_height is None:
-            grid_height = max([data.output_data.max() for data in self._data])
+        self.grid_size = 20
 
-        max_0 = max([max(data.input_data[0]) for data in self._data])
-        max_1 = max([max(data.input_data[1]) for data in self._data])
+        # calculate minima and maxima
+        maxima = np.max(
+            [np.array([max(abs(entry)) for entry in data_set.input_data])
+             for data_set in self._data],
+            axis=0)
+        maxima = np.hstack((maxima,
+                             max([data_set.max for data_set in self._data])))
 
-        # because gl.GLGridItem.setSize() is broken gl.GLGridItem.scale() must be used
-        grid_height_s = grid_height / 20
-        max_0_s = max_0 / 20
-        max_1_s = max_1 / 20
+        if scales is None:
+            # scale all axes uniformly if no scales are given
+            _scales = []
+            for value in maxima:
+                if np.isclose(value, 0):
+                    _scales.append(1)
+                else:
+                    _scales.append(1/value)
+            self.scales = tuple(_scales)
+        else:
+            self.scales = scales
 
-        for n in range(len(self._data)):
-            plot_item = gl.GLSurfacePlotItem(x=np.atleast_1d(self._data[n].input_data[0]),
-                                             y=np.flipud(np.atleast_1d(self._data[n].input_data[1])),
-                                             z=self._data[n].output_data,
-                                             shader='normalColor')
-            plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
-            self.gl_widget.addItem(plot_item)
+        print(self.scales)
 
-        self._xgrid = gl.GLGridItem()
-        self._xgrid.scale(x=max_0_s, y=max_1_s, z=grid_height_s)
-        self._xgrid.translate(0, 0, -grid_height / 2)
-        self.gl_widget.addItem(self._xgrid)
+        self.plot_items = []
+        if len(data.input_data) == 3:
+            # 2d system over time -> animate
+            # assume that for 4d data, the first axis is the time
+            for idx, data_set in enumerate(self._data):
+                plot_item = gl.GLSurfacePlotItem(
+                    x=self.scales[1] * np.atleast_1d(data_set.input_data[1]),
+                    y=self.scales[2] * np.flipud(
+                        np.atleast_1d(data_set.input_data[2])),
+                    z=self.scales[3] * data_set.output_data[0],
+                    shader="normalColor")
 
-        self._ygrid = gl.GLGridItem()
-        self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
-        self._ygrid.rotate(90, 0, 1, 0)
-        self._ygrid.translate(max_0 / 2, 0, 0)
-        self.gl_widget.addItem(self._ygrid)
+                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
+                self.gl_widget.addItem(plot_item)
+                self.plot_items.append(plot_item)
 
-        self._zgrid = gl.GLGridItem()
-        self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
-        self._zgrid.rotate(90, 1, 0, 0)
-        self._zgrid.translate(0, max_1 / 2, 0)
-        self.gl_widget.addItem(self._zgrid)
+            self.index_offset = 1
+            self.t_idx = 0
+            self._timer = pg.QtCore.QTimer(self)
+            self._timer.timeout.connect(self._update_plot)
+            self._timer.start(100)
+        else:
+            # 1d system over time -> static
+            self.index_offset = 0
+            for idx, item in enumerate(self._data):
+                plot_item = gl.GLSurfacePlotItem(
+                    x=self.scales[0] * np.atleast_1d(
+                        self._data[idx].input_data[0]),
+                    y=self.scales[1] * np.flipud(np.atleast_1d(
+                        self._data[idx].input_data[1])),
+                    z=self.scales[2] * self._data[idx].output_data,
+                    shader="normalColor")
 
+                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
+                self.gl_widget.addItem(plot_item)
+                self.plot_items.append(plot_item)
+
+        # since gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
+        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(self.grid_size,
+                                                             self.grid_size,
+                                                             1))
+
+        # TODO find new compromise here and ad grids again
+        self._xygrid.scale(x=1/self.grid_size,
+                           y=1/self.grid_size,
+                           z=1)
+        # self._xygrid.translate(0, 0, -maxima[-1]*self.scales[-1]/2)
+        self._xygrid.translate(1, 1, 0)
+        self.gl_widget.addItem(self._xygrid)
+
+        # self._ygrid = gl.GLGridItem()
+        # self._ygrid.scale(x=self.scales[0 + self.index_offset],
+        #                   y=self.scales[1 + self.index_offset],
+        #                   z=self.scales[-1])
+        # self._ygrid.rotate(90, 0, 1, 0)
+        # self._ygrid.translate(0,
+        #                       -maxima[1 + self.index_offset]*
+        #                       self.scales[1 + self.index_offset]/2,
+        #                       0)
+        # self.gl_widget.addItem(self._ygrid)
+
+        # self._ygrid = gl.GLGridItem()
+        # self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
+        # self._ygrid.rotate(90, 0, 1, 0)
+        # self._ygrid.translate(max_0 / 2, 0, 0)
+        # self.gl_widget.addItem(self._ygrid)
+        #
+        # self._zgrid = gl.GLGridItem()
+        # self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
+        # self._zgrid.rotate(90, 1, 0, 0)
+        # self._zgrid.translate(0, max_1 / 2, 0)
+        # self.gl_widget.addItem(self._zgrid)
+
+    def _update_plot(self):
+        """
+        Update the rendering
+        """
+        for idx, item in enumerate(self.plot_items):
+            x_data = self.scales[1] * np.atleast_1d(self._data[idx].input_data[1])
+            y_data = self.scales[2] * np.flipud(
+                np.atleast_1d(self._data[idx].input_data[2]))
+            z_data = self.scales[3] * self._data[idx].output_data[self.t_idx]
+            item.setData(x=x_data, y=y_data, z=z_data)
+
+        self.t_idx += 1
+
+        # TODO check if array has enough timestamps in it
+        if self.t_idx >= len(self._data[0].input_data[0]):
+            self.t_idx = 0
 
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
@@ -369,10 +506,8 @@ class PgLinePlot3d(PgDataPlot):
         for t_idx, t_val in enumerate(t_subsets):
             t_vals = np.array([res.input_data[0][t_val]] * len(z_vals))
             pts = np.vstack([t_vals, z_vals, res.output_data[t_val, :]]).transpose()
-            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n * 1.3)),
-                                    # width=(t_idx + 1) / 10.,
-                                    width=2,
-                                    antialias=True)
+            plt = gl.GLLinePlotItem(pos=pts, color=pg.glColor((t_idx, n * 1.3)), # width=(t_idx + 1) / 10.,
+                                    width=2, antialias=True)
             self.w.addItem(plt)
 
 
@@ -422,11 +557,11 @@ class MplSlicePlot(PgDataPlot):
     For now: only ut.EvalData objects with len(input_data) == 2 supported
     """
 
-    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="",
-                 legend_label=None, legend_location=1, figure_size=(10, 6)):
+    def __init__(self, eval_data_list, time_point=None, spatial_point=None, ylabel="", legend_label=None,
+                 legend_location=1, figure_size=(10, 6)):
 
-        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and \
-                    (isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
+        if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and (
+            isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 
@@ -438,8 +573,8 @@ class MplSlicePlot(PgDataPlot):
 
         # TODO: move to ut.EvalData
         len_data = len(self._data)
-        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data)
-                        for eval_data in eval_data_list]
+        interp_funcs = [si.interp2d(eval_data.input_data[1], eval_data.input_data[0], eval_data.output_data) for
+                        eval_data in eval_data_list]
 
         if time_point is None:
             slice_input = [data_set.input_data[0] for data_set in self._data]
@@ -470,11 +605,7 @@ def mpl_activate_latex():
     Activate full (label, ticks, ...) latex printing in matplotlib plots.
     """
     plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
-    params = {'text.usetex': True,
-              'font.size': 15,
-              'font.family': 'lmodern',
-              'text.latex.unicode': True,
-              }
+    params = {'text.usetex': True, 'font.size': 15, 'font.family': 'lmodern', 'text.latex.unicode': True,}
     plt.rcParams.update(params)
 
 
@@ -513,9 +644,108 @@ def save_2d_pg_plot(plot, filename):
         tuple of 2 str's: Path with filename and path only.
     """
 
-    path = ut.create_dir('pictures_plot') + os.path.sep
+    path = create_dir('pictures_plot') + os.path.sep
     path_filename = path + filename + '.png'
     exporter = pg.exporters.ImageExporter(plot.plotItem)
     exporter.parameters()['width'] = 1e3
     exporter.export(path_filename)
     return path_filename, path
+
+
+def visualize_roots(roots, grid, function, cmplx=False):
+    """
+    Visualize a given set of roots by examining the output
+    of the generating function.
+
+    Args:
+        roots (array like): list of roots to display.
+        grid (list): list of arrays that form the grid, used for
+            the evaluation of the given *function*
+        function (callable): possibly vectorial function handle
+            that will take input of of the shape ('len(grid)', )
+        cmplx (bool): If True, the complex valued *function* is
+            handled as a vectorial function returning [Re(), Im()]
+    """
+    if isinstance(grid[0], Number):
+        grid = [grid]
+
+    dim = len(grid)
+    assert dim < 3
+
+    if cmplx:
+        assert dim == 2
+        function = complex_wrapper(function)
+        roots = np.array([np.real(roots), np.imag(roots)]).T
+
+    grids = np.meshgrid(*[row for row in grid])
+    values = np.vstack([arr.flatten() for arr in grids]).T
+
+    components = []
+    absolute = []
+    for val in values:
+        components.append(function(val))
+        absolute.append(np.linalg.norm(components[-1]))
+
+    comp_values = np.array(components)
+    abs_values = np.array(absolute)
+
+    # plot roots
+    pg.mkQApp()
+    pw = pg.GraphicsLayoutWidget()
+    pw.setWindowTitle("Root Visualization")
+
+    if dim == 1:
+        # plot function with roots
+        pl = pw.addPlot()
+        pl.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
+        pl.plot(np.squeeze(values), np.squeeze(comp_values), pen=pg.mkPen("b"))
+    else:
+        # plot function components
+        rect = pg.QtCore.QRectF(grid[0][0],
+                                grid[1][0],
+                                grid[0][-1] - grid[0][0],
+                                grid[1][-1] - grid[1][0])
+        for idx in range(comp_values.shape[1]):
+            lbl = pg.LabelItem(text="Component {}".format(idx),
+                               angle=-90,
+                               bold=True,
+                               size="10pt")
+            pw.addItem(lbl)
+
+            p_img = pw.addPlot()
+            img = pg.ImageItem()
+            img.setImage(comp_values[:, idx].reshape(grids[0].shape).T)
+            img.setRect(rect)
+            p_img.addItem(img)
+
+            # add roots on top
+            p_img.plot(roots[:, 0], roots[:, 1],
+                       pen=None,
+                       symbolPen=pg.mkPen("g"))
+
+            hist = pg.HistogramLUTItem()
+            hist.setImageItem(img)
+            pw.addItem(hist)
+
+            pw.nextRow()
+
+        # plot absolute value of function
+        lbl = pg.LabelItem(text="Absolute Value",
+                           angle=-90,
+                           bold=True,
+                           size="10pt")
+        pw.addItem(lbl)
+        p_abs = pw.addPlot()
+        img = pg.ImageItem()
+        img.setImage(abs_values.reshape(grids[0].shape).T)
+        img.setRect(rect)
+        p_abs.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        pw.addItem(hist)
+        # add roots on top
+        p_abs.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+
+    pw.show()
+    pg.QAPP.exec_()

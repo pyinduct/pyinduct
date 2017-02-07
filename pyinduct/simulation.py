@@ -1,95 +1,28 @@
 """
-This module consist of three parts.
-
-    Simulation:
-        Simulation infrastructure with helpers and data structures for preprocessing of the given equations
-        and functions for postprocessing of simulation data.
-
-    `Control`_:
-        All classes and functions related to the creation of controllers as well as the implementation
-        for simulation purposes.
-
-    `Observer`_:
-        Some objects for observer implementation which are mostly a combination from the objects for
-        simulation and control tasks.
+Simulation infrastructure with helpers and data structures for preprocessing of the given equations
+and functions for postprocessing of simulation data.
 """
 
 import warnings
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
+from copy import copy
 from itertools import chain
 
 import numpy as np
 from scipy.integrate import ode
 from scipy.interpolate import interp1d
 from scipy.linalg import block_diag
-import collections
 
-from pyinduct.core import domain_intersection, TransformationInfo, get_weight_transformation
-
-from .core import (Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2)
+from .core import (Domain, Parameters, Function, integrate_function, calculate_scalar_product_matrix,
+                   project_on_base, dot_product_l2, sanitize_input, StackedBase, TransformationInfo,
+                   get_weight_transformation, EvalData)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
-from .registry import get_base
-from .visualization import EvalData
+from .registry import get_base, register_base
 
-"""
-Simulation section
-"""
-
-
-class Domain(object):
-    """
-    Helper class that manages ranges for data evaluation, containing parameters.
-
-    Args:
-        bounds (tuple): Interval bounds.
-        num (int): Number of points in interval.
-        step (numbers.Number): Distance between points (if homogeneous).
-        points (array_like): Points themselves.
-
-    Note:
-        If num and step are given, num will take precedence.
-    """
-
-    def __init__(self, bounds=None, num=None, step=None, points=None):
-        if points is not None:
-            # points are given, easy one
-            self._values = np.atleast_1d(points)
-            self._limits = (points.min(), points.max())
-            self._num = points.size
-            # TODO check for evenly spaced entries
-            # for now just use provided information
-            self._step = step
-        elif bounds and num:
-            self._limits = bounds
-            self._num = num
-            self._values, self._step = np.linspace(bounds[0], bounds[1], num, retstep=True)
-            if step is not None and not np.isclose(self._step, step):
-                raise ValueError("could not satisfy both redundant requirements for num and step!")
-        elif bounds and step:
-            self._limits = bounds
-            # calculate number of needed points but save correct step size
-            self._num = int((bounds[1] - bounds[0]) / step + 1.5)
-            self._values, self._step = np.linspace(bounds[0], bounds[1], self._num, retstep=True)
-            if np.abs(step - self._step) > 1e-1:
-                warnings.warn("desired step-size {} doesn't fit to given interval,"
-                              " changing to {}".format(step, self._step))
-        else:
-            raise ValueError("not enough arguments provided!")
-
-    def __len__(self):
-        return len(self._values)
-
-    def __getitem__(self, item):
-        return self._values[item]
-
-    @property
-    def step(self):
-        return self._step
-
-    @property
-    def bounds(self):
-        return self._limits
+__all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
+           "create_state_space", "StateSpace", "simulate_state_space", "simulate_system", "simulate_systems",
+           "process_sim_data", "evaluate_approximation"]
 
 
 class SimulationInput(object, metaclass=ABCMeta):
@@ -98,12 +31,18 @@ class SimulationInput(object, metaclass=ABCMeta):
 
     The calculated values for each time-step are stored in internal memory and can be accessed by
     :py:func:`get_results` (after the simulation is finished).
+
+    Note:
+        Due to the underlying solver, this handle may get called with time arguments, that lie outside of the specified
+        integration domain. This should not be a problem for a feedback controller but might cause problems for a
+        feedforward or trajectory implementation.
     """
 
     def __init__(self, name=""):
         self._time_storage = []
         self._value_storage = {}
         self.name = name
+        self._res = np.array([0])
 
     def __call__(self, **kwargs):
         """
@@ -116,7 +55,7 @@ class SimulationInput(object, metaclass=ABCMeta):
             entries.append(value)
             self._value_storage[key] = entries
 
-        return out["output"]
+        return np.atleast_1d(out["output"])
 
     @abstractmethod
     def _calc_output(self, **kwargs):
@@ -131,14 +70,14 @@ class SimulationInput(object, metaclass=ABCMeta):
         Returns:
             dict: Dictionary with mandatory key ``output``.
         """
-        return dict(output=0)
+        return dict(output=self._res)
 
     def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
         """
         Return results from internal storage for given time steps.
 
         Raises:
-            Error: If calling this method before a simulation was running.
+            Error: If calling this method before a simulation was run.
 
         Args:
             time_steps: Time points where values are demanded.
@@ -180,7 +119,7 @@ class SimulationInputSum(SimulationInput):
         self.inputs = inputs
 
     def _calc_output(self, **kwargs):
-        outs = np.array([handle(**kwargs) for handle in self.inputs])
+        outs = [handle(**kwargs) for handle in self.inputs]
         return dict(output=np.sum(outs, axis=0))
 
 
@@ -237,166 +176,168 @@ class WeakFormulation(object):
 
     Args:
         terms (list): List of object(s) of type EquationTerm.
-        dynamic_weights (str): Only for multi-pde systems. Weights (weight label) which occur temporal derived. It is only one kind of weight
-            labels (one pde) allowed in the weak formulation if :code:`dynamic_weights` will not provided.
+        name (string): name of this weak form
     """
 
-    def __init__(self, terms, dynamic_weights=None, name=None):
-        if isinstance(terms, EquationTerm):
-            terms = [terms]
-        if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
-
-        for term in terms:
-            if not isinstance(term, EquationTerm):
-                raise TypeError("Only EquationTerm(s) are accepted.")
-
-        self.terms = terms
-        self.dynamic_weights = dynamic_weights
+    def __init__(self, terms, name):
+        self.terms = sanitize_input(terms, EquationTerm)
         self.name = name
 
 
 class StateSpace(object):
-    """
-    Standard state space implementation for a dynamic system with
+    r"""
+    Wrapper class that represents the state space form of a dynamic system where
 
     .. math::
-        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) \\\\
-        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t).
+        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t) \\
+        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
 
-    The corresponding infinite dimensional system has been approximated by a base given by weight_label.
+    which has been approximated by projection on a base given by weight_label.
 
     Args:
-        weight_label: Label that has been used for approximation.
-        a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
-        b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
-        input_handle: :math:`u(t)`
-        f_vector:
-        c_matrix: :math:`\\boldsymbol{C}`
-        d_matrix: :math:`\\boldsymbol{D}`
-        family_tree (collections.OrderedDict or NoneType): Ordered dictionary which hold informations about
-            nesting of the original weights. Is None if the state space derived from only one weak formulation.
+        a_matrices (dict): State transition matrices :math:`\boldsymbol{A}_{p_k}`
+            for the corresponding powers of :math:`\boldsymbol{x}`
+        b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
+            temporal derivative order, exponent .
+        input_handle:  function handle, returning the system input :math:`u(t)`
+        c_matrix: :math:`\boldsymbol{C}`
+        d_matrix: :math:`\boldsymbol{D}`
     """
 
-    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
-                 d_matrix=None, family_tree=None):
-        self.weight_lbl = weight_label
-        self._weight_num = None
-
-        self.f = f_vector
+    def __init__(self, a_matrices, b_matrices, base_lbl=None,
+                 input_handle=None, c_matrix=None, d_matrix=None):
         self.C = c_matrix
         self.D = d_matrix
+        self.base_lbl = base_lbl
 
         # mandatory
         if isinstance(a_matrices, np.ndarray):
-
             self.A = {1: a_matrices}
         else:
             self.A = a_matrices
+        if 0 not in self.A:
+            # this is the constant term (power 0) aka the f-vector
+            self.A[0] = np.zeros((self.A[1].shape[0],))
 
         # optional
-        # TODO change order: 1 to order that is guaranteed to be in.
         if isinstance(b_matrices, np.ndarray):
-            self.B = {1: np.atleast_2d(b_matrices)}
+            # fake import order and power for backward compatibility
+            self.B = {0: {1: b_matrices}}
         else:
             self.B = b_matrices
+
+        # TODO calculate available order
+        available_power = 1
         if self.B is None:
-            self.B = {1: np.zeros((self.A[1].shape[0], 1))}
-
-        if self.f is None:
-            self.f = np.zeros((self.A[1].shape[0],))
+            self.B = {0: {available_power: np.zeros((self.A[available_power].shape[0], available_power))}}
         if self.C is None:
-            self.C = np.zeros((1, self.A[1].shape[1]))
+            self.C = np.zeros((available_power, self.A[available_power].shape[1]))
         if self.D is None:
-            self.D = np.zeros((1, np.atleast_2d(self.B[1]).T.shape[1]))
+            self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
-        if input_handle is None:
-            self.input = EmptyInput(self.B[1].shape[1])
-        else:
-            self.input = input_handle
-        if isinstance(self.input, SimulationInputVector):
-            pass
-            # TODO: replace this check
-            # if not all([bi.shape[1] == self._input_function.num for bi in self.B.values()]):
-            #     raise ValueError("Input vector has more elements than (at least) one of the B matrices has rows.")
-        elif isinstance(self.input, SimulationInput):
-            pass
-            # TODO: uncomment this check when StateSpace input derivative transformation is ready to go
-            # if not all([1 in np.atleast_2d(bi).shape for bi in self.B.values()]):
-            #     raise ValueError("All B matrices must be column vectors.")
-        elif not callable(self.input):
-            raise TypeError("Input must be callable!")
+        self.input = input_handle
+        if self.input is None:
+            self.input = EmptyInput(self.B[0][available_power].shape[1])
 
-        self.family_tree = family_tree
+        if not callable(self.input):
+            raise TypeError("input must be callable!")
 
-    def rhs_hint(self, _t, _q, _u, ss):
-        q_t = ss.f
-        for p, a_mat in ss.A.items():
-            # np.add(q_t, np.dot(a_mat, np.power(_q, p)))
-            q_t = q_t + np.dot(a_mat, np.power(_q, p))
+    # TODO export cython code?
+    def rhs(self, _t, _q):
+        r"""
+        Callback for the integration of the dynamic system, described by this object.
 
-        for p, b_mat in ss.B.items():
-            q_t = q_t + np.dot(b_mat, np.power(_u, p)).flatten()
+        Args:
+            _t (float): timestamp
+            _q (array): weight vector
 
-        return np.asarray(q_t)
+        Returns:
+            (array): :math:`\boldsymbol{\dot{x}}(t)`
+        """
+        q_t = self.A[0]
+        for p, a_mat in self.A.items():
+            q_t = q_t + a_mat @ np.power(_q, p)
+
+        # TODO make compliant with definition of temporal derived input
+        u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
+        for o, p_mats in self.B.items():
+            for p, b_mat in p_mats.items():
+                # q_t = q_t + (b_mat @ np.power(u, p)).flatten()
+                q_t = q_t + b_mat @ np.power(u, p)
+
+        return q_t
 
 
-# TODO update signature
-def simulate_systems(weak_forms, initial_states, time_interval, time_step, spatial_interval, spatial_step):
+def simulate_system(weak_form, initial_states,
+                    temporal_domain, spatial_domain,
+                    derivative_orders=(0, 0), settings=None):
     """
-    Convenience wrapper for simulate system, see :py:func:`simulate_system` for parameters.
+    Convenience wrapper for :py:func:`simulate_systems`.
 
     Args:
-        weak_forms (:py:class:`WeakFormulation`):
-        initial_states:
-        time_interval:
-        time_step:
-        spatial_interval:
-        spatial_step:
+        weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
+        initial_states (numpy.ndarray): Array of core.Functions for
+            :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
+        temporal_domain (:py:class:`core.Domain`): Domain object holding information for time evaluation.
+        spatial_domain (:py:class:`core.Domain`): Domain object holding information for spatial evaluation.
+        derivative_orders (tuple): tuples of derivative orders (time, spat) that shall be
+            evaluated additionally as values
+        settings: Integrator settings, see :py:func:`simulate_state_space`.
     """
-    return [simulate_system(sys, initial_states, time_interval, time_step, spatial_interval, spatial_step)
-            for sys in weak_forms]
+    ics = sanitize_input(initial_states, Function)
+    initial_states = {weak_form.name: ics}
+    spatial_domains = {weak_form.name: spatial_domain}
+    derivative_orders = {weak_form.name: derivative_orders}
+    res = simulate_systems([weak_form], initial_states, temporal_domain, spatial_domains, derivative_orders, settings)
+    return res
 
 
-def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, settings=None, der_orders=(0, 0)):
+def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domains, derivative_orders=None,
+                     settings=None):
     """
     Convenience wrapper that encapsulates the whole simulation process.
 
     Args:
-        weak_form (:py:class:`WeakFormulation`): Weak formulation of the system to simulate.
-        initial_states (callable or numpy.ndarray): Array of core.Functions for
+        weak_forms ((list of) :py:class:`WeakFormulation`): (list of) Weak formulation(s) of the system(s) to simulate.
+        initial_states (dict, numpy.ndarray): Array of core.Functions for
             :math:`x(t=0, z), \\dot{x}(t=0, z), \\dotsc, x^{(n)}(t=0, z)`.
-        temporal_domain (:py:class:`Domain`): Domain object holding information for time evaluation.
-        spatial_domain (:py:class:`Domain`): Domain object holding information for spatial evaluation.
-        der_orders (tuple): Tuple of derivative orders (time, spat) that shall be evaluated additionally.
+        temporal_domain (:py:class:`core.Domain`): Domain object holding information for time evaluation.
+        spatial_domains (dict) Dict with :py:class:`Domain` objects holding information for spatial evaluation.
+        derivative_orders (dict): Dict, containing tuples of derivative orders (time, spat) that shall be
+            evaluated additionally as values
         settings: Integrator settings, see :py:func:`simulate_state_space`.
 
+    Note:
+        The *name* attributes of the given weak forms must be unique!
+
     Return:
-        list: List of :py:class:`pyinduct.visualization.EvalData` objects,holding the results for the
-            FieldVariable and asked derivatives.
+        list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable
+        and demanded derivatives.
     """
-    print(("simulating system: {0}".format(weak_form.name)))
-    if not isinstance(weak_form, WeakFormulation):
-        raise TypeError("only WeakFormulation accepted.")
-
-    initial_states = np.atleast_1d(initial_states)
-    if not isinstance(initial_states[0], Function):
-        raise TypeError("only core.Function accepted as initial state")
-
-    if not isinstance(temporal_domain, Domain) or not isinstance(spatial_domain, Domain):
-        raise TypeError("domains must be given as Domain object")
+    weak_forms = sanitize_input(weak_forms, WeakFormulation)
+    print("simulating systems: {}".format([f.name for f in weak_forms]))
 
     # parse input and create state space system
-    print(">>> parsing formulation")
-    canonical_form = parse_weak_formulation(weak_form)
-    print(">>> creating state space system")
-    state_space_form = canonical_form.convert_to_state_space()
+    canonical_equations = OrderedDict()
+    for form in weak_forms:
+        print(">>> parsing formulation {}".format(form.name))
+        if form.name in canonical_equations:
+            raise ValueError(("Name {} for CanonicalEquation already assigned,"
+                              + "names must be unique.").format(form.name))
+        canonical_equations.update({form.name: parse_weak_formulation(form)})
 
-    # calculate initial state
+    print(">>> creating state space system")
+    state_space_form = create_state_space(canonical_equations)
+
+    # calculate initial state, assuming it will be constituted by the
+    # dominant systems
     print(">>> deriving initial conditions")
-    q0 = np.array([project_on_base(initial_state, get_base(
-        canonical_form.weights, 0)) for initial_state in
-                   initial_states]).flatten()
+    q0 = np.array([])
+    for form in weak_forms:
+        lbl = canonical_equations[form.name].dominant_lbl
+        q0 = np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl))
+                                     for initial_state in initial_states[form.name]]))
 
     # simulate
     print(">>> performing time step integration")
@@ -404,12 +345,30 @@ def simulate_system(weak_form, initial_states, temporal_domain, spatial_domain, 
 
     # evaluate
     print(">>> performing postprocessing")
-    temporal_order = min(initial_states.size - 1, der_orders[0])
-    data = process_sim_data(canonical_form.weights, q, sim_domain, spatial_domain, temporal_order, der_orders[1],
-                            name=canonical_form.name)
+    results = []
+    for form in weak_forms:
+        # acquire a transformation into the original weights
+        info = TransformationInfo()
+        info.src_lbl = state_space_form.base_lbl
+        info.src_base = get_base(info.src_lbl)
+        info.src_order = initial_states[form.name].size - 1
+        info.dst_lbl = canonical_equations[form.name].dominant_lbl
+        info.dst_base = get_base(info.dst_lbl)
+        info.dst_order = derivative_orders[form.name][0]
+        transformation = get_weight_transformation(info)
+
+        # project back
+        data = process_sim_data(info.dst_lbl,
+                                np.apply_along_axis(transformation, 1, q),
+                                sim_domain,
+                                spatial_domains[form.name],
+                                info.dst_order,
+                                derivative_orders[form.name][1],
+                                name=form.name)
+        results += data
 
     print("finished simulation.")
-    return data
+    return results
 
 
 def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_order, name=""):
@@ -421,14 +380,14 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
         temp_order: Order or temporal derivatives to evaluate additionally.
         spat_order: Order or spatial derivatives to evaluate additionally.
         q: weights
-        spat_domain (:py:class:`Domain`): Domain object providing values for spatial evaluation.
-        temp_domain (:py:class:`Domain`): Timesteps on which rows of q are given.
-        name (str): Name of the WeakForm, used to generate the dataset.
+        spat_domain (:py:class:`core.Domain`): Domain object providing values for spatial evaluation.
+        temp_domain (:py:class:`core.Domain`): Time steps on which rows of q are given.
+        name (str): Name of the WeakForm, used to generate the data set.
     """
     data = []
 
     # temporal
-    ini_funcs = get_base(weight_lbl, 0)
+    ini_funcs = get_base(weight_lbl).fractions
     for der_idx in range(temp_order + 1):
         name = "{0}{1}".format(name, "_" + "".join(["d" for x in range(der_idx)] + ["t"]) if der_idx > 0 else "")
         data.append(evaluate_approximation(weight_lbl, q[:, der_idx * ini_funcs.size:(der_idx + 1) * ini_funcs.size],
@@ -445,22 +404,35 @@ def process_sim_data(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_o
 
 class CanonicalForm(object):
     """
-    The canonical form of an ordinary differential equation system of order n.
+    The canonical form of an nth order ordinary differential equation system.
     """
 
     def __init__(self, name=None):
         self.name = name
-        self._matrices = {}
-        self._max_order = dict(E=None, G=None)
-        self._max_exponent = dict(E=None, G=None)
+        self.matrices = {}
+        # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
         self._input_function = None
-        self._inverse_en_hash = None
-        self._en_hash = None
+        self._finalized = False
+        self.powers = None
+        self.max_power = None
+        self.max_temp_order = None
+        self.dim_u = 0
+        self.dim_x = None
+        self.dim_xb = None
+        self.e_n_pb = None
+        self.e_n_pb_inv = None
+        self.singular = True
 
-    @staticmethod
-    def _build_name(term):
-        return "_" + term[0] + str(term[1])
+    # @staticmethod
+    # def _build_name(term):
+    #     return "_" + term[0] + str(term[1])
+
+    # def __add__(self, other):
+    #     for name, names in other._matrices.items():
+    #         for der, derivatives in names.items():
+    #             for p, pow in derivatives.items():
+    #                 self._matrices[name][der][p] += pow
 
     @property
     def input_function(self):
@@ -468,43 +440,23 @@ class CanonicalForm(object):
 
     @input_function.setter
     def input_function(self, func):
-        if not (func is None or isinstance(func, (SimulationInput))):
-            raise TypeError("Input function must be a instance from SimulationInput.")
         if self._input_function is None:
             self._input_function = func
         if self._input_function != func:
-            raise ValueError("Already defined input is overridden!")
+            raise ValueError("already defined input is overridden!")
 
-    @property
-    def weights(self):
-        return self._weights
-
-    @weights.setter
-    def weights(self, weight_lbl):
-        if not isinstance(weight_lbl, str) and not weight_lbl is None:
-            raise TypeError("Only string allowed as weight label!")
-        if self._weights is None:
-            self._weights = weight_lbl
-            if weight_lbl is not None:
-                self._len_weights = len(get_base(self._weights, 0))
-        if self._weights != weight_lbl:
-            raise ValueError("Already defined target weights are overridden!")
-
-    @property
-    def inverse_e_n(self):
-        if self._max_order["E"] is None:
-            warnings.warn("There is no E matrix in this canonical form.")
-            return None
-        else:
-            en = self._matrices["E"][self._max_order["E"]][self._max_exponent["E"]]
-        if self._en_hash is None or not np.allclose(en, self._en_hash):
-            self._en_hash = en
-            if en.shape[0] != en.shape[1]:
-                raise warnings.warn("CanonicalForm holds rectangle matrix. Request for inverse unintended?")
-            self._inverse_en_hash = en.I
-            return self._inverse_en_hash
-        else:
-            return self._inverse_en_hash
+    # @property
+    # def weights(self):
+    #     return self._weights
+    #
+    # @weights.setter
+    # def weights(self, weight_lbl):
+    #     if not isinstance(weight_lbl, str):
+    #         raise TypeError("only string allowed as weight label!")
+    #     if self._weights is None:
+    #         self._weights = weight_lbl
+    #     if self._weights != weight_lbl:
+    #         raise ValueError("already defined target weights are overridden!")
 
     def add_to(self, term, value, column=None):
         """
@@ -517,26 +469,25 @@ class CanonicalForm(object):
                 - name: Type of the coefficient matrix: 'E', 'f', or 'G'.
                 - order: Temporal derivative order of the assigned weights.
                 - exponent: Exponent of the assigned weights.
-            value (:py:obj:`numpy.ndarray`): Value to add. It is converted in numpy.matrix if it is not already a
-                numpy.matrix instance.
+            value (:py:obj:`numpy.ndarray`): Value to add.
             column (int): Add the value only to one column of term (useful if only one dimension of term is known).
         """
+        if self._finalized:
+            raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
         if not isinstance(value, np.ndarray):
-            raise TypeError("Argument val must be numpy.ndarray.")
-        elif not isinstance(value, np.matrix):
-            value = np.matrix(value)
+            raise TypeError("val must be numpy.ndarray")
         if column and not isinstance(column, int):
-            raise TypeError("Argument column (index) must be int.")
+            raise TypeError("column index must be int")
 
         # get entry
         if term["name"] == "f":
-            if "order" in term or "exponent" in term:
-                warnings.warn("Values to the keys order and exponent are ignored for f_vector!")
-            f_vector = self._matrices.get("f", np.zeros_like(value))
-            self._matrices["f"] = value + f_vector
+            if ("order" in term) or ("exponent" in term and term["exponent"] is not 0):
+                warnings.warn("order and exponent are ignored for f_vector!")
+            f_vector = self.matrices.get("f", np.zeros_like(value))
+            self.matrices["f"] = value + f_vector
             return
 
-        type_group = self._matrices.get(term["name"], {})
+        type_group = self.matrices.get(term["name"], {})
         derivative_group = type_group.get(term["order"], {})
         target_matrix = derivative_group.get(term["exponent"], np.zeros_like(value))
 
@@ -559,14 +510,50 @@ class CanonicalForm(object):
         # store changes
         derivative_group[term["exponent"]] = target_matrix
         type_group[term["order"]] = derivative_group
-        self._matrices[term["name"]] = type_group
+        self.matrices[term["name"]] = type_group
 
-        # store greatest temporal derivative orders and exponents for "E" and "G" matrices
-        if term["name"] in ("E", "G"):
-            if self._max_order[term["name"]] is None or term["order"] > self._max_order[term["name"]]:
-                self._max_order[term["name"]] = term["order"]
-            if self._max_exponent[term["name"]] is None or term["exponent"] > self._max_exponent[term["name"]]:
-                self._max_exponent[term["name"]] = term["exponent"]
+    def finalize(self):
+        """
+        Finalizes the object.
+        This method must be called after all terms have been added by :py:func:`add_to` and before
+        :py:func:`convert_to_state_space` can be called. This functions makes sure that the formulation can be converted
+        into state space form (highest time derivative only comes in one power) and collects information like highest
+        derivative order, it's power and the sizes of current and state-space state vector (`dim_x` resp. `dim_xb`).
+        Furthermore, the coefficient matrix of the highest derivative order `e_n_pb` and it's inverse are made
+        accessible.
+        """
+        # get highest power
+        self.powers = set(chain.from_iterable([list(mat) for mat in self.matrices["E"].values()]))
+        self.max_power = max(self.powers)
+
+        # check whether the system can be formulated in an explicit form
+        self.max_temp_order = max(self.matrices["E"])
+
+        if len(self.matrices["E"][self.max_temp_order]) > 1:
+            # more than one power of the highest derivative -> implicit formulation
+            raise NotImplementedError
+
+        pb = next(iter(self.matrices["E"][self.max_temp_order]))
+        if pb != 1:
+            # TODO raise the resulting last blocks to 1/pb
+            raise NotImplementedError
+
+        self.e_n_pb = self.matrices["E"][self.max_temp_order][pb]
+        self.dim_x = self.e_n_pb.shape[0]  # length of the weight vector
+        rank_e_n_pb = np.linalg.matrix_rank(self.e_n_pb)
+        if rank_e_n_pb != max(self.e_n_pb.shape) or self.e_n_pb.shape[0] != self.e_n_pb.shape[1]:
+            # this form cannot be used as dominant form
+            self.singular = True
+        else:
+            self.singular = False
+            self.e_n_pb_inv = np.linalg.inv(self.e_n_pb)
+
+        self.dim_xb = self.max_temp_order * self.dim_x  # dimension of the new system
+
+        # input
+        for derivatives in self.matrices.get("G", {}).values():
+            for power in derivatives.values():
+                self.dim_u = max(self.dim_u, power.shape[1])
 
     def get_terms(self):
         """
@@ -575,317 +562,375 @@ class CanonicalForm(object):
         Return:
             Cascade of dictionaries: Structure: Type > Order > Exponent.
         """
-        return self._matrices
+        return self.matrices
 
     def convert_to_state_space(self):
         """
         Convert the canonical ode system of order n a into an ode system of order 1.
-        This will only work if the highest derivative of the given FieldVariable can be isolated!
+
+        Note:
+            This will only work if the highest derivative order of the given form can be isolated. This is the case if
+            the highest order is only present in one power and the equation system can therefore be solved for it.
 
         Return:
             :py:class:`StateSpace` object:
         """
-        if "f" in self._matrices:
-            # TODO add functionality to StateSpace and allow f
-            raise NotImplementedError
-
-        # system matrices A_*
-        # check whether the system can be formulated in an explicit form
-        max_order = self._max_order["E"]
-
-        if len(self._matrices["E"][max_order]) > 1:
-            # more than one power of the highest derivative -> implicit formulation
-            raise NotImplementedError
-
-        pb = next(iter(self._matrices["E"][max_order]))
-        if pb != 1:
-            # TODO raise the resulting last blocks to 1/pb
-            raise NotImplementedError
-
-        e_n_pb_inv = self.inverse_e_n
-        dim_x = e_n_pb_inv.shape[0]  # length of the weight vector
-
-        dim_xb = max_order * dim_x  # dimension of the new system
-
-        # get highest power
-        # max_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["E"].values()])))
-        powers = set(chain.from_iterable([list(mat) for mat in self._matrices["E"].values()]))
+        if not self._finalized:
+            self.finalize()
 
         # system matrices A_*
         a_matrices = {}
-        # for p in range(max_power, 0, -1):
-        for p in powers:
-            a_mat = np.zeros((dim_xb, dim_xb))
+        for p in self.powers:
+            a_mat = np.zeros((self.dim_xb, self.dim_xb))
+
             # add integrator chain
-            a_mat[:-dim_x:, dim_x:] = block_diag(*[np.eye(dim_x) for a in range(max_order - 1)])
+            a_mat[:-self.dim_x:, self.dim_x:] = block_diag(*[np.eye(self.dim_x)
+                                                             for a in range(self.max_temp_order - 1)])
+
             # add "block-line" with feedback entries
-            a_mat[-dim_x:, :] = -self._build_feedback("E", p, e_n_pb_inv)
-            a_matrices.update({p: np.asmatrix(a_mat)})
+            a_mat[-self.dim_x:, :] = -self._build_feedback("E", p, self.e_n_pb_inv)
+            a_matrices.update({p: a_mat})
 
         # input matrices B_*
-        if "G" in self._matrices:
-            max_input_order = max(iter(self._matrices["G"]))
-            # max_input_power = max(list(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()])))
-            input_powers = set(chain.from_iterable([list(mat) for mat in self._matrices["G"].values()]))
-            dim_u = next(iter(self._matrices["G"][max_input_order].values())).shape[1]
-            dim_ub = (max_input_order + 1) * dim_u  # dimension of the new systems input
+        if "G" in self.matrices:
+            max_temp_input_order = max(iter(self.matrices["G"]))
+            input_powers = set(chain.from_iterable([list(mat) for mat in self.matrices["G"].values()]))
+            dim_u = next(iter(self.matrices["G"][max_temp_input_order].values())).shape[1]
 
+            # generate nested dict of B_o_p matrices where o is
+            # derivative order and p is power
             b_matrices = {}
-            for q in input_powers:
-                b_mat = np.zeros((dim_xb, dim_ub))
-                # overwrite the last "block-line" in the matrices with input entries
-                b_mat[-dim_x:, :] = -self._build_feedback("G", q, e_n_pb_inv)
-                b_matrices.update({q: np.asmatrix(b_mat)})
+            for order in range(max_temp_input_order + 1):
+                if order in self.matrices["G"]:
+                    b_powers = {}
+                    for q in input_powers:
+                        b_mat = np.zeros((self.dim_xb, dim_u))
+                        # overwrite the last "block-line" in the matrices
+                        # with input entries
+                        b_mat[-self.dim_x:, :] = - self.e_n_pb_inv @ self.matrices["G"][order][q]
+                        b_powers.update({q: b_mat})
+
+                    b_matrices.update({order: b_powers})
         else:
             b_matrices = None
 
-        # the f vector
-        f_mat = np.zeros((dim_xb,))
-        if "f" in self._matrices:
-            f_mat[-dim_x:] = self._matrices["f"]
+        # the f vector aka the A matrix corresponding to the power zero
+        f_mat = np.zeros((self.dim_xb,))
+        if "f" in self.matrices:
+            f_mat[-self.dim_x:] = self.matrices["f"]
 
-        ss = StateSpace(self.weights, a_matrices, b_matrices, input_handle=self.input_function)
+        a_matrices.update({0: f_mat})
+
+        ss = StateSpace(a_matrices, b_matrices,
+                        input_handle=self.input_function)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
-        max_order = max(sorted(self._matrices[entry]))
-        entry_shape = next(iter(self._matrices[entry][max_order].values())).shape
+        max_order = max(sorted(self.matrices[entry]))
+        entry_shape = next(iter(self.matrices[entry][max_order].values())).shape
         if entry == "G":
             # include highest order for system input
             max_order += 1
 
-        blocks = (np.dot(product_mat, self._matrices[entry].get(order, {}).get(power, np.zeros(entry_shape)))
+        blocks = (np.dot(product_mat, self.matrices[entry].get(order, {}).get(power, np.zeros(entry_shape)))
                   for order in range(max_order))
         return np.hstack(blocks)
 
 
-class CanonicalForms(object):
+class CanonicalEquation(object):
     """
-    Wrapper that holds several entities of canonical forms for different sets of weights.
+    Wrapper object, holding several entities of canonical forms for different weight-sets that form an equation when
+    summed up.
+    After instantiation, this object can be filled with information by passing the corresponding coefficients to
+    :py:func:`add_to` . When the parsing process is completed and all coefficients have been collected, calling
+    :py:func:`finalize` is required to compute all necessary information for further processing.
+    When finalized, this object provides access to the dominant form of this equation.
     """
 
-    def __init__(self, dynamic_weight_label):
-        self.dynamic_form = CanonicalForm()
-        self.dynamic_form.weights = dynamic_weight_label
-        self.static_forms = dict()
-        self._len_weights = None
-
-    @property
-    def len_weights(self):
-        return self._len_weights
-
-    @len_weights.setter
-    def len_weights(self, length):
-        if self._len_weights is None:
-            self._len_weights = length
-        else:
-            if length != self._len_weights:
-                raise ValueError("It is not allowed to change the length of the weights vector.")
+    def __init__(self, name):
+        self.name = name
+        self.dominant_lbl = None
+        self.dynamic_forms = {}
+        self._static_form = CanonicalForm(self.name + "_static")
+        self._finalized = False
 
     def add_to(self, weight_label, term, val, column=None):
         """
-        Add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
+        Add the provided *val* to the canonical form for *weight_label*, see :py:func:`CanonicalForm.add_to` for further
+        information.
 
         Args:
             weight_label (str): Basis to add onto.
             term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
             val: Values to add.
+            column (int): passed to :py:func:`CanonicalForm.add_to`.
         """
+        if self._finalized:
+            raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
 
-        try:
-            self.len_weights = val.shape[0]
-        except ValueError:
-            raise ValueError("All matrices in the static forms must have the same row width as the matrices in "
-                             "the dynamic form. Also all matrices in the dynamic form must have the same row "
-                             "width. Maybe you projected different terms of one pde with different test functions. "
-                             "Check your weak formulation!")
+        if term["name"] in "fG":
+            # hold f and g vector separately
+            self._static_form.add_to(term, val, column)
+            return
 
-        if weight_label == self.dynamic_form.weights or self.dynamic_form.weights is None or weight_label is None:
-            self.dynamic_form.add_to(term, val, column=column)
-        else:
-            if weight_label not in list(self.static_forms.keys()):
-                self.static_forms[weight_label] = CanonicalForm(weight_label)
-            elif not isinstance(weight_label, str):
-                raise TypeError("Argument weight_label must provided as string.")
+        if weight_label is None:
+            raise ValueError("weight_label can only be none if target is f or G.")
 
-            self.static_forms[weight_label].add_to(term, val, column=column)
+        if weight_label not in list(self.dynamic_forms.keys()):
+            self.dynamic_forms[weight_label] = CanonicalForm("_".join([self.name + weight_label]))
 
-    def get_dynamic_terms(self):
+        self.dynamic_forms[weight_label].add_to(term, val)
+
+    def finalize(self):
         """
-        Return:
-            dict: Terms of the dynamic :py:class:`CanonicalForm`.
+        Finalize the Object.
+        After the complete formulation has been parsed and all terms have been sorted into this Object via
+        :py:func:`add_to` this function has to be called to inform this object about it.
+        When invoked, the :py:class:`CanonicalForm` that holds the highest temporal derivative order will be marked
+        as dominant and can be accessed via :py:attr:`dominant_form`.
+        Furthermore, the f and G parts of the static_form will be copied to the dominant form for easier
+        state-space transformation.
+
+        Raises:
+            RuntimeError: If two different forms provide the highest derivative orders
+
+        Note:
+            This function must be called to use the :py:attr:`dominant_form` attribute.
+
         """
-        return self.dynamic_form.get_terms()
+        highest_dict = {}
+        highest_list = []
+        # highest_orders = [(key, val.max_temp_order) for key, val in self._dynamic_forms]
+        for lbl, form in self.dynamic_forms.items():
+            # finalize dynamic forms
+            form.finalize()
+            # extract maximum derivative orders
+            highest_dict[lbl] = form.max_temp_order
+            highest_list.append(form.max_temp_order)
+
+        max_order = max(highest_list)
+        highest_list.remove(max_order)
+        if max_order in highest_list:
+            raise ValueError("Highest derivative order cannot be isolated.")
+
+        self.dominant_lbl = next((label for label, order in highest_dict.items() if order == max_order), None)
+        if self.dynamic_forms[self.dominant_lbl].singular:
+            raise ValueError("The form that has to be chosen is singular.")
+
+        # copy static terms to dominant form to transform them correctly
+        for letter in "fG":
+            if letter in self._static_form.matrices:
+                self.dynamic_forms[self.dominant_lbl].matrices.update({letter: self._static_form.matrices[letter]})
+
+        self._finalized = True
+
+    @property
+    def static_form(self):
+        """
+        :py:class:`WeakForm` that does not depend on any weights.
+        :return:
+        """
+        return self._static_form
+
+    @property
+    def dominant_form(self):
+        """
+        direct access to the dominant :py:class:`CanonicalForm`.
+
+        Note:
+            :py:func:`finalize` must be called first.
+
+        Returns:
+            :py:class:`CanonicalForm`: the dominant canonical form
+        """
+        if not self._finalized:
+            raise RuntimeError("Object has not yet been finalized!")
+        return self.dynamic_forms[self.dominant_lbl]
 
     def get_static_terms(self):
         """
         Return:
-            dict: Dictionary of terms for each static :py:class:`CanonicalForm`.
+            Terms that do not depend on a certain weight set.
         """
-        return {label: val.get_terms() for label, val in self.static_forms.items()}
+        return self._static_form.get_terms()
+
+    def get_dynamic_terms(self):
+        """
+        Return:
+            dict: Dictionary of terms for each weight set.
+        """
+        return {label: val.get_terms() for label, val in self.dynamic_forms.items()}
+
+    @property
+    def input_function(self):
+        """
+        The input handle for the equation.
+        """
+        return self._static_form.input_function
+
+    @input_function.setter
+    def input_function(self, func):
+        self._static_form.input_function = func
 
 
-def convert_cfs_to_state_space(list_of_cfs):
+def create_state_space(canonical_equations):
     """
-    Create :py:class:`StateSpace` from list :code:`list_of_cfs` with elements from type :py:class:`CanonicalForms`.
-    In the common case the :math:`N` list elements are derived from :math:`N` :py:class:`WeakFormulation`s which
-    represent :math:`N` coupled pde's with boundary conditions.
+    Create a state-space system constituted by several :py:class:`CanonicalEquations`
+    (created by :py:func:`parse_weak_formulation`)
 
     Args:
-        list_of_cfs (list): List with elements from type :py:class:`CanonicalForms`.
+        canonical_equations (:py:class:`CanonicalEquation` or dict): dict of name: py:class:`CanonicalEquation` pairs
 
-    Returns:
-        :py:class:`StateSpace`: State space approximation for the time dynamic of (basically) coupled pde's.
-    """
-    value_error_string = "Problem formulation meets not the specification. \n\n"
-    odict_info = collections.OrderedDict()
-    # for label, order in [(cf.dynamic_form.weights, cf.dynamic_form._max_order["E"]) for cf in list_of_cfs]:
-    for cfs in list_of_cfs:
-        label = cfs.dynamic_form.weights
-        order = cfs.dynamic_form._max_order["E"]
-        if order is None or order <= 0:
-            raise TypeError(value_error_string + "The dynamic_form of an CanonicalForms object must hold "
-                                                 "temporal derived weights.")
-        if label in odict_info.keys():
-            raise ValueError("There are at least two CanonicalForms objects with the same dynamic weight label.")
-
-        odict_info[label] = dict()
-        odict_info[label]["max_order"] = order
-        odict_info[label]["weights_length"] = cfs.len_weights
-        odict_info[label]["state_space"] = cfs.dynamic_form.convert_to_state_space()
-        odict_info[label]["stat_weights"] = set(cfs.static_forms.keys())
-        odict_info[label]["cfs"] = cfs
-        slice_begin = 0 if len(odict_info) == 1 else list(odict_info.values())[-2]["slice_indices"][1]
-        odict_info[label]["slice_indices"] = (slice_begin, slice_begin + cfs.len_weights)
-
-    input_function_set = set(
-        [cfs.dynamic_form.input_function for cfs in list_of_cfs if not cfs.dynamic_form.input_function is None]
-    )
-    if len(input_function_set) > 1:
-        raise ValueError("All given CanonicalForms.dynamic_form's must hold the same input function (or None).")
-    elif len(input_function_set) == 1:
-        input_function = input_function_set.pop()
-    else:
-        input_function = None
-
-    for cfs in list_of_cfs:
-        cfs_to_check = [cfs.dynamic_form] + list(cfs.static_forms.values())
-
-        list_of_powers = np.array([list(cf._max_exponent.values()) for cf in cfs_to_check]).flatten().astype(float)
-        if any([power > 1 for power in list_of_powers]):
-            raise NotImplementedError("Exponents greater 1 not implemented yet.")
-
-        if not all([cf.input_function == None for cf in cfs.static_forms.values()]):
-            raise ValueError("Input functions in static forms not allowed.")
-
-        if any(["f" in cf._matrices.keys() for cf in cfs_to_check]):
-            raise NotImplementedError("No matrix \"f\" allowed (for now).")
-
-        if not cfs.dynamic_form._max_order["G"] is None and cfs.dynamic_form._max_order["G"] > 1:
-            raise NotImplementedError("For now, only order 1 for input matrix \"G\" supported.")
-
-    # check for valid problem formulation
-    for dyn_label in odict_info.keys():
-        for cfs in list_of_cfs:
-            if dyn_label in cfs.static_forms.keys():
-                if cfs.static_forms[dyn_label]._max_order["E"] >= odict_info[dyn_label]["max_order"]:
-                    raise ValueError(value_error_string +
-                                     "For a specific weight_label, the temporal order of the static_form"
-                                     "can not be greater or equal as that from the corresponding dynamic form.")
-
-    list_of_labels = list(odict_info.keys())
-    exponent = 1  # hard coded for now
-    for a_lbl in list_of_labels:
-        row_dict = dict()
-        a_block = odict_info[a_lbl]["state_space"].A[exponent]
-        row_dict[list_of_labels.index(a_lbl)] = a_block
-        list_without_a_lbl = list(odict_info.keys())
-        list_without_a_lbl.remove(a_lbl)
-        for h_lbl in list_without_a_lbl:
-            if h_lbl in odict_info[a_lbl]["stat_weights"]:
-                for ord in range(odict_info[h_lbl]["max_order"]):
-                    if ord in odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"].keys():
-                        h_fraction = - odict_info[a_lbl]["cfs"].dynamic_form.inverse_e_n * \
-                                     odict_info[a_lbl]["cfs"].static_forms[h_lbl]._matrices["E"][ord][exponent]
-                    else:
-                        h_fraction = np.matrix(np.zeros((odict_info[a_lbl]["weights_length"],
-                                                         odict_info[h_lbl]["weights_length"])))
-                    if ord > 0:
-                        h_block = np.hstack((h_block, h_fraction))
-                    else:
-                        h_block = h_fraction
-                if odict_info[a_lbl]["max_order"] > 1:
-                    h_block = np.vstack(
-                        (np.zeros((odict_info[a_lbl]["weights_length"] * (odict_info[a_lbl]["max_order"] - 1),
-                                   odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"])),
-                         h_block))
-            else:
-                h_block = np.vstack((np.zeros((odict_info[a_lbl]["weights_length"] * odict_info[a_lbl]["max_order"],
-                                               odict_info[h_lbl]["weights_length"] * odict_info[h_lbl]["max_order"]))))
-            row_dict[list_of_labels.index(h_lbl)] = h_block
-        row_odict = collections.OrderedDict(sorted(row_dict.items(), key=lambda t: t[0]))
-        row = np.hstack(tuple(row_odict.values()))
-        if list_of_labels[0] == a_lbl:
-            a_matrix = row
-        else:
-            a_matrix = np.vstack((a_matrix, row))
-    a_matrix = np.matrix(a_matrix)
-
-    dim_x = np.sum([value["weights_length"] * value["max_order"] for value in odict_info.values()])
-    if not a_matrix.shape == (dim_x, dim_x):
-        raise ValueError("Check algorithm.")
-
-    if isinstance(input_function, SimulationInputVector):
-        dim_u = input_function.len
-    elif isinstance(input_function, SimulationInput):
-        dim_u = 1
-    else:
-        dim_u = None
-        b_matrix = None
-
-    if not dim_u is None:
-        for b_lbl in list_of_labels:
-            b_fraction = odict_info[b_lbl]["state_space"].B[exponent]
-            if odict_info[b_lbl]["max_order"] == 1:
-                b_block = b_fraction
-            else:
-                b_block = np.vstack(
-                    (np.matrix(np.zeros((odict_info[b_lbl]["weights_length"] * (odict_info[b_lbl]["max_order"] - 1)))),
-                     b_fraction))
-            if list_of_labels[0] == b_lbl:
-                b_matrix = b_block
-            else:
-                b_matrix = np.vstack((b_matrix, b_block))
-
-        if not b_matrix.shape == (dim_x, dim_u):
-            raise ValueError("Check algorithm.")
-    b_matrix = np.matrix(b_matrix)
-
-    new_weight_lbl = str()
-    for lbl in list_of_labels:
-        new_weight_lbl += lbl
-
-    return StateSpace(new_weight_lbl, a_matrix, b_matrix, input_handle=input_function, family_tree=odict_info)
-
-
-def parse_weak_formulation(weak_form):
-    """
-    Creates an ode system for the weights x_i based on the weak formulation.
-
-    Args:
-        weak_form (:py:class:`WeakFormulation`): Weak formulation of the pde.
+    Raises:
+        ValueError: If compatibility criteria cannot be fulfilled
 
     Return:
-        :py:class:`CanonicalForm` or :py:class:`CanonicalForms`: n'th-order ode system. If the desired canonical form
-            should be from type :py:class:`CanonicalForms` (as a part of multi-pde system) then the label of the
-            dynamic weights must be defined in :code:`weak_form.dynamic_weights` otherwise you get a
-            :py:class:`CanonicalForm` object.
+        :py:class:`StateSpace`: State-space representation of the approximated system,
+    """
+    if isinstance(canonical_equations, CanonicalEquation):
+        # backward compatibility
+        canonical_equations = dict(default=canonical_equations)
+
+    # check whether the formulations are compatible
+    for name, eq in canonical_equations.items():
+        for lbl, form in eq.dynamic_forms.items():
+            coupling_order = form.max_temp_order
+
+            # search corresponding dominant form in other equations
+            for _name, _eq in canonical_equations.items():
+                # check uniqueness of name - dom_lbl mappings
+                if name != _name and eq.dominant_lbl == _eq.dominant_lbl:
+                    raise ValueError("A dominant form has to be unique over all given Equations")
+
+                # identify coupling terms
+                if lbl == eq.dominant_lbl:
+                    break
+
+                # identify corresponding dominant form
+                if _eq.dominant_lbl != lbl:
+                    continue
+
+                dominant_order = _eq.dominant_form.max_temp_order
+                if dominant_order <= coupling_order:
+                    # dominant order has to be at least one higher than
+                    # the coupling order
+                    raise ValueError("Formulations are not compatible")
+
+    # transform dominant forms into state-space representation
+    # and collect information
+    dominant_state_spaces = {}
+    state_space_props = Parameters(size=0,
+                                   parts=OrderedDict(),
+                                   powers=set(),
+                                   input_powers=set(),
+                                   dim_u=0,
+                                   input=None)
+    for name, eq in canonical_equations.items():
+        dom_lbl = eq.dominant_lbl
+        dom_form = eq.dominant_form
+        dom_ss = dom_form.convert_to_state_space()
+        dominant_state_spaces.update({dom_lbl: dom_ss})
+
+        # collect some information
+        state_space_props.parts[dom_lbl] = dict(start=copy(state_space_props.size),
+                                                orig_size=dom_form.dim_x,
+                                                size=dom_form.dim_xb,
+                                                order=dom_form.max_temp_order)
+        state_space_props.powers.update(dom_form.powers)
+        state_space_props.size += dom_form.dim_xb
+        state_space_props.dim_u = max(state_space_props.dim_u, dom_form.dim_u)
+
+        # update input handles
+        if state_space_props.input is None:
+            state_space_props.input = eq.input_function
+        else:
+            if eq.input_function is not None and state_space_props.input != eq.input_function:
+                raise ValueError("Only one input object allowed.")
+
+    # build new basis by concatenating the dominant bases of every equation
+    if len(canonical_equations) == 1:
+        new_name = next(iter(canonical_equations.values())).dominant_lbl
+    else:
+        members = state_space_props.parts.keys()
+        new_name = "_".join(members)
+        fracs = [frac for lbl in members for frac in get_base(lbl).fractions]
+        new_base = StackedBase(fracs, state_space_props.parts)
+        register_base(new_name, new_base)
+
+    # build new state transition matrices A_p_k for corresponding powers p_k of the state vector
+    a_matrices = {}
+    for p in state_space_props.powers:
+        a_mat = np.zeros((state_space_props.size, state_space_props.size))
+        for row_name, row_eq in canonical_equations.items():
+            row_dom_lbl = row_eq.dominant_lbl
+            row_dom_dim = state_space_props.parts[row_dom_lbl]["size"]
+            row_dom_trans_mat = row_eq.dominant_form.e_n_pb_inv
+            row_dom_sys_mat = dominant_state_spaces[row_dom_lbl].A.get(p, None)
+            row_idx = state_space_props.parts[row_dom_lbl]["start"]
+
+            for col_name, col_eq in canonical_equations.items():
+                col_dom_lbl = col_eq.dominant_lbl
+
+                # main diagonal
+                if col_name == row_name:
+                    if row_dom_sys_mat is not None:
+                        a_mat[row_idx:row_idx + row_dom_dim, row_idx:row_idx + row_dom_dim] = row_dom_sys_mat
+                    continue
+
+                # coupling terms
+                if col_dom_lbl in row_eq.dynamic_forms:
+                    for order, mats in row_eq.dynamic_forms[col_dom_lbl].matrices["E"].items():
+                        orig_mat = mats.get(p, None)
+                        if orig_mat is not None:
+                            # transform matrix with row-transformation matrix and add to last "row"
+                            # since it's not the dominant entry, revert sign change
+                            cop_mat = row_dom_trans_mat @ -orig_mat
+                            v_idx = row_idx + row_dom_dim - state_space_props.parts[row_dom_lbl]["orig_size"]
+                            col_idx = state_space_props.parts[col_dom_lbl]["start"]
+                            h_idx = col_idx + order * state_space_props.parts[col_dom_lbl]["orig_size"]
+                            a_mat[v_idx: v_idx + cop_mat.shape[0], h_idx: h_idx + cop_mat.shape[1]] = cop_mat
+
+        a_matrices.update({p: a_mat})
+
+    # build new state input matrices
+    b_matrices = {}
+    for name, dom_ss in dominant_state_spaces.items():
+        for order, order_mats in dom_ss.B.items():
+            b_order_mats = b_matrices.get(order, {})
+            for p, power_mat in order_mats.items():
+                b_power_mat = b_order_mats.get(p, np.zeros((state_space_props.size, state_space_props.dim_u)))
+
+                # add entry to the last "row"
+                r_idx = state_space_props.parts[name]["start"]  # - state_space_props.parts[name]["orig_size"]
+                b_power_mat[r_idx: r_idx + power_mat.shape[0], :power_mat.shape[1]] = power_mat
+
+                b_order_mats.update({p: b_power_mat})
+            b_matrices.update({order: b_order_mats})
+
+    dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
+                        input_handle=state_space_props.input)
+    return dom_ss
+
+
+def parse_weak_formulation(weak_form, finalize=True):
+    """
+    Parses a :py:class:`WeakFormulation` that has been derived by projecting a partial differential equation an a set
+        of test-functions. Within this process, the separating approximation :math:`x^n(z, t) = ` is plugged into the
+        equation and the separated spatial terms are evaluated, leading to a ordinary equation system for the weights
+        :math:`x_i(t)` .
+
+    Args:
+        weak_form: Weak formulation of the pde.
+        finalize (bool): finalize the generated CanonicalEquation. see :py:func:`CanonicalEquation.finalize()`
+
+    Return:
+        :py:class:`CanonicalEquation`: The spatially approximated equation in a canonical form.
     """
 
     if not isinstance(weak_form, WeakFormulation):
-        raise TypeError("Only able to parse WeakFormulation.")
+        raise TypeError("Only able to parse WeakFormulation")
 
-    cfs = CanonicalForms(weak_form.dynamic_weights)
+    ce = CanonicalEquation(weak_form.name)
 
     # handle each term
     for term in weak_form.terms:
@@ -895,27 +940,23 @@ def parse_weak_formulation(weak_form):
                             field_variables=term.arg.get_arg_by_class(FieldVariable),
                             inputs=term.arg.get_arg_by_class(Input))
 
-        # field variable terms, sort into E_np, E_n-1p, ..., E_0p
+        # field variable terms: sort into E_np, E_n-1p, ..., E_0p
         if placeholders["field_variables"]:
             if len(placeholders["field_variables"]) != 1:
                 raise NotImplementedError
+
             field_var = placeholders["field_variables"][0]
+            if not field_var.simulation_compliant:
+                raise ValueError("Shape- and test-function labels of FieldVariable must match for simulation purposes.")
+
             temp_order = field_var.order[0]
             exponent = field_var.data["exponent"]
-            init_funcs = get_base(field_var.data["func_lbl"], field_var.order[1])
-            shape_funcs = np.array([func.raise_to(exponent) for func in init_funcs])
-
-            # for now we use .startswith and .endswith, while the function label
-            # will manipulated from placeholder.Product._simplify_product
-            # if not field_var.data["func_lbl"].startswith(field_var.data["weight_lbl"]):
-            #     if not field_var.data["func_lbl"].endswith(field_var.data["weight_lbl"]):
-            if not True:
-                raise ValueError("In the simulation infrastructure of pyinduct field variables with weight labels"
-                                 "which differing from function labels not considered. Use this feature only for"
-                                 "controller approximation.")
+            term_info = dict(name="E", order=temp_order, exponent=exponent)
+            base = get_base(field_var.data["func_lbl"]).derive(field_var.order[1])
+            shape_funcs = base.raise_to(exponent)
 
             if placeholders["inputs"]:
-                # TODO think about this case, is it relevant?
+                # essentially, this means that parts of the state-transition matrix will be time dependent
                 raise NotImplementedError
 
             # is the integrand a product?
@@ -923,11 +964,12 @@ def parse_weak_formulation(weak_form):
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_base(func.data["func_lbl"], func.order[1])
+                test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1])
                 result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
             else:
                 # extract constant term and compute integral
-                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0] for func in shape_funcs]))
+                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
+                                           for func in shape_funcs.fractions]))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
@@ -936,39 +978,34 @@ def parse_weak_formulation(weak_form):
 
                 result = _compute_product_of_scalars([a, b])
 
-            if cfs.dynamic_form.weights is None:
-                cfs.dynamic_form.weights = field_var.data["weight_lbl"]
-            cfs.add_to(field_var.data["weight_lbl"],
-                       dict(name="E", order=temp_order, exponent=exponent),
-                       result * term.scale)
+            ce.add_to(weight_label=field_var.data["weight_lbl"], term=term_info, val=result * term.scale)
             continue
 
-        # TestFunction or pre evaluated terms, those can end up in E, f or G
+        # TestFunctions or pre evaluated terms, those can end up in E, f or G
         if placeholders["functions"]:
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
             func = placeholders["functions"][0]
-            test_funcs = get_base(func.data["func_lbl"], func.order[1])
+            test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
 
             if len(placeholders["functions"]) == 2:
                 # TODO this computation is nonsense. Result must be a vector containing int(tf1*tf2)
                 raise NotImplementedError
-
-                func2 = placeholders["functions"][1]
-                test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
-                result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
-                cfs.add_to(weak_form.dynamic_weights, ("f", 0), result * term.scale)
-                continue
+                #
+                # func2 = placeholders["functions"][1]
+                # test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
+                # result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
+                # cf.add_to(("f", 0), result * term.scale)
+                # continue
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0]
-                                       for func in test_funcs]))
+                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
-                weight_lbl, target = get_common_target(placeholders["scalars"])
-                if cfs.dynamic_form.weights is None:
-                    cfs.dynamic_form.weights = weight_lbl
-                cfs.add_to(weight_lbl, target, result * term.scale)
+
+                ce.add_to(weight_label=a.target_form,
+                          term=get_common_target(placeholders["scalars"]),
+                          val=result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -979,51 +1016,49 @@ def parse_weak_formulation(weak_form):
                 input_index = input_var.data["index"]
                 input_exp = input_var.data["exponent"]
                 input_order = input_var.order[0]
+                term_info = dict(name="G", order=input_order, exponent=input_exp)
 
                 result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
-                cfs.add_to(weak_form.dynamic_weights,
-                           dict(name="G", order=input_order, exponent=input_exp),
-                           result * term.scale,
-                           column=input_index)
-                cfs.dynamic_form.input_function = input_func
+
+                ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
+                ce.input_function = input_func
                 continue
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
             result = _compute_product_of_scalars(placeholders["scalars"])
-            weight_lbl, target = get_common_target(placeholders["scalars"])
+            target = get_common_target(placeholders["scalars"])
+            target_form = placeholders["scalars"][0].target_form
 
             if placeholders["inputs"]:
                 input_var = placeholders["inputs"][0]
                 input_func = input_var.data["input"]
                 input_index = input_var.data["index"]
                 input_exp = input_var.data["exponent"]
-
-                # here we would need to provide derivative handles in the callable
                 input_order = input_var.order[0]
+                term_info = dict(name="G", order=input_order, exponent=input_exp)
+
                 if input_order > 0:
+                    # here we would need to provide derivative handles in the callable
                     raise NotImplementedError
 
-                # this would mean that the input term should appear in a matrix like E1 or E2
                 if target["name"] == "E":
+                    # this would mean that the input term should appear in a matrix like E1 or E2
+                    # the result would be a time dependant sate transition matrix
                     raise NotImplementedError
 
-                cfs.add_to(weak_form.dynamic_weights,
-                           dict(name="G", order=input_order, exponent=input_exp),
-                           result * term.scale,
-                           column=input_index)
-                cfs.dynamic_form.input_function = input_func
+                ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
+                ce.input_function = input_func
                 continue
 
-            if cfs.dynamic_form.weights is None:
-                cfs.dynamic_form.weights = weight_lbl
-            cfs.add_to(weight_lbl, target, result * term.scale)
+            ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
             continue
 
-    if weak_form.dynamic_weights is None:
-        return cfs.dynamic_form
-    else:
-        return cfs
+    # inform object that the parsing process is complete
+    if finalize:
+        ce.finalize()
+
+    return ce
 
 
 def _compute_product_of_scalars(scalars):
@@ -1031,67 +1066,52 @@ def _compute_product_of_scalars(scalars):
         raise NotImplementedError
 
     if len(scalars) == 1:
+        # simple scaling of all terms
         res = scalars[0].data
     elif scalars[0].data.shape == scalars[1].data.shape:
+        # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    # guarantee dyadic product no matter in which order args are passed
-    elif scalars[0].data.shape[0] == scalars[1].data.shape[1] == 1:
-        res = np.dot(scalars[1].data, scalars[0].data)
-    elif scalars[0].data.shape[1] == scalars[1].data.shape[0] == 1:
-        res = np.dot(scalars[0].data, scalars[1].data)
     else:
-        raise NotImplementedError
+        # dyadic product
+        try:
+            if scalars[0].data.shape[1] == 1:
+                res = scalars[0].data @ scalars[1].data
+            else:
+                res = scalars[1].data @ scalars[0].data
+        except ValueError as e:
+            raise ValueError("provided entries do not form a dyadic product" + e.msg)
 
     return res
 
 
-def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_init_state=None, settings=None):
+def simulate_state_space(state_space, initial_state, temp_domain, settings=None):
     """
     Wrapper to simulate a system given in state space form:
 
     .. math:: \\dot{q} = A_pq^p + A_{p-1}q^{p-1} + \\dotsb + A_0q + Bu.
 
     Args:
-        sys_ss (:py:class:`StateSpace`): State space formulation of the system.
-        sys_init_state (numpy.array): Initial state vector of the system.
-        temp_domain (:py:class:`Domain`): Temporal domain object.
-        obs_ss (:py:class:`Observer`): State space formulation of the observer.
-        obs_init_state (numpy.array): Initial state vector of the observer.
-        settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with the integrator
-            name included under the key :obj:`name`.
+        state_space (:py:class:`StateSpace`): State space formulation of the system.
+        initial_state: Initial state vector of the system.
+        temp_domain (:py:class:`core.Domain`): Temporal domain object.
+        settings (dict): Parameters to pass to the :func:`set_integrator` method of the :class:`scipy.ode` class, with
+            the integrator name included under the key :obj:`name`.
 
     Return:
-        tuple: Time :py:class:`Domain` object and weights matrix/matrices.
+        tuple: Time :py:class:`Domain` object and weights matrix.
     """
-    if not isinstance(sys_ss, StateSpace) or isinstance(sys_ss, Observer):
+    if not isinstance(state_space, StateSpace):
         raise TypeError
 
-    input_handle = sys_ss.input
+    input_handle = state_space.input
 
     if not isinstance(input_handle, SimulationInput):
-        raise TypeError("Only pyinduct.simulation.SimulationInput supported.")
-    if isinstance(input_handle, SimulationInputVector):
-        if any([isinstance(input, ObserverError) for input in input_handle.input_vector]):
-            raise TypeError
+        raise TypeError("only simulation.SimulationInput supported.")
 
+    q = [initial_state]
     t = [temp_domain[0]]
-    q = [np.hstack((sys_init_state.flatten(), np.empty(0) if obs_init_state is None else obs_init_state.flatten()))]
 
-    split_index = list(sys_ss.A.values())[0].shape[0]
-
-    # TODO export cython code?
-    def _rhs(_t, _q, sys_ss, obs_ss, split_index):
-        u = sys_ss.input(time=_t, weights=_q[:split_index], weight_lbl=sys_ss.weight_lbl, fam_tree=sys_ss.family_tree)
-        sys_q_t = sys_ss.rhs_hint(_t, _q[:split_index], u, sys_ss)
-
-        if obs_ss is None:
-            obs_q_t = np.empty(0)
-        else:
-            obs_q_t = obs_ss.rhs_hint(_t, _q[:split_index], u, sys_ss, _q[split_index:], obs_ss)
-
-        return np.hstack((sys_q_t.flatten(), obs_q_t.flatten()))
-
-    r = ode(_rhs)
+    r = ode(state_space.rhs)
 
     # TODO check for complex-valued matrices and use 'zvode'
     if settings:
@@ -1105,7 +1125,6 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
             nsteps=1e3
         )
 
-    r.set_f_params(sys_ss, obs_ss, split_index)
     r.set_initial_value(q[0], t[0])
 
     for t_step in temp_domain[1:]:
@@ -1120,27 +1139,7 @@ def simulate_state_space(sys_ss, sys_init_state, temp_domain, obs_ss=None, obs_i
     # create results
     q = np.array(q)
 
-    def split_weight_matrix(q, family_tree):
-        # indices to cut the weights matrix in slices (corresponding tor the weights in sys_ss.family_tree)
-        if family_tree is None:
-            slice_indices = [(0, q.shape[1])]
-        else:
-            slice_indices = [si["slice_indices"] for si in family_tree.values()]
-
-        return [q[:, a:b] for a, b in slice_indices]
-
-    sys_q = q[:, :split_index]
-    sys_weights_matrices = split_weight_matrix(sys_q, sys_ss.family_tree)
-    sim_domain = Domain(points=np.array(t), step=temp_domain.step)
-
-    if obs_ss is None:
-
-        return [sim_domain] + sys_weights_matrices
-    else:
-        obs_q = q[:, split_index:]
-        obs_weights_matrices = split_weight_matrix(obs_q, obs_ss.family_tree)
-
-        return [sim_domain] + sys_weights_matrices + obs_weights_matrices
+    return Domain(points=np.array(t), step=temp_domain.step), q
 
 
 def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_order=0, name=""):
@@ -1158,7 +1157,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     Return:
         :py:class:`pyinduct.visualization.EvalData`
     """
-    funcs = get_base(base_label, spat_order)
+    funcs = get_base(base_label).derive(spat_order).fractions
     if weights.shape[1] != funcs.shape[0]:
         raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
                                                                                               funcs.size))
@@ -1170,7 +1169,7 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
         return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temp_domain, spat_domain], data, name=name)
+    return EvalData([temp_domain.points, spat_domain.points], data, name=name)
 
 
 """
