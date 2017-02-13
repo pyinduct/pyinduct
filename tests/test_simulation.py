@@ -192,23 +192,24 @@ class ParseTest(unittest.TestCase):
 
         nodes, self.test_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1),
                                                  node_count=3)
-        pi.register_base("test_base", self.test_base, overwrite=True)
+        pi.register_base("test_base1", self.test_base, overwrite=True)
+        pi.register_base("test_base2", pi.Base(pi.Function.from_constant(1)), overwrite=True)
 
         # TestFunctions
-        self.phi = pi.TestFunction("test_base")
+        self.phi = pi.TestFunction("test_base1")
         self.phi_at0 = self.phi(0)
         self.phi_at1 = self.phi(1)
         self.dphi = self.phi.derive(1)
         self.dphi_at1 = self.dphi(1)
 
-        # FieldVars
-        self.field_var = pi.FieldVariable("test_base")
-        self.field_var_squared = pi.FieldVariable("test_base", exponent=2)
+        # Field variable 1
+        self.field_var = pi.FieldVariable("test_base1")
+        self.field_var_squared = pi.FieldVariable("test_base1", exponent=2)
 
-        self.odd_weight_field_var = pi.FieldVariable("test_base",
+        self.odd_weight_field_var = pi.FieldVariable("test_base1",
                                                      weight_label="special_weights")
         self.field_var_at1 = self.field_var(1)
-        self.field_var_at1_squared = pi.FieldVariable("test_base",
+        self.field_var_at1_squared = pi.FieldVariable("test_base1",
                                                       location=1,
                                                       exponent=2)
 
@@ -218,6 +219,9 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt = self.field_var.derive(temp_order=2)
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
+
+        # Field variable 2
+        self.var = pi.FieldVariable("test_base2")
 
         # create all possible kinds of input variables
         self.input_term1 = pi.ScalarTerm(pi.Product(self.phi_at1, self.input))
@@ -278,6 +282,14 @@ class ParseTest(unittest.TestCase):
         self.spat_int_asymmetric = pi.IntegralTerm(
             pi.Product(self.field_var_dz, self.phi), (0, 1))
 
+        self.scalar_var_test11 = pi.ScalarTerm(pi.Product(self.phi(0), self.var(0)))
+        self.scalar_var_test12 = pi.ScalarTerm(pi.Product(self.var(0), self.phi(0)))
+
+        self.scalar_func_test11 = pi.IntegralTerm(pi.Product(pi.ScalarFunction("heavyside"), self.field_var),
+                                                  limits=(0, 1))
+        self.scalar_func_test12 = pi.IntegralTerm(pi.Product(self.field_var, pi.ScalarFunction("heavyside")),
+                                                  limits=(0, 1))
+
         self.alternating_weights_term = pi.IntegralTerm(self.odd_weight_field_var, (0, 1))
 
     def test_Input_term(self):
@@ -308,109 +320,125 @@ class ParseTest(unittest.TestCase):
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_term_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_at1_squared, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_term_at1_squared, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_int, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_squared_int, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_squared_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][2],
                                     np.array([[1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_dz_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_term_dz_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_dz_int, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_dz_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_ddt_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_term_ddt_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_ddt_int, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.field_ddt_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case is also valid for swapped arguments
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_fs_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_term_fs_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 1], [0, 0, 2]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_fs, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_fs, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(
             np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(
             np.allclose(terms["E"][0][2], np.array([[1 / 8, 1 / 24, 0], [1 / 24, 1 / 4, 1 / 24], [0, 1 / 24, 1 / 8]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(
             np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_at1_f, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_at1_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1 / 6, 1 / 3, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
 
         # more complex terms
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_fddt_f, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_int_fddt_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(
             np.allclose(terms["E"][2][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_fddt_at0_f_at0, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_term_fddt_at0_f_at0, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.spat_int, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.spat_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.spat_int_asymmetric, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.spat_int_asymmetric, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]])))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_dphi_at1, name="test"), finalize=False).get_dynamic_terms()["test_base"]
+            sim.WeakFormulation(self.prod_term_f_at1_dphi_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]])))
+
+        desired = np.array([0, 0.25, 0.25])
+        terms1 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.scalar_func_test11, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
+        terms2 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.scalar_func_test12, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
+        self.assertTrue(np.allclose(terms1["E"][0][1], desired))
+        self.assertTrue(np.allclose(terms2["E"][0][1], desired))
+
+        desired = np.array([[1], [0], [0]])
+        terms1 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.scalar_var_test11, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
+        terms2 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.scalar_var_test12, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
+        self.assertTrue(np.allclose(terms1["E"][0][1], desired))
+        self.assertTrue(np.allclose(terms2["E"][0][1], desired))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term1, name="test"), finalize=False).get_static_terms()
@@ -426,7 +454,8 @@ class ParseTest(unittest.TestCase):
 
     def tearDown(self):
         pi.deregister_base("heavyside")
-        pi.deregister_base("test_base")
+        pi.deregister_base("test_base1")
+        pi.deregister_base("test_base2")
 
 
 class StateSpaceTests(unittest.TestCase):
