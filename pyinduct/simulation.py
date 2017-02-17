@@ -1183,452 +1183,67 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     return EvalData([temp_domain.points, spat_domain.points], data, name=name)
 
 
-"""
-Control section
-"""
-
-
-class FeedbackLaw(object):
+class SimulationInputVector(SimulationInput):
     """
-    This class represents the approximated formulation of a control law or observer error.
-    It can be initialized with several terms (see children of :py:class:`pyinduct.placeholder.EquationTerm`).
-    The equation is interpreted as
+    A simulation input which return a column vector as output.
+    The vector elements are :py:class:`SimulationInput`s.
 
-    .. math::
-        term_0 + term_1 + ... + term_N = u
-
-    where :math:`u` is the control output.
-
-    Args:
-        terms (list): List with object(s) of type :py:class:`pyinduct.placeholder.EquationTerm`.
+    input_vector (array-like): List of simulation inputs.
     """
 
-    def __init__(self, terms, name=""):
-        if isinstance(terms, EquationTerm):
-            terms = [terms]
-        if not isinstance(terms, list):
-            raise TypeError("only (list of) {0} allowed".format(EquationTerm))
+    def __init__(self, input_vector):
+        SimulationInput.__init__(self)
+        self._input_vector = list(input_vector)
 
-        for term in terms:
-            if not isinstance(term, EquationTerm):
-                raise TypeError("Only EquationTerm(s) are accepted.")
-
-        self.terms = terms
-        self.name = name
-
-
-class Feedback(SimulationInput):
-    """
-    Wrapper class for all state feedbacks that have to interact with the simulation environment.
-
-    Args:
-        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the state feedback if provided with
-            correct weights.
-    """
-
-    def __init__(self, feedback_law):
-        SimulationInput.__init__(self, name=feedback_law.name)
-        c_forms = approximate_feedback_law(feedback_law)
-        self._evaluator = LawEvaluator(c_forms, self._value_storage)
+    def append(self, input_vector):
+        [self._input_vector.append(input) for input in input_vector]
 
     def _calc_output(self, **kwargs):
-        """
-        Calculates the feedback based on the current_weights.
+        output = list()
+        for input in self._input_vector:
+            output.append(input(**kwargs))
 
-        Keyword Args:
-            weights: Current weights of the simulations system approximation.
-            weights_lbl (str): Corresponding label of :code:`weights`.
+        return dict(output=np.vstack(tuple(output)))
 
-        Return:
-            dict: Feedback under the key :code:`"output"`.
-        """
-        return self._evaluator(kwargs["weights"], kwargs["weight_lbl"], kwargs["fam_tree"])
-
-
-class LawEvaluator(object):
+def get_transformation(source_label, destination_label, destination_order,
+                       source_weights_length=None, only_info=False):
     """
-    Object that evaluates the feedback law approximation given by a :py:class:`pyinduct.simulation.CanonicalForms`
-    object.
+    Provide the weights transformation from one/source base to
+    another/destination base.
 
     Args:
-        cfs (:py:class:`pyinduct.simulation.FeedbackCanonicalForms`): evaluation handle
-    """
-
-    def __init__(self, cfs, storage=None):
-        self._cfs = cfs
-        self._transformations = {}
-        self._eval_vectors = {}
-        self._storage = storage
-
-    @staticmethod
-    def _build_eval_vector(terms):
-        """
-        Build a set of vectors that will compute the output by multiplication with the corresponding
-        power of the weight vector.
-
-        Args:
-            terms (dict): coefficient vectors
-        Return:
-            dict: evaluation vector
-        """
-        orders = set(terms["E"].keys())
-        powers = set(chain.from_iterable([list(mat) for mat in terms["E"].values()]))
-        dim = next(iter(terms["E"][max(orders)].values())).shape
-
-        vectors = dict()
-        for power in powers:
-            vector = np.hstack([terms["E"].get(order, {}).get(1, np.zeros(dim)) for order in range(max(orders) + 1)])
-            vectors.update({power: vector})
-
-        return vectors
-
-    def __call__(self, weights, weight_label, family_tree=None):
-        """
-        Evaluation function for approximated feedback law.
-
-        Args:
-            weights (numpy.ndarray): 1d ndarray of approximation weights.
-            weight_label (string): Label of functions the weights correspond to.
-
-        Return:
-            dict: control output :math:`u`
-        """
-        res = {}
-        output = 0 + 0j
-
-        # add dynamic part
-        for lbl, law in self._cfs.get_dynamic_terms().items():
-            dst_weights = [0]
-
-            if "E" in law is not None:
-                # build eval vector
-                if lbl not in self._eval_vectors.keys():
-                    self._eval_vectors[lbl] = self._build_eval_vector(law)
-
-                if family_tree is None:
-                    # collect information
-                    info = TransformationInfo()
-                    info.src_lbl = weight_label
-                    info.dst_lbl = lbl
-                    info.src_base = get_base(weight_label, 0)
-                    info.dst_base = get_base(lbl, 0)
-                    info.src_order = int(weights.size / info.src_base.size) - 1
-                    info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size / info.dst_base.size) - 1
-
-                    # look up transformation
-                    if info not in self._transformations.keys():
-                        # fetch handle
-                        handle = get_weight_transformation(info)
-                        self._transformations[info] = handle
-
-                    # transform weights
-                    dst_weights = self._transformations[info](weights)
-
-                # TODO: Support transformation hints for nested weights, too!
-                elif isinstance(family_tree, collections.OrderedDict):
-                    if not lbl in family_tree:
-                        raise ValueError("Transformation hints for nested weights not supported yet.")
-                    s_start, s_stop = family_tree[lbl]["slice_indices"]
-                    dst_weights = weights[s_start: s_stop]
-
-                else:
-                    raise NotImplementedError
-
-                # evaluate
-                vectors = self._eval_vectors[lbl]
-                for p, vec in vectors.items():
-                    output = output + np.dot(vec, np.power(dst_weights, p))
-
-            res[lbl] = dst_weights
-
-        # add constant term
-        static_terms = self._cfs.get_static_terms()
-        if "f" in static_terms:
-            output = output + static_terms["f"]
-
-        # TODO: replace with the one from utils
-        if abs(np.imag(output)) > np.finfo(np.complex128).eps * 100:
-            print("Warning: Imaginary part of output is nonzero! out = {0}".format(output))
-
-        out = np.real_if_close(output, tol=10000000)
-        if np.imag(out) != 0:
-            raise ValueError("calculated complex control output u={0},"
-                             " check for errors in feedback law!".format(out))
-
-        res["output"] = out
-        return res
-
-
-class FeedbackCanonicalForms(object):
-    """
-    Wrapper that holds several entities of canonical forms for different sets of weights.
-    """
-
-    def __init__(self, name):
-        self.name = name
-        self._dynamic_forms = {}
-        self._static_form = CanonicalForm(self.name + "static")
-
-    def add_to(self, weight_label, term, val):
-        """
-        Add val to the canonical form for weight_label, see :py:func:`CanonicalForm.add_to` for further information.
-
-        Args:
-            weight_label (str): Basis to add onto.
-            term: Coefficient to add onto, see :py:func:`CanonicalForm.add_to`.
-            val: Values to add.
-        """
-        if term["name"] in "fG":
-            # hold f and g vector separately
-            self._static_form.add_to(term, val)
-            return
-
-        if weight_label not in list(self._dynamic_forms.keys()):
-            self._dynamic_forms[weight_label] = CanonicalForm("_".join([self.name + weight_label]))
-
-        self._dynamic_forms[weight_label].add_to(term, val)
-
-    def get_static_terms(self):
-        """
-        Return:
-            Terms that do not depend on a certain weight set.
-        """
-        return self._static_form.get_terms()
-
-    def get_dynamic_terms(self):
-        """
-        Return:
-            dict: Dictionary of terms for each weight set.
-        """
-        return {label: val.get_terms() for label, val in self._dynamic_forms.items()}
-
-
-def approximate_feedback_law(feedback_law):
-    """
-    Function that approximates the feedback law, given by a list of sum terms that equal u.
-    The result is a function handle that contains pre-evaluated terms and only needs the current weights (and their
-    respective label) to be applied.
-
-    Args:
-        feedback_law (:py:class:`FeedbackLaw`): Function handle that calculates the feedback law output if provided with
-            correct weights.
-    Return:
-        :py:class:`pyinduct.simulation.FeedbackCanonicalForms`: evaluation handle
-    """
-    print("approximating feedback law {}".format(feedback_law.name))
-    if not isinstance(feedback_law, FeedbackLaw):
-        raise TypeError("only input of Type FeedbackLaw allowed!")
-
-    return _parse_feedback_law(feedback_law)
-
-
-def _parse_feedback_law(law):
-    """
-    Parses the given feedback law by approximating given terms.
-
-    Args:
-        law (list):  List of :py:class:`pyinduct.placeholders.EquationTerm`'s
-
-    Return:
-        :py:class:`pyinduct.simulation.FeedbackCanonicalForms`: evaluation handle
-    """
-
-    # check terms
-    for term in law.terms:
-        if not isinstance(term, EquationTerm):
-            raise TypeError("only EquationTerm(s) accepted.")
-
-    cfs = FeedbackCanonicalForms(law.name)
-
-    for term in law.terms:
-        placeholders = dict([
-            ("field_variables", term.arg.get_arg_by_class(FieldVariable)),
-            ("scalars", term.arg.get_arg_by_class(Scalars)),
-        ])
-        if placeholders["field_variables"]:
-            field_var = placeholders["field_variables"][0]
-            temp_order = field_var.order[0]
-            func_lbl = field_var.data["func_lbl"]
-            weight_lbl = field_var.data["weight_lbl"]
-            init_funcs = get_base(func_lbl, field_var.order[1])
-
-            factors = np.atleast_2d([integrate_function(func, domain_intersection(term.limits, func.nonzero))[0]
-                                     for func in init_funcs])
-
-            if placeholders["scalars"]:
-                scales = placeholders["scalars"][0]
-                res = np.prod(np.array([factors, scales]), axis=0)
-            else:
-                res = factors
-
-            # HACK! hardcoded exponent
-            cfs.add_to(weight_lbl, dict(name="E", order=temp_order, exponent=1), res * term.scale)
-
-        elif placeholders["scalars"]:
-            # TODO make sure that all have the same target form!
-            scalars = placeholders["scalars"]
-            if len(scalars) > 1:
-                # TODO if one of 'em is just a scalar and no array an error occurs
-                res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-            else:
-                res = scalars[0].data
-
-            cfs.add_to(scalars[0].target_weight_label, get_common_target(scalars)[1], res * term.scale)
-
-        else:
-            raise NotImplementedError
-
-    return cfs
-
-
-"""
-Observer section
-"""
-
-
-class Observer(StateSpace):
-    """
-    Standard observer class which correspond structurally to the standard state space implementation
-    :py:class:`StateSpace` (from which it is derived).
-
-    .. math::
-        \\dot{\\boldsymbol{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}u(t) + \\boldsymbol{L} \\tilde{\\boldsymbol{y}} \\\\
-        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}u(t)
-
-    Where :math:`\\tilde{\\boldsymbol{y}}` is the observer error.
-    The corresponding infinite dimensional observer has been approximated by a base given by weight_label.
-
-    Args:
-        weight_label: Label that has been used for approximation.
-        a_matrices: :math:`\\boldsymbol{A_p}, \\dotsc, \\boldsymbol{A_0},`
-        b_matrices: :math:`\\boldsymbol{B_q}, \\dotsc, \\boldsymbol{B_0},`
-        input_handle: :math:`u(t)`
-        f_vector:
-        c_matrix: :math:`\\boldsymbol{C}`
-        d_matrix: :math:`\\boldsymbol{D}`
-        family_tree:
-        l_matrices:
-    """
-
-    def __init__(self, weight_label, a_matrices, b_matrices, input_handle=None, f_vector=None, c_matrix=None,
-                 d_matrix=None, family_tree=None, l_matrices=None):
-        StateSpace.__init__(self, weight_label, a_matrices, b_matrices, input_handle, f_vector, c_matrix, d_matrix,
-                            family_tree)
-
-        if isinstance(l_matrices, np.ndarray):
-            self.L = {1: l_matrices}
-        else:
-            self.L = l_matrices
-        if self.L is None:
-            self.L = {1: np.zeros((self.A[1].shape[0], 1))}
-
-    def rhs_hint(self, _t, _sys_q, _u, sys_ss, _obs_q, obs_ss):
-        q_t = StateSpace.rhs_hint(self, _t, _obs_q, _u, obs_ss)
-
-        obs_error = obs_ss.input(time=_t,
-                                 sys_weights=_sys_q, sys_weights_lbl=sys_ss.weight_lbl, sys_fam_tree=sys_ss.family_tree,
-                                 obs_weights=_obs_q, obs_weights_lbl=obs_ss.weight_lbl, obs_fam_tree=obs_ss.family_tree)
-        for p, l_mat in obs_ss.L.items():
-            q_t = q_t + np.asarray(np.dot(l_mat, np.power(obs_error, p))).flatten()
-
-        return np.asarray(q_t)
-
-
-class ObserverError(SimulationInput):
-    """
-    Wrapper class for all observer errors that have to interact with the simulation environment. The terms which
-    have to approximated on the basis of the system weights have to provided through the argument :code:`sys_part`
-    and the terms which have to approximated on the basis of the observer weights have to provided through the
-    argument :code:`obs_part`. The observer error is provided as sum of the :py:class:`FeedbackLaw`'s
-    :code:`sys_part` and :code:`obs_part`.
-
-    Args:
-        sys_part (:py:class:`FeedbackLaw`): Hold the terms which approximated from system weights.
-        obs_part (:py:class:`FeedbackLaw`): Hold the terms which approximated from observer weights.
-
-    Keyword Args:
-        weighted_initial_error (numbers.Number): Time :math:`t^*` (default: None). If the kwarg is given
-            the observer error will be weighted
-            :math:`\\tilde{y}_{\\varphi}(t) = \\varphi(t)\\tilde{y}(t)` with the function
-
-            .. math::
-                :nowrap:
-
-                \\begin{align*}
-                    \\varphi(t) =  \\left\\{\\begin{array}{lll}
-                        0 & \\forall & t < 0 \\\\
-                        (1-\\cos\\pi\\frac{t}{t^*}) / 2 & \\forall & t \\in [0, 1] \\\\
-                        1 & \\forall  & t > 1.
-                    \\end{array}\\right.
-                \\end{align*}
-    """
-
-    def __init__(self, sys_part, obs_part, weighted_initial_error=None):
-        SimulationInput.__init__(self, name="observer error: " + sys_part.name + " + " + obs_part.name)
-        sys_c_forms = approximate_feedback_law(sys_part)
-        self._sys_evaluator = LawEvaluator(sys_c_forms)
-        obs_c_forms = approximate_feedback_law(obs_part)
-        self._obs_evaluator = LawEvaluator(obs_c_forms)
-        self._weighted_initial_error = weighted_initial_error
-
-    def _calc_output(self, **kwargs):
-        """
-        Calculates the observer error based on the system and the observer weights.
-
-        Keyword Args:
-            sys_weights: Current weights of the simulations system approximation.
-            sys_weights_lbl (str): Corresponding label of :code:`sys_weights`.
-            obs_weights: Current weights of the observer system approximation.
-            obs_weights_lbl (str): Corresponding label of :code:`obs_weights`.
-
-        Return:
-            dict: Feedback under the key :code:`"output"`.
-        """
-        sp = self._sys_evaluator(kwargs["sys_weights"], kwargs["sys_weights_lbl"], kwargs["sys_fam_tree"])["output"]
-        op = self._obs_evaluator(kwargs["obs_weights"], kwargs["obs_weights_lbl"], kwargs["obs_fam_tree"])["output"]
-        if self._weighted_initial_error is None or np.isclose(self._weighted_initial_error, 0):
-            return dict(output=sp + op)
-        else:
-            t = np.clip(kwargs["time"], 0, self._weighted_initial_error)
-            phi = (1 - np.cos(t / self._weighted_initial_error * np.pi)) * .5
-            return dict(output=phi * (sp + op))
-
-
-def build_observer_from_state_space(state_space):
-    """
-    Return a :py:class:`Observer` object based on the given :py:class:`StateSpace` object.
-    The method return :code:`None` if state_space.input is not a instance of
-    :py:class:`ObserverError` or if self._input_function is a instance of
-    :py:class:`SimulationInputSum` which not hold any :py:class:`ObserverError` instance.
-
-    Args:
-        state_space (:py:class:`StateSpace`): State space to be convert.
+        source_label (str): Label from the source base.
+        destination_label (str): Label from the destination base.
+        destination_order: Order from the time derivative of the
+            destination weights.
+        source_weights_length (int): Due to derivation w.r.t. time
+            expanded length of the source weight vector.
+        only_info (bool): If you need only the TransformationInfo
+            object, set it to True.
 
     Returns:
-        :py:class:`pyinduct.simulation.Observer` or None: See docstring.
+        tuple: First tuple element is the transformation and the
+            second tuple element is the TransformationInfo object.
+
     """
-    input_func = state_space.input
-    if not isinstance(input_func, SimulationInput):
-        raise TypeError("The input function of the given state space must be a instance from SimulationInput.")
-    if not isinstance(input_func, ObserverError):
-        if isinstance(input_func, SimulationInputVector):
-            if not any([isinstance(i, ObserverError) for i in input_func.input_vector]):
-                return None
-        else:
-            raise NotImplementedError
+    info = TransformationInfo()
+    info.src_lbl = source_label
+    info.src_base = get_base(info.src_lbl)
+    info.dst_lbl = destination_label
+    if isinstance(info.src_base, StackedBase):
+        if info.dst_lbl not in info.src_base._info:
+            raise NotImplemented
+        info.src_order = info.src_base._info[info.dst_lbl]['order'] - 1
     else:
-        return Observer(state_space.weight_lbl, state_space.A, None, state_space.input, state_space.f,
-                        state_space.C, state_space.D, state_space.family_tree, l_matrices=state_space.B)
+        if source_weights_length is None:
+            raise ValueError("Since the source base in not a instance from StackedBase"
+                             "the length of the source base must be provided"
+                             "over the kwarg *soruce_weights_length*.")
+        info.src_order = int(source_weights_length / info.src_base.fractions.size) - 1
+    info.dst_base = get_base(destination_label)
+    info.dst_order = destination_order
 
-    obs_b_matrices = dict()
-    obs_l_matrices = dict()
-    for exp, mat in state_space.B.items():
-        obs_b_matrices[exp] = np.hstack(
-            tuple([state_space.B[exp][:, index] for index in state_space.input._sys_inputs.keys()])
-        )
-        obs_l_matrices[exp] = np.hstack(
-            tuple([state_space.B[exp][:, index] for index in state_space.input._obs_errors.keys()])
-        )
-
-    return Observer(state_space.weight_lbl, state_space.A, obs_b_matrices, state_space.input, state_space.f,
-                    state_space.C, state_space.D, state_space.family_tree, obs_l_matrices)
+    if only_info:
+        return info
+    else:
+        return get_weight_transformation(info), info
