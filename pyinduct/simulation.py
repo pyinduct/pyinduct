@@ -255,18 +255,19 @@ class StateSpace(object):
         Returns:
             (array): :math:`\boldsymbol{\dot{x}}(t)`
         """
-        q_t = self.A[0]
+        q_t = np.zeros((len(_q), 1))
+        _q = np.reshape(_q, q_t.shape)
         for p, a_mat in self.A.items():
             q_t = q_t + a_mat @ np.power(_q, p)
 
         # TODO make compliant with definition of temporal derived input
         u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
+        u = np.reshape(u, (u.size, 1))
         for o, p_mats in self.B.items():
             for p, b_mat in p_mats.items():
-                # q_t = q_t + (b_mat @ np.power(u, p)).flatten()
                 q_t = q_t + b_mat @ np.power(u, p)
 
-        return q_t
+        return q_t.flatten()
 
 
 def simulate_system(weak_form, initial_states,
