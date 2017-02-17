@@ -963,10 +963,10 @@ def parse_weak_formulation(weak_form, finalize=True):
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
+                    result = _compute_product_of_scalars([a, b])
                 else:
-                    b = Scalars(np.ones_like(a.data.T))
+                    result = a.data
 
-                result = _compute_product_of_scalars([a, b])
 
             ce.add_to(weight_label=field_var.data["weight_lbl"], term=term_info, val=result * term.scale)
             continue
@@ -1019,6 +1019,8 @@ def parse_weak_formulation(weak_form, finalize=True):
             result = _compute_product_of_scalars(placeholders["scalars"])
             target = get_common_target(placeholders["scalars"])
             target_form = placeholders["scalars"][0].target_form
+            if target_form is None and len(placeholders["scalars"]) > 1:
+                target_form = placeholders["scalars"][1].target_form
 
             if placeholders["inputs"]:
                 input_var = placeholders["inputs"][0]
