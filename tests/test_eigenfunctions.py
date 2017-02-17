@@ -423,10 +423,10 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
                 plt.plot(z, eig_f.derive(1)(z))
 
             # check transient behaviour
-            self.assertTrue(np.allclose(a2 * eig_f.derive(2)(z)
-                                        + a1 * eig_f.derive(1)(z)
-                                        + a0 * eig_f(z),
-                                        eig_v.real * eig_f(z)))
+            np.testing.assert_array_almost_equal(a2 * eig_f.derive(2)(z)
+                                                 + a1 * eig_f.derive(1)(z)
+                                                 + a0 * eig_f(z),
+                                                 eig_v.real * eig_f(z))
 
             # check boundaries
             self.assertTrue(np.isclose(eig_f.derive(1)(z[0]),
@@ -447,12 +447,12 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
             eig_v = self.eig_val[i]
 
             # interval
-            self.assertTrue(np.allclose(
+            np.testing.assert_array_almost_equal(
                 self.a2_z(self.z) * self.eig_funcs[i].derive(2)(self.z)
                 + self.a1_z(self.z) * eig_f.derive(1)(self.z)
                 + self.a0_z(self.z) * eig_f(self.z),
                 eig_v.real * eig_f(self.z),
-                rtol=1e-3))
+                decimal=2)
 
             # boundaries
             self.assertTrue(np.isclose(eig_f.derive(1)(self.z[0]),

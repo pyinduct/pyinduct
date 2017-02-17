@@ -295,158 +295,158 @@ class ParseTest(unittest.TestCase):
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term2, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[0], [-2], [2]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [-2], [2]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term1_squared, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][2], np.array([[0], [0], [1]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][2], np.array([[0], [0], [1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.25], [.5], [.25]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.25], [.5], [.25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3_swapped, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.25], [.5], [.25]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.25], [.5], [.25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3_scaled, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[.0], [.25], [.25]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.0], [.25], [.25]]))
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.func_term, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["f"], np.array([[0], [0], [1]])))
+        np.testing.assert_array_almost_equal(terms["f"], np.array([[0], [0], [1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_term_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_term_at1_squared, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_squared_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][2],
-                                    np.array([[1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                    np.array([[1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_term_dz_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_dz_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_term_ddt_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][2][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_ddt_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][2][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]])))
+        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]]))
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case is also valid for swapped arguments
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_fs_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 1], [0, 0, 2]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 1], [0, 0, 2]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_fs, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(
-            np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
+        np.testing.assert_array_almost_equal(
+            terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(
-            np.allclose(terms["E"][0][2], np.array([[1 / 8, 1 / 24, 0], [1 / 24, 1 / 4, 1 / 24], [0, 1 / 24, 1 / 8]])))
+        np.testing.assert_array_almost_equal(
+            terms["E"][0][2], np.array([[1 / 8, 1 / 24, 0], [1 / 24, 1 / 4, 1 / 24], [0, 1 / 24, 1 / 8]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(
-            np.allclose(terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
+        np.testing.assert_array_almost_equal(
+            terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_at1_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1 / 6, 1 / 3, 1 / 6]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1 / 6, 1 / 3, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
 
         # more complex terms
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_fddt_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(
-            np.allclose(terms["E"][2][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]])))
+        np.testing.assert_array_almost_equal(
+            terms["E"][2][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_fddt_at0_f_at0, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])))
+        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.spat_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.spat_int_asymmetric, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_f_at1_dphi_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]])))
+        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]]))
 
         desired = np.array([0, 0.25, 0.25])
         terms1 = sim.parse_weak_formulation(
             sim.WeakFormulation(self.scalar_func_test11, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
         terms2 = sim.parse_weak_formulation(
             sim.WeakFormulation(self.scalar_func_test12, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        self.assertTrue(np.allclose(terms1["E"][0][1], desired))
-        self.assertTrue(np.allclose(terms2["E"][0][1], desired))
+        np.testing.assert_array_almost_equal(terms1["E"][0][1], desired)
+        np.testing.assert_array_almost_equal(terms2["E"][0][1], desired)
 
         desired = np.array([[1], [0], [0]])
         terms1 = sim.parse_weak_formulation(
             sim.WeakFormulation(self.scalar_var_test11, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
         terms2 = sim.parse_weak_formulation(
             sim.WeakFormulation(self.scalar_var_test12, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
-        self.assertTrue(np.allclose(terms1["E"][0][1], desired))
-        self.assertTrue(np.allclose(terms2["E"][0][1], desired))
+        np.testing.assert_array_almost_equal(terms1["E"][0][1], desired)
+        np.testing.assert_array_almost_equal(terms2["E"][0][1], desired)
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term1, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[0], [0], [1]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [0], [1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term1_swapped, name="test"), finalize=False).get_static_terms()
-        self.assertTrue(np.allclose(terms["G"][0][1], np.array([[0], [0], [1]])))
+        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [0], [1]]))
 
     def test_alternating_weights(self):
         self.assertRaises(ValueError, sim.parse_weak_formulation,
@@ -494,14 +494,14 @@ class StateSpaceTests(unittest.TestCase):
     def test_convert_to_state_space(self):
         ss = sim.create_state_space({"test_eq": self.ce})
         self.assertEqual(ss.A[1].shape, (6, 6))
-        self.assertTrue(np.allclose(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
-                                                       [0, 0, 0, 0, 1, 0],
-                                                       [0, 0, 0, 0, 0, 1],
-                                                       [-2.25, 3, -.75, 0, 0, 0],
-                                                       [7.5, -18, 10.5, 0, 0, 0],
-                                                       [-3.75, 21, -17.25, 0, 0, 0]])))
+        np.testing.assert_array_almost_equal(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
+                                                                [0, 0, 0, 0, 1, 0],
+                                                                [0, 0, 0, 0, 0, 1],
+                                                                [-2.25, 3, -.75, 0, 0, 0],
+                                                                [7.5, -18, 10.5, 0, 0, 0],
+                                                                [-3.75, 21, -17.25, 0, 0, 0]]))
         self.assertEqual(ss.B[0][1].shape, (6, 1))
-        self.assertTrue(np.allclose(ss.B[0][1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]])))
+        np.testing.assert_array_almost_equal(ss.B[0][1], np.array([[0], [0], [0], [0.125], [-1.75], [6.875]]))
         self.assertEqual(self.ce.input_function, self.u)
 
     def test_simulate_state_space(self):
@@ -517,7 +517,7 @@ class StateSpaceTests(unittest.TestCase):
         # print(t.points)
 
         # check that the demanded time range has been simulated
-        self.assertTrue(np.allclose(t.points, self.time_domain.points))
+        np.testing.assert_array_almost_equal(t.points, self.time_domain.points)
 
     def tearDown(self):
         pi.deregister_base("swm_base")
@@ -823,8 +823,8 @@ class MultipleODETest(unittest.TestCase):
 
         state_space_form = pi.create_state_space(canonical_equations)
 
-        np.testing.assert_array_equal(state_space_form.A[1], a_desired)
-        np.testing.assert_array_equal(state_space_form.B[0][1], b_desired)
+        np.testing.assert_array_almost_equal(state_space_form.A[1], a_desired)
+        np.testing.assert_array_almost_equal(state_space_form.B[0][1], b_desired)
 
 
 class MultiplePDETest(unittest.TestCase):
@@ -1188,10 +1188,10 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
 
         # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])),
+        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])),
                                     np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=3e-1, atol=0.))
-        self.assertTrue(np.allclose(ss_weak.B[0][1], ss_modal.B[0][1]))
+                                    decimal=5)
+        np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
         # display results
         # TODO can the result be tested?
@@ -1266,9 +1266,9 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        self.assertTrue(np.allclose(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    rtol=1e-05, atol=0.))
-        self.assertTrue(np.allclose(ss_weak.B[0][1], ss_modal.B[0][1]))
+        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
+                                             decimal=5)
+        np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
         # display results
         if show_plots:

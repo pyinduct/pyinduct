@@ -504,6 +504,7 @@ class SecondOrderEigenVector(Function):
                   + params.a1 * char_roots[:, 1]
                   + params.a0)
 
+        # TODO: Is actually np.testing.assert_array_almost_equal() needed?
         if not np.allclose(l1, l2):
             raise ValueError("Given characteristic root pair must resolve to"
                              "a single eigenvalue.")
