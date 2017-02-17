@@ -16,13 +16,14 @@ from scipy.linalg import block_diag
 
 from .core import (Domain, Parameters, Function, integrate_function, calculate_scalar_product_matrix,
                    project_on_base, dot_product_l2, sanitize_input, StackedBase, TransformationInfo,
-                   get_weight_transformation, EvalData)
+                   get_weight_transformation, EvalData, project_on_bases)
 from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
            "create_state_space", "StateSpace", "simulate_state_space", "simulate_system", "simulate_systems",
-           "process_sim_data", "evaluate_approximation"]
+           "process_sim_data", "evaluate_approximation", "parse_weak_formulations", "project_on_bases",
+           "get_sim_results", "SimulationInputVector"]
 
 
 class SimulationInput(object, metaclass=ABCMeta):
@@ -121,49 +122,6 @@ class SimulationInputSum(SimulationInput):
     def _calc_output(self, **kwargs):
         outs = [handle(**kwargs) for handle in self.inputs]
         return dict(output=np.sum(outs, axis=0))
-
-
-class SimulationInputVector(SimulationInput):
-    """
-    Class that represent the input vector :math:`\\boldsymbol{u}\\in\\mathbb R^n` from a state space
-    system (:py:class:`StateSpace`) like
-
-    .. math::
-        \\boldsymbol{\\dot{x}}(t) &= \\boldsymbol{A}\\boldsymbol{x}(t) + \\boldsymbol{B}\\boldsymbol{u}(t) \\\\
-        \\boldsymbol{y}(t) &= \\boldsymbol{C}\\boldsymbol{x}(t) + \\boldsymbol{D}\\boldsymbol{u}(t).
-
-    Args:
-        input_vector (list): List which holds (in sum) :math:`n` :py:class:`SimulationInput` and/or
-            :py:class:`ObserverError` instances.
-    """
-
-    def __init__(self, input_vector):
-        SimulationInput.__init__(self)
-        if not all([isinstance(input, SimulationInput) and not isinstance(input, SimulationInputVector)
-                    for input in input_vector]):
-            raise TypeError("A SimulationInputVector can only hold SimulationInputs's and can not nest.")
-
-        self.input_vector = input_vector
-        self.len = len(input_vector)
-        self.indices = np.arange(self.len)
-        self._sys_inputs = collections.OrderedDict()
-        self._obs_errors = collections.OrderedDict()
-        for index in self.indices:
-            if isinstance(input_vector[index], ObserverError):
-                self._obs_errors[index] = input_vector[index]
-            else:
-                self._sys_inputs[index] = input_vector[index]
-
-    def _calc_output(self, **kwargs):
-        output = list()
-        if "obs_weights" in kwargs.keys():
-            for obs_err in self._obs_errors.values():
-                output.append(obs_err(**kwargs))
-        else:
-            for sys_input in self._sys_inputs.values():
-                output.append(sys_input(**kwargs))
-
-        return dict(output=np.matrix(np.vstack(output)))
 
 
 class WeakFormulation(object):
@@ -316,47 +274,32 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         list: List of :py:class:`pyinduct.visualization.EvalData` objects, holding the results for the FieldVariable
         and demanded derivatives.
     """
+    if derivative_orders is None:
+        derivative_orders = dict([(lbl, (0,0))for lbl in spatial_domains])
+
     weak_forms = sanitize_input(weak_forms, WeakFormulation)
     print("simulating systems: {}".format([f.name for f in weak_forms]))
 
-    # parse input and create state space system
-    canonical_equations = OrderedDict()
-    for form in weak_forms:
-        print(">>> parsing formulation {}".format(form.name))
-        if form.name in canonical_equations:
-            raise ValueError(("Name {} for CanonicalEquation already assigned,"
-                              + "names must be unique.").format(form.name))
-        canonical_equations.update({form.name: parse_weak_formulation(form)})
-
     print(">>> creating state space system")
+    canonical_equations = parse_weak_formulations(weak_forms)
     state_space_form = create_state_space(canonical_equations)
 
-    # calculate initial state, assuming it will be constituted by the
-    # dominant systems
     print(">>> deriving initial conditions")
-    q0 = np.array([])
-    for form in weak_forms:
-        lbl = canonical_equations[form.name].dominant_lbl
-        q0 = np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl))
-                                     for initial_state in initial_states[form.name]]))
+    q0 = project_on_bases(canonical_equations, initial_states)
 
-    # simulate
     print(">>> performing time step integration")
     sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain, settings=settings)
 
-    # evaluate
     print(">>> performing postprocessing")
+    # TODO: use this line, when member name is removed from WeakFormulation
+    # results = get_sim_results(sim_domain, spatial_domains, q, state_space_form, derivative_orders=derivative_orders)
     results = []
     for form in weak_forms:
         # acquire a transformation into the original weights
-        info = TransformationInfo()
-        info.src_lbl = state_space_form.base_lbl
-        info.src_base = get_base(info.src_lbl)
-        info.src_order = initial_states[form.name].size - 1
-        info.dst_lbl = canonical_equations[form.name].dominant_lbl
-        info.dst_base = get_base(info.dst_lbl)
-        info.dst_order = derivative_orders[form.name][0]
-        transformation = get_weight_transformation(info)
+        transformation, info = get_transformation(state_space_form.base_lbl,
+                                                  canonical_equations[form.name].dominant_lbl,
+                                                  derivative_orders[form.name][0],
+                                                  canonical_equations[form.name].dominant_form.dim_xb)
 
         # project back
         data = process_sim_data(info.dst_lbl,
@@ -369,6 +312,52 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         results += data
 
     print("finished simulation.")
+    return results
+
+def get_sim_results(temp_domain, spat_domains, weights, state_space, labels=None, derivative_orders=None):
+    """
+    Provide Simulation results for specific subsystems.
+
+    Args:
+        temp_domain (:py:class:`pyinduct.core.Domain`): Time domain
+        spat_domains: Spatial domain from all subsystems which belongs to *state_space*.
+        weights (numpy.array): Weights gained through simulation. For example with
+            :py:func:`simulate_state_space`.
+        state_space (:py:class:`StateSpace`): Simulated state space instance.
+        labels: List of the desired labels. If not given all abailable subssystems will be processed.
+        derivative_orders (dict): Desired derivative orders.
+
+    Returns:
+        List of :py:class:`pyinduct.visualization.EvalData` objects.
+    """
+    if derivative_orders is None:
+        derivative_orders = dict([(lbl, (0, 0))for lbl in spat_domains])
+
+    ss_base = get_base(state_space.base_lbl)
+    if labels is None:
+        if isinstance(ss_base, StackedBase):
+            labels = [lbl for lbl in ss_base._info.keys()]
+        else:
+            labels = state_space.base_lbl
+
+    results = []
+    for lbl in labels:
+        # acquire a transformation into the original weights
+        transformation, info = get_transformation(state_space.base_lbl,
+                                                  lbl,
+                                                  derivative_orders[lbl][0],
+                                                  get_base(state_space.base_lbl).fractions.size)
+
+        # project back
+        data = process_sim_data(info.dst_lbl,
+                                np.apply_along_axis(transformation, 1, weights),
+                                temp_domain,
+                                spat_domains[lbl],
+                                info.dst_order,
+                                derivative_orders[lbl][1],
+                                name=lbl)
+        results += data
+
     return results
 
 
@@ -1060,6 +1049,27 @@ def parse_weak_formulation(weak_form, finalize=True):
         ce.finalize()
 
     return ce
+
+
+def parse_weak_formulations(weak_forms):
+    """
+    Parse given weak formulations and check uniqueness of there dominant label.
+
+    Args:
+        weak_forms: List of :py:class:`WeakFormulation`s
+
+    Returns:
+        collections.OrderedDict: Ordered dictionary with :py:class:`CanonicalEquation`s as values.
+    """
+    canonical_equations = OrderedDict()
+    for form in weak_forms:
+        print(">>> parsing formulation {}".format(form.name))
+        if form.name in canonical_equations:
+            raise ValueError(("Name {} for CanonicalEquation already assigned,"
+                              + "names must be unique.").format(form.name))
+        canonical_equations.update({form.name: parse_weak_formulation(form)})
+
+    return canonical_equations
 
 
 def _compute_product_of_scalars(scalars):

@@ -5,7 +5,6 @@ import warnings
 
 import numpy as np
 import collections
-from collections import OrderedDict
 from copy import copy, deepcopy
 from numbers import Number
 
@@ -1026,7 +1025,31 @@ def project_on_base(function, base):
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
 
-    return np.dot(np.linalg.inv(scale_mat), projections)
+    return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
+
+
+def project_on_bases(canonical_equations, initial_states):
+    """
+    Calculate initial state, assuming it will be constituted by the dominant systems.
+    The keys from the dictionaries *canonical_equations* and *initial_states* must
+    be the same.
+
+    Args:
+        canonical_equations (collections.OrderedDict): Ordered dictionary with
+            :py:class:`pyinduct.core.CanonicalEquation`s as values.
+        initial_states: Dictionary with functions as values.
+
+    Returns:
+        numpy.array: Initial state as 1d-array corresponding to the concatenated
+            dominant bases from *canonical_equations*.
+    """
+    q0 = np.array([])
+    for ce in canonical_equations.values():
+        lbl = ce.dominant_lbl
+        q0 = np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl))
+                                     for initial_state in initial_states[ce.name]]))
+
+    return q0
 
 
 def back_project_from_base(weights, base):
