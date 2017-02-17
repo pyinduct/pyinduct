@@ -86,8 +86,8 @@ def simulation_benchmark(spat_domain, settings):
 
     temporal_order = min(initial_states.size - 1, 0)
     _i = time.clock()
-    eval_data = pi.process_sim_data(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
-                                     name=can_eq.dominant_form.name)
+    eval_data = pi.get_sim_result(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
+                                  name=can_eq.dominant_form.name)
     _j = time.clock()
 
     pi.deregister_base("base")

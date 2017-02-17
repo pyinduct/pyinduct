@@ -618,7 +618,7 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
                                                                 system_input,
                                                                 self.param,
                                                                 self.dz.bounds)
-        cf = pi.parse_weak_formulation(rad_pde)
+        cf = pi.parse_weak_formulation(rad_pde, finalize=False)
         ss_weak = pi.create_state_space(cf)
 
         # simulate

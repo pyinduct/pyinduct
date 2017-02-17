@@ -645,7 +645,7 @@ class StateSpaceTests(unittest.TestCase):
         self.ic = np.zeros((6, ))
 
     def test_convert_to_state_space(self):
-        ss = sim.create_state_space({"test_eq": self.ce})
+        ss = sim.create_state_space({self.ce.name: self.ce})
         self.assertEqual(ss.A[1].shape, (6, 6))
         np.testing.assert_array_almost_equal(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
                                                                 [0, 0, 0, 0, 1, 0],
@@ -662,7 +662,7 @@ class StateSpaceTests(unittest.TestCase):
         using the diligent input this test makes sure, that the solver doesn't evaluate the provided input outside
         the given time domain
         """
-        ss = sim.create_state_space({"test_eq": self.ce})
+        ss = sim.create_state_space({self.ce.name: self.ce})
         t, q = sim.simulate_state_space(ss, self.ic, self.time_domain)
 
         # print(self.u._time_storage)
@@ -753,7 +753,7 @@ class StringMassTest(unittest.TestCase):
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
         self.cf = sim.parse_weak_formulation(string_pde)
-        ss = sim.create_state_space({"swm": self.cf})
+        ss = sim.create_state_space({self.cf.name: self.cf})
 
         # generate initial conditions for weights
         q0 = np.array([pi.project_on_base(self.ic[idx], fem_base)
@@ -1474,29 +1474,13 @@ class SetDominantLabel(unittest.TestCase):
 
     def setUp(self):
         self.limits = (0, 1)
-        dz1 = pi.Domain(bounds=self.limits, num=100)
-        dz2 = pi.Domain(bounds=self.limits , num=100)
-        dz3 = pi.Domain(bounds=self.limits, num=100)
+        domain = pi.Domain(bounds=self.limits, num=100)
+        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder, domain.bounds,
+                                       node_count=3)
 
-        def x(z, t):
-            """
-            initial conditions for testing
-            """
-            return 0
-
-        # initial conditions
-        ic1 = np.array([pi.Function(lambda z: x(z, 0))])
-        ic2 = np.array([pi.Function(lambda z: x(z, 0))])
-        ic3 = np.array([pi.Function(lambda z: x(z, 0))])
-
-        # weak formulations
-        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, dz1.bounds, node_count=3)
-        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, dz2.bounds, node_count=3)
-        nodes3, base3 = pi.cure_interval(pi.LagrangeFirstOrder, dz3.bounds, node_count=3)
-
-        pi.register_base("base_1", base1)
-        pi.register_base("base_2", base2)
-        pi.register_base("base_3", base3)
+        pi.register_base("base_1", base)
+        pi.register_base("base_2", base)
+        pi.register_base("base_3", base)
 
         self.x1 = pi.FieldVariable("base_1")
         self.psi_1 = pi.TestFunction("base_1")
@@ -1520,17 +1504,11 @@ class SetDominantLabel(unittest.TestCase):
             pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
         ], name="sys_3")
-        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
-        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
-        ce3 = sim.parse_weak_formulation(weak_form_3, finalize=False)
-        ces = OrderedDict()
-        ces.update({ce1.name: ce1})
-        ces.update({ce2.name: ce2})
-        ces.update({ce3.name: ce3})
+        ces = sim.parse_weak_formulations([weak_form_1, weak_form_2,
+                                           weak_form_3])
         sim.set_dominant_labels(ces)
-        self.assertEqual("base_1", ce1.dominant_lbl)
-        self.assertEqual("base_2", ce2.dominant_lbl)
-        self.assertEqual("base_3", ce3.dominant_lbl)
+        for i, ce in zip(range(3), ces.values()):
+            self.assertEqual("base_{}".format(i + 1), ce.dominant_lbl)
 
     def test_non_valid_algebraic(self):
         weak_form_1 = pi.WeakFormulation([
@@ -1543,11 +1521,7 @@ class SetDominantLabel(unittest.TestCase):
             pi.IntegralTerm(pi.Product(self.x2.derive(temp_order=1), self.psi_2), limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x2(0), self.psi_2(0))),
         ], name="sys_2")
-        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
-        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
-        ces = OrderedDict()
-        ces.update({ce1.name: ce1})
-        ces.update({ce2.name: ce2})
+        ces = sim.parse_weak_formulations([weak_form_1, weak_form_2])
         self.assertRaises(ValueError, sim.set_dominant_labels, ces)
 
     def test_non_valid_max_order_uniqueness(self):
@@ -1568,13 +1542,8 @@ class SetDominantLabel(unittest.TestCase):
             pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
         ], name="sys_3")
-        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
-        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
-        ce3 = sim.parse_weak_formulation(weak_form_3, finalize=False)
-        ces = OrderedDict()
-        ces.update({ce1.name: ce1})
-        ces.update({ce2.name: ce2})
-        ces.update({ce3.name: ce3})
+        ces = sim.parse_weak_formulations([weak_form_1, weak_form_2,
+                                           weak_form_3])
         self.assertRaises(ValueError, sim.set_dominant_labels, ces)
 
     def test_non_valid_not_enough_labels(self):
@@ -1588,11 +1557,7 @@ class SetDominantLabel(unittest.TestCase):
                 pi.Product(self.x1.derive(temp_order=4), self.psi_1),
                 limits=self.limits),
         ], name="sys_2")
-        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
-        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
-        ces = OrderedDict()
-        ces.update({ce1.name: ce1})
-        ces.update({ce2.name: ce2})
+        ces = sim.parse_weak_formulations([weak_form_1, weak_form_2])
         self.assertRaises(ValueError, sim.set_dominant_labels, ces)
 
     def test_wrong_dominant_labels(self):
@@ -1606,11 +1571,7 @@ class SetDominantLabel(unittest.TestCase):
                 pi.Product(self.x2.derive(temp_order=4), self.psi_1),
                 limits=self.limits),
         ], name="sys_2", dominant_lbl="base_1")
-        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
-        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
-        ces = OrderedDict()
-        ces.update({ce1.name: ce1})
-        ces.update({ce2.name: ce2})
+        ces = sim.parse_weak_formulations([weak_form_1, weak_form_2])
         self.assertWarns(UserWarning, sim.set_dominant_labels, ces)
 
     def tearDown(self):
