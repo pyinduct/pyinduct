@@ -1,16 +1,9 @@
-import sys
 import unittest
 
 import numpy as np
-
 import pyinduct as pi
 import pyinduct.placeholder as ph
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    # show_plots = True
-    show_plots = False
+from tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
