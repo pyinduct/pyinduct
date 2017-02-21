@@ -14,10 +14,13 @@ from scipy.integrate import ode
 from scipy.interpolate import interp1d
 from scipy.linalg import block_diag
 
-from .core import (Domain, Parameters, Function, integrate_function, calculate_scalar_product_matrix,
-                   project_on_base, dot_product_l2, sanitize_input, StackedBase, TransformationInfo,
-                   get_weight_transformation, EvalData)
-from .placeholder import Scalars, TestFunction, Input, FieldVariable, EquationTerm, get_common_target
+from .core import (Domain, Parameters, Function, integrate_function,
+                   calculate_scalar_product_matrix, project_on_base,
+                   dot_product_l2, sanitize_input,
+                   StackedBase, TransformationInfo, get_weight_transformation,
+                   EvalData)
+from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
+                          EquationTerm, get_common_target, get_common_form)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation", "parse_weak_formulation",
@@ -934,29 +937,36 @@ def parse_weak_formulation(weak_form, finalize=True):
             shape_funcs = base.raise_to(exponent)
 
             if placeholders["inputs"]:
-                # essentially, this means that parts of the state-transition matrix will be time dependent
+                # essentially, this means that parts of the state-transition
+                # matrix will be time dependent
                 raise NotImplementedError
 
-            # is the integrand a product?
             if placeholders["functions"]:
+                # is the integrand a product?
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, shape_funcs)
+                result = calculate_scalar_product_matrix(dot_product_l2,
+                                                         test_funcs,
+                                                         shape_funcs)
             else:
                 # extract constant term and compute integral
-                a = Scalars(np.atleast_2d([integrate_function(func, func.nonzero)[0]
-                                           for func in shape_funcs.fractions]))
+                # TODO this is a source of complex data, since integrate
+                # function will return complex dtype.
+                a = Scalars(np.atleast_2d(
+                    [integrate_function(func, func.nonzero)[0]
+                     for func in shape_funcs.fractions]))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
+                    result = _compute_product_of_scalars([a, b])
                 else:
-                    b = Scalars(np.ones_like(a.data.T))
+                    result = a.data
 
-                result = _compute_product_of_scalars([a, b])
-
-            ce.add_to(weight_label=field_var.data["weight_lbl"], term=term_info, val=result * term.scale)
+            ce.add_to(weight_label=field_var.data["weight_lbl"],
+                      term=term_info,
+                      val=result * term.scale)
             continue
 
         # TestFunctions or pre evaluated terms, those can end up in E, f or G
@@ -1006,7 +1016,7 @@ def parse_weak_formulation(weak_form, finalize=True):
         if placeholders["scalars"]:
             result = _compute_product_of_scalars(placeholders["scalars"])
             target = get_common_target(placeholders["scalars"])
-            target_form = placeholders["scalars"][0].target_form
+            target_form = get_common_form(placeholders)
 
             if placeholders["inputs"]:
                 input_var = placeholders["inputs"][0]
@@ -1049,6 +1059,9 @@ def _compute_product_of_scalars(scalars):
     elif scalars[0].data.shape == scalars[1].data.shape:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
+    elif scalars[0].data.shape == (1, 1) or scalars[1].data.shape == (1, 1):
+        # a lumped terms is present
+        res = scalars[0].data * scalars[1].data
     else:
         # dyadic product
         try:
@@ -1057,7 +1070,7 @@ def _compute_product_of_scalars(scalars):
             else:
                 res = scalars[1].data @ scalars[0].data
         except ValueError as e:
-            raise ValueError("provided entries do not form a dyadic product" + e.msg)
+            raise ValueError("provided entries do not form a dyadic product")
 
     return res
 

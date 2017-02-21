@@ -159,6 +159,7 @@ class CanonicalFormTest(unittest.TestCase):
         self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), f)
         self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], f))
+
         # try to add something with derivative or exponent to f: value should end up in f
         self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], 2 * f))
@@ -188,55 +189,87 @@ class ParseTest(unittest.TestCase):
         self.input_squared = pi.Input(self.u, exponent=2)
 
         # scale function
-        pi.register_base("heavyside", pi.Base(pi.Function(lambda z: 0 if z < 0.5 else (0.5 if z == 0.5 else 1))))
+        def heavyside(z):
+            if z < 0.5:
+                return 0
+            elif z == 0.5:
+                return .5
+            else:
+                return 1
 
-        nodes, self.test_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1),
-                                                 node_count=3)
-        pi.register_base("test_base1", self.test_base, overwrite=True)
-        pi.register_base("test_base2", pi.Base(pi.Function.from_constant(1)), overwrite=True)
+        base = pi.Base(pi.Function(heavyside))
+        pi.register_base("heavyside_base", base)
 
-        # TestFunctions
-        self.phi = pi.TestFunction("test_base1")
-        self.phi_at0 = self.phi(0)
-        self.phi_at1 = self.phi(1)
-        self.dphi = self.phi.derive(1)
-        self.dphi_at1 = self.dphi(1)
+        # distributed base
+        nodes, self.distributed_base = pi.cure_interval(
+            pi.LagrangeFirstOrder,
+            (0, 1),
+            node_count=3)
+        pi.register_base("distributed_base", self.distributed_base)
 
-        # Field variable 1
-        self.field_var = pi.FieldVariable("test_base1")
-        self.field_var_squared = pi.FieldVariable("test_base1", exponent=2)
+        # lumped base
+        self.lumped_base = pi.Base([pi.Function.from_constant(1)])
+        pi.register_base("lumped_base", self.lumped_base)
 
-        self.odd_weight_field_var = pi.FieldVariable("test_base1",
-                                                     weight_label="special_weights")
+        # Test Functions
+        self.test_funcs = pi.TestFunction("distributed_base")
+        self.test_funcs_at0 = self.test_funcs(0)
+        self.test_funcs_at1 = self.test_funcs(1)
+        self.test_funcs_dz = self.test_funcs.derive(1)
+        self.test_funcs_dz_at1 = self.test_funcs_dz(1)
+
+        # Distributed / Field Variables
+        self.field_var = pi.FieldVariable("distributed_base")
+        self.field_var_squared = pi.FieldVariable("distributed_base",
+                                                  exponent=2)
+        self.field_var_cubed = pi.FieldVariable("distributed_base",
+                                                exponent=3)
         self.field_var_at1 = self.field_var(1)
-        self.field_var_at1_squared = pi.FieldVariable("test_base1",
+        self.field_var_at1_squared = pi.FieldVariable("distributed_base",
                                                       location=1,
                                                       exponent=2)
 
         self.field_var_dz = self.field_var.derive(spat_order=1)
         self.field_var_dz_at1 = self.field_var_dz(1)
-
         self.field_var_ddt = self.field_var.derive(temp_order=2)
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
 
+        self.odd_weight_field_var = pi.FieldVariable(
+            "distributed_base", weight_label="special_weights")
+
         # Field variable 2
-        self.var = pi.FieldVariable("test_base2")
+        self.lumped_var = pi.FieldVariable("lumped_base")
 
-        # create all possible kinds of input variables
-        self.input_term1 = pi.ScalarTerm(pi.Product(self.phi_at1, self.input))
-        self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input, self.phi_at1))
-        self.input_term1_squared = pi.ScalarTerm(pi.Product(self.input_squared, self.phi_at1))
+        # Construction of Equation Terms
 
-        self.input_term2 = pi.ScalarTerm(pi.Product(self.dphi_at1, self.input))
-        self.func_term = pi.ScalarTerm(self.phi_at1)
+        # input
+        self.input_term1 = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
+                                                    self.input))
+        self.input_term1_squared = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
+                                                            self.input_squared))
+        self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input,
+                                                            self.test_funcs_at1)
+                                                 )
 
-        self.input_term3 = pi.IntegralTerm(pi.Product(self.phi, self.input), (0, 1))
-        self.input_term3_swapped = pi.IntegralTerm(pi.Product(self.input, self.phi), (0, 1))
+        self.input_term2 = pi.ScalarTerm(pi.Product(self.test_funcs_dz_at1,
+                                                    self.input))
+
+        self.input_term3 = pi.IntegralTerm(pi.Product(self.test_funcs,
+                                                      self.input),
+                                           (0, 1))
+        self.input_term3_swapped = pi.IntegralTerm(pi.Product(self.input,
+                                                              self.test_funcs),
+                                                   (0, 1))
+        self.scalar_func = pi.ScalarFunction("heavyside_base")
         self.input_term3_scaled = pi.IntegralTerm(
-            pi.Product(pi.Product(pi.ScalarFunction("heavyside"), self.phi), self.input), (0, 1))
+            pi.Product(pi.Product(self.scalar_func,
+                                  self.test_funcs), self.input), (0, 1))
 
-        # same goes for field variables
+        # pure test function terms
+        self.func_term = pi.ScalarTerm(self.test_funcs_at1)
+
+        # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
         self.field_term_at1_squared = pi.ScalarTerm(self.field_var_at1_squared)
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
@@ -247,215 +280,335 @@ class ParseTest(unittest.TestCase):
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
 
+        # products
         self.prod_term_fs_at1 = pi.ScalarTerm(
             pi.Product(self.field_var_at1, self.scalars))
-        self.prod_int_fs = pi.IntegralTerm(pi.Product(self.field_var, self.scalars), (0, 1))
-        self.prod_int_f_f = pi.IntegralTerm(pi.Product(self.field_var, self.phi), (0, 1))
-        self.prod_int_f_squared_f = pi.IntegralTerm(pi.Product(self.field_var_squared, self.phi), (0, 1))
-        self.prod_int_f_f_swapped = pi.IntegralTerm(pi.Product(self.phi, self.field_var), (0, 1))
-
+        self.prod_int_fs = pi.IntegralTerm(pi.Product(self.field_var,
+                                                      self.scalars),
+                                           (0, 1))
+        self.prod_int_f_f = pi.IntegralTerm(pi.Product(self.field_var,
+                                                       self.test_funcs),
+                                            (0, 1))
+        self.prod_int_f_squared_f = pi.IntegralTerm(pi.Product(
+            self.field_var_squared,
+            self.test_funcs),
+            (0, 1))
+        self.prod_int_f_f_swapped = pi.IntegralTerm(pi.Product(self.test_funcs,
+                                                               self.field_var),
+                                                    (0, 1))
         self.prod_int_f_at1_f = pi.IntegralTerm(
-            pi.Product(self.field_var_at1, self.phi), (0, 1))
+            pi.Product(self.field_var_at1, self.test_funcs), (0, 1))
         self.prod_int_f_at1_squared_f = pi.IntegralTerm(
-            pi.Product(self.field_var_at1_squared, self.phi), (0, 1))
+            pi.Product(self.field_var_at1_squared, self.test_funcs), (0, 1))
 
         self.prod_int_f_f_at1 = pi.IntegralTerm(
-            pi.Product(self.field_var, self.phi_at1), (0, 1))
+            pi.Product(self.field_var, self.test_funcs_at1), (0, 1))
         self.prod_int_f_squared_f_at1 = pi.IntegralTerm(
-            pi.Product(self.field_var_squared, self.phi_at1), (0, 1))
+            pi.Product(self.field_var_squared, self.test_funcs_at1), (0, 1))
 
         self.prod_term_f_at1_f_at1 = pi.ScalarTerm(
-            pi.Product(self.field_var_at1, self.phi_at1))
+            pi.Product(self.field_var_at1, self.test_funcs_at1))
         self.prod_term_f_at1_squared_f_at1 = pi.ScalarTerm(
-            pi.Product(self.field_var_at1_squared, self.phi_at1))
+            pi.Product(self.field_var_at1_squared, self.test_funcs_at1))
 
         self.prod_int_fddt_f = pi.IntegralTerm(
-            pi.Product(self.field_var_ddt, self.phi), (0, 1))
+            pi.Product(self.field_var_ddt, self.test_funcs), (0, 1))
         self.prod_term_fddt_at0_f_at0 = pi.ScalarTerm(
-            pi.Product(self.field_var_ddt_at0, self.phi_at0))
+            pi.Product(self.field_var_ddt_at0, self.test_funcs_at0))
 
         self.prod_term_f_at1_dphi_at1 = pi.ScalarTerm(
-            pi.Product(self.field_var_at1, self.dphi_at1))
+            pi.Product(self.field_var_at1, self.test_funcs_dz_at1))
 
-        self.temp_int = pi.IntegralTerm(pi.Product(self.field_var_ddt, self.phi), (0, 1))
-        self.spat_int = pi.IntegralTerm(pi.Product(self.field_var_dz, self.dphi), (0, 1))
-        self.spat_int_asymmetric = pi.IntegralTerm(
-            pi.Product(self.field_var_dz, self.phi), (0, 1))
+        self.temp_int = pi.IntegralTerm(pi.Product(self.field_var_ddt,
+                                                   self.test_funcs),
+                                        (0, 1))
+        self.spat_int = pi.IntegralTerm(pi.Product(self.field_var_dz,
+                                                   self.test_funcs_dz),
+                                        (0, 1))
+        self.spat_int_asymmetric = pi.IntegralTerm(pi.Product(self.field_var_dz,
+                                                              self.test_funcs),
+                                                   (0, 1))
 
-        self.scalar_var_test11 = pi.ScalarTerm(pi.Product(self.phi(0), self.var(0)))
-        self.scalar_var_test12 = pi.ScalarTerm(pi.Product(self.var(0), self.phi(0)))
+        self.prod_term_tf_at0_lv_at0 = pi.ScalarTerm(
+            pi.Product(self.test_funcs(0), self.lumped_var(0)))
+        self.prod_term_tf_at0_lv_at0_swapped = pi.ScalarTerm(
+            pi.Product(self.lumped_var(0), self.test_funcs(0)))
 
-        self.scalar_func_test11 = pi.IntegralTerm(pi.Product(pi.ScalarFunction("heavyside"), self.field_var),
-                                                  limits=(0, 1))
-        self.scalar_func_test12 = pi.IntegralTerm(pi.Product(self.field_var, pi.ScalarFunction("heavyside")),
-                                                  limits=(0, 1))
+        self.prod_int_sf_fv = pi.IntegralTerm(pi.Product(self.scalar_func,
+                                                         self.field_var),
+                                              limits=(0, 1))
+        self.prod_int_sf_fv_swapped = pi.IntegralTerm(
+            pi.Product(self.field_var, self.scalar_func),
+            limits=(0, 1))
 
-        self.alternating_weights_term = pi.IntegralTerm(self.odd_weight_field_var, (0, 1))
+        self.alternating_weights_term = pi.IntegralTerm(
+            self.odd_weight_field_var,
+            (0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term2, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [-2], [2]]))
+            sim.WeakFormulation(self.input_term2, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[0], [-2], [2]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term1_squared, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][2], np.array([[0], [0], [1]]))
+            sim.WeakFormulation(self.input_term1_squared, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][2],
+                                             np.array([[0], [0], [1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term3, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.25], [.5], [.25]]))
+            sim.WeakFormulation(self.input_term3, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[.25], [.5], [.25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term3_swapped, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.25], [.5], [.25]]))
+            sim.WeakFormulation(self.input_term3_swapped, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[.25], [.5], [.25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term3_scaled, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[.0], [.25], [.25]]))
+            sim.WeakFormulation(self.input_term3_scaled, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[.0], [.25], [.25]]))
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.func_term, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["f"], np.array([[0], [0], [1]]))
+            sim.WeakFormulation(self.func_term, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["f"],
+                                             np.array([[0], [0], [1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
+            sim.WeakFormulation(self.field_term_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_at1_squared, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
-
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]]))
-
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_squared_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
+            sim.WeakFormulation(self.field_term_at1_squared, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
         np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                    np.array([[1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6], [1 / 6, 1 / 3, 1 / 6]]))
+                                             np.array([[0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_dz_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, -2, 2], [0, -2, 2], [0, -2, 2]]))
+            sim.WeakFormulation(self.field_term_ddt_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][2][1],
+                                             np.array([[0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_dz_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]))
+            sim.WeakFormulation(self.field_term_dz_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, -2, 2]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_ddt_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]]))
+            sim.WeakFormulation(self.field_int, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[.25, .5, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_ddt_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[0.25, 0.5, 0.25], [0.25, 0.5, 0.25], [.25, .5, .25]]))
+            sim.WeakFormulation(self.field_squared_int, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                             np.array([[1 / 6, 1 / 3, 1 / 6]]))
+
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.field_dz_int, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[-1, 0, 1]]))
+
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.field_ddt_int, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][2][1],
+                                             np.array([[.25, .5, .25]]))
 
     def test_Product_term(self):
-        # TODO create test functionality that will automatically check if Case is also valid for swapped arguments
+        # TODO create test functionality that will automatically check if Case
+        # is also valid for swapped arguments
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_fs_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 1], [0, 0, 2]]))
+            sim.WeakFormulation(self.prod_term_fs_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, 1],
+                                                       [0, 0, 2]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_fs, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0.25, .5, .25], [.5, 1, .5]]))
+            sim.WeakFormulation(self.prod_int_fs, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0],
+                                                       [0.25, .5, .25],
+                                                       [.5, 1, .5]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(
-            terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
+            sim.WeakFormulation(self.prod_int_f_f, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[1 / 6, 1 / 12, 0],
+                                                       [1 / 12, 1 / 3, 1 / 12],
+                                                       [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(
-            terms["E"][0][2], np.array([[1 / 8, 1 / 24, 0], [1 / 24, 1 / 4, 1 / 24], [0, 1 / 24, 1 / 8]]))
+            sim.WeakFormulation(self.prod_int_f_squared_f, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                             np.array([[1 / 8, 1 / 24, 0],
+                                                       [1 / 24, 1 / 4, 1 / 24],
+                                                       [0, 1 / 24, 1 / 8]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(
-            terms["E"][0][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
+            sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[1 / 6, 1 / 12, 0],
+                                                       [1 / 12, 1 / 3, 1 / 12],
+                                                       [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_at1_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]]))
+            sim.WeakFormulation(self.prod_int_f_at1_f, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0.25],
+                                                       [0, 0, 0.5],
+                                                       [0, 0, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, .25]]))
+            sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                             np.array([[0, 0, 0.25],
+                                                       [0, 0, 0.5],
+                                                       [0, 0, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0.25, 0.5, .25]]))
+            sim.WeakFormulation(self.prod_int_f_f_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, 0],
+                                                       [0.25, 0.5, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [1 / 6, 1 / 3, 1 / 6]]))
+            sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, 0],
+                                                       [1 / 6, 1 / 3, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
+            sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, 0],
+                                                       [0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][2], np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
+            sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][2],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, 0],
+                                                       [0, 0, 1]]))
 
         # more complex terms
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_fddt_f, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(
-            terms["E"][2][1], np.array([[1 / 6, 1 / 12, 0], [1 / 12, 1 / 3, 1 / 12], [0, 1 / 12, 1 / 6]]))
+            sim.WeakFormulation(self.prod_int_fddt_f, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][2][1],
+                                             np.array([[1 / 6, 1 / 12, 0],
+                                                       [1 / 12, 1 / 3, 1 / 12],
+                                                       [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_fddt_at0_f_at0, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][2][1], np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]]))
+            sim.WeakFormulation(self.prod_term_fddt_at0_f_at0, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][2][1],
+                                             np.array([[1, 0, 0],
+                                                       [0, 0, 0],
+                                                       [0, 0, 0]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.spat_int, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[2, -2, 0], [-2, 4, -2], [0, -2, 2]]))
+            sim.WeakFormulation(self.spat_int, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[2, -2, 0],
+                                                       [-2, 4, -2],
+                                                       [0, -2, 2]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.spat_int_asymmetric, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[-.5, .5, 0], [-.5, 0, .5], [0, -.5, .5]]))
+            sim.WeakFormulation(self.spat_int_asymmetric, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[-.5, .5, 0],
+                                                       [-.5, 0, .5],
+                                                       [0, -.5, .5]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_dphi_at1, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        np.testing.assert_array_almost_equal(terms["E"][0][1], np.array([[0, 0, 0], [0, 0, -2], [0, 0, 2]]))
+            sim.WeakFormulation(self.prod_term_f_at1_dphi_at1, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[0, 0, 0],
+                                                       [0, 0, -2],
+                                                       [0, 0, 2]]))
 
-        desired = np.array([0, 0.25, 0.25])
+        desired = np.array([[0, 0.25, 0.25]])
         terms1 = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.scalar_func_test11, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
-        terms2 = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.scalar_func_test12, name="test"), finalize=False).get_dynamic_terms()["test_base1"]
+            sim.WeakFormulation(self.prod_int_sf_fv, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
         np.testing.assert_array_almost_equal(terms1["E"][0][1], desired)
+
+        terms2 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.prod_int_sf_fv_swapped, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
         np.testing.assert_array_almost_equal(terms2["E"][0][1], desired)
 
         desired = np.array([[1], [0], [0]])
         terms1 = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.scalar_var_test11, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
-        terms2 = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.scalar_var_test12, name="test"), finalize=False).get_dynamic_terms()["test_base2"]
+            sim.WeakFormulation(self.prod_term_tf_at0_lv_at0, name="test"),
+            finalize=False).get_dynamic_terms()["lumped_base"]
         np.testing.assert_array_almost_equal(terms1["E"][0][1], desired)
+
+        terms2 = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.prod_term_tf_at0_lv_at0_swapped, name="test"),
+            finalize=False).get_dynamic_terms()["lumped_base"]
         np.testing.assert_array_almost_equal(terms2["E"][0][1], desired)
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term1, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [0], [1]]))
+            sim.WeakFormulation(self.input_term1, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[0], [0], [1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term1_swapped, name="test"), finalize=False).get_static_terms()
-        np.testing.assert_array_almost_equal(terms["G"][0][1], np.array([[0], [0], [1]]))
+            sim.WeakFormulation(self.input_term1_swapped, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[0], [0], [1]]))
 
     def test_alternating_weights(self):
         self.assertRaises(ValueError, sim.parse_weak_formulation,
-                          sim.WeakFormulation([self.alternating_weights_term, self.field_int], name=""))
+                          sim.WeakFormulation([self.alternating_weights_term,
+                                               self.field_int],
+                                              name=""))
 
     def tearDown(self):
-        pi.deregister_base("heavyside")
-        pi.deregister_base("test_base1")
-        pi.deregister_base("test_base2")
+        pi.deregister_base("heavyside_base")
+        pi.deregister_base("distributed_base")
+        pi.deregister_base("lumped_base")
 
 
 class StateSpaceTests(unittest.TestCase):
