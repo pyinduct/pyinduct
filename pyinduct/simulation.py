@@ -674,26 +674,17 @@ class CanonicalEquation(object):
             This function must be called to use the :py:attr:`dominant_form` attribute.
 
         """
-        highest_dict = {}
-        highest_list = []
-
         for lbl, form in self.dynamic_forms.items():
             # finalize dynamic forms
             form.finalize()
 
-            # extract maximum derivative orders
-            highest_dict[lbl] = form.max_temp_order
-            highest_list.append(form.max_temp_order)
-
-        max_order = max(highest_list)
-        highest_list.remove(max_order)
-        if max_order in highest_list:
-            raise ValueError("Highest derivative order cannot be isolated.")
-
         if self.dominant_lbl is None:
-            self.dominant_lbl = next(
-                (label for label, order in highest_dict.items()
-                 if order == max_order), None)
+            if len(self.dynamic_forms) == 1:
+                self.dominant_lbl = list(self.dynamic_forms.keys())[0]
+            else:
+                raise ValueError("You have to provide the dominant label "
+                                 "of the weak form / canonical equation, "
+                                 "since it holds multiple dynamic forms.")
 
         if self.dynamic_forms[self.dominant_lbl].singular:
             raise ValueError("The form that has to be chosen is singular.")
