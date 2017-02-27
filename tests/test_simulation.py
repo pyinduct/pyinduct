@@ -1468,3 +1468,152 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+
+class SetDominantLabel(unittest.TestCase):
+
+    def setUp(self):
+        self.limits = (0, 1)
+        dz1 = pi.Domain(bounds=self.limits, num=100)
+        dz2 = pi.Domain(bounds=self.limits , num=100)
+        dz3 = pi.Domain(bounds=self.limits, num=100)
+
+        def x(z, t):
+            """
+            initial conditions for testing
+            """
+            return 0
+
+        # initial conditions
+        ic1 = np.array([pi.Function(lambda z: x(z, 0))])
+        ic2 = np.array([pi.Function(lambda z: x(z, 0))])
+        ic3 = np.array([pi.Function(lambda z: x(z, 0))])
+
+        # weak formulations
+        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, dz1.bounds, node_count=3)
+        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, dz2.bounds, node_count=3)
+        nodes3, base3 = pi.cure_interval(pi.LagrangeFirstOrder, dz3.bounds, node_count=3)
+
+        pi.register_base("base_1", base1)
+        pi.register_base("base_2", base2)
+        pi.register_base("base_3", base3)
+
+        self.x1 = pi.FieldVariable("base_1")
+        self.psi_1 = pi.TestFunction("base_1")
+        self.x2 = pi.FieldVariable("base_2")
+        self.psi_2 = pi.TestFunction("base_2")
+        self.x3 = pi.FieldVariable("base_3")
+        self.psi_3 = pi.TestFunction("base_3")
+
+    def test_valid(self):
+        weak_form_1 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=1), self.psi_1),
+                limits=self.limits)],
+            name="sys_1")
+        weak_form_2 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x2.derive(temp_order=1), self.psi_2),
+                limits=self.limits),
+        ], name="sys_2")
+        weak_form_3 = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
+            pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
+        ], name="sys_3")
+        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
+        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
+        ce3 = sim.parse_weak_formulation(weak_form_3, finalize=False)
+        ces = OrderedDict()
+        ces.update({ce1.name: ce1})
+        ces.update({ce2.name: ce2})
+        ces.update({ce3.name: ce3})
+        sim.set_dominant_labels(ces)
+        self.assertEqual("base_1", ce1.dominant_lbl)
+        self.assertEqual("base_2", ce2.dominant_lbl)
+        self.assertEqual("base_3", ce3.dominant_lbl)
+
+    def test_non_valid_algebraic(self):
+        weak_form_1 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=0), self.psi_1),
+                limits=self.limits),
+            pi.ScalarTerm(pi.Product(self.x2(0), self.psi_1(0))),
+        ], name="sys_1")
+        weak_form_2 = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(self.x2.derive(temp_order=1), self.psi_2), limits=self.limits),
+            pi.ScalarTerm(pi.Product(self.x2(0), self.psi_2(0))),
+        ], name="sys_2")
+        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
+        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
+        ces = OrderedDict()
+        ces.update({ce1.name: ce1})
+        ces.update({ce2.name: ce2})
+        self.assertRaises(ValueError, sim.set_dominant_labels, ces)
+
+    def test_non_valid_max_order_uniqueness(self):
+        weak_form_1 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+        ], name="sys_1")
+        weak_form_2 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+            pi.IntegralTerm(
+                pi.Product(self.x2.derive(temp_order=1), self.psi_2),
+                limits=self.limits),
+        ], name="sys_2")
+        weak_form_3 = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
+            pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
+        ], name="sys_3")
+        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
+        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
+        ce3 = sim.parse_weak_formulation(weak_form_3, finalize=False)
+        ces = OrderedDict()
+        ces.update({ce1.name: ce1})
+        ces.update({ce2.name: ce2})
+        ces.update({ce3.name: ce3})
+        self.assertRaises(ValueError, sim.set_dominant_labels, ces)
+
+    def test_non_valid_not_enough_labels(self):
+        weak_form_1 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+        ], name="sys_1")
+        weak_form_2 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+        ], name="sys_2")
+        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
+        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
+        ces = OrderedDict()
+        ces.update({ce1.name: ce1})
+        ces.update({ce2.name: ce2})
+        self.assertRaises(ValueError, sim.set_dominant_labels, ces)
+
+    def test_wrong_dominant_labels(self):
+        weak_form_1 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x1.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+        ], name="sys_1", dominant_lbl="base_2")
+        weak_form_2 = pi.WeakFormulation([
+            pi.IntegralTerm(
+                pi.Product(self.x2.derive(temp_order=4), self.psi_1),
+                limits=self.limits),
+        ], name="sys_2", dominant_lbl="base_1")
+        ce1 = sim.parse_weak_formulation(weak_form_1, finalize=False)
+        ce2 = sim.parse_weak_formulation(weak_form_2, finalize=False)
+        ces = OrderedDict()
+        ces.update({ce1.name: ce1})
+        ces.update({ce2.name: ce2})
+        self.assertWarns(UserWarning, sim.set_dominant_labels, ces)
+
+    def tearDown(self):
+        pi.deregister_base("base_1")
+        pi.deregister_base("base_2")
+        pi.deregister_base("base_3")

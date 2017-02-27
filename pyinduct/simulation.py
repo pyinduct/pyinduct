@@ -290,6 +290,9 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
                               + "names must be unique.").format(form.name))
         canonical_equations.update({form.name: parse_weak_formulation(form)})
 
+    print(">>> set/check dominant labels")
+    set_dominant_labels(canonical_equations)
+
     print(">>> creating state space system")
     state_space_form = create_state_space(canonical_equations)
 
@@ -679,12 +682,9 @@ class CanonicalEquation(object):
             form.finalize()
 
         if self.dominant_lbl is None:
-            if len(self.dynamic_forms) == 1:
-                self.dominant_lbl = list(self.dynamic_forms.keys())[0]
-            else:
-                raise ValueError("You have to provide the dominant label "
-                                 "of the weak form / canonical equation, "
-                                 "since it holds multiple dynamic forms.")
+            raise ValueError("You have to set the dominant labels of the\n"
+                             "canonical equation (weak form), for example\n"
+                             "with pyinduct.simulation.set_dominant_labels().")
 
         if self.dynamic_forms[self.dominant_lbl].singular:
             raise ValueError("The form that has to be chosen is singular.")
@@ -1152,3 +1152,76 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
 
     data = np.apply_along_axis(eval_spatially, 1, weights)
     return EvalData([temp_domain.points, spat_domain.points], data, name=name)
+
+
+def set_dominant_labels(canonical_equations, finalize=True):
+    """
+    Set the dominant label (*dominant_lbl*) member of all given canonical
+    equations and check if the problem formulation is valid (see background
+    section: http://pyinduct.readthedocs.io/en/latest/).
+
+    If the dominant label of one or more :py:class:`CanonicalEquation`s
+    is already defined, the function raise a value error if the (pre)defined
+    dominant label(s) are not valid.
+
+    Args:
+        canonical_equations (dict): Dictionary with all canonical
+            equations which belong to your coupled pde system.
+        finalize (bool): Finalize the equations? Default: True.
+    """
+    labels = set(chain(*[list(ce.dynamic_forms.keys())
+                         for ce in list(canonical_equations.values())]))
+
+    if len(labels) != len(canonical_equations):
+        raise ValueError("The N defined canonical equations (weak forms)\n"
+                         "must hold exactly N different weight labels!\n"
+                         "But your {} canonical equation(s) (weak form(s))\n"
+                         "hold {} weight label(s)!"
+                         "".format(len(canonical_equations),
+                                   len(labels)))
+
+    max_orders = dict()
+    for ce in canonical_equations.values():
+        [ce.dynamic_forms[df_lbl].finalize() for df_lbl in ce.dynamic_forms]
+        for lbl in list(ce.dynamic_forms.keys()):
+            max_order = dict((("max_order", ce.dynamic_forms[lbl].max_temp_order),
+                              ("can_eq", [ce.name])))
+            if lbl not in max_orders or max_orders[lbl]["max_order"] < max_order["max_order"]:
+                max_orders[lbl] = max_order
+            elif max_orders[lbl]["max_order"] == max_order["max_order"]:
+                max_orders[lbl]["can_eq"].append(
+                    max_order["can_eq"][0])
+
+    non_valid1 = [(lbl, max_orders[lbl]) for lbl in labels if len(max_orders[lbl]["can_eq"]) > 1]
+    if non_valid1:
+        raise ValueError("The highest time derivative from a certain weight\n"
+                         "label may only occur in one canonical equation. But\n"
+                         "each of the canonical equations {} holds the\n"
+                         "weight label '{}' with order {} in time."
+                         "".format(non_valid1[0][1]["can_eq"],
+                                   non_valid1[0][0],
+                                   non_valid1[0][1]["max_order"]))
+
+    non_valid2 = [lbl for lbl in labels if max_orders[lbl]["max_order"] == 0]
+    if non_valid2:
+        raise ValueError("The defined problem leads to an differential\n"
+                         "algebraic equation, since there is no time\n"
+                         "derivative for the weights {}. Such problems are\n"
+                         "not considered in pyinduct, yet."
+                         "".format(non_valid2))
+
+    for lbl in labels:
+        pre_lbl = canonical_equations[max_orders[lbl]["can_eq"][0]].dominant_lbl
+        canonical_equations[max_orders[lbl]["can_eq"][0]].dominant_lbl = lbl
+
+        if  pre_lbl is not None and pre_lbl != lbl:
+            warnings.warn("\n Predefined dominant label '{}' from\n"
+                          "canonical equation / weak form '{}' not valid!\n"
+                          "It will be overwritten with the label '{}'."
+                          "".format(pre_lbl,
+                                    canonical_equations[max_orders[lbl]["can_eq"][0]].name,
+                                    lbl),
+                          UserWarning)
+
+    if finalize:
+        [ce.finalize() for ce in canonical_equations.values()]
