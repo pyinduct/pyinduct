@@ -670,8 +670,9 @@ class StackedBase(Base):
         # we can help
         start_idx = self._info[info.dst_lbl]["start"]
         sel_len = self._info[info.dst_lbl]["size"]
+        src_ord = self._info[info.dst_lbl]["order"] - 1
         trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base, info.dst_base,
-                                                                  info.src_order, info.dst_order,
+                                                                  src_ord, info.dst_order,
                                                                   use_eye=True)
 
         def selection_func(weights):
