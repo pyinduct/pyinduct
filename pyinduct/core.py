@@ -1037,15 +1037,14 @@ def project_on_bases(states, canonical_equations):
 
     Args:
         states: Dictionary with a list of functions as values.
-        canonical_equations (collections.OrderedDict): Ordered dictionary with
-            :py:class:`pyinduct.core.CanonicalEquation`s as values.
+        canonical_equations: List of :py:class:`CanonicalEquation`s.
 
     Returns:
         numpy.array: Finit dimensional state as 1d-array corresponding to the
             concatenated dominant bases from *canonical_equations*.
     """
     q0 = np.array([])
-    for ce in canonical_equations.values():
+    for ce in canonical_equations:
         lbl = ce.dominant_lbl
         q0 = np.hstack(tuple([q0] + [project_on_base(state, get_base(lbl))
                                      for state in states[ce.name]]))

@@ -793,7 +793,7 @@ def create_state_space(canonical_equations):
     (created by :py:func:`parse_weak_formulation`)
 
     Args:
-        canonical_equations (:py:class:`CanonicalEquation` or dict): dict of name: py:class:`CanonicalEquation` pairs
+        canonical_equations: List of :py:class:`CanonicalEquation`s.
 
     Raises:
         ValueError: If compatibility criteria cannot be fulfilled
@@ -805,17 +805,17 @@ def create_state_space(canonical_equations):
 
     if isinstance(canonical_equations, CanonicalEquation):
         # backward compatibility
-        canonical_equations = dict(default=canonical_equations)
+        canonical_equations = [canonical_equations]
 
     # check whether the formulations are compatible
-    for name, eq in canonical_equations.items():
+    for eq in canonical_equations:
         for lbl, form in eq.dynamic_forms.items():
             coupling_order = form.max_temp_order
 
             # search corresponding dominant form in other equations
-            for _name, _eq in canonical_equations.items():
+            for _eq in canonical_equations:
                 # check uniqueness of name - dom_lbl mappings
-                if name != _name and eq.dominant_lbl == _eq.dominant_lbl:
+                if eq.name != _eq.name and eq.dominant_lbl == _eq.dominant_lbl:
                     raise ValueError("A dominant form has to be unique over all given Equations")
 
                 # identify coupling terms
@@ -841,7 +841,7 @@ def create_state_space(canonical_equations):
                                    input_powers=set(),
                                    dim_u=0,
                                    input=None)
-    for name, eq in canonical_equations.items():
+    for eq in canonical_equations:
         dom_lbl = eq.dominant_lbl
         dom_form = eq.dominant_form
         dom_ss = dom_form.convert_to_state_space()
@@ -852,7 +852,7 @@ def create_state_space(canonical_equations):
                                                 orig_size=dom_form.dim_x,
                                                 size=dom_form.dim_xb,
                                                 order=dom_form.max_temp_order,
-                                                sys_name=name)
+                                                sys_name=eq.name)
         state_space_props.powers.update(dom_form.powers)
         state_space_props.size += dom_form.dim_xb
         state_space_props.dim_u = max(state_space_props.dim_u, dom_form.dim_u)
@@ -866,7 +866,7 @@ def create_state_space(canonical_equations):
 
     # build new basis by concatenating the dominant bases of every equation
     if len(canonical_equations) == 1:
-        new_name = next(iter(canonical_equations.values())).dominant_lbl
+        new_name = next(iter(canonical_equations)).dominant_lbl
     else:
         members = state_space_props.parts.keys()
         new_name = "_".join(members)
@@ -878,18 +878,18 @@ def create_state_space(canonical_equations):
     a_matrices = {}
     for p in state_space_props.powers:
         a_mat = np.zeros((state_space_props.size, state_space_props.size))
-        for row_name, row_eq in canonical_equations.items():
+        for row_eq in canonical_equations:
             row_dom_lbl = row_eq.dominant_lbl
             row_dom_dim = state_space_props.parts[row_dom_lbl]["size"]
             row_dom_trans_mat = row_eq.dominant_form.e_n_pb_inv
             row_dom_sys_mat = dominant_state_spaces[row_dom_lbl].A.get(p, None)
             row_idx = state_space_props.parts[row_dom_lbl]["start"]
 
-            for col_name, col_eq in canonical_equations.items():
+            for col_eq in canonical_equations:
                 col_dom_lbl = col_eq.dominant_lbl
 
                 # main diagonal
-                if col_name == row_name:
+                if col_eq.name == row_eq.name:
                     if row_dom_sys_mat is not None:
                         a_mat[row_idx:row_idx + row_dom_dim, row_idx:row_idx + row_dom_dim] = row_dom_sys_mat
                     continue
@@ -1096,15 +1096,16 @@ def parse_weak_formulations(weak_forms):
         weak_forms: List of :py:class:`WeakFormulation`s.
 
     Returns:
-        collections.OrderedDict: Ordered dictionary with :py:class:`CanonicalEquation`s as values.
+        Tuple of :py:class:`CanonicalEquation`s.
     """
-    canonical_equations = OrderedDict()
+    canonical_equations = list()
     for form in weak_forms:
         print(">>> parsing formulation {}".format(form.name))
-        if form.name in canonical_equations:
-            raise ValueError(("Name {} for CanonicalEquation already assigned,"
-                              + "names must be unique.").format(form.name))
-        canonical_equations.update({form.name: parse_weak_formulation(form)})
+        ce = parse_weak_formulation(form)
+        if ce.name in [ceq.name for ceq in canonical_equations]:
+            raise ValueError(("Name {} for CanonicalEquation already assigned, "
+                              "names must be unique.").format(form.name))
+        canonical_equations.append(ce)
 
     return canonical_equations
 
@@ -1230,21 +1231,19 @@ def set_dominant_labels(canonical_equations, finalize=True):
     section: http://pyinduct.readthedocs.io/en/latest/).
 
     If the dominant label of one or more :py:class:`CanonicalEquation`s
-    is already defined, the function raise a value error if the (pre)defined
+    is already defined, the function raise a UserWarning if the (pre)defined
     dominant label(s) are not valid.
 
     Args:
-        canonical_equations (dict): Dictionary with all canonical
-            equations which belong to your coupled pde system.
+        canonical_equations: List of :py:class:`CanonicalEquation`s.
         finalize (bool): Finalize the equations? Default: True.
     """
     if isinstance(canonical_equations, CanonicalEquation):
-        canonical_equations = {canonical_equations.name:
-                               canonical_equations}
+        canonical_equations = [canonical_equations]
 
     # collect all involved labels
-    labels = set(chain(*[list(ce.dynamic_forms.keys())
-                         for ce in list(canonical_equations.values())]))
+    labels = set(
+        chain(*[list(ce.dynamic_forms.keys()) for ce in canonical_equations]))
 
     if len(labels) != len(canonical_equations):
         raise ValueError("The N defined canonical equations (weak forms)\n"
@@ -1255,24 +1254,27 @@ def set_dominant_labels(canonical_equations, finalize=True):
                                    len(labels)))
 
     max_orders = dict()
-    for ce in canonical_equations.values():
+    for ce in canonical_equations:
         ce.finalize_dynamic_forms()
         for lbl in list(ce.dynamic_forms.keys()):
-            max_order = dict((("max_order", ce.dynamic_forms[lbl].max_temp_order),
-                              ("can_eq", [ce.name])))
-            if lbl not in max_orders or max_orders[lbl]["max_order"] < max_order["max_order"]:
+            max_order = dict(
+                (("max_order", ce.dynamic_forms[lbl].max_temp_order),
+                 ("can_eqs", [ce])))
+            if lbl not in max_orders or \
+                    max_orders[lbl]["max_order"] < max_order["max_order"]:
                 max_orders[lbl] = max_order
             elif max_orders[lbl]["max_order"] == max_order["max_order"]:
-                max_orders[lbl]["can_eq"].append(
-                    max_order["can_eq"][0])
+                max_orders[lbl]["can_eqs"].append(
+                    max_order["can_eqs"][0])
 
-    non_valid1 = [(lbl, max_orders[lbl]) for lbl in labels if len(max_orders[lbl]["can_eq"]) > 1]
+    non_valid1 = [(lbl, max_orders[lbl])
+                  for lbl in labels if len(max_orders[lbl]["can_eqs"]) > 1]
     if non_valid1:
         raise ValueError("The highest time derivative from a certain weight\n"
                          "label may only occur in one canonical equation. But\n"
                          "each of the canonical equations {} holds the\n"
                          "weight label '{}' with order {} in time."
-                         "".format(non_valid1[0][1]["can_eq"],
+                         "".format(non_valid1[0][1]["can_eqs"][0].name,
                                    non_valid1[0][0],
                                    non_valid1[0][1]["max_order"]))
 
@@ -1286,18 +1288,18 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
     # set/check dominant labels
     for lbl in labels:
-        pre_lbl = canonical_equations[max_orders[lbl]["can_eq"][0]].dominant_lbl
-        canonical_equations[max_orders[lbl]["can_eq"][0]].dominant_lbl = lbl
+        pre_lbl = max_orders[lbl]["can_eqs"][0].dominant_lbl
+        max_orders[lbl]["can_eqs"][0].dominant_lbl = lbl
 
         if  pre_lbl is not None and pre_lbl != lbl:
             warnings.warn("\n Predefined dominant label '{}' from\n"
                           "canonical equation / weak form '{}' not valid!\n"
                           "It will be overwritten with the label '{}'."
                           "".format(pre_lbl,
-                                    canonical_equations[max_orders[lbl]["can_eq"][0]].name,
+                                    max_orders[lbl]["can_eqs"][0].name,
                                     lbl),
                           UserWarning)
 
     if finalize:
-        for lbl, ce in canonical_equations.items():
+        for ce in canonical_equations:
             ce.finalize()

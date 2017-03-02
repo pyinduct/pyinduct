@@ -645,7 +645,7 @@ class StateSpaceTests(unittest.TestCase):
         self.ic = np.zeros((6, ))
 
     def test_convert_to_state_space(self):
-        ss = sim.create_state_space({self.ce.name: self.ce})
+        ss = sim.create_state_space(self.ce)
         self.assertEqual(ss.A[1].shape, (6, 6))
         np.testing.assert_array_almost_equal(ss.A[1], np.array([[0, 0, 0, 1, 0, 0],
                                                                 [0, 0, 0, 0, 1, 0],
@@ -662,7 +662,7 @@ class StateSpaceTests(unittest.TestCase):
         using the diligent input this test makes sure, that the solver doesn't evaluate the provided input outside
         the given time domain
         """
-        ss = sim.create_state_space({self.ce.name: self.ce})
+        ss = sim.create_state_space(self.ce)
         t, q = sim.simulate_state_space(ss, self.ic, self.time_domain)
 
         # print(self.u._time_storage)
@@ -753,7 +753,7 @@ class StringMassTest(unittest.TestCase):
         # derive sate-space system
         string_pde = sim.WeakFormulation([int1, s1, int2, s2], name="fem_test")
         self.cf = sim.parse_weak_formulation(string_pde)
-        ss = sim.create_state_space({self.cf.name: self.cf})
+        ss = sim.create_state_space(self.cf)
 
         # generate initial conditions for weights
         q0 = np.array([pi.project_on_base(self.ic[idx], fem_base)
@@ -1507,7 +1507,7 @@ class SetDominantLabel(unittest.TestCase):
         ces = sim.parse_weak_formulations([weak_form_1, weak_form_2,
                                            weak_form_3])
         sim.set_dominant_labels(ces)
-        for i, ce in zip(range(3), ces.values()):
+        for i, ce in zip(range(3), ces):
             self.assertEqual("base_{}".format(i + 1), ce.dominant_lbl)
 
     def test_non_valid_algebraic(self):
