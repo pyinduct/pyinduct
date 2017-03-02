@@ -81,7 +81,7 @@ class AlternatingInput(sim.SimulationInput):
         else:
             res = self.tr_down(t)
 
-        return dict(output=res)
+        return dict(output=res - .5)
 
     def __init__(self):
         super().__init__(self)
@@ -990,10 +990,12 @@ class MultiplePDETest(unittest.TestCase):
         l1 = 1
         l2 = 4
         l3 = 6
+        l4 = 10
 
         self.dz1 = pi.Domain(bounds=(0, l1), num=100)
         self.dz2 = pi.Domain(bounds=(l1, l2), num=100)
         self.dz3 = pi.Domain(bounds=(l2, l3), num=100)
+        self.dz4 = pi.Domain(bounds=(l3, l4), num=100)
 
         t_start = 0
         t_end = 10
@@ -1003,6 +1005,7 @@ class MultiplePDETest(unittest.TestCase):
         v1 = 1
         v2 = 2
         v3 = 3
+        mass = 1
 
         def x(z, t):
             """
@@ -1011,18 +1014,22 @@ class MultiplePDETest(unittest.TestCase):
             return 0
 
         # initial conditions
-        self.ic1 = np.array([pi.Function(lambda z: x(z, 0))])
-        self.ic2 = np.array([pi.Function(lambda z: x(z, 0))])
-        self.ic3 = np.array([pi.Function(lambda z: x(z, 0))])
+        fx = pi.Function(lambda z: x(z, 0))
+        self.ic1 = np.array([fx])
+        self.ic2 = np.array([fx])
+        self.ic3 = np.array([fx])
+        self.ic4 = np.array([fx, fx])
 
         # weak formulations
         nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=3)
         nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=3)
         nodes3, base3 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz3.bounds, node_count=3)
+        nodes4, base4 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz4.bounds, node_count=15)
 
         pi.register_base("base_1", base1)
         pi.register_base("base_2", base2)
         pi.register_base("base_3", base3)
+        pi.register_base("base_4", base4)
 
         traj = AlternatingInput()
         u = pi.Input(traj)
@@ -1053,6 +1060,15 @@ class MultiplePDETest(unittest.TestCase):
             pi.ScalarTerm(pi.Product(x2(l2), psi_3(l2)), scale=-v3),
             pi.ScalarTerm(pi.Product(x3(l3), psi_3(l3)), scale=v3),
         ], name="sys_3")
+
+        x4 = pi.FieldVariable("base_4")
+        psi_4 = pi.TestFunction("base_4")
+        self.weak_form_4 = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(x4.derive(temp_order=2), psi_4), limits=self.dz4.bounds, scale=-1),
+            pi.IntegralTerm(pi.Product(x4.derive(spat_order=1), psi_4.derive(1)), limits=self.dz4.bounds, scale=-1),
+            pi.ScalarTerm(pi.Product(x4.derive(temp_order=2)(l4), psi_4(l4)), scale=-mass),
+            pi.ScalarTerm(pi.Product(x3(l3), psi_4(l3)), scale=-1),
+        ], name="sys_4")
 
     def test_single_system(self):
         results = pi.simulate_system(self.weak_form_1, self.ic1, self.dt, self.dz1)
@@ -1093,6 +1109,32 @@ class MultiplePDETest(unittest.TestCase):
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
         win = pi.PgAnimatedPlot(res)
 
+    def test_triple_system_with_swm(self):
+        """
+        three coupled systems where the output at l4 is the input for
+        a string with mass
+        """
+        weak_forms = [self.weak_form_1, self.weak_form_2, self.weak_form_3,
+                      self.weak_form_4]
+        ics = {self.weak_form_1.name: self.ic1,
+               self.weak_form_2.name: self.ic2,
+               self.weak_form_3.name: self.ic3,
+               self.weak_form_4.name: self.ic4}
+        spat_domains = {self.weak_form_1.name: self.dz1,
+                        self.weak_form_2.name: self.dz2,
+                        self.weak_form_3.name: self.dz3,
+                        self.weak_form_4.name: self.dz4}
+        derivatives = {self.weak_form_1.name: (0, 0),
+                       self.weak_form_2.name: (0, 0),
+                       self.weak_form_3.name: (0, 0),
+                       self.weak_form_4.name: (1, 1)}
+
+        res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
+        win = pi.PgAnimatedPlot(res)
+
+        if show_plots:
+            app.exec_()
+
         if show_plots:
             app.exec_()
 
@@ -1100,6 +1142,7 @@ class MultiplePDETest(unittest.TestCase):
         pi.deregister_base("base_1")
         pi.deregister_base("base_2")
         pi.deregister_base("base_3")
+        pi.deregister_base("base_4")
 
 
 class RadFemTrajectoryTest(unittest.TestCase):
