@@ -851,7 +851,7 @@ def create_state_space(canonical_equations):
         state_space_props.parts[dom_lbl] = dict(start=copy(state_space_props.size),
                                                 orig_size=dom_form.dim_x,
                                                 size=dom_form.dim_xb,
-                                                order=dom_form.max_temp_order,
+                                                order=dom_form.max_temp_order - 1,
                                                 sys_name=eq.name)
         state_space_props.powers.update(dom_form.powers)
         state_space_props.size += dom_form.dim_xb
