@@ -465,6 +465,13 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
 
 class IntermediateTransformationTest(unittest.TestCase):
     def test_it(self):
+
+        # system/simulation parameters
+        self.l = 1
+        self.spatial_domain = (0, self.l)
+        self.spatial_disc = 30
+        self.n = 10
+
         # original system parameters
         a2 = 1.5
         a1 = 2.5
@@ -483,16 +490,12 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = parabolic.general.eliminate_advection_term(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i =\
+            parabolic.general.eliminate_advection_term(self.param, self.l)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = parabolic.general.eliminate_advection_term(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti =\
+            parabolic.general.eliminate_advection_term(self.param_t, self.l)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
-
-        # system/simulation parameters
-        self.l = 1
-        self.spatial_domain = (0, self.l)
-        self.spatial_disc = 30
-        self.n = 10
 
         # create (not normalized) eigenfunctions
         self.eig_freq, self.eig_val = \

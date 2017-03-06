@@ -970,9 +970,8 @@ class MultipleODETest(unittest.TestCase):
         ], name="sys_2", dominant_lbl="base_2")
 
         weak_forms = [weak_form_1, weak_form_2]
-        canonical_equations = OrderedDict([(form.name,
-                                            pi.parse_weak_formulation(form))
-                                           for form in weak_forms])
+        canonical_equations = [pi.parse_weak_formulation(form)
+                                    for form in weak_forms]
 
         state_space_form = pi.create_state_space(canonical_equations)
 
@@ -1326,7 +1325,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'dirichlet'
         bound_cond_type = 'dirichlet'
         param = [1., -2., -1., None, None]
-        adjoint_param = parabolic.get_adjoint_rad_evp_param(param)
+        adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, _, _ = param
 
         l = 1.
@@ -1412,7 +1411,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         actuation_type = 'robin'
         bound_cond_type = 'robin'
         param = [2., 1.5, -3., -1., -.5]
-        adjoint_param = parabolic.get_adjoint_rad_evp_param(param)
+        adjoint_param = pi.SecondOrderEigenfunction.get_adjoint_problem(param)
         a2, a1, a0, alpha, beta = param
 
         l = 1.

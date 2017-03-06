@@ -539,6 +539,15 @@ class Base:
         # TODO check if Fractions are consistent in Type and provided hints
         self.fractions = sanitize_input(fractions, BaseFraction)
 
+    def __iter__(self):
+        return iter(self.fractions)
+
+    def __len__(self):
+        return len(self.fractions)
+
+    def __getitem__(self, item):
+        return self.fractions[item]
+
     @staticmethod
     def _transformation_factory(info):
         mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,

@@ -479,10 +479,10 @@ class RadRobinGenericBacksteppingControllerTest(unittest.TestCase):
         # original intermediate ("_i") and target intermediate ("_ti")
         # system parameters
         _, _, a0_i, self.alpha_i, self.beta_i = \
-            pi.parabolic.eliminate_advection_term(self.param)
+            pi.SecondOrderEigenfunction.get_adjoint_problem(self.param)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
         _, _, a0_ti, self.alpha_ti, self.beta_ti = \
-            pi.parabolic.eliminate_advection_term(self.param_t)
+            pi.SecondOrderEigenfunction.get_adjoint_problem(self.param_t)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
         # system/simulation parameters

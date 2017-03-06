@@ -14,11 +14,11 @@ import scipy.interpolate as si
 import pyqtgraph as pg
 import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 from numbers import Number
-# axes3d not explicit used but needed
-from mpl_toolkits.mplot3d import axes3d
+# Axes3D not explicit used but needed
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 from .core import complex_wrapper, EvalData, Domain
 from .utils import create_animation, create_dir
@@ -529,23 +529,18 @@ class MplSurfacePlot(DataPlot):
 
             # figure
             fig = plt.figure(figsize=fig_size, facecolor='white')
-            ax = fig.add_subplot(111, projection='3d')
+            ax = fig.gca(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
-            ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_xaxis.set_pane_color((1, 1, 1, 1))
+            ax.w_yaxis.set_pane_color((1, 1, 1, 1))
+            ax.w_zaxis.set_pane_color((1, 1, 1, 1))
 
             # labels
             ax.set_ylabel('$t$')
             ax.set_xlabel('$z$')
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
-
-            # grid
-            ax.w_xaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
-            ax.w_yaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
-            ax.w_zaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
 
             ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
 

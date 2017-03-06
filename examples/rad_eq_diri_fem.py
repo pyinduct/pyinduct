@@ -95,12 +95,12 @@ sim_temp_domain, sim_weights_bar = pi.simulate_state_space(ss,
                                                            temp_domain)
 
 # back-transformation
-u_vec = np.matrix(u.get_results(sim_temp_domain)).T
+u_vec = np.reshape(u.get_results(sim_temp_domain), (len(temp_domain), 1))
 sim_weights = sim_weights_bar @ a_tilde_inv + u_vec @ b1.T
 
 # visualisation
 save_pics = False
-vis_weights = np.hstack((np.matrix(sim_weights), u_vec))
+vis_weights = np.hstack((sim_weights, u_vec))
 
 eval_d = pi.evaluate_approximation("vis_base",
                                    vis_weights,
