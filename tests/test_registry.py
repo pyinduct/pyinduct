@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import numpy as np
 import unittest
 
+import numpy as np
 import pyinduct as pi
 import pyinduct.registry as rg
 

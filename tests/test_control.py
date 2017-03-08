@@ -1,17 +1,11 @@
-import sys
 import unittest
 
 import numpy as np
+from scipy import integrate
 import pyinduct as pi
 import pyinduct.control as control
 import pyinduct.parabolic as parabolic
-from scipy import integrate
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
-    # show_plots = False
+from tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

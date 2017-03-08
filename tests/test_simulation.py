@@ -1,21 +1,14 @@
 import os
 import sys
 import unittest
-from collections import OrderedDict
-
-import numpy as np
 from pickle import dump
 
+import numpy as np
 import pyinduct as pi
 import pyinduct.simulation as sim
 import pyinduct.parabolic as parabolic
 import pyinduct.hyperbolic.feedforward as hff
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
-    # show_plots = False
+from tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

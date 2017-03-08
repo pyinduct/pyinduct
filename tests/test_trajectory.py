@@ -1,19 +1,12 @@
-import sys
 import warnings
 import unittest
 
 import numpy as np
 import scipy.signal as sig
-
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
 import pyinduct.hyperbolic.feedforward as hff
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
-    # show_plots = False
+from tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
