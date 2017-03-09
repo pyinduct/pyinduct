@@ -1,8 +1,7 @@
 import pyinduct as pi
 import pyinduct.parabolic as par
 import numpy as np
-import pyqtgraph as pg
-import matplotlib.pyplot as plt
+
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation
@@ -62,7 +61,7 @@ control_law = pi.SimulationInputSum([traj, controller])
 
 # determine (A,B) with modal-transfomation
 A = np.diag(eig_values)
-B = -a2 * np.array([eig_funcs.fractions[i].derive()(l) for i in range(n)])
+B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
 B = np.reshape(B, (B.size, 1))
 ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handle=control_law)
 
@@ -76,13 +75,17 @@ evald_traj = pi.EvalData([t_d, z_d], x_l, name="x(z,t) desired")
 # simulate
 t, q = pi.simulate_state_space(ss, initial_weights, temporal_domain)
 
-# pyqtgraph visualization
-evald_x = pi.evaluate_approximation("eig_funcs", q, t, spatial_domain, name="x(z,t) with x(z,0)=" + str(init_profile))
-win1 = pi.PgAnimatedPlot([evald_x, evald_traj], title="animation")
-win2 = pi.PgSurfacePlot(evald_x, title=evald_x.name)
-win3 = pi.PgSurfacePlot(evald_traj, title=evald_traj.name)
-pg.QtGui.QApplication.instance().exec_()
-
 # visualization
-pi.MplSlicePlot([evald_x, evald_traj], time_point=1, legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2)
-plt.show()
+plots = list()
+evald_x = pi.evaluate_approximation("eig_funcs", q, t, spatial_domain, name="x(z,t) with x(z,0)=" + str(init_profile))
+# pyqtgraph visualization
+plots.append(pi.PgAnimatedPlot([evald_x, evald_traj], title="animation"))
+plots.append(pi.PgSurfacePlot(evald_x, title=evald_x.name))
+plots.append(pi.PgSurfacePlot(evald_traj, title=evald_traj.name))
+# matplotlib visualization
+plots.append(pi.MplSlicePlot(
+    [evald_x, evald_traj], time_point=1,
+    legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2))
+pi.show()
+
+pi.tear_down(("eig_funcs", "eig_funcs_t"), plots)

@@ -1,12 +1,12 @@
-import warnings
 import unittest
+import warnings
 
 import numpy as np
 import scipy.signal as sig
 import pyinduct as pi
-import pyinduct.parabolic as parabolic
 import pyinduct.hyperbolic.feedforward as hff
-from tests import show_plots
+import pyinduct.parabolic as parabolic
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

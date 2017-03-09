@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pyqtgraph as pg
 import pyinduct as pi
 import pyinduct.visualization as vis
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 app = pg.QtGui.QApplication([])
 

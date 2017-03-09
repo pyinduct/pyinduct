@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pyinduct as pi
 import pyinduct.placeholder as ph
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

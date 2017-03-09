@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-import pyqtgraph as pg
+
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation
@@ -55,7 +54,7 @@ _, init_adjoint_eig_funcs = pi.SecondOrderRobinEigenfunction.solve_evp_hint(adjo
 eig_funcs, adjoint_eig_funcs = pi.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions from target system ("_t")
-scale_t = [func(0) for func in eig_funcs.fractions]
+scale_t = [func(0) for func in eig_funcs]
 _, eig_funcs_t = pi.SecondOrderRobinEigenfunction.solve_evp_hint(param_t, l, eig_val=eig_val, scale=scale_t)
 
 # create fem test functions
@@ -134,22 +133,27 @@ eval_d = pi.simulate_system(
     temporal_domain=temporal_domain,
     spatial_domain=spatial_domain)[0]
 
-# deregister created bases
-for lbl in base_labels:
-    pi.deregister_base(lbl)
-
 # evaluate desired output data
 y_d, t_d = pi.gevrey_tanh(T, 40)
 C = pi.coefficient_recursion(y_d, alpha * y_d, param)
 x_l = pi.power_series(np.array(spatial_domain), t_d, C)
 evald_traj = pi.EvalData([t_d, np.array(spatial_domain)], x_l, name="x(z,t) desired")
 
+plots = list()
 # pyqtgraph visualization
-win1 = pi.PgAnimatedPlot([eval_d, evald_traj], title="animation", replay_gain=1)
-win2 = pi.PgSurfacePlot(eval_d, title=eval_d.name)
-win3 = pi.PgSurfacePlot(evald_traj, title=evald_traj.name)
-pg.QtGui.QApplication.instance().exec_()
-
+plots.append(pi.PgAnimatedPlot(
+    [eval_d, evald_traj], title="animation", replay_gain=1))
+plots.append(pi.PgSurfacePlot(eval_d, title=eval_d.name))
+plots.append(pi.PgSurfacePlot(evald_traj, title=evald_traj.name))
 # matplotlib visualization
-pi.MplSlicePlot([evald_traj, eval_d], spatial_point=0, legend_label=["$x_d(0,t)$", "$x(0,t)$"])
-plt.show()
+plots.append(pi.MplSlicePlot([evald_traj, eval_d], spatial_point=0,
+                             legend_label=["$x_d(0,t)$", "$x(0,t)$"]))
+pi.show()
+
+pi.tear_down(("eig_funcs",
+              "adjoint_eig_funcs",
+              "eig_funcs_t",
+              "fem_funcs") + base_labels,
+             plots)
+
+

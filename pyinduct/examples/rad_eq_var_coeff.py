@@ -1,9 +1,7 @@
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
 import numpy as np
-import pyqtgraph as pg
 import scipy.integrate as si
-import matplotlib.pyplot as plt
 
 
 # system/simulation parameters
@@ -56,10 +54,10 @@ nodes, fem_base = pi.cure_interval(pi.LagrangeFirstOrder,
                                    node_count=len(spatial_domain))
 
 # register functions
-pi.register_base("eig_funcs_t", eig_base_t, overwrite=True)
-pi.register_base("adjoint_eig_funcs_t", adjoint_eig_base_t, overwrite=True)
-pi.register_base("eig_funcs", eig_base, overwrite=True)
-pi.register_base("fem_funcs", fem_base, overwrite=True)
+pi.register_base("eig_funcs_t", eig_base_t)
+pi.register_base("adjoint_eig_funcs_t", adjoint_eig_base_t)
+pi.register_base("eig_funcs", eig_base)
+pi.register_base("fem_funcs", fem_base)
 
 # init trajectory
 traj = parabolic.trajectory.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)
@@ -99,20 +97,31 @@ controller = parabolic.control.get_parabolic_robin_backstepping_controller(state
 traj.scale(inv_transform_i_at_l)
 input = pi.SimulationInputSum([traj, controller])
 
-rad_pde, _ = parabolic.general.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", input, param, spatial_domain.bounds)
+rad_pde, base_labels = parabolic.general.get_parabolic_robin_weak_form(
+    "fem_funcs", "fem_funcs", input, param, spatial_domain.bounds)
 ce = pi.parse_weak_formulation(rad_pde)
 ss_weak = pi.create_state_space(ce)
 
 # simulate
 t, q = pi.simulate_state_space(ss_weak, np.zeros((len(fem_base))), temporal_domain)
 
+# visualization
+plots = list()
+evald_x = pi.evaluate_approximation("fem_funcs", q, t, spatial_domain,
+                                    name="x(z,t)")
 # pyqtgraph visualization
-evald_x = pi.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t)")
-win1 = pi.PgAnimatedPlot([evald_x], title="animation", replay_gain=.25)
-win2 = pi.PgSurfacePlot(evald_x, title=evald_x.name)
-pg.QtGui.QApplication.instance().exec_()
-
+plots.append(pi.evaluate_approximation("fem_funcs", q, t, spatial_domain,
+                                       name="x(z,t)"))
+plots.append(pi.PgAnimatedPlot([evald_x], title="animation", replay_gain=.25))
+plots.append(pi.PgSurfacePlot(evald_x, title=evald_x.name))
 # matplotlib visualization
-pi.MplSlicePlot([evald_x], time_point=1, legend_label=["$x(z,1)$"], legend_location=1)
-pi.MplSurfacePlot(evald_x)
-plt.show()
+plots.append(pi.MplSlicePlot([evald_x], time_point=1,
+                             legend_label=["$x(z,1)$"], legend_location=1))
+plots.append(pi.MplSurfacePlot(evald_x))
+pi.show()
+
+pi.tear_down(("eig_funcs_t",
+              "adjoint_eig_funcs_t",
+              "eig_funcs",
+              "fem_funcs") + base_labels,
+             plots)

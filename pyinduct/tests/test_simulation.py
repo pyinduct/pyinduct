@@ -5,10 +5,10 @@ from pickle import dump
 
 import numpy as np
 import pyinduct as pi
-import pyinduct.simulation as sim
-import pyinduct.parabolic as parabolic
 import pyinduct.hyperbolic.feedforward as hff
-from tests import show_plots
+import pyinduct.parabolic as parabolic
+import pyinduct.simulation as sim
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

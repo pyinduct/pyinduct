@@ -19,18 +19,38 @@ from numbers import Number
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from pyinduct.tests import show_plots
 
 from .core import complex_wrapper, EvalData, Domain
 from .utils import create_animation, create_dir
 
-__all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
-           "visualize_roots", "visualize_functions"]
+__all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
+           "MplSurfacePlot", "MplSlicePlot", "visualize_roots",
+           "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
 
 # pg.setConfigOption('background', 'w')
 # pg.setConfigOption('foreground', 'k')
+
+
+def show(show_pg=True, show_mpl=True, force=False):
+    """
+    Shortcut to show all pyqtgraph and matplotlib plots / animations.
+
+    Args:
+        show_pg (bool): Show matplotlib plots? Default: True
+        show_mpl (bool): Show pyqtgraph plots? Default: True
+        force (bool): Show plots even during unittest discover, setup
+            and so on? Default: False
+    """
+    if show_plots or force:
+        if show_pg:
+            pg.QtGui.QApplication.instance().exec_()
+
+        if show_mpl:
+            plt.show()
 
 
 def create_colormap(cnt):
@@ -337,8 +357,6 @@ class PgSurfacePlot(PgDataPlot):
             self.scales = tuple(_scales)
         else:
             self.scales = scales
-
-        print(self.scales)
 
         self.plot_items = []
         if len(data.input_data) == 3:

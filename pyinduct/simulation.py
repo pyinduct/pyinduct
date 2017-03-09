@@ -1100,7 +1100,7 @@ def parse_weak_formulations(weak_forms):
     """
     canonical_equations = list()
     for form in weak_forms:
-        print(">>> parsing formulation {}".format(form.name))
+        print(">>> parse formulation {}".format(form.name))
         ce = parse_weak_formulation(form)
         if ce.name in [ceq.name for ceq in canonical_equations]:
             raise ValueError(("Name {} for CanonicalEquation already assigned, "

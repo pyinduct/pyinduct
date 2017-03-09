@@ -265,7 +265,7 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     l = spatial_domain[1]
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
-    created_base_labels = ["a0_z", "a1_z"]
+    created_base_labels = ("a0_z", "a1_z")
     a0_z = ScalarFunction.from_scalar(a0, created_base_labels[0])
     a1_z = ScalarFunction.from_scalar(a1, created_base_labels[1])
 

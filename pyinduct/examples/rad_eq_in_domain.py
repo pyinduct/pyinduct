@@ -1,8 +1,7 @@
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-import pyqtgraph as pg
-import matplotlib.pyplot as plt
 import numpy as np
+
 
 # PARAMETERS TO VARY
 # number of eigenfunctions, used for control law approximation
@@ -130,11 +129,11 @@ nodes, fem_base = pi.cure_interval(pi.LagrangeFirstOrder,
                                    node_count=len(spatial_domain))
 
 # register functions
-pi.register_base("adjoint_eig_funcs", adjoint_eig_base, overwrite=True)
-pi.register_base("eig_funcs", eig_base, overwrite=True)
-pi.register_base("eig_funcs_i", eig_base_i, overwrite=True)
-pi.register_base("eig_funcs_ti", eig_base_ti, overwrite=True)
-pi.register_base("fem_funcs", fem_base, overwrite=True)
+pi.register_base("adjoint_eig_funcs", adjoint_eig_base)
+pi.register_base("eig_funcs", eig_base)
+pi.register_base("eig_funcs_i", eig_base_i)
+pi.register_base("eig_funcs_ti", eig_base_ti)
+pi.register_base("fem_funcs", fem_base)
 
 # original intermediate (_i), target intermediate (_ti) and fem field variable
 fem_field_variable = pi.FieldVariable("fem_funcs", location=l)
@@ -181,7 +180,8 @@ traj.scale(scale)
 input = pi.SimulationInputSum([traj, controller])
 
 # determine (A,B) with modal transformation
-rad_pde, _ = parabolic.general.get_parabolic_robin_weak_form("fem_funcs", "fem_funcs", input, param, spatial_domain.bounds, b)
+rad_pde, base_labels = parabolic.general.get_parabolic_robin_weak_form(
+    "fem_funcs", "fem_funcs", input, param, spatial_domain.bounds, b)
 ce = pi.parse_weak_formulation(rad_pde)
 ss_weak = pi.create_state_space(ce)
 
@@ -207,15 +207,21 @@ evald_appr_xi = pi.EvalData(evald_modal_xi.input_data,
 # evaluate approximation of x
 evald_fem_x = pi.evaluate_approximation("fem_funcs", q, t, spatial_domain, name="x(z,t) simulation")
 
+plots = list()
 # pyqtgraph visualisations
-win1 = pi.PgAnimatedPlot([evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired])
-win2 = pi.PgSurfacePlot(evald_xd, title=evald_xd.name)
-win3 = pi.PgSurfacePlot(evald_fem_x, title=evald_fem_x.name)
+plots.append(pi.PgAnimatedPlot(
+    [evald_fem_x, evald_modal_xi, evald_appr_xi, evald_xd, evald_xi_desired]))
+plots.append(pi.PgSurfacePlot(evald_xd, title=evald_xd.name))
+plots.append(pi.PgSurfacePlot(evald_fem_x, title=evald_fem_x.name))
+# matplotlib visualization
+plots.append(pi.MplSurfacePlot(evald_fem_x))
+plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x], spatial_point=0,
+                             legend_label=[evald_xd.name, evald_fem_x.name]))
+pi.show()
 
-# plots
-pi.MplSurfacePlot(evald_fem_x)
-pi.MplSlicePlot([evald_xd, evald_fem_x], spatial_point=0, legend_label=[evald_xd.name, evald_fem_x.name])
-
-# show pyqtgraph and matplotlib plots/visualizations
-pg.QtGui.QApplication.instance().exec_()
-plt.show()
+pi.tear_down(("adjoint_eig_funcs",
+              "eig_funcs",
+              "eig_funcs_i",
+              "eig_funcs_ti",
+              "fem_funcs") + base_labels,
+             plots)

@@ -5,7 +5,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

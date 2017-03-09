@@ -1,7 +1,7 @@
 import pyinduct as pi
-import pyinduct.visualization as vis
 import numpy as np
 import pyqtgraph as pg
+
 
 sys_name = 'transport system'
 v = 10
@@ -36,12 +36,15 @@ weak_form = pi.WeakFormulation([
 
 eval_data = pi.simulate_system(weak_form, init_x, temp_domain, spat_domain)
 
+# pyqtgraph visualization
 win0 = pg.plot(np.array(eval_data[0].input_data[0]).flatten(),
                u.get_results(eval_data[0].input_data[0]).flatten(),
                labels=dict(left='u(t)', bottom='t'), pen='b')
 win0.showGrid(x=False, y=True, alpha=0.5)
 # vis.save_2d_pg_plot(win0, 'transport_system')
-win1 = pi.PgAnimatedPlot(eval_data, title=eval_data[0].name, save_pics=False, labels=dict(left='x(z,t)', bottom='z'))
-pg.QtGui.QApplication.instance().exec_()
+win1 = pi.PgAnimatedPlot(eval_data, title=eval_data[0].name, save_pics=False,
+                         labels=dict(left='x(z,t)', bottom='z'))
+pi.show()
 
+pi.tear_down((func_label,), (win0, win1))
 

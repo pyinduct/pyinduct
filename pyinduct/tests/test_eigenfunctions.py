@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
