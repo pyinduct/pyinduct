@@ -180,9 +180,11 @@ class PgAnimatedPlot(PgDataPlot):
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
+        min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
-        self._endtime = max(max_times)
-        self._longest_idx = max_times.index(self._endtime)
+        self._start_time = min(min_times)
+        self._end_time = max(max_times)
+        self._longest_idx = max_times.index(self._end_time)
 
         assert refresh_time > 0
         self._tr = refresh_time
@@ -207,7 +209,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._exporter.parameters()['width'] = 1e3
 
             picture_path = create_dir(self._res_path)
-            export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
+            export_digits = int(np.abs(np.round(np.log10(self._end_time // self._t_step), 0)))
             # ffmpeg uses c-style format strings
             ff_name = "_".join(
                 [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "%0{}d".format(export_digits), ".png"])
@@ -231,7 +233,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
-        self._t = 0
+        self._t = self._start_time
 
         self._timer = pg.QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_plot)
@@ -256,8 +258,8 @@ class PgAnimatedPlot(PgDataPlot):
         self._t += self._t_step
         self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
 
-        if self._t > self._endtime:
-            self._t = 0
+        if self._t > self._end_time:
+            self._t = self._start_time
             if self.save_pics:
                 self._export_complete = True
                 print("saved pictures using mask: " + self._ff_mask)
