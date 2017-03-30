@@ -243,7 +243,9 @@ class Function(BaseFraction):
         values = np.atleast_1d(values)
         for interval in self.domain:
             if any(values < interval[0]) or any(values > interval[1]):
-                raise ValueError("Function evaluated outside it's domain with {}".format(values))
+                raise ValueError("Function evaluated outside it's "
+                                 "domain {} with {}".format(self.domain,
+                                                            values))
 
                 # if all(value >= interval[0]) and all(value <= interval[1]):
                 #     in_domain = True
