@@ -2,6 +2,7 @@
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
 import warnings
+import numbers
 
 import numpy as np
 import collections
@@ -12,7 +13,7 @@ from numbers import Number
 from scipy import integrate
 from scipy.linalg import block_diag
 from scipy.optimize import root
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interp2d
 
 from .registry import get_base
 
@@ -1590,8 +1591,8 @@ class Domain(object):
         if points is not None:
             # points are given, easy one
             self._values = np.atleast_1d(points)
-            self._limits = (points.min(), points.max())
-            self._num = points.size
+            self._limits = (self._values.min(), self._values.max())
+            self._num = self._values.size
             # TODO check for evenly spaced entries
             # for now just use provided information
             self._step = step
@@ -1672,7 +1673,6 @@ class EvalData:
     Convenience wrapper for function evaluation.
     Contains the input data that was used for evaluation and the results.
     """
-
     def __init__(self, input_data, output_data, name=""):
         # check type and dimensions
         assert isinstance(input_data, list)
@@ -1691,3 +1691,386 @@ class EvalData:
         self.min = output_data.min()
         self.max = output_data.max()
         self.name = name
+
+    def checkInputAxisInterpolateOutput(self, other):
+        """
+        Method checks the discretization and length of self and other input_data axes, and equalize to the minimal
+        discretized axis
+
+        Args:
+            other (:py:class:`EvalData`): other EvalData class
+
+        Returns:
+            list: minimal discretized input_data axis
+            numpy.ndarray: interpolated self output_data array
+            numpy.ndarray: interpolated other output_data array
+        """
+        input_data = []
+
+        for idx in range(len(self.input_data)):
+            # check if axis have the same length
+            if self.input_data[idx].bounds[0] != other.input_data[idx].bounds[0]:
+                raise ValueError("lower boundaries doesn't match")
+            if self.input_data[idx].bounds[-1] != other.input_data[idx].bounds[-1]:
+                raise ValueError("upper boundaries doesn't match")
+            # check witch axis has the smallest discretisation
+            if len(self.input_data[idx]) <= len(other.input_data[idx]):
+                input_data.append(self.input_data[idx])
+            else:
+                input_data.append(other.input_data[idx])
+
+        # interpolate data
+        selfInterpolate = self(input_data)
+        otherInterpolate = other(input_data)
+
+        return input_data, selfInterpolate.output_data, otherInterpolate.output_data
+
+    def add(self, other, fromLeft=True):
+        """
+        Calculates the element wise addition of the output_data arrays of self and other. Method is used to
+        overload + (__add__ (fromLeft=True) or __radd__ (fromLeft=False)) operator. If other is a :py:class:`EvalData`,
+        the input_data lists of self and other are compared and the axes with the least discretization are used. The
+        output_data is interpolated to the used axes. The mathematical operation is performed on the interpolated
+        output_data. If other is a :class:`numbers.Number`, the self.output_data array is element wise added with
+        other.
+
+        Args:
+            other (:class:`numbers.Number` or :py:class:`EvalData`): to add number or EvalData object
+            fromLeft boolean: addition from left if True or from right if False
+
+        Returns:
+            :py:class:`EvalData` with adapted input_data and output_data as result of addition
+        """
+        if isinstance(other, numbers.Number):
+            if fromLeft:
+                output_data = self.output_data + other
+            else:
+                output_data = other + self.output_data
+            return EvalData(input_data=self.input_data,
+                            output_data=output_data,
+                            name=self.name)
+        elif isinstance(other, EvalData):
+            assert len(self.input_data) == len(other.input_data)
+
+            input_data, self_output_data, other_output_data = self.checkInputAxisInterpolateOutput(other)
+
+            # addition der output array
+            if fromLeft:
+                output_data = self_output_data + other_output_data
+                _name = self.name + " + " + other.name
+            else:
+                output_data = other_output_data + self_output_data
+                _name = other.name + " + " + self.name
+
+            return EvalData(input_data=input_data,
+                            output_data=output_data,
+                            name=_name)
+        else:
+            raise NotImplemented
+
+    def __radd__(self, other):
+        return self.add(other, fromLeft=False)
+
+    def __add__(self, other):
+        return self.add(other)
+
+    def sub(self, other, fromLeft=True):
+        """
+        Calculates the element wise subtraction of the output_data arrays of self and other. Method is used to
+        overload - (__sub__ (fromLeft=True) or __rsub__ (fromLeft=False)) operator. If other is a :py:class:`EvalData`,
+        the input_data lists of self and other are compared and the axes with the least discretization are used. The
+        output_data is interpolated to the used axes. The mathematical operation is performed on the interpolated
+        output_data. If other is a :class:`numbers.Number`, the self.output_data array is element wise subtracted with
+        other.
+
+        Args:
+            other :class:`numbers.Number` or :py:class:`EvalData`: to sub number or EvalData object
+            fromLeft boolean: subtraction from left if True or from right if False
+
+        Returns:
+            :py:class:`EvalData` with adapted input_data and output_data as result of subtraction
+        """
+        if isinstance(other, numbers.Number):
+            if fromLeft:
+                output_data = self.output_data - other
+            else:
+                output_data = other - self.output_data
+            return EvalData(input_data=self.input_data,
+                            output_data=output_data,
+                            name=self.name)
+        elif isinstance(other, EvalData):
+            assert len(self.input_data) == len(other.input_data)
+
+            input_data, self_output_data, other_output_data = self.checkInputAxisInterpolateOutput(other)
+
+            # addition der output array
+            if fromLeft:
+                output_data = self_output_data - other_output_data
+                _name = self.name + " - " + other.name
+            else:
+                output_data = other_output_data - self_output_data
+                _name = other.name + " - " + self.name
+
+            return EvalData(input_data=input_data,
+                            output_data=output_data,
+                            name=_name)
+        else:
+            raise NotImplemented
+
+    def __rsub__(self, other):
+        return self.sub(other, fromLeft=False)
+
+    def __sub__(self, other):
+        return self.sub(other)
+
+    def mul(self, other, fromLeft=True):
+        """
+        Calculates the element wise multiplication of the output_data arrays of self and other. Method is used to
+        overload * (__mul__ (fromLeft=True) or __rmul__ (fromLeft=False)) operator. If other is a :py:class:`EvalData`,
+        the input_data lists of self and other are compared and the axes with the least discretization are used. The
+        output_data is interpolated to the used axes. The mathematical operation is performed on the interpolated
+        output_data. If other is a :class:`numbers.Number`, the self.output_data array is element wise multiplied with
+        other.
+
+        Args:
+            other :class:`numbers.Number` or :py:class:`EvalData`: to mul number or EvalData object
+            fromLeft boolean: multiplication from left if True or from right if False
+
+        Returns:
+            :py:class:`EvalData` with adapted input_data and output_data as result of multiplication
+        """
+        if isinstance(other, numbers.Number):
+            output_data = self.output_data * other
+            return EvalData(input_data=self.input_data,
+                            output_data=output_data,
+                            name=self.name)
+        elif isinstance(other, EvalData):
+            assert len(self.input_data) == len(other.input_data)
+
+            input_data, self_output_data, other_output_data = self.checkInputAxisInterpolateOutput(other)
+
+            # addition der output array
+            output_data = other_output_data * self_output_data
+            if fromLeft:
+                _name = self.name + " * " + other.name
+            else:
+                _name = other.name + " * " + self.name
+
+            return EvalData(input_data=input_data,
+                            output_data=output_data,
+                            name=_name)
+        else:
+            raise NotImplemented
+
+    def __rmul__(self, other):
+        return self.mul(other, fromLeft=False)
+
+    def __mul__(self, other):
+        return self.mul(other)
+
+    def matmul(self, other, fromLeft=True):
+        """
+        Calculates the matrix multiplication of the output_data arrays of self and other. Method is used to overload
+        @ (__matmul__ (fromLeft=True) or __rmatmul__ (fromLeft=False)) operator. The input_data lists of self and other
+        are compared and the axes with the least discretization are used. The output_data is interpolated to the used
+        axes. The mathematical operation is performed on the interpolated output_data.
+
+        Args:
+            other :py:class:`EvalData`: to matrix mul EvalData object
+            fromLeft boolean: matrix multiplication from left if True or from right if False
+
+        Returns:
+            :py:class:`EvalData` with adapted input_data and output_data as result of matrix multiplication
+        """
+        if isinstance(other, EvalData):
+            assert len(self.input_data) == len(other.input_data)
+            if self.output_data.shape != other.output_data.shape:
+                raise NotImplemented('Different sizes')
+
+            input_data, self_output_data, other_output_data = self.checkInputAxisInterpolateOutput(other)
+
+            if fromLeft:
+                output_data = self_output_data @ other_output_data
+                _name = self.name + " @ " + other.name
+            else:
+                output_data = other_output_data @ self_output_data
+                _name = other.name + " @ " + self.name
+
+            return EvalData(input_data=input_data,
+                            output_data=output_data,
+                            name=_name)
+        else:
+            raise NotImplemented
+
+    def __rmatmul__(self, other):
+        return self.matmul(other, fromLeft=False)
+
+    def __matmul__(self, other):
+        return self.matmul(other)
+
+    def __pow__(self, power):
+        """
+        Calculates the power element by element of output_data array
+
+        Args:
+            power (:class:`numbers.Number`): power
+
+        Returns:
+            :py:class:`EvalData` with self.input_data and output_data as result of power
+        """
+        if isinstance(power, numbers.Number):
+            output_data = self.output_data ** power
+            return EvalData(input_data=self.input_data,
+                            output_data=output_data)
+        else:
+            raise NotImplemented
+
+    def __call__(self, pos):
+        """
+        Interpolation method for output_data. Determines, if a one, two or three dimensional interpolation is used.
+        Method can handle slice objects in the pos lists. One slice object is allowed per axis list.
+        Example:
+            without slices:
+
+                axis1 = Domain((0, 0.5), 5)
+                axis2 = Domain((0, 1), 11)
+                data = np.random.rand(5, 11)
+                ed = EvalData(input_data=[axis1, axis2], output_data=data)
+                pos = [[0.1], [0.5, 0.7]]
+                values = ed(pos)        # values.output_data.size = 1 x 2
+
+            with slices:
+
+                axis1 = Domain((0, 0.5), 5)
+                axis2 = Domain((0, 1), 11)
+                data = np.random.rand(5, 11)
+                ed = EvalData(input_data=[axis1, axis2], output_data=data)
+                pos = [[slice(None)], [0.5, 0.7]]
+                values = ed(pos)        # values.output_data.size = 5 x 2
+
+            or:
+
+                pos = [[slice(0, 2)], [0.5, 0.7]]
+                values = ed(pos)        # values.output_data.size = 2 x 2
+
+        Args:
+            pos (list(list)): axis positions in the form
+
+            - 1D: [axis] with axis=[1,2,3]
+            - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+        Returns:
+            :py:class:`EvalData` with pos as input_data and to pos interpolated output_data
+        """
+        assert isinstance(pos, list)
+        assert len(pos) == len(self.input_data)
+
+        _list = []
+        for i in range(len(pos)):
+            assert isinstance(pos, list)
+            _entry = []
+            for j in range(len(pos[i])):
+                if isinstance(pos[i][j], slice):
+                    _entry = self.input_data[i][pos[i][j]].tolist()
+                    if _entry is None:
+                        raise ValueError('Slice returns None!')
+                    break
+                else:
+                    _entry.append(pos[i][j])
+
+            _list.append(_entry)
+
+        return self.interpolate(_list)
+
+    def interpolate(self, pos):
+        """
+        Main interpolation method for output_data. Determines, if a one, two or three dimensional interpolation is used.
+
+        Args:
+            pos (list(list)): axis positions in the form
+
+            - 1D: [axis] with axis=[1,2,3]
+            - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+        Returns:
+            :py:class:`EvalData` with pos as input_data and to pos interpolated output_data
+        """
+        assert isinstance(pos, list)
+        assert len(pos) == len(self.input_data)
+
+        # check interpolation space
+        if self.output_data.ndim == 1:
+            values = self._interpolate1d(pos)
+            input_data = Domain(points=pos[0])
+            return EvalData(input_data=[input_data],
+                            output_data=np.array(values),
+                            name=self.name)
+        elif self.output_data.ndim == 2:
+            values = self._interpolate2d(pos)
+            pos0 = Domain(points=pos[0])
+            pos1 = Domain(points=pos[1])
+            input_data = [pos0, pos1]
+            return EvalData(input_data=input_data,
+                            output_data=np.array(values),
+                            name=self.name)
+        elif self.output_data.ndim == 3:
+            raise NotImplemented
+
+    def _interpolate1d(self, pos):
+        """
+        Interpolates the one dimensional output_data to the given axis positions
+
+        Args:
+            pos (list(list)): axis positions in the form [axis] with axis=[1,2,3]
+
+        Returns:
+            numpy.ndarray: Interpolated values.
+        """
+        # TODO check boundaries
+        return np.interp(pos[0], self.input_data[0], self.output_data)
+
+    def _interpolate2d(self, pos):
+        """
+        Interpolates the two dimensional output_data to the given axis positions
+
+        Args:
+            pos (list(list)): two axis positions in the form [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+        Returns:
+            numpy.ndarray: Interpolated values.
+        """
+        # TODO check boundaries
+        f = interp2d(self.input_data[1], self.input_data[0], self.output_data)
+        values = f(pos[1], pos[0])
+        if values.ndim == 2:
+            return values
+        else:
+            return np.array([values])
+
+    def sqrt(self):
+        """
+        Calculates the element wise root of output_data array
+
+        Return:
+             :py:class:`EvalData` with self.input_data and output_data as result of root calculation
+        """
+        output_data = np.sqrt(self.output_data)
+
+        ed = EvalData(input_data=self.input_data,
+                      output_data=output_data,
+                      name=self.name)
+        return ed
+
+    def abs(self):
+        """
+        Calculates the element wise absolute value of output_data array
+
+        Return:
+            :py:class:`EvalData` with self.input_data and output_data as result of absolute value calculation
+        """
+        output_data = np.abs(self.output_data)
+
+        ed = EvalData(input_data=self.input_data,
+                      output_data=output_data,
+                      name=self.name)
+        return ed
