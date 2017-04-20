@@ -14,16 +14,21 @@ import scipy.interpolate as si
 import pyqtgraph as pg
 import pyqtgraph.exporters
 import pyqtgraph.opengl as gl
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+from pyqtgraph.pgcollections import OrderedDict
+
 from numbers import Number
-# axes3d not explicit used but needed
-from mpl_toolkits.mplot3d import axes3d
+# Axes3D not explicit used but needed
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib as mpl
 
 from .core import complex_wrapper, EvalData, Domain
 from .utils import create_animation, create_dir
 
-__all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
+__all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
+           "PgLinePlot2d", "PgAdvancedViewWidget", "PgColorBarWidget",
+           "PgGradientWidget", "MplSurfacePlot", "MplSlicePlot",
            "visualize_roots", "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
@@ -180,11 +185,9 @@ class PgAnimatedPlot(PgDataPlot):
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
-        min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
-        self._start_time = min(min_times)
-        self._end_time = max(max_times)
-        self._longest_idx = max_times.index(self._end_time)
+        self._endtime = max(max_times)
+        self._longest_idx = max_times.index(self._endtime)
 
         assert refresh_time > 0
         self._tr = refresh_time
@@ -209,7 +212,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._exporter.parameters()['width'] = 1e3
 
             picture_path = create_dir(self._res_path)
-            export_digits = int(np.abs(np.round(np.log10(self._end_time // self._t_step), 0)))
+            export_digits = int(np.abs(np.round(np.log10(self._endtime // self._t_step), 0)))
             # ffmpeg uses c-style format strings
             ff_name = "_".join(
                 [title.replace(" ", "_"), self._time_stamp.replace(":", "_"), "%0{}d".format(export_digits), ".png"])
@@ -233,7 +236,7 @@ class PgAnimatedPlot(PgDataPlot):
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
-        self._t = self._start_time
+        self._t = 0
 
         self._timer = pg.QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_plot)
@@ -258,8 +261,8 @@ class PgAnimatedPlot(PgDataPlot):
         self._t += self._t_step
         self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
 
-        if self._t > self._end_time:
-            self._t = self._start_time
+        if self._t > self._endtime:
+            self._t = 0
             if self.save_pics:
                 self._export_complete = True
                 print("saved pictures using mask: " + self._ff_mask)
@@ -284,6 +287,221 @@ class PgAnimatedPlot(PgDataPlot):
             return None
 
 
+class PgAdvancedViewWidget(gl.GLViewWidget):
+    """
+    OpenGL Widget that depends on GLViewWidget and completes it with text labels for the x, y and z axis
+    """
+    def __init__(self):
+        super(PgAdvancedViewWidget, self).__init__()
+        self.xlabel = 'x'
+        self.posXLabel = [1, 0, 0]
+        self.ylabel = 'y'
+        self.posYLabel = [0, 1, 0]
+        self.zlabel = 'z'
+        self.posZLabel = [0, 0, 1]
+
+    def setXLabel(self, text, pos):
+        """
+        Sets x label on position
+
+        Args:
+            test (str): x axis text to render
+            pos (list): position as list with [x, y, z] coordinate
+        """
+        self.xlabel = text
+        self.posXLabel = pos
+        self.update()
+
+    def setYLabel(self, text, pos):
+        """
+        Sets y label on position
+
+        Args:
+            test (str): y axis text to render
+            pos (list): position as list with [x, y, z] coordinate
+        """
+        self.ylabel = text
+        self.posYLabel = pos
+        self.update()
+
+    def setZLabel(self, text, pos):
+        """
+        Sets z label on position
+
+        Args:
+            test (str): z axis text to render
+            pos (list): position as list with [x, y, z] coordinate
+        """
+        self.zlabel = text
+        self.posZLabel = pos
+        self.update()
+
+    def paintGL(self, *args, **kwds):
+        """
+        Overrides painGL function to render the text labels
+        """
+        gl.GLViewWidget.paintGL(self, *args, **kwds)
+        self.renderText(self.posXLabel[0],
+                        self.posXLabel[1],
+                        self.posXLabel[2],
+                        self.xlabel)
+        self.renderText(self.posYLabel[0],
+                        self.posYLabel[1],
+                        self.posYLabel[2],
+                        self.ylabel)
+        self.renderText(self.posZLabel[0],
+                        self.posZLabel[1],
+                        self.posZLabel[2],
+                        self.zlabel)
+
+
+class PgColorBarWidget(pg.GraphicsLayoutWidget):
+    """
+    OpenGL Widget that depends on GraphicsLayoutWidget and realizes an axis and a color bar
+    """
+    def __init__(self):
+        super(PgColorBarWidget, self).__init__()
+
+        _min = 0
+        _max = 1
+
+        # values axis
+        self.ax = pg.AxisItem('left')
+        self.ax.setRange(_min, _max)
+        self.addItem(self.ax)
+        # color bar gradients
+        cmap = cm.get_cmap(color_map)
+        self.gw = PgGradientWidget(cmap=cmap)
+        self.setCBRange(_min, _max)
+        self.addItem(self.gw)
+
+    def setCBRange(self, _min, _max):
+        """
+        Sets the minimal and maximal value of axis and color bar
+
+        Args:
+            _min (float): minimal value
+            _max (float): maximal value
+        """
+        self.gw.setRange(_min, _max)
+        self.ax.setRange(_min, _max)
+
+
+class PgGradientWidget(pg.GraphicsWidget):
+    """
+    OpenGL Widget that depends on GraphicsWidget and realizes a color bar that depends on a QGraphicsRectItem and
+    QLinearGradient
+
+    Args:
+        cmap (matplotlib.cm.Colormap): color map, if None viridis is used
+    """
+    def __init__(self, cmap=None):
+        pg.GraphicsWidget.__init__(self)
+        self.length = 100
+        self.maxDim = 20
+        self.steps = 11
+        self.rectSize = 15
+        self._min = 0
+        self._max = 1
+
+        if cmap is None:
+            self.cmap = cm.get_cmap('viridis')
+        else:
+            self.cmap = cmap
+
+        self.gradRect = pg.QtGui.QGraphicsRectItem(pg.QtCore.QRectF(0, 0, self.length, self.rectSize))
+        self.gradRect.setParentItem(self)
+
+        self.setMaxDim(self.rectSize)
+        self.resetTransform()
+        transform = pg.QtGui.QTransform()
+        transform.rotate(270)
+        transform.translate(-self.height(), 0)
+        self.setTransform(transform)
+        self.translate(0, self.rectSize)
+
+        self.updateGradient()
+
+    def resizeEvent(self, ev):
+        wlen = max(40, self.height())
+        self.setLength(wlen)
+        self.setMaxDim(self.rectSize)
+        self.resetTransform()
+        transform = pg.QtGui.QTransform()
+        transform.rotate(270)
+        transform.translate(-self.height(), 0)
+        self.setTransform(transform)
+        self.translate(0, self.rectSize)
+
+    def setMaxDim(self, mx=None):
+        """
+        Sets the maximal width of the color bar widget
+
+        Args:
+             mx (float or None): new width of the color bar widget
+        """
+        if mx is None:
+            mx = self.maxDim
+        else:
+            self.maxDim = mx
+
+        self.setFixedWidth(mx)
+        self.setMaximumHeight(2**32)
+
+    def setLength(self, newLen):
+        """
+        Gets the new length if the window is resize, updates the size and color of QGraphicsRectItem
+
+        Args:
+             newLen: new length of the window
+        """
+        self.length = float(newLen)
+        self.gradRect.setRect(1, -self.rectSize, newLen, self.rectSize)
+        self.updateGradient()
+
+    def updateGradient(self):
+        """
+        Updates QGraphicsRectItem color with the gradient
+        """
+        self.gradRect.setBrush(pg.QtGui.QBrush(self.getGradient()))
+
+    def getGradient(self):
+        """
+        Calculates for minimal and maximal value the linear gradient and assigns colors to the gradient.
+
+        Return:
+            pg.QtGui.QLinearGradient: linear gradient for current min and max values
+        """
+        norm = mpl.colors.Normalize(vmin=self._min, vmax=self._max)
+        m = cm.ScalarMappable(norm=norm, cmap=self.cmap)
+
+        g = pg.QtGui.QLinearGradient(pg.QtCore.QPointF(0, 0), pg.QtCore.QPointF(self.length, 0))
+
+        t = np.linspace(0, 1, self.steps)
+        steps = np.linspace(self._min, self._max, self.steps)
+        stops = []
+        for idx in range(len(t)):
+            _r, _g, _b, _a = m.to_rgba(steps[idx], bytes=True)
+            qcol = pg.QtGui.QColor(_r, _g, _b, _a)
+            stops.append(tuple([t[idx], qcol]))
+
+        g.setStops(stops)
+
+        return g
+
+    def setRange(self, _min, _max):
+        """
+        Method updates the min and max value of the colar bar and calculates the new gradient trend
+
+        Args:
+            _min (float): set the minimal value of the color bar
+            _max (float): set the maximal value of the color bar
+        """
+        self._min = _min
+        self._max = _max
+        self.updateGradient()
+
+
 class PgSurfacePlot(PgDataPlot):
     """
     Plot 3 dimensional data as a surface using OpenGl.
@@ -301,119 +519,190 @@ class PgSurfacePlot(PgDataPlot):
         animation_axis (int): Index of the axis to use for animation.
             Not implemented, yet and therefore defaults to 0 by now.
         title (str): Window title to display.
-
+        zlabel (str): label for the z axis, default value: x(z,t)
+    Todo:
+        py attention to animation axis.
     Note:
         For animation this object spawns a `QTimer` which needs an running
         event loop. Therefore remember to store a reference to this object.
     """
 
-    def __init__(self, data, scales=None, animation_axis=0, title=""):
+    def __init__(self, data, scales=None, animation_axis=0, title="", zlabel='x(z,t)'):
         """
 
         :type data: object
         """
         PgDataPlot.__init__(self, data)
-        self.gl_widget = gl.GLViewWidget()
+
+        layout = pg.QtGui.QGridLayout()
+
+        self.gl_widget = PgAdvancedViewWidget()
         self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
         self.gl_widget.setCameraPosition(distance=1, azimuth=-45)
-        self.gl_widget.show()
+        self.cmap = cm.get_cmap(color_map)
+
+        self.cb = PgColorBarWidget()
+        windowHeight = 800
+        windowWidth = 800
+        colorbarWidth = 60
+
+        # it's basically
+        self.gl_widget.setSizePolicy(self.cb.sizePolicy())
+        # add 3D widget to the left (first column)
+        layout.addWidget(self.gl_widget, 0, 0)
+        # add colorbar to the right (second column)
+        layout.addWidget(self.cb, 0, 1)
+        # Do not allow 2nd column (colorbar) to stretch
+        layout.setColumnStretch(1, 0)
+        # minimal size of the colorbar
+        layout.setColumnMinimumWidth(1, colorbarWidth)
+        # Allow 1st column (3D widget) to stretch
+        layout.setColumnStretch(0, 1)
+        # horizontal size set to be large to prompt colormap to a minimum size
+        self.gl_widget.sizeHint = lambda: pg.QtCore.QSize(2 * windowWidth, windowHeight)
+        self.cb.sizeHint = lambda: pg.QtCore.QSize(colorbarWidth, windowHeight)
+        # this is to remove empty space between
+        layout.setHorizontalSpacing(0)
+        # set initial size of the window
+        self.w = pg.QtGui.QWidget()
+        self.w.resize(windowWidth, windowHeight)
+        self.w.setLayout(layout)
+        self.w.show()
 
         self.grid_size = 20
 
         # calculate minima and maxima
-        maxima = np.max(
-            [np.array([max(abs(entry)) for entry in data_set.input_data])
-             for data_set in self._data],
-            axis=0)
-        maxima = np.hstack((maxima,
-                             max([data_set.max for data_set in self._data])))
+        extrema_list = []
+        for data_set in self._data:
+            _extrema_list = []
+            for entry in data_set.input_data:
+                _min_max = [min(entry), max(entry)]
+                _extrema_list.append(_min_max)
+
+            extrema_list.append(_extrema_list)
+
+        extrema_arr = np.array(extrema_list)
+
+        extrema = [np.min(extrema_arr[..., 0], axis=0),
+                   np.max(extrema_arr[..., 1], axis=0)]
+
+        extrema = np.hstack((
+            extrema,
+            ([min([data_set.min for data_set in self._data])],
+             [max([data_set.max for data_set in self._data])])))
+
+        deltas = np.diff(extrema, axis=0).squeeze()
+
+        # print("minima: {}".format(extrema[0]))
+        # print("maxima: {}".format(extrema[1]))
+        # print("deltas: {}".format(deltas))
 
         if scales is None:
             # scale all axes uniformly if no scales are given
             _scales = []
-            for value in maxima:
+            for value in deltas:
                 if np.isclose(value, 0):
                     _scales.append(1)
                 else:
-                    _scales.append(1/value)
-            self.scales = tuple(_scales)
+                    _scales.append(1 / value)
+            self.scales = np.array(_scales)
         else:
             self.scales = scales
 
-        print(self.scales)
+        # print(self.scales)
+        sc_deltas = deltas * self.scales
 
         self.plot_items = []
-        if len(data.input_data) == 3:
-            # 2d system over time -> animate
-            # assume that for 4d data, the first axis is the time
-            for idx, data_set in enumerate(self._data):
+        for idx, data_set in enumerate(self._data):
+            if len(data_set.input_data) == 3:
+                raise NotImplementedError
+
+                # 2d system over time -> animate
+                # assume that for 4d data, the first axis is the time
+                self.scales = np.delete(self.scales, animation_axis)
+                self.index_offset = 1
+
+                norm = mpl.colors.Normalize(vmin=extrema[0, -1], vmax=extrema[1, -1])
+                m = cm.ScalarMappable(norm=norm, cmap=self.cmap)
+                colors = m.to_rgba(self._data[idx].output_data)
+
                 plot_item = gl.GLSurfacePlotItem(
                     x=self.scales[1] * np.atleast_1d(data_set.input_data[1]),
                     y=self.scales[2] * np.flipud(
                         np.atleast_1d(data_set.input_data[2])),
                     z=self.scales[3] * data_set.output_data[0],
-                    shader="normalColor")
+                    colors=colors,
+                    computeNormals=False)
+            else:
+                # 1d system over time -> static
+                self.index_offset = 0
 
-                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
-                self.gl_widget.addItem(plot_item)
-                self.plot_items.append(plot_item)
+                norm = mpl.colors.Normalize(vmin=extrema[0, -1], vmax=extrema[1, -1])
+                m = cm.ScalarMappable(norm=norm, cmap=self.cmap)
+                colors = m.to_rgba(self._data[idx].output_data)
 
-            self.index_offset = 1
-            self.t_idx = 0
-            self._timer = pg.QtCore.QTimer(self)
-            self._timer.timeout.connect(self._update_plot)
-            self._timer.start(100)
-        else:
-            # 1d system over time -> static
-            self.index_offset = 0
-            for idx, item in enumerate(self._data):
                 plot_item = gl.GLSurfacePlotItem(
                     x=self.scales[0] * np.atleast_1d(
                         self._data[idx].input_data[0]),
                     y=self.scales[1] * np.flipud(np.atleast_1d(
                         self._data[idx].input_data[1])),
                     z=self.scales[2] * self._data[idx].output_data,
-                    shader="normalColor")
+                    colors=colors,
+                    computeNormals=False)
 
-                # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
-                self.gl_widget.addItem(plot_item)
-                self.plot_items.append(plot_item)
+            # plot_item.translate(-max_0 / 2, -max_1 / 2, -grid_height / 2)
+            self.gl_widget.addItem(plot_item)
+            self.plot_items.append(plot_item)
 
-        # since gl.GLGridItem.setSize() is broken use gl.GLGridItem.scale()
-        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(self.grid_size,
-                                                             self.grid_size,
-                                                             1))
+        if self.index_offset == 1:
+            self.t_idx = 0
+            self._timer = pg.QtCore.QTimer(self)
+            self._timer.timeout.connect(self._update_plot)
+            self._timer.start(100)
 
-        # TODO find new compromise here and ad grids again
-        self._xygrid.scale(x=1/self.grid_size,
-                           y=1/self.grid_size,
-                           z=1)
-        # self._xygrid.translate(0, 0, -maxima[-1]*self.scales[-1]/2)
-        self._xygrid.translate(1, 1, 0)
+        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._xygrid.setSpacing(sc_deltas[0] / 10, sc_deltas[1] / 10, 0)
+        self._xygrid.setSize(1.2 * sc_deltas[0], 1.2 * sc_deltas[1], 1)
+        self._xygrid.translate(
+            .5 * sc_deltas[0],
+            .5 * sc_deltas[1],
+            -.1 * sc_deltas[2]
+        )
         self.gl_widget.addItem(self._xygrid)
 
-        # self._ygrid = gl.GLGridItem()
-        # self._ygrid.scale(x=self.scales[0 + self.index_offset],
-        #                   y=self.scales[1 + self.index_offset],
-        #                   z=self.scales[-1])
-        # self._ygrid.rotate(90, 0, 1, 0)
-        # self._ygrid.translate(0,
-        #                       -maxima[1 + self.index_offset]*
-        #                       self.scales[1 + self.index_offset]/2,
-        #                       0)
-        # self.gl_widget.addItem(self._ygrid)
+        self._xzgrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._xzgrid.setSpacing(sc_deltas[0] / 10, sc_deltas[2] / 10, 0)
+        self._xzgrid.setSize(1.2 * sc_deltas[0], 1.2 * sc_deltas[2], 1)
+        self._xzgrid.rotate(90, 1, 0, 0)
+        self._xzgrid.translate(
+            .5 * sc_deltas[0],
+            1.1 * sc_deltas[1],
+            .5 * sc_deltas[2]
+        )
+        self.gl_widget.addItem(self._xzgrid)
 
-        # self._ygrid = gl.GLGridItem()
-        # self._ygrid.scale(x=grid_height_s, y=max_1_s, z=0)
-        # self._ygrid.rotate(90, 0, 1, 0)
-        # self._ygrid.translate(max_0 / 2, 0, 0)
-        # self.gl_widget.addItem(self._ygrid)
-        #
-        # self._zgrid = gl.GLGridItem()
-        # self._zgrid.scale(x=max_0_s, y=grid_height_s, z=max_1)
-        # self._zgrid.rotate(90, 1, 0, 0)
-        # self._zgrid.translate(0, max_1 / 2, 0)
-        # self.gl_widget.addItem(self._zgrid)
+        self._yzgrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._yzgrid.setSpacing(sc_deltas[1] / 10, sc_deltas[2] / 10, 0)
+        self._yzgrid.setSize(1.2 * sc_deltas[1], 1.2 * sc_deltas[2], 1)
+        self._yzgrid.rotate(90, 1, 0, 0)
+        self._yzgrid.rotate(90, 0, 0, 1)
+        self._yzgrid.translate(
+            1.1 * sc_deltas[0],
+            .5 * sc_deltas[1],
+            .5 * sc_deltas[2]
+        )
+        self.gl_widget.addItem(self._yzgrid)
+
+        self.gl_widget.setXLabel('t', pos=[0.5 * sc_deltas[0],
+                                           -0.15 * sc_deltas[1],
+                                           -0.1 * sc_deltas[2]])
+        self.gl_widget.setYLabel('z', pos=[-0.15 * sc_deltas[0],
+                                           0.5 * sc_deltas[1],
+                                           -0.1 * sc_deltas[2]])
+        self.gl_widget.setZLabel(zlabel, pos=[1.1 * sc_deltas[0],
+                                              1.1 * sc_deltas[1],
+                                              1.1 * sc_deltas[2]])
+        self.cb.setCBRange(extrema[0, -1], extrema[1, -1])
 
     def _update_plot(self):
         """
@@ -428,9 +717,10 @@ class PgSurfacePlot(PgDataPlot):
 
         self.t_idx += 1
 
-        # TODO check if array has enough timestamps in it
+        # TODO check if every array has enough timestamps in it
         if self.t_idx >= len(self._data[0].input_data[0]):
             self.t_idx = 0
+
 
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
@@ -470,6 +760,43 @@ class PgSlicePlot(PgDataPlot):
         # for data_set in data:
         #     self.plot_window.plot(data_set.input_data[input_idx], data_set.output_data[self.data_slice],
         #                           name=data.name)
+
+
+class PgLinePlot2d(PgDataPlot):
+    """
+    Plots a list of 1D :py:class:`EvalData` objects as a OpenGL line plot
+
+    Args:
+        data (list(:py:class:`EvalData`)): list of objects to plot
+        title (str): title string
+    """
+
+    def __init__(self, data, title=''):
+        PgDataPlot.__init__(self, data)
+
+        self.xData = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
+        self.yData = [data_set.output_data for data_set in self._data]
+
+        self._pw = pg.plot(title=title)
+        self._pw.addLegend()
+        self._pw.showGrid(x=True, y=True, alpha=0.5)
+
+        xData_min = np.min([np.min(data) for data in self.xData])
+        xData_max = np.max([np.max(data) for data in self.xData])
+        self._pw.setXRange(xData_min, xData_max)
+
+        yData_min = np.min([np.min(data) for data in self.yData])
+        yData_max = np.max([np.max(data) for data in self.yData])
+        self._pw.setYRange(yData_min, yData_max)
+
+        self._plot_data_items = []
+        self._plot_indexes = []
+        cls = create_colormap(len(self._data))
+        for idx, data_set in enumerate(self._data):
+            self._plot_indexes.append(0)
+            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2), name=data_set.name))
+            self._pw.addItem(self._plot_data_items[-1])
+            self._plot_data_items[idx].setData(x=self.xData[idx], y=self.yData[idx])
 
 
 # TODO: alpha
@@ -549,7 +876,9 @@ class MplSurfacePlot(DataPlot):
             ax.w_yaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
             ax.w_zaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
 
-            ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
+            cmap = plt.get_cmap(color_map)
+
+            ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=cmap, antialiased=False)
 
 
 class MplSlicePlot(PgDataPlot):
@@ -563,7 +892,7 @@ class MplSlicePlot(PgDataPlot):
                  legend_location=1, figure_size=(10, 6)):
 
         if not ((isinstance(time_point, Number) ^ isinstance(spatial_point, Number)) and (
-            isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
+                    isinstance(time_point, type(None)) ^ isinstance(spatial_point, type(None)))):
             raise TypeError("Only one kwarg *_point can be passed,"
                             "which has to be an instance from type numbers.Number")
 
@@ -606,7 +935,8 @@ def mpl_activate_latex():
     """
     Activate full (label, ticks, ...) latex printing in matplotlib plots.
     """
-    plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}"]
+    plt.rcParams['text.latex.preamble'] = [r"\usepackage{lmodern}",
+                                           r"\usepackage{chemformula}"]
     params = {'text.usetex': True, 'font.size': 15, 'font.family': 'lmodern', 'text.latex.unicode': True,}
     plt.rcParams.update(params)
 
