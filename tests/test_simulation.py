@@ -110,6 +110,7 @@ class SimulationInputTest(unittest.TestCase):
 
         # run simulation to fill the internal storage
         domain = pi.Domain((0, 10), step=.1)
+        bigger_domain = pi.Domain((-1, 11), step=.1)
         res = sim.simulate_state_space(ss, ic, domain)
 
         # don't return any entries that aren't there
@@ -124,9 +125,25 @@ class SimulationInputTest(unittest.TestCase):
         self.assertIsInstance(ed, np.ndarray)
 
         # return EvalData if corresponding flag is set
-        self.assertIsInstance(u.get_results(domain, as_eval_data=True), pi.EvalData)
+        self.assertIsInstance(u.get_results(domain, as_eval_data=True),
+                              pi.EvalData)
 
-        # TODO interpolation methods and extrapolation errors
+        # raise an error if extrapolation is performed
+        self.assertRaises(ValueError, u.get_results, bigger_domain)
+
+        # storage contains values
+        self.assertTrue(u._time_storage)
+        self.assertTrue(u._value_storage)
+
+        # clear it
+        u.clear_cache()
+
+        # storage should be empty
+        self.assertFalse(u._time_storage)
+        self.assertFalse(u._value_storage)
+
+        # double clearing should work
+        u.clear_cache()
 
 
 class CanonicalFormTest(unittest.TestCase):
