@@ -1,7 +1,5 @@
-import os
 import sys
 import unittest
-from pickle import dump
 
 import numpy as np
 import pyinduct as pi
@@ -490,6 +488,8 @@ class StateSpaceTests(unittest.TestCase):
 class StringMassTest(unittest.TestCase):
     def setUp(self):
 
+        self.example_data = None
+
         z_start = 0
         z_end = 1
         z_step = 0.1
@@ -533,7 +533,6 @@ class StringMassTest(unittest.TestCase):
         """
         use best documented fem case to test all steps in simulation process
         """
-
         # enter string with mass equations
         nodes, fem_base = pi.cure_interval(pi.LagrangeSecondOrder,
                                            self.dz.bounds, node_count=11)
@@ -596,18 +595,7 @@ class StringMassTest(unittest.TestCase):
                                places=3)
 
         # save some test data for later use
-        root_dir = os.getcwd()
-        if root_dir.split(os.sep)[-1] == "tests":
-            res_dir = os.sep.join([os.getcwd(), "resources"])
-        else:
-            res_dir = os.sep.join([os.getcwd(), "tests", "resources"])
-
-        if not os.path.isdir(res_dir):
-            os.makedirs(res_dir)
-
-        file_path = os.sep.join([res_dir, "test_data.res"])
-        with open(file_path, "w+b") as f:
-            dump(eval_data, f)
+        self.example_data = eval_data
 
         pi.deregister_base("fem_base")
 
