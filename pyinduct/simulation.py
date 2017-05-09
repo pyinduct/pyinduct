@@ -90,12 +90,17 @@ class SimulationInput(object, metaclass=ABCMeta):
         Return:
             Corresponding function values to the given time steps.
         """
-        func = interp1d(np.array(self._time_storage), np.array(self._value_storage[result_key]),
-                        kind=interpolation, assume_sorted=True, axis=0)
+        func = interp1d(np.array(self._time_storage),
+                        np.array(self._value_storage[result_key]),
+                        kind=interpolation,
+                        assume_sorted=False,
+                        axis=0)
         values = func(time_steps)
 
         if as_eval_data:
-            return EvalData([time_steps], values, name=".".join([self.name, result_key]))
+            return EvalData([time_steps],
+                            values,
+                            name=".".join([self.name, result_key]))
 
         return values
 

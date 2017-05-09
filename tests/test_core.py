@@ -218,6 +218,98 @@ class BaseTestCase(unittest.TestCase):
         b1 = pi.Base(self.fractions[0])
         b2 = pi.Base(self.fractions)
 
+    def test_scale(self):
+        f = pi.Base([pi.Function(np.sin,
+                                 derivative_handles=[np.cos, np.sin])
+                     for i in range(5)])
+
+        # no new fractions should be created since trivial scaling occurred
+        g1 = f.scale(1)
+        np.testing.assert_array_equal(f.fractions, g1.fractions)
+
+        # all fractions should be scaled the same way
+        factor = 10
+        values = np.linspace(1, 1e2)
+        g2 = f.scale(factor)
+        for a, b in zip(f.fractions, g2.fractions):
+            np.testing.assert_array_equal(10 * a(values), b(values))
+
+    def test_transformation_hint(self):
+        f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
+                     pi.Function(np.cos, domain=(0, np.pi))])
+
+        info = core.TransformationInfo()
+        info.src_lbl = "me"
+        info.dst_lbl = "me again"
+        info.src_base = f
+        info.dst_base = f
+        info.src_order = 1
+        info.dst_order = 1
+
+        # test defaults
+        func, extra = f.transformation_hint(info)
+        weights = np.array(range(4))
+        t_weights = func(weights)
+        np.testing.assert_array_almost_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # no transformation hint known
+        info.dst_base = pi.StackedBase(self.fractions, None)
+        func, extra = f.transformation_hint(info)
+        self.assertIsNone(func)
+        self.assertIsNone(extra)
+
+    def test_scalar_product_hint(self):
+        f = pi.Base(self.fractions)
+
+        # test defaults
+        self.assertEqual(f.scalar_product_hint(),
+                         self.fractions[0].scalar_product_hint())
+
+    def test_raise_to(self):
+        sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
+        cos_func = pi.Function(np.cos,
+                               derivative_handles=[lambda z: -np.sin(z)])
+        f = pi.Base([sin_func, cos_func])
+        self.assertEqual(f.fractions[0], sin_func)
+        self.assertEqual(f.fractions[1], cos_func)
+
+        numbers = np.random.random_sample((100, ))
+
+        # power 1
+        np.testing.assert_array_equal(f.raise_to(1).fractions[0](numbers),
+                                      sin_func.raise_to(1)(numbers))
+        np.testing.assert_array_equal(f.raise_to(1).fractions[1](numbers),
+                                      cos_func.raise_to(1)(numbers))
+
+        # power 4
+        np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
+                                      sin_func.raise_to(4)(numbers))
+        np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
+                                      cos_func.raise_to(4)(numbers))
+
+    def test_derive(self):
+        sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
+        cos_func = pi.Function(np.cos,
+                               derivative_handles=[lambda z: -np.sin(z)])
+        f = pi.Base([sin_func, cos_func])
+        self.assertEqual(f.fractions[0], sin_func)
+        self.assertEqual(f.fractions[1], cos_func)
+
+        numbers = np.random.random_sample((100, ))
+
+        # derivative 0
+        np.testing.assert_array_equal(f.derive(0).fractions[0](numbers),
+                                      sin_func.derive(0)(numbers))
+        np.testing.assert_array_equal(f.derive(0).fractions[1](numbers),
+                                      cos_func.derive(0)(numbers))
+
+        # derivative 1
+        np.testing.assert_array_equal(f.derive(1).fractions[0](numbers),
+                                      sin_func.derive(1)(numbers))
+        np.testing.assert_array_equal(f.derive(1).fractions[1](numbers),
+                                      cos_func.derive(1)(numbers))
+
 
 class StackedBaseTestCase(unittest.TestCase):
     def setUp(self):

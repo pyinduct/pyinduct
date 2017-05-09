@@ -618,7 +618,7 @@ class Base:
         if factor == 1:
             return self
         else:
-            return self.__class__([f.scacle(factor) for f in self.fractions])
+            return self.__class__([f.scale(factor) for f in self.fractions])
 
     def raise_to(self, power):
         """
@@ -926,7 +926,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         numpy.ndarray: matrix :math:`A`
     """
     fractions_a = base_a.fractions
-    fracstion_b = base_b.fractions
+    fractions_b = base_b.fractions
 
     if optimize:
         raise NotImplementedError("this approach leads to wrong results atm.")
@@ -997,9 +997,9 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
 
     else:
         i, j = np.mgrid[0:fractions_a.shape[0],
-                        0:fracstion_b.shape[0]]
+                        0:fractions_b.shape[0]]
         fractions_i = fractions_a[i]
-        fractions_j = fracstion_b[j]
+        fractions_j = fractions_b[j]
 
         res = scalar_product_handle(fractions_i.flatten(),
                                     fractions_j.flatten())
