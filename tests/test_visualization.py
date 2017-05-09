@@ -1,36 +1,45 @@
 import os
 import unittest
-from pickle import loads
+import copy
 
 import matplotlib.pyplot as plt
-import pyqtgraph as pg
 import pyinduct as pi
 import pyinduct.visualization as vis
 from tests import show_plots
+from tests.test_simulation import StringMassTest
 
-app = pg.QtGui.QApplication([])
+
+if show_plots:
+    import pyqtgraph as pg
+
+    app = pg.mkQApp()
+else:
+    app = None
+
+
+def create_test_data():
+    """
+    create a test data set
+    """
+    swm = StringMassTest()
+    swm.setUp()
+    swm.test_fem()
+    test_data = copy.copy(swm.example_data)
+    swm.tearDown()
+    return test_data
 
 
 class PlotTestCase(unittest.TestCase):
+
+    test_data = create_test_data()
+
     def setUp(self):
-        try:
-            root_dir = os.getcwd()
-            if root_dir.split(os.sep)[-1] == "tests":
-                res_dir = os.sep.join([os.getcwd(), "resources"])
-            else:
-                res_dir = os.sep.join([os.getcwd(), "tests", "resources"])
-
-            file_path = os.sep.join([res_dir, "test_data.res"])
-            with open(file_path, "r+b") as f:
-                self.test_data = loads(f.read())
-        except:
-            raise ValueError("run 'test_simulation' first!")
-
         lim = 50
-        self.short_data = pi.EvalData([self.test_data[0].input_data[0][0:lim],
-                                       self.test_data[0].input_data[1][0:lim]],
-                                      self.test_data[0].output_data[0:lim, 0:lim],
-                                      name="short set")
+        self.short_data = pi.EvalData(
+            [self.test_data[0].input_data[0][0:lim],
+             self.test_data[0].input_data[1][0:lim]],
+            self.test_data[0].output_data[0:lim, 0:lim],
+            name="short set")
 
     def test_slice_plot(self):
         pt = vis.PgSlicePlot(self.test_data[0])
@@ -43,14 +52,19 @@ class PlotTestCase(unittest.TestCase):
             app.exec_()
 
     def test_animated_plot_unequal(self):
-        # test plotting of data sets with unequal length and spatial discretization
-        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data], title="Test Plot")
+        # test plotting of data sets with unequal length and spatial
+        # discretization
+        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
+                                title="Test Plot")
         if show_plots:
             app.exec_()
 
+    @unittest.skip("PyQtgraph raises an error here")
     def test_animated_plot_export(self):
         # test export
-        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data], title="Test Plot", save_pics=True)
+        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
+                                title="Test Plot",
+                                save_pics=True)
         if show_plots:
             app.exec_()
 
