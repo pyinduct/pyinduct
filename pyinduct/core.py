@@ -799,6 +799,8 @@ def _dot_product_l2(first, second):
 
 
 def integrate_function(function, interval):
+    # TODO: Wrong documentation of argument interval.
+    # TODO: Unexepted types of (Return) tuple elements (one numpy.array and one float). This should be changed or documented if it is desired.
     """
     Integrates the given *function* over the *interval* using :func:`complex_quadrature`.
 
