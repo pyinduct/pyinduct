@@ -38,14 +38,14 @@ class CureTestCase(unittest.TestCase):
         nodes, base = pi.cure_interval(cls, dz.bounds, node_count=11)
         pi.register_base("test", base)
 
-        # approx_func = pi.Function(np.cos, domain=dz.bounds,
-        #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
         approx_func = pi.Function(lambda z: np.sin(3 * z), domain=dz.bounds,
-                                  derivative_handles=[lambda z: 3 * np.cos(3 * z), lambda z: -9 * np.sin(3 * z)])
+                                  derivative_handles=[
+                                      lambda z: 3 * np.cos(3 * z),
+                                      lambda z: -9 * np.sin(3 * z)])
 
-        weights = approx_func(nodes)
-
-        hull = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=dz,
+        weights = pi.project_on_base(approx_func, base)
+        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
+                                         temp_domain=dt, spat_domain=dz,
                                          spat_order=der_order)
 
         if show_plots:
@@ -106,7 +106,9 @@ class NthOrderCureTestCase(unittest.TestCase):
             num_nodes = 1 + (1 + conf) * order
             nodes, base = pi.cure_interval(pi.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
             pi.register_base("test", base)
+
             weights = approx_func(nodes)
+            # weights = pi.project_on_base(approx_func, base)
 
             for der_order in derivatives[order]:
                 hull_test = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=nodes,
