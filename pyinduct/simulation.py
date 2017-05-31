@@ -72,7 +72,8 @@ class SimulationInput(object, metaclass=ABCMeta):
         """
         return dict(output=self._res)
 
-    def get_results(self, time_steps, result_key="output", interpolation="nearest", as_eval_data=False):
+    def get_results(self, time_steps, result_key="output",
+                    interpolation="nearest", as_eval_data=False):
         """
         Return results from internal storage for given time steps.
 
@@ -82,10 +83,12 @@ class SimulationInput(object, metaclass=ABCMeta):
         Args:
             time_steps: Time points where values are demanded.
             result_key: Type of values to be returned.
-            interpolation: Interpolation method to use if demanded time-steps are not covered by the storage,
-                see :func:`scipy.interpolate.interp1d` for all possibilities.
-            as_eval_data (bool): Return results as :py:class:`pyinduct.visualization.EvalData`
-                object for straightforward display.
+            interpolation: Interpolation method to use if demanded time-steps 
+                are not covered by the storage, see 
+                :func:`scipy.interpolate.interp1d` for all possibilities.
+            as_eval_data (bool): Return results as 
+                :py:class:`pyinduct.visualization.EvalData` object for 
+                straightforward display.
 
         Return:
             Corresponding function values to the given time steps.
@@ -103,6 +106,18 @@ class SimulationInput(object, metaclass=ABCMeta):
                             name=".".join([self.name, result_key]))
 
         return values
+
+    def clear_cache(self):
+        """
+        Clear the internal value storage.
+        
+        When the same *SimulationInput* is used to perform various simulations,
+        there is no possibility to distinguish between the different runs when
+        *get_results* gets called. Therefore this method can be used to clear
+        the cache.
+        """
+        self._time_storage.clear()
+        self._value_storage.clear()
 
 
 class EmptyInput(SimulationInput):
