@@ -455,6 +455,8 @@ class PgSurfacePlot(PgDataPlot):
                                          distance=3,
                                          azimuth=-135
                                          )
+        # This fixes Issue #481 of pyqtgraph
+        self.gl_widget.opts["center"] = center_point
         self.gl_widget.show()
 
     def _update_plot(self):
