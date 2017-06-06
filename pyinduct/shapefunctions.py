@@ -31,7 +31,7 @@ class LagrangeNthOrder(Function):
         mid_num (int):  Local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
             :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}`
         boundary (str): provide "left" or "right" to instantiate the according 
-        boundary-polynomial.
+            boundary-polynomial.
         domain (tuple): Domain of the function.
     """
 

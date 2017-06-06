@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 import sympy as sp
 import pyinduct as pi
+from pyinduct.core import integrate_function
 import tests.test_data.test_shapefunctions_data as shape_data
 from tests import show_plots
 
@@ -107,14 +108,22 @@ class NthOrderCureTestCase(unittest.TestCase):
             nodes, base = pi.cure_interval(pi.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
             pi.register_base("test", base)
 
-            weights = approx_func(nodes)
-            # weights = pi.project_on_base(approx_func, base)
+            weights = pi.project_on_base(approx_func, base)
 
             for der_order in derivatives[order]:
                 hull_test = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=nodes,
                                                       spat_order=der_order)
-                self.assertAlmostEqual(self.tolerances[(order, num_nodes, der_order)], np.sum(
-                    np.abs(hull_test.output_data[0, :] - approx_func.derive(der_order)(nodes))) / len(nodes))
+
+                def squared_error_function(z):
+                    return (np.sum(np.array([w * f(z)
+                                             for w, f in
+                                             zip(weights, base.fractions)]),
+                                   axis=0)
+                            - approx_func.derive(der_order)(z)) ** 2
+
+                self.assertAlmostEqual(
+                    self.tolerances[(order, num_nodes, der_order)],
+                    integrate_function(squared_error_function, [(0, 1)])[0])
 
                 if show_plots:
                     hull_show = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt,
