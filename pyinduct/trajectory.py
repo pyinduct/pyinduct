@@ -436,6 +436,9 @@ class InterpolationTrajectory(SimulationInput):
     def _calc_output(self, **kwargs):
         return dict(output=np.interp(kwargs["time"], self._t, self._u))
 
+    def scale(self, scale):
+        self._u *= scale
+
     def get_plot(self):
         """
         Create a plot of the interpolated trajectory.

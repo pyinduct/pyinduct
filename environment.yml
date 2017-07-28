@@ -1,6 +1,6 @@
 name: latest
 dependencies:
-- python>=3.5
+- python=3.5
 - numpy>=1.10.2
 - scipy>=0.16.1
 - sympy>=1.0

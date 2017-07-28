@@ -1,15 +1,10 @@
-import sys
 import unittest
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
@@ -423,10 +418,10 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
                 plt.plot(z, eig_f.derive(1)(z))
 
             # check transient behaviour
-            self.assertTrue(np.allclose(a2 * eig_f.derive(2)(z)
-                                        + a1 * eig_f.derive(1)(z)
-                                        + a0 * eig_f(z),
-                                        eig_v.real * eig_f(z)))
+            np.testing.assert_array_almost_equal(a2 * eig_f.derive(2)(z)
+                                                 + a1 * eig_f.derive(1)(z)
+                                                 + a0 * eig_f(z),
+                                                 eig_v.real * eig_f(z))
 
             # check boundaries
             self.assertTrue(np.isclose(eig_f.derive(1)(z[0]),
@@ -447,12 +442,12 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
             eig_v = self.eig_val[i]
 
             # interval
-            self.assertTrue(np.allclose(
+            np.testing.assert_array_almost_equal(
                 self.a2_z(self.z) * self.eig_funcs[i].derive(2)(self.z)
                 + self.a1_z(self.z) * eig_f.derive(1)(self.z)
                 + self.a0_z(self.z) * eig_f(self.z),
                 eig_v.real * eig_f(self.z),
-                rtol=1e-3))
+                decimal=2)
 
             # boundaries
             self.assertTrue(np.isclose(eig_f.derive(1)(self.z[0]),
@@ -465,6 +460,13 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
 
 class IntermediateTransformationTest(unittest.TestCase):
     def test_it(self):
+
+        # system/simulation parameters
+        self.l = 1
+        self.spatial_domain = (0, self.l)
+        self.spatial_disc = 30
+        self.n = 10
+
         # original system parameters
         a2 = 1.5
         a1 = 2.5
@@ -483,16 +485,12 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i = parabolic.general.eliminate_advection_term(self.param)
+        _, _, a0_i, self.alpha_i, self.beta_i =\
+            parabolic.general.eliminate_advection_term(self.param, self.l)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti = parabolic.general.eliminate_advection_term(self.param_t)
+        _, _, a0_ti, self.alpha_ti, self.beta_ti =\
+            parabolic.general.eliminate_advection_term(self.param_t, self.l)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
-
-        # system/simulation parameters
-        self.l = 1
-        self.spatial_domain = (0, self.l)
-        self.spatial_disc = 30
-        self.n = 10
 
         # create (not normalized) eigenfunctions
         self.eig_freq, self.eig_val = \

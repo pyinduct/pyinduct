@@ -11,7 +11,7 @@ from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTe
 from ..simulation import WeakFormulation
 
 __all__ = ["compute_rad_robin_eigenfrequencies", "eliminate_advection_term", "get_parabolic_dirichlet_weak_form",
-           "get_parabolic_robin_weak_form", "get_in_domain_transformation_matrix", "get_adjoint_rad_evp_param"]
+           "get_parabolic_robin_weak_form", "get_in_domain_transformation_matrix"]
 
 
 def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
@@ -92,48 +92,7 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     return eig_frequencies, eig_values
 
 
-def get_adjoint_rad_evp_param(param):
-    """
-    Calculates the parameters for the adjoint eigen value problem of the
-    reaction-advection-diffusion equation:
-
-    .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi(0) = 0 \\quad &\\text{or} \\quad \\varphi'(0) = \\alpha\\varphi(0) \\\\
-        \\varphi`(l) = 0 \\quad &\\text{or} \\quad \\varphi'(l) = -\\beta\\varphi(l)
-
-    with robin and/or dirichlet boundary conditions.
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-
-    Return:
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=-a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
-            the adjoint problem
-
-            .. math::
-                a_2\\psi''(z) + a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
-                \\psi(0) = 0 \\quad &\\text{or} \\quad \\psi'(0) = \\tilde\\alpha\\psi(0) \\\\
-                \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l).
-    """
-    a2, a1, a0, alpha, beta = param
-
-    if alpha is None:
-        alpha_n = None
-    else:
-        alpha_n = a1 / a2 + alpha
-
-    if beta is None:
-        beta_n = None
-    else:
-        beta_n = -a1 / a2 + beta
-    a1_n = -a1
-
-    return a2, a1_n, a0, alpha_n, beta_n
-
-
-def eliminate_advection_term(param, domain_end=None):
+def eliminate_advection_term(param, domain_end):
     """
     This method performs a transformation
 
@@ -306,7 +265,7 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     l = spatial_domain[1]
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
-    created_base_labels = ["a0_z", "a1_z"]
+    created_base_labels = ("a0_z", "a1_z")
     a0_z = ScalarFunction.from_scalar(a0, created_base_labels[0])
     a1_z = ScalarFunction.from_scalar(a1, created_base_labels[1])
 

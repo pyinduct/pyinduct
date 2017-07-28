@@ -6,20 +6,23 @@ Simulation
 
 PDE Simulation Basics
 =====================
-...
+
+
+Write something interesting here :-)
+
 
 Multiple PDE Simulation
 =======================
 
 
-The aim of the class :py:class:`CanonicalForms` is to handle more than one pde. For one pde
-:py:class:`CanonicalForm` would be sufficient. The simplest way to get the required :math:`N`
-:py:class:`CanonicalForms`'s is to define your problem in :math:`N` :py:class:`WeakFormulation`'s and make use of
-:py:func:`parse_weak_formulation`. The thus obtained :math:`N` :py:class:`CanonicalForms` you can pass to
-:py:class:`convert_cfs_to_state_space` (in a list) to derive a state space representation of your multi pde system.
+The aim of the class :class:`CanonicalEquation` is to handle more than one pde. For one pde
+:class:`CanonicalForm` would be sufficient. The simplest way to get the required :math:`N`
+:class:`CanonicalEquation`'s is to define your problem in :math:`N` :class:`WeakFormulation`'s and make use of
+:func:`parse_weak_formulations`. The thus obtained :math:`N` :class:`CanonicalEquation`'s you can pass to
+:class:`create_state_space` to derive a state space representation of your multi pde system.
 
-Each :py:class:`CanonicalForms` object hold one dynamic :py:class:`CanonicalForm` and maximum :math:`N-1` static
-:py:class:`CanonicalForm`'s.
+Each :class:`CanonicalEquation` object hold one dominant :class:`CanonicalForm` and at maximum :math:`N-1` other
+:class:`CanonicalForm`'s.
 
 .. math::
     :nowrap:

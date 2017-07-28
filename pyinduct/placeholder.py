@@ -595,6 +595,30 @@ def get_common_target(scalars):
         return dict(name="f")
 
 
+def get_common_form(placeholders):
+    """
+    Extracts the common target form from a list of scalars while making sure
+    that the given targets are equivalent.
+
+    Args:
+        placeholders: Placeholders with possibly differing target forms.
+
+    Return:
+        str: Common target form.
+    """
+    target_form = None
+    for member in placeholders["scalars"]:
+        if target_form is None:
+            target_form = member.target_form
+        elif member.target_form is not None:
+            if target_form != member.target_form:
+                raise ValueError("Variant target forms provided for "
+                                 "single entry.")
+            target_form = member.target_form
+
+    return target_form
+
+
 def evaluate_placeholder_function(placeholder, input_values):
     """
     Evaluate a given placeholder object, that contains functions.

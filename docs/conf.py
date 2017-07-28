@@ -66,6 +66,9 @@ source_suffix = '.rst'
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
 
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
+
 # The master toctree document.
 master_doc = 'index'
 

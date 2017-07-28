@@ -1,19 +1,12 @@
-import sys
-import warnings
 import unittest
+import warnings
 
 import numpy as np
 import scipy.signal as sig
-
 import pyinduct as pi
-import pyinduct.parabolic as parabolic
 import pyinduct.hyperbolic.feedforward as hff
-
-if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
-    show_plots = False
-else:
-    show_plots = True
-    # show_plots = False
+import pyinduct.parabolic as parabolic
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
@@ -31,7 +24,7 @@ class ConstantTrajectoryTestCase(unittest.TestCase):
 
     def test_const_traj(self):
         self.assertAlmostEqual(self.const_traj(time=1), 1)
-        self.assertTrue(np.allclose(self.const_traj(time=np.arange(10)), np.ones((10,))))
+        np.testing.assert_array_almost_equal(self.const_traj(time=np.arange(10)), np.ones((10,)))
         with self.assertRaises(NotImplementedError):
             self.const_traj(time=(1,))
 
@@ -146,23 +139,24 @@ class InterpSignalGeneratorTest(unittest.TestCase):
 
     def test_sawtooth(self):
         self.sig_gen = pi.SignalGenerator('sawtooth', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(np.allclose(np.array([0, 1, 1, 1]),
-                                    self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), atol=0.01))
-        self.assertTrue(np.allclose(np.array([0, .5, .5, .5]),
-                                    self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), atol=0.01))
+        np.testing.assert_array_almost_equal(np.array([0, 1, 1, 1]),
+                                             self.sig_gen.__call__(time=np.array([0, .2, .4, .6]) - 2e-3), decimal=2)
+        np.testing.assert_array_almost_equal(np.array([0, .5, .5, .5]),
+                                             self.sig_gen.__call__(time=np.array([0, .1, .3, .5]) - 2e-3), decimal=2)
 
     def test_square(self):
         self.sig_gen = pi.SignalGenerator('square', self.t, offset=0.5, scale=0.5, frequency=5)
-        self.assertTrue(np.allclose(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
-                                    self.sig_gen.__call__(
-                                        time=np.array([0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
-                                    atol=0.01))
+        np.testing.assert_array_almost_equal(np.array([1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
+                                             self.sig_gen.__call__(
+                                                 time=np.array(
+                                                     [0, .04, .06, .14, .16, .24, .26, .34, .36, .94, .96, ])),
+                                             decimal=5)
 
     @unittest.skip("gausspulse gives an underflow error")
     def test_gausspulse(self):
         self.sig_gen = pi.SignalGenerator('gausspulse', self.t, phase_shift=0.5)
-        self.assertTrue(np.allclose(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
-                                    self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), atol=0.01))
+        np.testing.assert_array_almost_equal(np.array([0, 0, 0, 0, 0, .4, 0, 0, 0, 0]),
+                                             self.sig_gen.__call__(time=np.arange(0, 1, 0.1)), dezimal=2)
 
     def test_kwarg(self):
         self.no_plot = True

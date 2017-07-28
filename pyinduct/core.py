@@ -242,7 +242,9 @@ class Function(BaseFraction):
         values = np.atleast_1d(values)
         for interval in self.domain:
             if any(values < interval[0]) or any(values > interval[1]):
-                raise ValueError("Function evaluated outside it's domain with {}".format(values))
+                raise ValueError("Function evaluated outside it's "
+                                 "domain {} with {}".format(self.domain,
+                                                            values))
 
                 # if all(value >= interval[0]) and all(value <= interval[1]):
                 #     in_domain = True
@@ -539,6 +541,15 @@ class Base:
         # TODO check if Fractions are consistent in Type and provided hints
         self.fractions = sanitize_input(fractions, BaseFraction)
 
+    def __iter__(self):
+        return iter(self.fractions)
+
+    def __len__(self):
+        return len(self.fractions)
+
+    def __getitem__(self, item):
+        return self.fractions[item]
+
     @staticmethod
     def _transformation_factory(info):
         mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
@@ -615,7 +626,7 @@ class Base:
         if factor == 1:
             return self
         else:
-            return self.__class__([f.scacle(factor) for f in self.fractions])
+            return self.__class__([f.scale(factor) for f in self.fractions])
 
     def raise_to(self, power):
         """
@@ -670,8 +681,9 @@ class StackedBase(Base):
         # we can help
         start_idx = self._info[info.dst_lbl]["start"]
         sel_len = self._info[info.dst_lbl]["size"]
+        src_ord = self._info[info.dst_lbl]["order"]
         trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base, info.dst_base,
-                                                                  info.src_order, info.dst_order,
+                                                                  src_ord, info.dst_order,
                                                                   use_eye=True)
 
         def selection_func(weights):
@@ -923,7 +935,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         numpy.ndarray: matrix :math:`A`
     """
     fractions_a = base_a.fractions
-    fracstion_b = base_b.fractions
+    fractions_b = base_b.fractions
 
     if optimize:
         raise NotImplementedError("this approach leads to wrong results atm.")
@@ -994,22 +1006,22 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
 
     else:
         i, j = np.mgrid[0:fractions_a.shape[0],
-                        0:fracstion_b.shape[0]]
+                        0:fractions_b.shape[0]]
         fractions_i = fractions_a[i]
-        fractions_j = fracstion_b[j]
+        fractions_j = fractions_b[j]
 
         res = scalar_product_handle(fractions_i.flatten(),
                                     fractions_j.flatten())
         return res.reshape(fractions_i.shape)
 
 
-def project_on_base(function, base):
+def project_on_base(state, base):
     """
-    Projects a *function* on a basis given by *base*.
+    Projects a *state* on a basis given by *base*.
 
     Args:
-        function (:py:class:`Function`): Function to approximate.
-        base (:py:class:`Base`): basis to project onto.
+        state (array_like): List of functions to approximate.
+        base (:py:class:`Base`): Basis to project onto.
 
     Return:
         numpy.ndarray: Weight vector in the given *base*
@@ -1019,7 +1031,7 @@ def project_on_base(function, base):
 
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(dot_product_l2,
-                                                  Base(function),
+                                                  Base(state),
                                                   base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
@@ -1028,26 +1040,26 @@ def project_on_base(function, base):
     return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
 
 
-def project_on_bases(canonical_equations, initial_states):
+def project_on_bases(states, canonical_equations):
     """
-    Calculate initial state, assuming it will be constituted by the dominant systems.
-    The keys from the dictionaries *canonical_equations* and *initial_states* must
-    be the same.
+    Convenience wrapper for :py:func:`project_on_base`.
+    Calculate the state, assuming it will be constituted by the dominant
+    base of the respective system. The keys from the dictionaries
+    *canonical_equations* and *states* must be the same.
 
     Args:
-        canonical_equations (collections.OrderedDict): Ordered dictionary with
-            :py:class:`pyinduct.core.CanonicalEquation`s as values.
-        initial_states: Dictionary with functions as values.
+        states: Dictionary with a list of functions as values.
+        canonical_equations: List of :py:class:`CanonicalEquation`s.
 
     Returns:
-        numpy.array: Initial state as 1d-array corresponding to the concatenated
-            dominant bases from *canonical_equations*.
+        numpy.array: Finit dimensional state as 1d-array corresponding to the
+            concatenated dominant bases from *canonical_equations*.
     """
     q0 = np.array([])
-    for ce in canonical_equations.values():
+    for ce in canonical_equations:
         lbl = ce.dominant_lbl
-        q0 = np.hstack(tuple([q0] + [project_on_base(initial_state, get_base(lbl))
-                                     for initial_state in initial_states[ce.name]]))
+        q0 = np.hstack(tuple([q0] + [project_on_base(state, get_base(lbl))
+                                     for state in states[ce.name]]))
 
     return q0
 
@@ -1245,6 +1257,35 @@ def get_weight_transformation(info):
             return handle(weights, **kwargs)
 
     return last_handle
+
+
+def get_transformation_info(source_label, destination_label,
+                            source_order, destination_order):
+    """
+    Provide the weights transformation from one/source base to
+    another/destination base.
+
+    Args:
+        source_label (str): Label from the source base.
+        destination_label (str): Label from the destination base.
+        source_order: Order from the available time derivative
+            of the source weights.
+        destination_order: Order from the desired time derivative
+            of the destination weights.
+
+    Returns:
+        :py:class:`pyinduct.core.TransformationInfo`: Transformation info object.
+
+    """
+    info = TransformationInfo()
+    info.src_lbl = source_label
+    info.src_base = get_base(info.src_lbl)
+    info.src_order = source_order
+    info.dst_lbl = destination_label
+    info.dst_base = get_base(info.dst_lbl)
+    info.dst_order = destination_order
+
+    return info
 
 
 def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order, dst_order, use_eye=False):
