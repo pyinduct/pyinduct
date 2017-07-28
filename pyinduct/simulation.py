@@ -379,15 +379,19 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
     if names is None:
         # TODO: implement getter method in StackedBase or change function interface
         if isinstance(ss_base, StackedBase):
-            names = [dic["sys_name"] for dic in ss_base._info.values()]
+            labels = [lbl for lbl in ss_base._info.keys()]
+            names = [ss_base._info[lbl]["sys_name"] for lbl in labels]
         else:
             names = list(spat_domains)
-
-    if isinstance(ss_base, StackedBase):
-        # TODO: implement getter method in StackedBase or change function interface
-        labels = [lbl for lbl in ss_base._info.keys()]
+            labels = [state_space.base_lbl]
     else:
-        labels = [state_space.base_lbl]
+        if isinstance(ss_base, StackedBase):
+            labels = list()
+            for nm in names:
+                labels = [key for key, val in ss_base._info.items()
+                          if val["sys_name"] is nm]
+        else:
+            labels = [state_space.base_lbl]
 
     if derivative_orders is None:
         derivative_orders = dict([(name, (0, 0)) for name in names])
