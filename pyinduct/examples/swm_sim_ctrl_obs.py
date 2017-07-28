@@ -453,7 +453,7 @@ if __name__ == "__main__":
         smooth_transition = pi.SmoothTransition((0, 1), (2, 4), method="poly", differential_order=2)
         closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
         # controller
-        ctrl = build_controller(sys_lbl, params)
+        ctrl = build_controller(sys_ctrl_lbl, params)
         u = pi.SimulationInputSum([closed_loop_traj, ctrl])
     else:
         # trajectory for the original input (open_loop_traj)
@@ -483,32 +483,31 @@ if __name__ == "__main__":
     canonical_equations = pi.parse_weak_formulations(sys_wf + obs_wf)
     state_space = pi.create_state_space(canonical_equations)
     ics = dict(list(sys_ic.items()) + list(obs_ics.items()))
-    initial_states = pi.project_on_bases(canonical_equations, ics)
+    initial_states = pi.project_on_bases(ics, canonical_equations)
     sim_domain, weights = pi.simulate_state_space(state_space, initial_states, temp_domain)
 
     # evaluate data
-    x_data = pi.get_sim_results(temp_domain, spat_domains, weights, state_space, labels=[sys_lbl])[0]
+    x_data = pi.get_sim_results(temp_domain, spat_domains, weights, state_space, names=[sys_lbl])[0]
     if nf_observer:
         eta1_data = pi.get_sim_results(temp_domain, {obs_lbl[0]: pi.Domain((0, 1), num=1e1)},
-                                       weights, state_space, labels=[obs_lbl[0]],
+                                       weights, state_space, names=[obs_lbl[0]],
                                        derivative_orders={obs_lbl[0]: (0, 0)})[0]
         dz_et3_m1_0 = pi.get_sim_results(temp_domain, {obs_lbl[2]: pi.Domain((-1, 0), num=1e1)},
-                                         weights, state_space, labels=[obs_lbl[2]],
+                                         weights, state_space, names=[obs_lbl[2]],
                                          derivative_orders={obs_lbl[2]: (0, 1)})[1]
         dz_et3_0_p1 = pi.get_sim_results(temp_domain, {obs_lbl[2]: pi.Domain((0, 1), num=1e1)},
-                                         weights, state_space, labels=[obs_lbl[2]],
+                                         weights, state_space, names=[obs_lbl[2]],
                                          derivative_orders={obs_lbl[2]: (0, 1)})[1]
         x_obs_data = pi.EvalData(eta1_data.input_data, -params.m / 2 * (
             dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data
         ))
     else:
-        x_obs_data = pi.get_sim_results(sim_domain, spat_domains, weights, state_space, labels=[obs_lbl],
+        x_obs_data = pi.get_sim_results(sim_domain, spat_domains, weights, state_space, names=[obs_lbl],
                                         derivative_orders={obs_lbl: (0, 0)})[0]
 
     # animation
     plot1 = pi.PgAnimatedPlot([x_data, x_obs_data])
     plot2 = pi.PgSurfacePlot(x_data)
     plot3 = pi.PgSurfacePlot(x_obs_data)
-    pg.QtGui.QApplication.instance().exec_()
     pi.MplSlicePlot([x_data, x_obs_data], spatial_point=0)
-    plt.show()
+    pi.show()
