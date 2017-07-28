@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyinduct as pi
 import pyinduct.visualization as vis
+from pyinduct.tests import show_plots
 from tests import show_plots
 from tests.test_simulation import StringMassTest
 

@@ -5,7 +5,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
@@ -458,13 +458,13 @@ class ProjectionTest(unittest.TestCase):
                    pi.project_on_base(self.functions[3], self.lag_base)]
 
         # linear function -> should be fitted exactly
-        self.assertTrue(np.allclose(weights[0], self.functions[1](self.nodes)))
+        np.testing.assert_array_almost_equal(weights[0], self.functions[1](self.nodes))
 
         # quadratic function -> should be fitted somehow close
-        self.assertTrue(np.allclose(weights[1], self.functions[2](self.nodes), atol=.5))
+        np.testing.assert_array_almost_equal(weights[1], self.functions[2](self.nodes), decimal=0)
 
         # trig function -> will be crappy
-        self.assertTrue(np.allclose(weights[2], self.functions[3](self.nodes), atol=.5))
+        np.testing.assert_array_almost_equal(weights[2], self.functions[3](self.nodes), decimal=1)
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
@@ -479,7 +479,7 @@ class ProjectionTest(unittest.TestCase):
         real_weights = vec_real_func(self.nodes)
         approx_func = pi.back_project_from_base(real_weights, self.lag_base)
         approx_func_dz = pi.back_project_from_base(real_weights, pi.get_base("lag_base").derive(1))
-        self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
+        np.testing.assert_array_almost_equal(approx_func(self.z_values), vec_real_func(self.z_values))
 
         if show_plots:
             # lines should match exactly
@@ -504,7 +504,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
         pi.register_base("lag_base", self.lag_base)
         self.src_weights = pi.project_on_base(self.real_func, self.lag_base)
-        self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
+        np.testing.assert_array_almost_equal(self.src_weights, [0, 1])  # just to be sure
         self.src_approx_handle = pi.back_project_from_base(self.src_weights, self.lag_base)
 
         # approximation by sin(w*x)
@@ -648,9 +648,9 @@ class FindRootsTestCase(unittest.TestCase):
         grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
         roots = pi.find_roots(function=self.complex_eq, grid=grid, n_roots=5,
                               rtol=self.rtol, cmplx=True)
-        self.assertTrue(np.allclose(
+        np.testing.assert_array_almost_equal(
             [self.complex_eq(root) for root in roots],
-            [0] * len(roots)))
+            [0] * len(roots))
 
         # pi.visualize_roots(roots,
         #                    grid,

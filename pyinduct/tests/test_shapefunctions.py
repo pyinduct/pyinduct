@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 import sympy as sp
 import pyinduct as pi
-import tests.test_data.test_shapefunctions_data as shape_data
-from tests import show_plots
+import pyinduct.tests.test_data.test_shapefunctions_data as shape_data
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg

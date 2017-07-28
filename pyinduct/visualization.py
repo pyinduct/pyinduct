@@ -20,18 +20,38 @@ import matplotlib.pyplot as plt
 from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
+from pyinduct.tests import show_plots
 
 from .core import complex_wrapper, EvalData, Domain
 from .utils import create_animation, create_dir
 
-__all__ = ["create_colormap", "PgAnimatedPlot", "PgSurfacePlot", "MplSurfacePlot", "MplSlicePlot",
-           "visualize_roots", "visualize_functions"]
+__all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
+           "MplSurfacePlot", "MplSlicePlot", "visualize_roots",
+           "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
 
 # pg.setConfigOption('background', 'w')
 # pg.setConfigOption('foreground', 'k')
+
+
+def show(show_pg=True, show_mpl=True, force=False):
+    """
+    Shortcut to show all pyqtgraph and matplotlib plots / animations.
+
+    Args:
+        show_pg (bool): Show matplotlib plots? Default: True
+        show_mpl (bool): Show pyqtgraph plots? Default: True
+        force (bool): Show plots even during unittest discover, setup
+            and so on? Default: False
+    """
+    if show_plots or force:
+        if show_pg:
+            pg.QtGui.QApplication.instance().exec_()
+
+        if show_mpl:
+            plt.show()
 
 
 def create_colormap(cnt):
@@ -573,23 +593,18 @@ class MplSurfacePlot(DataPlot):
 
             # figure
             fig = plt.figure(figsize=fig_size, facecolor='white')
-            ax = fig.add_subplot(111, projection='3d')
+            ax = fig.gca(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
-            ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
-            ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_xaxis.set_pane_color((1, 1, 1, 1))
+            ax.w_yaxis.set_pane_color((1, 1, 1, 1))
+            ax.w_zaxis.set_pane_color((1, 1, 1, 1))
 
             # labels
             ax.set_ylabel('$t$')
             ax.set_xlabel('$z$')
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
-
-            # grid
-            ax.w_xaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
-            ax.w_yaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
-            ax.w_zaxis._axinfo.update({'grid': {'color': (0, 0, 0, 0.5)}})
 
             ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
 

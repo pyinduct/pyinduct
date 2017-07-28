@@ -504,6 +504,7 @@ class SecondOrderEigenVector(Function):
                   + params.a1 * char_roots[:, 1]
                   + params.a0)
 
+        # TODO: Is actually np.testing.assert_array_almost_equal() needed?
         if not np.allclose(l1, l2):
             raise ValueError("Given characteristic root pair must resolve to"
                              "a single eigenvalue.")
@@ -688,9 +689,9 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     @classmethod
     def solve_evp_hint(evp_class, param, l, n=None, eig_val=None, eig_freq=None, max_order=2, scale=None):
         """
-        Provide the first *n* eigenvalues and eigenfunctions. For the exact formulation of
-        the considered eigenvalue problem, have a look at the docstring from the eigenfunction
-        class from which you will call this method.
+        Provide the first *n* eigenvalues and eigenfunctions (wraped inside a pyinduct base).
+        For the exact formulation of the considered eigenvalue problem, have a look at the
+        docstring from the eigenfunction class from which you will call this method.
 
         You must call this *classmethod* with one and only one of the kwargs: \n
             - *n* (*eig_val* and *eig_freq* will be computed with the :py:func:`eigfreq_eigval_hint`)
@@ -711,7 +712,8 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
             scale (array_like): Here you can pass a list of values to scale the eigenfunctions.
 
         Returns:
-            Tuple with one list for the eigenvalues and one for the eigenfunctions.
+            Tuple with one list for the eigenvalues and one base which fractions are the
+                eigenfunctions.
         """
         if np.sum([1 for arg in [n, eig_val, eig_freq] if arg is not None]) != 1 and scale is None:
             raise ValueError("You must pass one and only one of the kwargs:\n"
@@ -741,7 +743,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         eig_func = np.array([evp_class(om, param, l, scale=sc, max_der_order=max_order) for om, sc in
                              zip(np.array(eig_freq, dtype=complex), scale)])
 
-        return np.array(eig_val, dtype=complex), eig_func
+        return np.array(eig_val, dtype=complex), Base(eig_func)
 
 
 class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEigenfunction):
@@ -1238,86 +1240,3 @@ class FiniteTransformFunction(Function):
                 elif j < 0 or j > 2 * self.n - 1:
                     raise ValueError
         return to_return
-
-
-def transform_to_intermediate(param, l=None):
-    """
-    Apply a transformation :math:`\\tilde x(z,t)=x(z,t)e^{\\int_0^z
-    \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z}`
-    which eliminates the advection term :math:`a_1 x(z,t)`
-    from the reaction-advection-diffusion equation
-
-    .. math:: \\dot x(z,t) = a_2 x''(z,t)
-                                + a_1(z) x'(z,t)
-                                + a_0(z) x(z,t)
-
-    with robin
-
-    .. math:: x'(0,t) = \\alpha x(0,t),
-        \\quad x'(l,t) = -\\beta x(l,t) \\quad,
-
-    dirichlet
-
-    .. math:: x(0,t) = 0, \\quad x(l,t) = 0 \\quad
-
-    or mixed boundary conditions.
-
-    Note:
-        To successfully transform the system, the first spatial
-        derivative of :math`a_1(z)` is needed.
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha,
-            \\beta \\Big)^T`
-        l (numbers.Number): End of the domain (start is 0).
-
-    Raises:
-        TypeError: If :math:`a_1(z)` is callable but no
-            derivative handle is defined for it.
-
-    Return:
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z),
-                \\tilde \\alpha, \\tilde \\beta \\big)` of
-            the transformed system
-
-            .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t)
-                            + \\tilde a_0(z) \\tilde x(z,t)
-
-            and the corresponding boundary conditions
-            (:math:`\\alpha` and/or :math:`\\beta` set to None for dirichlet
-            boundary conditions).
-    """
-    if not isinstance(param, (tuple, list)) or not len(param) == 5:
-        raise TypeError("pyinduct.utils.transform_2_intermediate(): "
-                        "argument param must from type tuple or list")
-
-    a2, a1, a0, alpha, beta = param
-    if isinstance(a1, collections.Callable) \
-            or isinstance(a0, collections.Callable):
-        a0_z = Function.from_constant(a0)
-
-        def a0_n(z):
-            return (a0_z(z) - a1(z) ** 2 / 4 / a2
-                    - a1.derive(1)(z) / 2)
-    else:
-        a0_n = a0 - a1 ** 2 / 4 / a2
-
-    if alpha is None:
-        alpha_n = None
-    elif isinstance(a1, collections.Callable):
-        alpha_n = a1(0) / 2. / a2 + alpha
-    else:
-        alpha_n = a1 / 2. / a2 + alpha
-
-    if beta is None:
-        beta_n = None
-    elif isinstance(a1, collections.Callable):
-        beta_n = -a1(l) / 2. / a2 + beta
-    else:
-        beta_n = -a1 / 2. / a2 + beta
-
-    a2_n = a2
-    a1_n = 0
-
-    return a2_n, a1_n, a0_n, alpha_n, beta_n

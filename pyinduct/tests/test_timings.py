@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 import pyinduct as pi
-from tests import show_plots
+from pyinduct.tests import show_plots
 
 if show_plots:
     import pyqtgraph as pg
@@ -40,12 +40,11 @@ def simulation_benchmark(spat_domain, settings):
     pi.register_base(func_label, base)
 
     u = pi.SimulationInputSum([
-        pi.SignalGenerator('square',
-                           temp_domain.points,
-                           frequency=0.3,
-                           scale=2,
-                           offset=4,
-                           phase_shift=1),
+        pi.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2, offset=4, phase_shift=1),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[15]),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[25], scale=-4),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[35]),
+        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[60], scale=-2),
     ])
 
     _c = time.clock()
@@ -78,8 +77,7 @@ def simulation_benchmark(spat_domain, settings):
     state_space_form = pi.create_state_space(can_eq)
 
     _g = time.clock()
-    q0 = np.array([pi.project_on_base(initial_state,
-                                      pi.get_base(can_eq.dominant_lbl))
+    q0 = np.array([pi.project_on_base(initial_state, pi.get_base(can_eq.dominant_lbl))
                    for initial_state in initial_states]).flatten()
     _h = time.clock()
 
@@ -87,13 +85,8 @@ def simulation_benchmark(spat_domain, settings):
 
     temporal_order = min(initial_states.size - 1, 0)
     _i = time.clock()
-    eval_data = pi.process_sim_data(can_eq.dominant_lbl,
-                                    q,
-                                    sim_domain,
-                                    spat_domain,
-                                    temporal_order,
-                                    0,
-                                    name=can_eq.dominant_form.name)
+    eval_data = pi.get_sim_result(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
+                                  name=can_eq.dominant_form.name)
     _j = time.clock()
 
     pi.deregister_base("base")

@@ -1,8 +1,6 @@
 import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-import pyqtgraph as pg
-import matplotlib.pyplot as plt
 
 
 # PARAMETERS TO VARY
@@ -53,11 +51,11 @@ eig_val, init_eig_funcs = pi.SecondOrderRobinEigenfunction.solve_evp_hint(param,
 _, init_adjoint_eig_funcs = pi.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param, l, eig_val=eig_val)
 
 # normalize eigenfunctions and adjoint eigenfunctions
-eig_funcs, adjoint_eig_funcs = pi.normalize_base(pi.Base(init_eig_funcs), pi.Base(init_adjoint_eig_funcs))
+eig_funcs, adjoint_eig_funcs = pi.normalize_base(init_eig_funcs, init_adjoint_eig_funcs)
 
 # eigenfunctions from target system ("_t")
-scale_t = [func(0) for func in eig_funcs.fractions]
-eig_funcs_t = pi.Base(pi.SecondOrderRobinEigenfunction.solve_evp_hint(param_t, l, eig_val=eig_val, scale=scale_t)[1])
+scale_t = [func(0) for func in eig_funcs]
+_, eig_funcs_t = pi.SecondOrderRobinEigenfunction.solve_evp_hint(param_t, l, eig_val=eig_val, scale=scale_t)
 
 # create fem test functions
 nodes, fem_funcs = pi.cure_interval(pi.LagrangeFirstOrder,
@@ -150,9 +148,10 @@ plots.append(pi.PgSurfacePlot(evald_traj, title=evald_traj.name))
 # matplotlib visualization
 plots.append(pi.MplSlicePlot([evald_traj, eval_d], spatial_point=0,
                              legend_label=["$x_d(0,t)$", "$x(0,t)$"]))
+pi.show()
 
-
-# show visualization
-pg.QtGui.QApplication.instance().exec_()
-plt.show()
-
+pi.tear_down(("eig_funcs",
+              "adjoint_eig_funcs",
+              "eig_funcs_t",
+              "fem_funcs") + base_labels,
+             plots)

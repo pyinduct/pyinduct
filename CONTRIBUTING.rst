@@ -108,11 +108,11 @@ Tips
 
 Run a subset of tests with::
 
-    $ python -m unittest -v tests/test_<module_name>.py
+    $ python -m unittest -v pyinduct/tests/test_<module_name>.py
 
 or all tests with::
 
-    $ python -m unittest discover -v tests/
+    $ python -m unittest discover -v pyinduct/tests/
 
 respectively::
 

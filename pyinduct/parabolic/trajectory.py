@@ -57,7 +57,7 @@ class RadTrajectory(InterpolationTrajectory):
 
         self._l = l
         self._T = T
-        self._param = eliminate_advection_term(param_original)
+        self._param = eliminate_advection_term(param_original, l)
         self._bound_cond_type = bound_cond_type
         self._actuation_type = actuation_type
         self._n = n

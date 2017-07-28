@@ -6,8 +6,8 @@ as well as their implementation for simulation purposes.
 import numpy as np
 from itertools import chain
 
-from .core import real, get_weight_transformation, TransformationInfo
 from .registry import get_base
+from .core import real, get_weight_transformation, get_transformation_info
 from .simulation import SimulationInput, parse_weak_formulation
 
 __all__ = ["Controller", "LawEvaluator"]
@@ -101,14 +101,11 @@ class LawEvaluator(object):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
-                info = TransformationInfo()
-                info.src_lbl = weight_label
-                info.dst_lbl = lbl
-                info.src_base = get_base(weight_label)
-                info.dst_base = get_base(lbl)
-                info.src_order = int(weights.size / info.src_base.fractions.size) - 1
-                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size
-                                     / info.dst_base.fractions.size) - 1
+                info = get_transformation_info(weight_label,
+                                               lbl,
+                                               int(weights.size / get_base(weight_label).fractions.size) - 1,
+                                               int(next(iter(self._eval_vectors[lbl].values())).size
+                                                   / get_base(lbl).fractions.size) - 1)
 
                 # look up transformation
                 if info not in self._transformations.keys():
