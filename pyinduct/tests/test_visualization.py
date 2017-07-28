@@ -3,12 +3,10 @@ import unittest
 import copy
 import numpy as np
 
-import matplotlib.pyplot as plt
 import pyinduct as pi
 import pyinduct.visualization as vis
 from pyinduct.tests import show_plots
-from tests import show_plots
-from tests.test_simulation import StringMassTest
+from pyinduct.tests.test_simulation import StringMassTest
 
 
 if show_plots:
@@ -46,12 +44,12 @@ class PlotTestCase(unittest.TestCase):
     def test_slice_plot(self):
         pt = vis.PgSlicePlot(self.test_data[0])
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_3d_line_plot(self):
         pt = vis.PgLinePlot3d(self.test_data)
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_animated_plot_unequal(self):
         # test plotting of data sets with unequal length and spatial
@@ -59,7 +57,7 @@ class PlotTestCase(unittest.TestCase):
         pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
                                 title="Test Plot")
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     @unittest.skip("PyQtgraph raises an error here")
     def test_animated_plot_export(self):
@@ -68,7 +66,7 @@ class PlotTestCase(unittest.TestCase):
                                 title="Test Plot",
                                 save_pics=True)
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
         self.assertTrue(os.path.isdir(os.sep.join([os.getcwd(), pt._res_path])))
 
@@ -77,7 +75,7 @@ class PlotTestCase(unittest.TestCase):
                                scales=(.1, 1, .1)
                                )
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_animated_surface_plot(self):
 
@@ -107,12 +105,12 @@ class PlotTestCase(unittest.TestCase):
         pt2 = pi.PgSurfacePlot(data_set_2, animation_axis=2)
 
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_mpl_surface_plot(self):
         vis.MplSurfacePlot(self.test_data[1], keep_aspect=False)
         if show_plots:
-            plt.show()
+            pi.show(show_pg=False)
 
     def test_mpl_slice_plot(self):
         vis.MplSlicePlot(self.test_data + self.test_data + self.test_data,
@@ -120,4 +118,4 @@ class PlotTestCase(unittest.TestCase):
                          ylabel='$x(0,t)$',
                          legend_label=['1', '2', '3', '4', '5', '6'])
         if show_plots:
-            plt.show()
+            pi.show(show_pg=False)
