@@ -1,10 +1,51 @@
+r"""
+This example considers the thermal behavior (simulation) of plug flow of an
+incompressible fluid through a pipe, which can be described with the
+normed variables/parameters:
+
+    - :math:`x_1(z,t)` ~ fluid temperature
+    
+    - :math:`x_2(z,t)` ~ pipe wall temperature
+    
+    - :math:`x_3(z,t)=0` ~ ambient temperature
+    
+    - :math:`u(t)` ~ system input
+    
+    - :math:`H(t)` ~ heaviside step function
+    
+    - :math:`v` ~ fluid velocity
+    
+    - :math:`c_1` ~ heat transfer coefficient (fluid - wall)
+    
+    - :math:`c_2` ~ heat transfer coefficient (wall - ambient)
+    
+by the following equations:
+
+.. math::
+    :nowrap:
+
+    \begin{align*}
+        \dot{x}_1(z,t) + v x_1'(z,t) &= c_1(x_2(z,t) - x_1(z,t)), && z\in (0,l] \\
+        \dot{x}_2(z,t) &= c_1(x_1(z,t) - x_2(z,t)) + c_2(x_3(z,t) - x_2(z,t)), && z\in [0,l] \\
+        x_1(z,0) &= 0 \\
+        x_2(z,0) &= 0 \\
+        x_1(0,t) &= u(t) = 2 H(t)
+    \end{align*}
+
+
+For further informations see:
+    On thermal modelling of incrompressible pipe flows (Zur thermischen Modellierung inkompressibler Rohrströmungen),
+    Simon Bachler, Johannes Huber and Frank Woittennek, at-Automatisierungstechnik, DE GRUYTER, 2017
+"""
+
+# (sphinx directive) start actual script
 from pyinduct.tests import test_examples
 
 if test_examples:
     import pyinduct as pi
 
     v = 10
-    c1, c2, c3 = [1, 1, 1]
+    c1, c2 = [1, 1]
     l = 5
     T = 5
     spat_domain = pi.Domain(bounds=(0, l), num=51)
@@ -42,9 +83,9 @@ if test_examples:
     )
     weak_form2 = pi.WeakFormulation(
         [
-            pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2),limits=spat_domain.bounds),
+            pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2), limits=spat_domain.bounds),
             pi.IntegralTerm(pi.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
-            pi.IntegralTerm(pi.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c3),
+            pi.IntegralTerm(pi.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c1),
         ],
         name="wall temperature"
     )
