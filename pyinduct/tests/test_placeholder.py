@@ -3,12 +3,6 @@ import unittest
 import numpy as np
 import pyinduct as pi
 import pyinduct.placeholder as ph
-from pyinduct.tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 class TestPlaceHolder(unittest.TestCase):

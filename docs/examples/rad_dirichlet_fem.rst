@@ -1,8 +1,8 @@
 R.a.d. eq. with dirichlet b.c. (fem approximation)
 --------------------------------------------------
 
-Reaction-advection-diffusion equation with dirichlet boundary condition by :math:`z=0`
-and dirichlet actuation by :math:`z=l`.
+Simulation of the reaction-advection-diffusion equation with dirichlet boundary
+condition by :math:`z=0` and dirichlet actuation by :math:`z=l`.
 
 .. math::
     :nowrap:

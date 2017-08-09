@@ -11,3 +11,8 @@ else:
     # Then force it and uncomment the respective line:
     # test_all_examples = False
     # show_plots = False
+
+if any(['sphinx-build' in arg for arg in sys.argv]):
+    test_examples = False
+else:
+    test_examples = True

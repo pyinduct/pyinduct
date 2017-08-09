@@ -6,12 +6,6 @@ import unittest
 
 import numpy as np
 import pyinduct as pi
-from pyinduct.tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 def simulation_benchmark(spat_domain, settings):

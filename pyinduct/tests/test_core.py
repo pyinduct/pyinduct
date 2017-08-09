@@ -6,10 +6,8 @@ import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
 from pyinduct.tests import show_plots
+import pyqtgraph as pg
 
-if show_plots:
-    import pyqtgraph as pg
-    app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTestCase(unittest.TestCase):
@@ -472,7 +470,7 @@ class ProjectionTest(unittest.TestCase):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
                 pw.plot(x=self.nodes.points, y=w, pen="b")
-                app.exec_()
+                pi.show(show_mpl=False)
 
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.functions[1])
@@ -487,7 +485,7 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="g")
             pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def tearDown(self):
         pi.deregister_base("lag_base")
@@ -537,7 +535,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i1, "f(x) = x")
             legend.addItem(i2, "2x Lagrange1st")
             legend.addItem(i3, "sin(wx) with w in [1, {0}]".format(destination_weights.shape[0]))
-            app.exec_()
+            pi.show(show_mpl=False)
 
         # should fit pretty nice
         self.assertLess(error, 1e-2)
