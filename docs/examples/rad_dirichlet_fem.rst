@@ -117,5 +117,5 @@ condition by :math:`z=0` and dirichlet actuation by :math:`z=l`.
 
 * source code:
 
-.. literalinclude:: /../examples/rad_eq_diri_fem.py
+.. literalinclude:: /../pyinduct/examples/rad_eq_diri_fem.py
 
