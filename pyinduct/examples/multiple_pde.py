@@ -41,7 +41,7 @@ For further informations see:
 # (sphinx directive) start actual script
 from pyinduct.tests import test_examples
 
-if test_examples:
+if __name__ == "__main__" or test_examples:
     import pyinduct as pi
 
     v = 10

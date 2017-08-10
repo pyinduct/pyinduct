@@ -1,6 +1,6 @@
 from pyinduct.tests import test_examples
 
-if test_examples:
+if __name__ == "__main__" or test_examples:
     import pyinduct as pi
     import pyinduct.parabolic as par
     import numpy as np
