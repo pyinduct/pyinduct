@@ -11,35 +11,39 @@ __all__ = ["RadTrajectory"]
 
 # TODO rename and move to FeedForward
 class RadTrajectory(InterpolationTrajectory):
-    """
+    r"""
     Class that implements a flatness based control approach
     for the reaction-advection-diffusion equation
 
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t)
+    .. math:: \dot x(z,t) = a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t)
 
     with the boundary condition
 
         - :code:`bound_cond_type == "dirichlet"`: :math:`x(0,t)=0`
 
-            - A transition from :math:`x'(0,0)=0` to  :math:`x'(0,T)=1` is considered.
+            - A transition from :math:`x'(0,0)=0` to  :math:`x'(0,T)=1` is
+              considered.
             - With :math:`x'(0,t) = y(t)` where :math:`y(t)` is the flat output.
 
-        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \\alpha x(0,t)`
+        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \alpha x(0,t)`
 
-            - A transition from :math:`x(0,0)=0` to  :math:`x(0,T)=1` is considered.
+            - A transition from :math:`x(0,0)=0` to  :math:`x(0,T)=1` is
+              considered.
             - With :math:`x(0,t) = y(t)` where :math:`y(t)` is the flat output.
 
     and the actuation
 
         - :code:`actuation_type == "dirichlet"`: :math:`x(l,t)=u(t)`
 
-        - :code:`actuation_type == "robin"`: :math:`x'(l,t) = -\\beta x(l,t) + u(t)`.
+        - :code:`actuation_type == "robin"`:
+          :math:`x'(l,t) = -\beta x(l,t) + u(t)`.
 
-    The flat output trajectory :math:`y(t)` will be calculated with :py:func:`gevrey_tanh`.
+    The flat output trajectory :math:`y(t)` will be calculated with
+    :py:func:`.gevrey_tanh`.
 
     Args:
         **kwargs: see below. All arguments that are not specified below
-            are passed to :py:class:`InterpolationTrajectory` .
+            are passed to :py:class:`.InterpolationTrajectory` .
 
     Keyword Arguments:
     """

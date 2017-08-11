@@ -1,10 +1,11 @@
 """
-Here are some frequently used plot types with the packages :py:mod:`pyqtgraph` and/or :py:mod:`matplotlib` implemented.
-The respective :py:mod:`pyinduct.visualization` plotting function get an :py:class:`EvalData` object whose definition
-also placed in this module.
-A :py:class:`EvalData`-object in turn can easily generated from simulation data.
-The function :py:func:`pyinduct.simulation.simulate_system` for example already provide the simulation result
-as EvalData object.
+Here are some frequently used plot types with the packages :py:mod:`pyqtgraph`
+and/or :py:mod:`matplotlib` implemented. The respective
+:py:mod:`pyinduct.visualization` plotting function get an :py:class:`.EvalData`
+object whose definition also placed in this module.
+A :py:class:`.EvalData`-object in turn can easily generated from simulation
+data. The function :py:func:`pyinduct.simulation.simulate_system` for example
+already provide the simulation result as EvalData object.
 """
 
 import numpy as np
@@ -72,12 +73,12 @@ def create_colormap(cnt):
 
 def visualize_functions(functions, points=100):
     """
-    Visualizes a set of :py:class:`core.Function` s on
+    Visualizes a set of :py:class:`.Function` s on
     their domain.
 
     Parameters:
         functions (iterable): collection of
-            :py:class:`core.Function` s to display.
+            :py:class:`.Function` s to display.
         points (int): Points to use for sampling
             the domain.
     """
@@ -170,15 +171,18 @@ class PgDataPlot(DataPlot, pg.QtCore.QObject):
 
 class PgAnimatedPlot(PgDataPlot):
     """
-    Wrapper that shows an updating one dimensional plot of n-curves discretized in t time steps and z spatial steps
-    It is assumed that time propagates along axis0 and and location along axis1 of values.
-    values are therefore expected to be a array of shape (n, t, z)
+    Wrapper that shows an updating one dimensional plot of n-curves discretized
+    in t time steps and z spatial steps. It is assumed that time propagates
+    along axis0 and and location along axis1 of values. Values are therefore
+    expected to be a array of shape (n, t, z).
 
     Args:
-        data ((iterable of) :py:class:`EvalData`): results to animate
+        data ((iterable of) :py:class:`.EvalData`): results to animate
         title (basestring): window title
-        refresh_time (int): time in msec to refresh the window must be greater than zero
-        replay_gain (float): values above 1 acc- and below 1 decelerate the playback process, must be greater than zero
+        refresh_time (int): time in msec to refresh the window must be greater
+            than zero
+        replay_gain (float): values above 1 acc- and below 1 decelerate the
+            playback process, must be greater than zero
         save_pics (bool):
         labels: ??
 
@@ -310,7 +314,7 @@ class PgSurfacePlot(PgDataPlot):
     Plot 3 dimensional data as a surface using OpenGl.
 
     Args:
-        data (:py:class:`pyinduct.core.EvalData`): Data to display, if the the input-vector
+        data (:py:class:`.EvalData`): Data to display, if the the input-vector
             has length of 2, a 3d surface is plotted, if has length 3, this
             surface is animated. Hereby, the time axis is assumed to be the
             first entry of the input vector.

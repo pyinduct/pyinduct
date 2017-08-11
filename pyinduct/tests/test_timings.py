@@ -13,7 +13,7 @@ def simulation_benchmark(spat_domain, settings):
     This benchmark covers a typical simulation.
 
     Args:
-        spat_domain (:py:class:`core.Domain`): spatial domain for the simulation
+        spat_domain (:py:class:`.Domain`): spatial domain for the simulation
         settings (dict): settings to use for simulation run
 
     Returns:

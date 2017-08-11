@@ -57,12 +57,13 @@ class BaseFraction:
         """
         Empty Hint that can return steps for scalar product calculation.
 
-        In detail this means a list object containing function calls to fill with (first, second) parameters
-        that will calculate the scalar product when summed up.
+        In detail this means a list object containing function calls to fill
+        with (first, second) parameters that will calculate the scalar product
+        when summed up.
 
         Note:
             Overwrite to implement custom functionality.
-            For an example implementation see :py:class:`Function`
+            For an example implementation see :py:class:`.Function`
         """
         pass
 
@@ -70,12 +71,12 @@ class BaseFraction:
         """
         Basic implementation of derive function.
         Empty implementation, overwrite to use this functionality.
-        For an example implementation see :py:class:`Function`
+        For an example implementation see :py:class:`.Function`
 
         Args:
             order (:class:`numbers.Number`): derivative order
         Return:
-            :py:class:`BaseFraction`: derived object
+            :py:class:`.BaseFraction`: derived object
         """
         if order == 0:
             return self
@@ -85,9 +86,9 @@ class BaseFraction:
 
     def scale(self, factor):
         """
-        Factory method to obtain instances of this base fraction, scaled by the given factor.
-        Empty function, overwrite to implement custom functionality.
-        For an example implementation see :py:class:`Function`
+        Factory method to obtain instances of this base fraction, scaled by the
+        given factor. Empty function, overwrite to implement custom
+        functionality. For an example implementation see :py:class:`.Function`.
 
         Args:
             factor: Factor to scale the vector.
@@ -114,7 +115,7 @@ class BaseFraction:
         """
         Getter function to access members.
         Empty function, overwrite to implement custom functionality.
-        For an example implementation see :py:class:`Function`
+        For an example implementation see :py:class:`.Function`
 
         Note:
             Empty function, overwrite to implement custom functionality.
@@ -128,18 +129,22 @@ class BaseFraction:
 
 class Function(BaseFraction):
     """
-    Most common instance of a :py:class:`BaseFraction`.
-    This class handles all tasks concerning derivation and evaluation of functions. It is used broad across the toolbox
-    and therefore incorporates some very specific attributes.
-    For example, to ensure the accurateness of numerical handling functions may only evaluated in areas where they
-    provide nonzero return values. Also their domain has to be taken into account. Therefore the attributes *domain*
-    and *nonzero* are provided.
+    Most common instance of a :py:class:`.BaseFraction`.
+    This class handles all tasks concerning derivation and evaluation of
+    functions. It is used broad across the toolbox and therefore incorporates
+    some very specific attributes. For example, to ensure the accurateness of
+    numerical handling functions may only evaluated in areas where they provide
+    nonzero return values. Also their domain has to be taken into account.
+    Therefore the attributes *domain* and *nonzero* are provided.
 
-    To save implementation time, ready to go version like :py:class:`pyinduct.shapefunctions.LagrangeFirstOrder`
-    are provided in the :py:mod:`pyinduct.simulation` module.
+    To save implementation time, ready to go version like
+    :py:class:`.LagrangeFirstOrder` are provided in the
+    :py:mod:`pyinduct.simulation` module.
 
-    For the implementation of new shape functions subclass this implementation or directly provide a callable
-    *eval_handle* and callable *derivative_handles* if spatial derivatives are required for the application.
+    For the implementation of new shape functions subclass this implementation
+    or directly provide a callable *eval_handle* and callable
+    *derivative_handles* if spatial derivatives are required for the
+    application. 
     """
 
     # TODO: overload add and mul operators
@@ -283,8 +288,8 @@ class Function(BaseFraction):
         """
         Implementation of the abstract parent method.
 
-        Since the :py:class:`Function` has only one member (itself) the parameter *idx* is ignored and *self* is
-        returned.
+        Since the :py:class:`.Function` has only one member (itself) the
+        parameter *idx* is ignored and *self* is returned.
 
         Args:
             idx: ignored.
@@ -323,7 +328,7 @@ class Function(BaseFraction):
 
     def scale(self, factor):
         """
-        Factory method to scale a :py:class:`pyinduct.core.Function`.
+        Factory method to scale a :py:class:`.Function`.
 
         Args:
             factor : :obj:`numbers.Number` or a callable.
@@ -353,21 +358,22 @@ class Function(BaseFraction):
         return new_obj
 
     def derive(self, order=1):
-        """
-        Spatially derive this :py:class:`Function`.
+        r"""
+        Spatially derive this :py:class:`.Function`.
 
-        This is done by neglecting *order* derivative handles and to select handle :math:`\\text{order} - 1` as the new
-        evaluation_handle.
+        This is done by neglecting *order* derivative handles and to select
+        handle :math:`\text{order} - 1` as the new evaluation_handle.
 
         Args:
             order (int): the amount of derivations to perform
 
         Raises:
             TypeError: If *order* is not of type int.
-            ValueError: If the requested derivative order is higher than the provided one.
+            ValueError: If the requested derivative order is higher than the
+                provided one.
 
         Returns:
-            :py:class:`Function` the derived function.
+            :py:class:`.Function` the derived function.
 
         """
         if not isinstance(order, int):
@@ -426,21 +432,22 @@ class Function(BaseFraction):
 
     def scalar_product_hint(self):
         """
-        Return the hint that the :py:func:`pyinduct.core.dot_product_l2` has to calculated to gain the scalar product.
+        Return the hint that the :py:func:`.dot_product_l2` has to calculated to
+        gain the scalar product.
         """
         return [dot_product_l2]
 
     @staticmethod
     def from_constant(constant, **kwargs):
         """
-        Create a :py:class:`Function` that returns a constant value.
+        Create a :py:class:`.Function` that returns a constant value.
 
         Args:
             constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`Function`
+            **kwargs: all kwargs get passed to :py:class:`.Function`
 
         Returns:
-            :py:class:`Function`: A constant function
+            :py:class:`.Function`: A constant function
         """
         def f(z):
             return constant
@@ -454,7 +461,7 @@ class Function(BaseFraction):
     @staticmethod
     def from_data(x, y, **kwargs):
         """
-        Create a :py:class:`Function` based on discrete data by
+        Create a :py:class:`.Function` based on discrete data by
         interpolating.
 
         The interpolation is done by using :py:class:`interp1d` from scipy,
@@ -463,10 +470,10 @@ class Function(BaseFraction):
         Args:
             x (array-like): Places where the function has been evaluated .
             y (array-like): Function values at *x*.
-            **kwargs: all kwargs get passed to :py:class:`Function` .
+            **kwargs: all kwargs get passed to :py:class:`.Function` .
 
         Returns:
-            :py:class:`Function`: An interpolating function.
+            :py:class:`.Function`: An interpolating function.
         """
         dom = kwargs.pop("domain", (min(x), max(x)))
         nonzero = kwargs.pop("nonzero", dom)
@@ -490,18 +497,18 @@ class Function(BaseFraction):
 
 
 class ComposedFunctionVector(BaseFraction):
-    """
-    Implementation of composite function vector :math:`\\boldsymbol{x}`.
+    r"""
+    Implementation of composite function vector :math:`\boldsymbol{x}`.
 
     .. math::
-        \\boldsymbol{x} = \\begin{pmatrix}
-            x_1(z) \\\\
-            \\vdots \\\\
-            x_n(z) \\\\
-            \\xi_1 \\\\
-            \\vdots \\\\
-            \\xi_m \\\\
-        \\end{pmatrix}
+        \boldsymbol{x} = \begin{pmatrix}
+            x_1(z) \\
+            \vdots \\
+            x_n(z) \\
+            \xi_1 \\
+            \vdots \\
+            \xi_m \\
+        \end{pmatrix}
     """
 
     def __init__(self, functions, scalars):
@@ -530,12 +537,14 @@ class ComposedFunctionVector(BaseFraction):
 class Base:
     """
     Base class for approximation bases.
-    In general, a :py:class:`Base` is formed by a certain amount of :py:class:`BaseFractions` and therefore forms
-    finite-dimensional subspace of the distributed problem's domain. Most of the time, the user does not need to
-    interact with this class.
+    In general, a :py:class:`.Base` is formed by a certain amount of
+    :py:class:`.BaseFractions` and therefore forms finite-dimensional subspace
+    of the distributed problem's domain. Most of the time, the user does not
+    need to interact with this class.
 
     Args:
-        fractions (iterable of :py:class:`BaseFraction`): List, Array or Dict of :py:class:`BaseFraction` instances
+        fractions (iterable of :py:class:`.BaseFraction`): List, array or
+            dict of :py:class:`.BaseFraction`'s
     """
     def __init__(self, fractions):
         # TODO check if Fractions are consistent in Type and provided hints
@@ -562,22 +571,25 @@ class Base:
 
     def transformation_hint(self, info):
         """
-        Method that provides a information about how to transform weights from one :py:class:`BaseFraction` into
-        another.
+        Method that provides a information about how to transform weights from
+        one :py:class:`.BaseFraction` into another.
 
-        In Detail this function has to return a callable, which will take the weights of the source- and return the
-        weights of the target system. It may have keyword arguments for other data which is required to perform the
-        transformation.
-        Information about these extra keyword arguments should be provided in form of a dictionary whose keys are
-        keyword arguments of the returned transformation handle.
+        In Detail this function has to return a callable, which will take the
+        weights of the source- and return the weights of the target system. It
+        may have keyword arguments for other data which is required to perform
+        the transformation. Information about these extra keyword arguments
+        should be provided in form of a dictionary whose keys are keyword
+        arguments of the returned transformation handle.
 
         Note:
-            This implementation covers the most basic case, where the two :py:class:`BaseFraction` s are of same type.
-            For any other case it will raise an exception.
-            Overwrite this Method in your implementation to support conversion between bases that differ from yours.
+            This implementation covers the most basic case, where the two
+            :py:class:`.BaseFraction`'s are of same type. For any other case it
+            will raise an exception. Overwrite this Method in your
+            implementation to support conversion between bases that differ from
+            yours.
 
         Args:
-            info: :py:class:`TransformationInfo`
+            info: :py:class:`.TransformationInfo`
 
         Raises:
             NotImplementedError:
@@ -593,10 +605,12 @@ class Base:
 
     def scalar_product_hint(self):
         """
-        Hint that returns steps for scalar product calculation with elements of this base.
+        Hint that returns steps for scalar product calculation with elements of
+        this base.
+        
         Note:
             Overwrite to implement custom functionality.
-            For an example implementation see :py:class:`Function`
+            For an example implementation see :py:class:`.Function`
         """
         return self.fractions[0].scalar_product_hint()
 
@@ -604,12 +618,12 @@ class Base:
         """
         Basic implementation of derive function.
         Empty implementation, overwrite to use this functionality.
-        For an example implementation see :py:class:`Function`
+        For an example implementation see :py:class:`.Function`
 
         Args:
             order (:class:`numbers.Number`): derivative order
         Return:
-            :py:class:`Base`: derived object
+            :py:class:`.Base`: derived object
         """
         if order == 0:
             return self
@@ -669,7 +683,8 @@ class StackedBase(Base):
         return `None`
 
         Args:
-            info (:py:class:`TransformationInfo`): Information about the requested transformation.
+            info (:py:class:`.TransformationInfo`): Information about the
+                requested transformation.
         Return:
             transformation handle
 
@@ -697,8 +712,8 @@ def domain_intersection(first, second):
     Calculate intersection(s) of two domains.
 
     Args:
-        first (:py:class:`core.Domain`): first domain
-        second (:py:class:`core.Domain`): second domain
+        first (:py:class:`.Domain`): first domain
+        second (:py:class:`.Domain`): second domain
 
     Return:
         list: intersection(s) given by (start, end) tuples.
@@ -768,8 +783,8 @@ def _dot_product_l2(first, second):
     Calculates the inner product of two functions.
 
     Args:
-        first (:py:class:`pyinduct.core.Function`): first function
-        second (:py:class:`pyinduct.core.Function`): second function
+        first (:py:class:`.Function`): first function
+        second (:py:class:`.Function`): second function
 
     Todo:
         rename to scalar_dot_product and make therefore non private
@@ -809,7 +824,8 @@ def _dot_product_l2(first, second):
 
 def integrate_function(function, interval):
     """
-    Integrates the given *function* over the *interval* using :func:`complex_quadrature`.
+    Integrates the given *function* over the *interval* using
+    :func:`.complex_quadrature`.
 
     Args:
         function(callable): Function to integrate.
@@ -917,19 +933,23 @@ def calculate_scalar_matrix(values_a, values_b):
 
 def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
                                     optimize=False):
-    """
-    Calculates a matrix :math:`A` , whose elements are the scalar products of each element from *base_a* and *base_b*,
-    so that :math:`a_{ij} = \\langle \\mathrm{a}_i\\,,\\: \\mathrm{b}_j\\rangle`.
+    r"""
+    Calculates a matrix :math:`A` , whose elements are the scalar products of
+    each element from *base_a* and *base_b*, so that
+    :math:`a_{ij} = \langle \mathrm{a}_i\,,\: \mathrm{b}_j\rangle`.
 
     Args:
-        scalar_product_handle (callable): function handle that is called to calculate the scalar product.
-            This function has to be able to cope with (1d) vectorial input.
-        base_a (:py:class:`Base`): Basis a
-        base_b (:py:class:`Base`): Basis b
-        optimize (bool): switch to turn on the symmetry based speed up. For development purposes only.
+        scalar_product_handle (callable): function handle that is called to
+            calculate the scalar product. This function has to be able to cope
+            with (1d) vectorial input.
+        base_a (:py:class:`.Base`): Basis a
+        base_b (:py:class:`.Base`): Basis b
+        optimize (bool): Switch to turn on the symmetry based speed up.
+            For development purposes only.
 
     TODO:
-        making use of the commutable scalar product could save time, run some test on this
+        making use of the commutable scalar product could save time,
+        run some test on this
 
     Return:
         numpy.ndarray: matrix :math:`A`
@@ -1021,7 +1041,7 @@ def project_on_base(state, base):
 
     Args:
         state (array_like): List of functions to approximate.
-        base (:py:class:`Base`): Basis to project onto.
+        base (:py:class:`.Base`): Basis to project onto.
 
     Return:
         numpy.ndarray: Weight vector in the given *base*
@@ -1042,14 +1062,14 @@ def project_on_base(state, base):
 
 def project_on_bases(states, canonical_equations):
     """
-    Convenience wrapper for :py:func:`project_on_base`.
+    Convenience wrapper for :py:func:`.project_on_base`.
     Calculate the state, assuming it will be constituted by the dominant
     base of the respective system. The keys from the dictionaries
     *canonical_equations* and *states* must be the same.
 
     Args:
         states: Dictionary with a list of functions as values.
-        canonical_equations: List of :py:class:`CanonicalEquation`s.
+        canonical_equations: List of :py:class:`.CanonicalEquation` instances.
 
     Returns:
         numpy.array: Finit dimensional state as 1d-array corresponding to the
@@ -1071,7 +1091,7 @@ def back_project_from_base(weights, base):
 
     Args:
         weights (numpy.ndarray): Weight vector.
-        base (:py:class:`Base`): Base to be used for the projection.
+        base (:py:class:`.Base`): Base to be used for the projection.
 
     Return:
         evaluation handle
@@ -1098,8 +1118,8 @@ def change_projection_base(src_weights, src_base, dst_base):
 
     Args:
         src_weights (numpy.ndarray): Vector of numbers.
-        src_base (:py:class:`Base`): The source Basis.
-        dst_base (:py:class:`Base`): The destination Basis.
+        src_base (:py:class:`.Base`): The source Basis.
+        dst_base (:py:class:`.Base`): The destination Basis.
 
     Return:
         :obj:`numpy.ndarray`: target weights
@@ -1134,7 +1154,7 @@ class TransformationInfo:
 
     This class serves as an easy to use structure to aggregate information,
     describing transformations between different
-    :py:class:`BaseFraction` s. It can be tested for equality to check the
+    :py:class:`.BaseFraction` s. It can be tested for equality to check the
     equity of transformations and is hashable
     which makes it usable as dictionary key to cache different transformations.
 
@@ -1190,7 +1210,7 @@ def get_weight_transformation(info):
     destination bases and evaluating their :attr:`transformation_hints`.
 
     Args:
-        info(py:class:`TransformationInfo`): information about the requested
+        info(:py:class:`.TransformationInfo`): information about the requested
             transformation.
 
     Return:
@@ -1274,7 +1294,7 @@ def get_transformation_info(source_label, destination_label,
             of the destination weights.
 
     Returns:
-        :py:class:`pyinduct.core.TransformationInfo`: Transformation info object.
+        :py:class:`.TransformationInfo`: Transformation info object.
 
     """
     info = TransformationInfo()
@@ -1289,22 +1309,25 @@ def get_transformation_info(source_label, destination_label,
 
 
 def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order, dst_order, use_eye=False):
-    """
-    Constructs a transformation matrix :math:`\\bar V` from basis given by *src_base* to basis given
-    by *dst_base* that also transforms all temporal derivatives of the given weights.
+    r"""
+    Constructs a transformation matrix :math:`\bar V` from basis given by
+    *src_base* to basis given by *dst_base* that also transforms all temporal
+    derivatives of the given weights.
 
     See:
-        :py:func:`calculate_base_transformation_matrix` for further details.
+        :py:func:`.calculate_base_transformation_matrix` for further details.
 
     Args:
-        dst_base (:py:class:`Base`): New projection base.
-        src_base (:py:class:`Base`): Current projection base.
+        dst_base (:py:class:`.Base`): New projection base.
+        src_base (:py:class:`.Base`): Current projection base.
         src_order: Temporal derivative order available in *src_base*.
         dst_order: Temporal derivative order needed in *dst_base*.
-        use_eye (bool): Use identity as base transformation matrix. (For easy selection of derivatives in the same base)
+        use_eye (bool): Use identity as base transformation matrix.
+            (For easy selection of derivatives in the same base)
 
     Raises:
-        ValueError: If destination needs a higher derivative order than source can provide.
+        ValueError: If destination needs a higher derivative order than source
+            can provide.
 
     Return:
         :obj:`numpy.ndarray`: Transformation matrix
@@ -1338,15 +1361,15 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     Warning:
         This method assumes that all members of the given bases have
         the same type and that their
-        :py:class:`BaseFraction` s, define compatible scalar products.
+        :py:class:`.BaseFraction` s, define compatible scalar products.
 
     Raises:
         TypeError: If given bases do not provide an
-            :py:func:`scalar_product_hint` method.
+            :py:func:`.scalar_product_hint` method.
 
     Args:
-        src_base (:py:class:`Base`): Current projection base.
-        dst_base (:py:class:`Base`): New projection base.
+        src_base (:py:class:`.Base`): Current projection base.
+        dst_base (:py:class:`.Base`): New projection base.
 
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
@@ -1384,25 +1407,25 @@ def calculate_base_transformation_matrix(src_base, dst_base):
 
 
 def normalize_base(b1, b2=None):
-    """
-    Takes two :py:class:`Base` s :math:`\\boldsymbol{b}_1` ,
-    :math:`\\boldsymbol{b}_1` and normalizes them so that
-    :math:`\\langle\\boldsymbol{b}_{1i}\\,
-    ,\:\\boldsymbol{b}_{2i}\\rangle = 1`.
-    If only one base is given, :math:`\\boldsymbol{b}_2`
-    defaults to :math:`\\boldsymbol{b}_1`.
+    r"""
+    Takes two :py:class:`.Base`'s :math:`\boldsymbol{b}_1` ,
+    :math:`\boldsymbol{b}_1` and normalizes them so that
+    :math:`\langle\boldsymbol{b}_{1i}\,
+    ,\:\boldsymbol{b}_{2i}\rangle = 1`.
+    If only one base is given, :math:`\boldsymbol{b}_2`
+    defaults to :math:`\boldsymbol{b}_1`.
 
     Args:
-        b1 (:py:class:`Base`): :math:`\\boldsymbol{b}_1`
-        b2 (:py:class:`Base`): :math:`\\boldsymbol{b}_2`
+        b1 (:py:class:`.Base`): :math:`\boldsymbol{b}_1`
+        b2 (:py:class:`.Base`): :math:`\boldsymbol{b}_2`
 
     Raises:
-        ValueError: If :math:`\\boldsymbol{b}_1`
-            and :math:`\\boldsymbol{b}_2` are orthogonal.
+        ValueError: If :math:`\boldsymbol{b}_1`
+            and :math:`\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        :py:class:`Base` : if *b2* is None,
-           otherwise: Tuple of 2 :py:class:`Base` s.
+        :py:class:`.Base` : if *b2* is None,
+           otherwise: Tuple of 2 :py:class:`.Base`'s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1435,11 +1458,11 @@ def normalize_base(b1, b2=None):
 def generic_scalar_product(b1, b2=None):
     """
     Calculates the pairwise scalar product between the elements
-    of the :py:class:`Base` *b1* and *b2*.
+    of the :py:class:`.Base` *b1* and *b2*.
 
     Args:
-        b1 (:py:class:`Base`): first basis
-        b2 (:py:class:`Base`): second basis, if omitted
+        b1 (:py:class:`.Base`): first basis
+        b2 (:py:class:`.Base`): second basis, if omitted
             defaults to *b1*
 
     Note:
@@ -1469,8 +1492,8 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     Searches *n_roots* roots of the *function* :math:`f(\boldsymbol{x})`
     on the given *grid* and checks them for uniqueness with aid of *rtol*.
 
-    In Detail :py:func:`fsolve` is used to find initial candidates for
-    roots of :math:`f(\boldsymbol{x})` . If a root satisfies the criteria
+    In Detail :py:func:`scipy.optimize.root` is used to find initial candidates
+    for roots of :math:`f(\boldsymbol{x})` . If a root satisfies the criteria
     given by atol and rtol it is added. If it is already in the list,
     a comprehension between the already present entries' error and the
     current error is performed. If the newly calculated root comes

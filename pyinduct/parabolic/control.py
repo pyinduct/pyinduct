@@ -97,16 +97,16 @@ def split_domain(n, a_desired, l, mode='coprime'):
 
 def scale_equation_term_list(eqt_list, factor):
     """
-    Temporary function, as long :py:class:`pyinduct.placeholder.EquationTerm`
+    Temporary function, as long :py:class:`.EquationTerm`
     can only be scaled individually.
 
     Args:
         eqt_list (list):
-            List  of :py:class:`pyinduct.placeholder.EquationTerm` s
+            List  of :py:class:`.EquationTerm`'s
         factor (numbers.Number): Scale factor.
 
     Return:
-        Scaled copy of :py:class:`pyinduct.placeholder.EquationTerm` s (eqt_list).
+        Scaled copy of :py:class:`.EquationTerm`'s (eqt_list).
     """
     if not isinstance(eqt_list, list):
         raise TypeError

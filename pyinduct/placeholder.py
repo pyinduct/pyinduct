@@ -65,7 +65,7 @@ class Placeholder(object):
             spat_order: Spatial derivative order to be added.
 
         Returns:
-            New :py:class:`Placeholder` instance with the desired derivative
+            New :py:class:`.Placeholder` instance with the desired derivative
             order.
         """
         new_obj = copy.deepcopy(self)
@@ -83,7 +83,7 @@ class Placeholder(object):
             location: Spatial Location to be set.
 
         Returns:
-            New :py:class:`Placeholder` instance with the desired location.
+            New :py:class:`.Placeholder` instance with the desired location.
         """
         new_obj = copy.deepcopy(self)
         new_obj.location = location
@@ -115,7 +115,7 @@ class Scalars(Placeholder):
 
     Args:
         values: Iterable object containing the scalars for every k-th equation.
-        target_term: Coefficient matrix to :py:func:`add_to`.
+        target_term: Coefficient matrix to :py:func:`.add_to`.
         target_form: Desired weight set.
     """
 
@@ -141,7 +141,7 @@ class ScalarFunction(SpatialPlaceholder):
 
     Warn:
         There seems to be a problem when this function is used in combination
-        with the :py:class:`Product` class. Make sure to provide this class as
+        with the :py:class:`.Product` class. Make sure to provide this class as
         first argument to any product you define.
 
     Todo:
@@ -161,24 +161,24 @@ class ScalarFunction(SpatialPlaceholder):
     @staticmethod
     def from_scalar(scalar, label, **kwargs):
         """
-        create a :py:class:`ScalarFunction` from scalar values.
+        create a :py:class:`.ScalarFunction` from scalar values.
 
         Args:
             scalar (array like): Input that is used to generate the
                 placeholder. If a number is given, a constant function will be
                 created, if it is callable it will be wrapped in a
-                :py:class:`core.Function` and registered.
+                :py:class:`.Function` and registered.
             label (string): Label to register the created base.
             **kwargs: All kwargs that are not mentioned below will be passed
-                to :py:class:`core.Function`.
+                to :py:class:`.Function`.
 
         Keyword Args:
             order (int): See constructor.
             location (int): See constructor.
-            overwrite (bool): See :py:func:`pyinduct.registry.register_base`
+            overwrite (bool): See :py:func:`.register_base`
 
         Returns:
-            :py:class:`placeholder.ScalarFunction` : Placeholder object that
+            :py:class:`.ScalarFunction` : Placeholder object that
             can be used in a weak formulation.
         """
 
@@ -210,8 +210,8 @@ class Input(Placeholder):
         index (int): If the system's input is vectorial, specify the element to
             be used.
         order (int): temporal derivative order of this term
-            (See :py:class:`Placeholder`).
-        exponent (numbers.Number): See :py:class:`FieldVariable`.
+            (See :py:class:`.Placeholder`).
+        exponent (numbers.Number): See :py:class:`.FieldVariable`.
 
     Note:
         if *order* is nonzero, the callable has to provide the temporal
@@ -248,16 +248,16 @@ class TestFunction(SpatialPlaceholder):
 
 
 class FieldVariable(Placeholder):
-    """
+    r"""
     Class that represents terms of the systems field variable :math:`x(z, t)`.
 
     Note:
-        Use :py:class:`TemporalDerivedFieldVariable` and
-        :py:class:`SpatialDerivedFieldVariable` if no mixed derivatives occur.
+        Use :py:class:`.TemporalDerivedFieldVariable` and
+        :py:class:`.SpatialDerivedFieldVariable` if no mixed derivatives occur.
 
     Args:
         function_label (str): Label of shapefunctions to use for approximation,
-            see :py:func:`register_base` for more information about how to
+            see :py:func:`.register_base` for more information about how to
             register an approximation basis.
         order tuple of int: Tuple of temporal_order and spatial_order derivation
             order.
@@ -270,15 +270,15 @@ class FieldVariable(Placeholder):
         Assuming some shapefunctions have been registered under the label
         ``"phi"`` the following expressions hold:
 
-        - :math:`\\frac{\\partial^{2}}{\\partial t \\partial z}x(z, t)`
+        - :math:`\frac{\partial^{2}}{\partial t \partial z}x(z, t)`
 
         >>> x_dtdz = FieldVariable("phi", order=(1, 1))
 
-        - :math:`\\frac{\\partial^2}{\\partial t^2}x(3, t)`
+        - :math:`\frac{\partial^2}{\partial t^2}x(3, t)`
 
         >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
 
-        - :math:`\\frac{\\partial}{\\partial t}x^2(z, t)`
+        - :math:`\frac{\partial}{\partial t}x^2(z, t)`
 
         >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
     """
@@ -534,10 +534,10 @@ def _evaluate_placeholder(placeholder):
     Evaluates a placeholder object and returns a Scalars object.
 
     Args:
-        placeholder (:py:class:`Placeholder`):
+        placeholder (:py:class:`.Placeholder`):
 
     Return:
-        :py:class:`Scalars` or NotImplementedError
+        :py:class:`.Scalars` or NotImplementedError
     """
     if not isinstance(placeholder, Placeholder):
         raise TypeError("only placeholders supported")
@@ -573,7 +573,7 @@ def get_common_target(scalars):
     targets are equivalent.
 
     Args:
-        scalars (:py:class:`Scalars`):
+        scalars (:py:class:`.Scalars`):
 
     Return:
         dict: Common target.
@@ -624,8 +624,8 @@ def evaluate_placeholder_function(placeholder, input_values):
     Evaluate a given placeholder object, that contains functions.
 
     Args:
-        placeholder: Instance of :py:class:`FieldVariable`,
-            :py:class:`TestFunction` or :py:class:`ScalarFunction`.
+        placeholder: Instance of :py:class:`.FieldVariable`,
+            :py:class:`.TestFunction` or :py:class:`.ScalarFunction`.
         input_values: Values to evaluate at.
 
     Return:
