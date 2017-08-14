@@ -123,13 +123,13 @@ def get_parabolic_robin_backstepping_controller(state,
     r"""
     Build a modal approximated backstepping controller
     :math:`u(t)=(Kx)(t)`, for the (open loop-) diffusion system with reaction
-    and advection term, robin boundary condition and robin actuation
+    term, robin boundary condition and robin actuation
 
     .. math::
         :nowrap:
 
         \begin{align*}
-            \dot x(z,t) &= a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t),
+            \dot x(z,t) &= a_2 x''(z,t) + a_0 x(z,t),
              && z\in (0, l) \\
             x'(0,t) &= \alpha x(0,t) \\
             x'(l,t) &= -\beta x(l,t) + u(t)
@@ -142,13 +142,13 @@ def get_parabolic_robin_backstepping_controller(state,
         :nowrap:
 
         \begin{align*}
-            \dot{\bar{x}}(z,t) &= a_2 \bar x''(z,t) + \bar a_1 \bar x'(z,t) +
+            \dot{\bar{x}}(z,t) &= a_2 \bar x''(z,t) +
             \bar a_0 \bar x(z,t), && z\in (0, l) \\
             \bar x'(0,t) &= \bar\alpha \bar x(0,t) \\
             \bar x'(l,t) &= -\bar\beta x(l,t)
         \end{align*}
 
-    where :math:`\bar a_1,\, \bar a_0,\, \bar\alpha,\, \bar\beta` are controller
+    where :math:`\bar a_0,\, \bar\alpha,\, \bar\beta` are controller
     parameters.
 
     The control design is performed using the backstepping method, whose
