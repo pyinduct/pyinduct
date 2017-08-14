@@ -13,27 +13,21 @@ __all__ = ["get_parabolic_robin_backstepping_controller", "split_domain"]
 
 def split_domain(n, a_desired, l, mode='coprime'):
     """
-    Consider a domain [0,l] which is divided into the two sub domains [0,a]
-    and [a,l] with:
+    Consider a domain :math:`[0,l]` which is divided into the two sub domains
+    :math:`[0,a]` and :math:`[a,l]` with:
 
-    -the discretization l_0 = l/n
+        - the discretization :math:`l_0 = l/n`
 
-    -and a partition a+b=l.
+        - and a partition :math:`a+b=l`.
 
-    respectively k1+k2=n is calculated so that n is odd and a=k1*l_0 is close
-    to a_desired modes:
+    :math:`k1+k2=n` is calculated such that :math:`n` is odd and
+    :math:`a=k1*l_0` is close to `a_desired`. Three modes are available:
 
-    - 'force_k2_as_prime_number': k2 is an prime number (k1, k2 are coprime)
+        - 'force_k2_as_prime_number': k2 is an prime number (k1, k2 are coprime)
 
-    - 'coprime': k1, k2 are coprime
+        - 'coprime': k1, k2 are coprime (default)
 
-    - 'one_even_one_odd': just meet the specification from the doc (default)
-
-    Args:
-        n:
-        a_desired:
-        l:
-        mode:
+        - 'one_even_one_odd': one is even one is odd.
     """
 
     if not isinstance(n, (int, float)):
@@ -54,13 +48,6 @@ def split_domain(n, a_desired, l, mode='coprime'):
         return n, 0, a_desired, None, None
 
     def get_candidate_tuple(n, num):
-        """
-        TODO docstring
-
-        Args:
-            n:
-            num:
-        """
         k1 = (n - num)
         k2 = num
         ratio = k1 / k2
@@ -131,7 +118,76 @@ def get_parabolic_robin_backstepping_controller(state,
                                                 original_beta,
                                                 target_beta,
                                                 scale=None):
-    # TODO add docstring for this method
+    r"""
+    Provides an modal approximated backstepping controller
+    :math:`u(t)=(Kx)(t)`, for the (open loop-) diffusion system with reaction
+    and advection term, robin boundary condition and robin actuation
+    
+    .. math::
+        :nowrap:
+        
+        \begin{align*}
+            \dot x(z,t) &= a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t),
+             && z\in (0, l) \\
+            x'(0,t) &= \alpha x(0,t) \\
+            x'(l,t) &= -\beta x(l,t) + u(t)
+        \end{align*}
+        
+    such that the closed loop system has the desired dynamic from the
+    target system
+    
+    .. math::
+        :nowrap:
+        
+        \begin{align*}
+            \dot{\bar{x}}(z,t) &= a_2 \bar x''(z,t) + \bar a_1 \bar x'(z,t) +
+            \bar a_0 \bar x(z,t), && z\in (0, l) \\
+            \bar x'(0,t) &= \bar\alpha \bar x(0,t) \\
+            \bar x'(l,t) &= -\bar\beta x(l,t)
+        \end{align*}
+        
+    where :math:`\bar a_1,\, \bar a_0,\, \bar\alpha,\, \bar\beta` are controller
+    parameter.
+    
+    For this purpose the backstepping method is used for controller design,
+    where the backstepping transformation
+    
+    .. math:: \bar x(z) = x(z) + \int_0^z k(z, \bar z) x(\bar z) \, d\bar z
+    
+    is used to transform the origninal system into the target system.
+    
+    Note:
+        For more details see:
+        
+            - Example :py:mod:`pyinduct.examples.rad_eq_const_coeff`
+            - Frank Woittennek, Marcus Riesmeier and Stefan Ecklebe;
+              On approximation and implementation of transformation based
+              feedback laws for distributed parameter systems;
+              IFAC World Congress, 2017, Toulouse
+    
+    Args:
+        state (list of :py:class:`.ScalarTerm`'s): Measurement / value from
+            simulation of :math:`x(l)`.
+        approx_state (list of :py:class:`.ScalarTerm`'s): Modal approximated
+            :math:`x(l)`.
+        d_approx_state (list of :py:class:`.ScalarTerm`'s): Modal approximated
+            :math:`x'(l)`.
+        approx_target_state (list of :py:class:`.ScalarTerm`'s): Modal
+            approximated :math:`\bar x(l)`. 
+        d_approx_target_state (list of :py:class:`.ScalarTerm`'s): Modal
+            approximated :math:`\bar x'(l)`.  
+        integral_kernel_zz (:py:class:`numbers.Number`): Integral kernel
+        
+            .. math:: k(z,z) = \bar\alpha - \alpha + \frac{a_0-\bar a_0}{a_2} z
+        original_beta (:py:class:`numbers.Number`): :math:`\beta`
+        target_beta (:py:class:`numbers.Number`): :math:`\bar\beta`
+        scale (:py:class:`numbers.Number`): A constant :math:`c \in \mathbb R`
+            to scale the control law: :math:`u(t) = c \, (Kx)(t)`.
+
+    Returns:
+        :py:class:`.Controller`: :math:`(Kx)(t)`
+
+    """
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     if not all([isinstance(arg, list) for arg in args]):
         raise TypeError
