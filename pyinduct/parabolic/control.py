@@ -14,20 +14,22 @@ __all__ = ["get_parabolic_robin_backstepping_controller", "split_domain"]
 def split_domain(n, a_desired, l, mode='coprime'):
     """
     Consider a domain :math:`[0,l]` which is divided into the two sub domains
-    :math:`[0,a]` and :math:`[a,l]` with:
+    :math:`[0,a]` and :math:`[a,l]` with the discretization :math:`l_0 = l/n`
+    and a partition :math:`a + b = l`.
 
-        - the discretization :math:`l_0 = l/n`
+    Calculate two numbers :math:`k_1` and :math:`k_2` with :math:`k_1 + k_2 = n`
+    such that :math:`n` is odd and :math:`a = k_1l_0` is close to ``a_desired``.
 
-        - and a partition :math:`a+b=l`.
+    Args:
+        n (int): Number of sub-intervals to create (must be odd).
+        a_desired (float): Desired partition size :math:`a` .
+        l (float): Length :math:`l` of the interval.
+        mode (str): Operation mode to use:
 
-    :math:`k1+k2=n` is calculated such that :math:`n` is odd and
-    :math:`a=k1*l_0` is close to `a_desired`. Three modes are available:
-
-        - 'force_k2_as_prime_number': k2 is an prime number (k1, k2 are coprime)
-
-        - 'coprime': k1, k2 are coprime (default)
-
-        - 'one_even_one_odd': one is even one is odd.
+            - 'coprime': :math:`k_1` and :math:`k_2` are coprime (default) .
+            - 'force_k2_as_prime_number': :math:`k_2` is a prime number
+              (:math:`k_1` and :math:`k_2` are coprime)
+            - 'one_even_one_odd': One is even and one is odd.
     """
 
     if not isinstance(n, (int, float)):
@@ -114,57 +116,53 @@ def get_parabolic_robin_backstepping_controller(state,
                                                 d_approx_state,
                                                 approx_target_state,
                                                 d_approx_target_state,
-                                                integral_kernel_zz,
+                                                integral_kernel_ll,
                                                 original_beta,
                                                 target_beta,
                                                 scale=None):
     r"""
-    Provides an modal approximated backstepping controller
+    Build a modal approximated backstepping controller
     :math:`u(t)=(Kx)(t)`, for the (open loop-) diffusion system with reaction
-    and advection term, robin boundary condition and robin actuation
-    
+    term, robin boundary condition and robin actuation
+
     .. math::
         :nowrap:
-        
+
         \begin{align*}
-            \dot x(z,t) &= a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t),
+            \dot x(z,t) &= a_2 x''(z,t) + a_0 x(z,t),
              && z\in (0, l) \\
             x'(0,t) &= \alpha x(0,t) \\
             x'(l,t) &= -\beta x(l,t) + u(t)
         \end{align*}
-        
-    such that the closed loop system has the desired dynamic from the
+
+    such that the closed loop system has the desired dynamic of the
     target system
-    
+
     .. math::
         :nowrap:
-        
+
         \begin{align*}
-            \dot{\bar{x}}(z,t) &= a_2 \bar x''(z,t) + \bar a_1 \bar x'(z,t) +
+            \dot{\bar{x}}(z,t) &= a_2 \bar x''(z,t) +
             \bar a_0 \bar x(z,t), && z\in (0, l) \\
             \bar x'(0,t) &= \bar\alpha \bar x(0,t) \\
             \bar x'(l,t) &= -\bar\beta x(l,t)
         \end{align*}
-        
-    where :math:`\bar a_1,\, \bar a_0,\, \bar\alpha,\, \bar\beta` are controller
-    parameter.
-    
-    For this purpose the backstepping method is used for controller design,
-    where the backstepping transformation
-    
+
+    where :math:`\bar a_0,\, \bar\alpha,\, \bar\beta` are controller
+    parameters.
+
+    The control design is performed using the backstepping method, whose
+    integral transform
+
     .. math:: \bar x(z) = x(z) + \int_0^z k(z, \bar z) x(\bar z) \, d\bar z
-    
-    is used to transform the origninal system into the target system.
-    
+
+    maps from the original system to the target system.
+
     Note:
-        For more details see:
-        
-            - Example :py:mod:`pyinduct.examples.rad_eq_const_coeff`
-            - Frank Woittennek, Marcus Riesmeier and Stefan Ecklebe;
-              On approximation and implementation of transformation based
-              feedback laws for distributed parameter systems;
-              IFAC World Congress, 2017, Toulouse
-    
+        For more details see the example script
+        :py:mod:`pyinduct.examples.rad_eq_const_coeff` that
+        implements the example from [WoiEtAl17]_ .
+
     Args:
         state (list of :py:class:`.ScalarTerm`'s): Measurement / value from
             simulation of :math:`x(l)`.
@@ -173,20 +171,29 @@ def get_parabolic_robin_backstepping_controller(state,
         d_approx_state (list of :py:class:`.ScalarTerm`'s): Modal approximated
             :math:`x'(l)`.
         approx_target_state (list of :py:class:`.ScalarTerm`'s): Modal
-            approximated :math:`\bar x(l)`. 
+            approximated :math:`\bar x(l)`.
         d_approx_target_state (list of :py:class:`.ScalarTerm`'s): Modal
-            approximated :math:`\bar x'(l)`.  
-        integral_kernel_zz (:py:class:`numbers.Number`): Integral kernel
-        
-            .. math:: k(z,z) = \bar\alpha - \alpha + \frac{a_0-\bar a_0}{a_2} z
-        original_beta (:py:class:`numbers.Number`): :math:`\beta`
-        target_beta (:py:class:`numbers.Number`): :math:`\bar\beta`
+            approximated :math:`\bar x'(l)`.
+        integral_kernel_ll (:py:class:`numbers.Number`): Integral kernel
+            evaluated at :math:`\bar z = z = l` :
+
+            .. math:: k(l, l) = \bar\alpha
+                                - \alpha
+                                + \frac{a_0-\bar a_0}{a_2} l \:.
+        original_beta (:py:class:`numbers.Number`): Coefficient :math:`\beta`
+            of the original system.
+        target_beta (:py:class:`numbers.Number`): Coefficient :math:`\bar\beta`
+            of the target system.
         scale (:py:class:`numbers.Number`): A constant :math:`c \in \mathbb R`
             to scale the control law: :math:`u(t) = c \, (Kx)(t)`.
 
     Returns:
         :py:class:`.Controller`: :math:`(Kx)(t)`
 
+    .. [WoiEtAl17] Frank Woittennek, Marcus Riesmeier and Stefan Ecklebe;
+              On approximation and implementation of transformation based
+              feedback laws for distributed parameter systems;
+              IFAC World Congress, 2017, Toulouse
     """
     args = [state, approx_state, d_approx_state, approx_target_state, d_approx_target_state]
     if not all([isinstance(arg, list) for arg in args]):
@@ -194,7 +201,7 @@ def get_parabolic_robin_backstepping_controller(state,
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
     if not all([isinstance(term, (ScalarTerm, IntegralTerm)) for term in terms]):
         raise TypeError
-    if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_zz]]):
+    if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_ll]]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
@@ -203,7 +210,7 @@ def get_parabolic_robin_backstepping_controller(state,
     beta_t = target_beta
 
     unsteady_term = scale_equation_term_list(state, beta - beta_t
-                                             - integral_kernel_zz)
+                                             - integral_kernel_ll)
 
     first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
     first_sum_2nd_term = scale_equation_term_list(approx_state, beta_t)
@@ -211,7 +218,7 @@ def get_parabolic_robin_backstepping_controller(state,
     second_sum_1st_term = scale_equation_term_list(d_approx_target_state, -1)
     second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
     second_sum_3rd_term = scale_equation_term_list(approx_state,
-                                                   integral_kernel_zz)
+                                                   integral_kernel_ll)
 
     control_law = (unsteady_term
                    + first_sum_1st_term
