@@ -1,24 +1,24 @@
 r"""
 This example considers the thermal behavior (simulation) of plug flow of an
-incompressible fluid through a pipe, which can be described with the
+incompressible fluid through a pipe from [BacEtAl17]_, which can be described with the
 normed variables/parameters:
 
     - :math:`x_1(z,t)` ~ fluid temperature
-    
+
     - :math:`x_2(z,t)` ~ pipe wall temperature
-    
+
     - :math:`x_3(z,t)=0` ~ ambient temperature
-    
+
     - :math:`u(t)` ~ system input
-    
+
     - :math:`H(t)` ~ heaviside step function
-    
+
     - :math:`v` ~ fluid velocity
-    
+
     - :math:`c_1` ~ heat transfer coefficient (fluid - wall)
-    
+
     - :math:`c_2` ~ heat transfer coefficient (wall - ambient)
-    
+
 by the following equations:
 
 .. math::
@@ -33,9 +33,8 @@ by the following equations:
     \end{align*}
 
 
-For further informations see:
-    On thermal modelling of incrompressible pipe flows (Zur thermischen Modellierung inkompressibler Rohrströmungen),
-    Simon Bachler, Johannes Huber and Frank Woittennek, at-Automatisierungstechnik, DE GRUYTER, 2017
+.. [BacEtAl17] On thermal modelling of incrompressible pipe flows (Zur thermischen Modellierung inkompressibler Rohrströmungen),
+        Simon Bachler, Johannes Huber and Frank Woittennek, at-Automatisierungstechnik, DE GRUYTER, 2017
 """
 
 # (sphinx directive) start actual script
