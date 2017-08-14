@@ -116,7 +116,7 @@ def get_parabolic_robin_backstepping_controller(state,
                                                 d_approx_state,
                                                 approx_target_state,
                                                 d_approx_target_state,
-                                                integral_kernel_zz,
+                                                integral_kernel_ll,
                                                 original_beta,
                                                 target_beta,
                                                 scale=None):
@@ -174,7 +174,7 @@ def get_parabolic_robin_backstepping_controller(state,
             approximated :math:`\bar x(l)`.
         d_approx_target_state (list of :py:class:`.ScalarTerm`'s): Modal
             approximated :math:`\bar x'(l)`.
-        integral_kernel_zz (:py:class:`numbers.Number`): Integral kernel
+        integral_kernel_ll (:py:class:`numbers.Number`): Integral kernel
             evaluated at :math:`\bar z = z = l` :
 
             .. math:: k(l, l) = \bar\alpha
@@ -201,7 +201,7 @@ def get_parabolic_robin_backstepping_controller(state,
     terms = state + approx_state + d_approx_state + approx_target_state + d_approx_target_state
     if not all([isinstance(term, (ScalarTerm, IntegralTerm)) for term in terms]):
         raise TypeError
-    if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_zz]]):
+    if not all([isinstance(num, Number) for num in [original_beta, target_beta, integral_kernel_ll]]):
         raise TypeError
     if not isinstance(scale, (Number, type(None))):
         raise TypeError
@@ -210,7 +210,7 @@ def get_parabolic_robin_backstepping_controller(state,
     beta_t = target_beta
 
     unsteady_term = scale_equation_term_list(state, beta - beta_t
-                                             - integral_kernel_zz)
+                                             - integral_kernel_ll)
 
     first_sum_1st_term = scale_equation_term_list(approx_target_state, -beta_t)
     first_sum_2nd_term = scale_equation_term_list(approx_state, beta_t)
@@ -218,7 +218,7 @@ def get_parabolic_robin_backstepping_controller(state,
     second_sum_1st_term = scale_equation_term_list(d_approx_target_state, -1)
     second_sum_2nd_term = scale_equation_term_list(d_approx_state, 1)
     second_sum_3rd_term = scale_equation_term_list(approx_state,
-                                                   integral_kernel_zz)
+                                                   integral_kernel_ll)
 
     control_law = (unsteady_term
                    + first_sum_1st_term
