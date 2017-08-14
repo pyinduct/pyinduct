@@ -7,13 +7,7 @@ import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
 import pyinduct.parabolic as parabolic
 from pyinduct.tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
-else:
-    app = None
+import pyqtgraph as pg
 
 
 class ConstantTrajectoryTestCase(unittest.TestCase):
@@ -61,7 +55,7 @@ class SmoothTransitionTestCase(unittest.TestCase):
             pw = pg.plot(title="control_input")
             pw.plot(self.t_values, u_values)
             ap = pi.PgAnimatedPlot(eval_data_x)
-            app.exec_()
+            pi.show(show_mpl=False)
 
 
 class FormalPowerSeriesTest(unittest.TestCase):
@@ -98,7 +92,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
         if show_plots:
             pw = pg.plot(title="control_input")
             pw.plot(self.t, x_0t)
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_recursion_vs_explicit(self):
 
@@ -118,7 +112,7 @@ class FormalPowerSeriesTest(unittest.TestCase):
             pw = pg.plot(title="control_input")
             pw.plot(self.t, u_a_t)
             pw.plot(self.t, u_b_t)
-            app.exec_()
+            pi.show(show_mpl=False)
 
 
 class InterpSignalGeneratorTest(unittest.TestCase):
@@ -171,4 +165,5 @@ class InterpSignalGeneratorTest(unittest.TestCase):
                 pw = pg.plot(title="control_input")
                 pw.plot(self.t.points, self.sig_gen.__call__(time=self.t), pen='c')
                 pw.plot(self.t_interp.points, self.sig_gen.__call__(time=self.t_interp), pen='g')
-                app.exec_()
+                pi.show(show_mpl=False)
+

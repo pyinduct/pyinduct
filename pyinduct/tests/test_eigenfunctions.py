@@ -6,10 +6,6 @@ import pyinduct as pi
 import pyinduct.parabolic as parabolic
 from pyinduct.tests import show_plots
 
-if show_plots:
-    import pyqtgraph as pg
-    pg.mkQApp()
-
 
 class TestAddMulFunction(unittest.TestCase):
     def test_it(self):

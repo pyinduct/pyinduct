@@ -1,6 +1,5 @@
 import os
 import unittest
-import copy
 import numpy as np
 
 import pyinduct as pi
@@ -9,32 +8,12 @@ from pyinduct.tests import show_plots
 from pyinduct.tests.test_simulation import StringMassTest
 
 
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.mkQApp()
-else:
-    app = None
-
-
-def create_test_data():
-    """
-    create a test data set
-    """
-    swm = StringMassTest()
-    swm.setUp()
-    swm.test_fem()
-    test_data = copy.copy(swm.example_data)
-    swm.tearDown()
-    return test_data
-
-
 class PlotTestCase(unittest.TestCase):
-
-    test_data = create_test_data()
+    swm = StringMassTest()
 
     def setUp(self):
         lim = 50
+        self.test_data = self.swm.create_test_data()
         self.short_data = pi.EvalData(
             [self.test_data[0].input_data[0][0:lim],
              self.test_data[0].input_data[1][0:lim]],
