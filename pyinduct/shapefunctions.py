@@ -1,7 +1,7 @@
 """
-The shapefunctions module contains generic shapefunctions that can be used to 
-approximate distributed systems without giving  any information about the 
-systems themselves. 
+The shapefunctions module contains generic shapefunctions that can be used to
+approximate distributed systems without giving  any information about the
+systems themselves.
 This is achieved by projecting them on generic, piecewise smooth functions.
 """
 
@@ -35,7 +35,7 @@ class LagrangeNthOrder(Function):
         mid_num (int):  Local number of mid-polynomials (see notes) to use (only
             used for *order* >= 2).
             :math:`\text{mid\_num} \in \{ 1, ..., \text{order} - 1 \}`
-        boundary (str): provide "left" or "right" to instantiate the according 
+        boundary (str): provide "left" or "right" to instantiate the according
             boundary-polynomial.
         domain (tuple): Domain of the function.
     """
@@ -83,7 +83,11 @@ class LagrangeNthOrder(Function):
         else:
             funcs = [self._func_factory(d_ord, order, nodes, left, right, poly=poly) for d_ord in range(order + 1)]
 
-        Function.__init__(self, funcs[0], nonzero=(nodes[0], nodes[-1]), derivative_handles=funcs[1:])
+        Function.__init__(self,
+                          funcs[0],
+                          domain=domain,
+                          nonzero=(nodes[0], nodes[-1]),
+                          derivative_handles=funcs[1:])
 
     def _poly_factory(self, zero_nodes, one_node):
         poly = npoly.Polynomial(npoly.polyfromroots(zero_nodes))
