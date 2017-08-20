@@ -667,7 +667,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
             param (array_like): To define a homogeneous dirichlet boundary
                 condition set alpha or beta to `None` at the corresponding side.
                 Possibilities:
-                
+
                 - :math:`\Big( a_2, a_1, a_0, \alpha, \beta \Big)^T`,
                 - :math:`\Big( a_2, a_1, a_0, None, \beta \Big)^T`,
                 - :math:`\Big( a_2, a_1, a_0, \alpha, None \Big)^T` or
@@ -711,7 +711,7 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         which you will call this method.
 
         You must call this *classmethod* with one and only one of the kwargs:
-        
+
             - *n* (*eig_val* and *eig_freq* will be computed with the
               :py:meth:`.eigfreq_eigval_hint`)
             - *eig_val* (*eig_freq* will be calculated with
@@ -832,7 +832,7 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
 
         Return:
             tuple --> two numpy.ndarrays of length *n_roots*:
-            
+
             .. math:: \Big(\big[\omega_1,...,\omega_\text{n\_roots}\Big],
                 \Big[\lambda_1,...,\lambda_\text{n\_roots}\big]\Big)
         """
@@ -901,7 +901,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0)
                                for sp_func in sp_funcs]
         self._zero_limit_funcs = LambdifiedSympyExpression(
-            zero_limit_sp_funcs, z, (0, 1))
+            zero_limit_sp_funcs, z, (0, l))
 
         funcs = [self._eig_func_factory(der_ord)
                  for der_ord in range(max_der_order + 1)]
