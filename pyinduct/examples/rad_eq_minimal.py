@@ -2,9 +2,8 @@ from pyinduct.tests import test_examples
 
 if __name__ == "__main__" or test_examples:
     import pyinduct as pi
-    import pyinduct.parabolic as par
+    import pyinduct.parabolic as parabolic
     import numpy as np
-
 
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
@@ -57,7 +56,7 @@ if __name__ == "__main__" or test_examples:
     initial_weights = pi.project_on_base(start_state, eig_funcs)
 
     # init trajectory
-    traj = par.RadTrajectory(l, T, param_t, bound_cond_type, actuation_type)
+    traj = parabolic.RadFeedForward(l, T, param_t, bound_cond_type, actuation_type)
 
     # input with feedback
     control_law = pi.SimulationInputSum([traj, controller])
