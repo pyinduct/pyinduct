@@ -363,7 +363,7 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
     def setUp(self):
         self.param = [2, 1.5, -3, -5, -.5]
         a2, a1, a0, alpha, beta = self.param
-        l = 1
+        l = 0.003
         limits = (0, l)
 
         self.spatial_domain = pi.Domain(limits, num=100)
