@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 import scipy.signal as sig
+
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
 import pyinduct.parabolic as parabolic
@@ -104,8 +105,8 @@ class FormalPowerSeriesTest(unittest.TestCase):
         u_a = pi.InterpolationTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
-        u_b = parabolic.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y,
-                                      show_plot=show_plots)
+        u_b = parabolic.RadFeedForward(self.l, self.T, self.param, "robin", "robin", n=self.n_y,
+                                                   show_plot=show_plots)
         u_b_t = u_b(time=self.t)
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:
