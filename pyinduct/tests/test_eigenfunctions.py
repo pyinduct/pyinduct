@@ -439,19 +439,19 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
 
             # interval
             np.testing.assert_array_almost_equal(
-                self.a2_z(self.z) * self.eig_funcs[i].derive(2)(self.z)
+                (self.a2_z(self.z) * self.eig_funcs[i].derive(2)(self.z)
                 + self.a1_z(self.z) * eig_f.derive(1)(self.z)
-                + self.a0_z(self.z) * eig_f(self.z),
-                eig_v.real * eig_f(self.z),
-                decimal=2)
+                + self.a0_z(self.z) * eig_f(self.z)) / self.eig_val[i],
+                eig_v.real * eig_f(self.z) / self.eig_val[i],
+                decimal=4)
 
             # boundaries
-            self.assertTrue(np.isclose(eig_f.derive(1)(self.z[0]),
-                                       self.alpha * eig_f(self.z[0]),
-                                       atol=1e-4))
-            self.assertTrue(np.isclose(eig_f.derive(1)(self.z[-1]),
-                                       -self.beta * eig_f(self.z[-1]),
-                                       atol=1e-4))
+            np.testing.assert_array_almost_equal(
+                eig_f.derive(1)(self.z[0]) / self.eig_val[i],
+                self.alpha * eig_f(self.z[0]) / self.eig_val[i])
+            np.testing.assert_array_almost_equal(
+                eig_f.derive(1)(self.z[-1]) / self.eig_val[i],
+                -self.beta * eig_f(self.z[-1]) / self.eig_val[i])
 
 
 class IntermediateTransformationTest(unittest.TestCase):
