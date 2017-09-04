@@ -968,18 +968,6 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                         + ((eta + beta) * (alpha - eta) / omega
                            - omega) * np.sin(omega * l))
 
-        if show_plot:
-            z_real = np.linspace(-15, 15)
-            z_imag = np.linspace(-5, 5)
-            vec_function = np.vectorize(characteristic_equation)
-            plt.plot(z_real, np.real(vec_function(z_real)))
-            plt.plot(z_real, np.imag(vec_function(z_real)))
-            plt.plot(z_imag, np.real(vec_function(z_imag * 1j)))
-            plt.plot(z_imag, np.imag(vec_function(z_imag * 1j)))
-            plt.plot(z_real, np.real(char_eq(z_real)))
-            plt.plot(z_real, np.imag(char_eq(z_real)))
-            plt.show()
-
         # assume 1 root per pi/l (safety factor = 3)
         search_begin = np.pi / l * .1
         search_end = 3 * n_roots * np.pi / l
@@ -989,6 +977,19 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         start_values_imag = np.linspace(search_begin,
                                         search_end,
                                         search_end / np.pi * l * 20)
+
+        if show_plot:
+            vec_function = np.vectorize(characteristic_equation)
+            plt.plot(start_values_real,
+                     np.real(vec_function(start_values_real)))
+            plt.plot(start_values_real,
+                     np.imag(vec_function(start_values_real)))
+            plt.show()
+            plt.plot(start_values_imag * 1j,
+                     np.real(vec_function(start_values_imag * 1j)))
+            plt.plot(start_values_imag * 1j,
+                     np.imag(vec_function(start_values_imag * 1j)))
+            plt.show()
 
         # search imaginary roots
         try:
