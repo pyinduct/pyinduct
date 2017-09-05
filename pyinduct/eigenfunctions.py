@@ -335,9 +335,7 @@ class SecondOrderEigenVector(Function):
             If the limit exists it is used to lift poles of the
             function.
             """
-            # TODO add cache for lifted poles to speed up the process
-            # TODO export into own wrapper class
-            # (see LambdifiedSympyExpression)
+            # TODO export into own wrapper class (see LambdifiedSympyExpression)
 
             try:
                 return char_func(_z)
@@ -352,8 +350,8 @@ class SecondOrderEigenVector(Function):
                         return lim_m
                     else:
                         print("Unsteady function")
-                        # gained by dice roll, guaranteed to be fair.
-                        return 5
+                        # chosen by fair dice roll. guaranteed to be random.
+                        return 4
 
         if 0:
             # extract numerator and denominator

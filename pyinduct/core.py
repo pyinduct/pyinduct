@@ -405,31 +405,6 @@ class Function(BaseFraction):
         """
         return self(values)
 
-    # def transformation_hint(self, info, target):
-    #     """
-    #     If *info.src_base* is a subclass of Function, use default strategy.
-    #
-    #     Note:
-    #         If a different behaviour is desired, overwrite this method.
-    #
-    #     Args:
-    #         info (:py:class:`TransformationInfo`): Information about the requested transformation.
-    #         target (bool): Is the called object the target of the transformation?
-    #             If False, source and target in *info* will be swapped.
-    #
-    #     Return:
-    #         transformation handle
-    #
-    #     """
-    #     # TODO handle target option!
-    #     if target is False:
-    #         raise NotImplementedError
-    #
-    #     if isinstance(info.src_base[0], Function) and isinstance(info.dst_base[0], Function):
-    #         return self._transformation_factory(info), None
-    #     else:
-    #         raise NotImplementedError
-
     def scalar_product_hint(self):
         """
         Return the hint that the :py:func:`.dot_product_l2` has to calculated to
@@ -1103,7 +1078,6 @@ def back_project_from_base(weights, base):
                          "do not match!")
 
     def eval_handle(z):
-        # TODO call uniform complex converter instead
         res = sum([weights[i] * base.fractions[i](z)
                    for i in range(weights.shape[0])])
         return real(res)
@@ -1216,7 +1190,7 @@ def get_weight_transformation(info):
     Return:
         callable: transformation function handle
     """
-    # TODO since this lives in core now, get rid ob base labels
+    # TODO since this lives in core now, get rid of base labels
     # trivial case
     if info.src_lbl == info.dst_lbl:
         mat = calculate_expanded_base_transformation_matrix(
@@ -1573,8 +1547,8 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
                 if errors[idx] > error:
                     roots[idx] = calculated_root
                     errors[idx] = error
-                # TODO check jacobian (if provided)
-                # to identify roots of higher order
+                    # TODO check jacobian (if provided)
+                    # to identify roots of higher order
                 continue
 
         roots.append(calculated_root)

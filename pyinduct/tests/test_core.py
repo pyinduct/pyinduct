@@ -322,7 +322,7 @@ class StackedBaseTestCase(unittest.TestCase):
                            ])
         pi.register_base("b2", self.b2)
 
-    @unittest.skip  # WIP
+    @unittest.skip  # TODO complete this
     def test_init(self):
         fractions = np.hstack([self.b1, self.b2])
         info = None
