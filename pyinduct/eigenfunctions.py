@@ -995,13 +995,13 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         try:
             om = list(find_roots(characteristic_equation,
                                  [np.array([0]), start_values_imag],
-                                 rtol=1e-3*l, cmplx=True))
+                                 rtol=1e-3 / l, cmplx=True))
         except ValueError:
             om = list()
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
-                         2 * n_roots, rtol=1e-3*l,
+                         2 * n_roots, rtol=1e-3 / l,
                          cmplx=False).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0
@@ -1024,7 +1024,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
               if root.real >= 0 and np.isclose(root.imag, 0)]
 
         # delete all around om = 0
-        for i in [ind for ind, val in enumerate(np.isclose(np.array(om),
+        for i in [ind for ind, val in enumerate(np.isclose(np.array(om) * l,
                                                            0,
                                                            atol=1e-4)) if val]:
             om.pop(i)
