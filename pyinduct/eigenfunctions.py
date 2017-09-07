@@ -925,7 +925,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
         r"""
-        Return the first *n_roots* eigenfrequencies :math:`\omega` and eigenvalues :math:`\lambda`.
+        Return the first *n_roots* eigenfrequencies :math:`\omega` and
+        eigenvalues :math:`\lambda`.
 
         .. math:: \omega_i = \sqrt{
             - \frac{a_1^2}{4a_2^2}
@@ -935,8 +936,10 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         to the considered eigenvalue problem.
 
         Args:
-            param (array_like): :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
-            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\ni z`.
+            param (array_like): Parameters
+                :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
+            l (numbers.Number): Right boundary value of the domain
+                :math:`[0,l]\ni z`.
             n_roots (int): Amount of eigenfrequencies to compute.
             show_plot (bool): Show a plot window of the characteristic equation.
 
@@ -969,7 +972,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                            - omega) * np.sin(omega * l))
 
         # assume 1 root per pi/l (safety factor = 3)
-        search_begin = np.pi / l * .1
+        search_begin = 0
         search_end = 3 * n_roots * np.pi / l
         start_values_real = np.linspace(search_begin,
                                         search_end,
