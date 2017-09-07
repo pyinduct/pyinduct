@@ -361,14 +361,14 @@ class TestEigenvalues(unittest.TestCase):
 
 class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
     def setUp(self):
-        self.param = [2, 1.5, -3, -5, -.5]
+        self.param = [60, 0, 0, 0.16666666666666666, 0.0033333333333333335]
         a2, a1, a0, alpha, beta = self.param
-        l = 1
+        l = 0.003
         limits = (0, l)
 
         self.spatial_domain = pi.Domain(limits, num=100)
         self.z = self.spatial_domain.points
-        self.n = 10
+        self.n = 4
 
         eig_freq, self.eig_val \
             = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
@@ -376,6 +376,8 @@ class TestSecondOrderRobinEigenvalueProblemFunctions(unittest.TestCase):
                 l,
                 self.n,
                 show_plot=show_plots)
+        print(eig_freq)
+        print(self.eig_val)
 
         self.eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om,
                                                                     self.param,
