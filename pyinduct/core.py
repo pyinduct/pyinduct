@@ -144,7 +144,7 @@ class Function(BaseFraction):
     For the implementation of new shape functions subclass this implementation
     or directly provide a callable *eval_handle* and callable
     *derivative_handles* if spatial derivatives are required for the
-    application. 
+    application.
     """
 
     # TODO: overload add and mul operators
@@ -582,7 +582,7 @@ class Base:
         """
         Hint that returns steps for scalar product calculation with elements of
         this base.
-        
+
         Note:
             Overwrite to implement custom functionality.
             For an example implementation see :py:class:`.Function`
@@ -1647,12 +1647,28 @@ class Domain(object):
 
     def __init__(self, bounds=None, num=None, step=None, points=None):
         if points is not None:
+            # check for correct boundaries
+            if bounds and not all(bounds == points[[0, -1]]):
+                raise ValueError("Given 'bounds' don't fit the provided data.")
+
+            # check for correct length
+            if num is not None and len(points) != num:
+                raise ValueError("Given 'num' doesn't fit the provided data.")
+
             # points are given, easy one
             self._values = np.atleast_1d(points)
             self._limits = (points.min(), points.max())
             self._num = points.size
-            # TODO check for evenly spaced entries
-            # for now just use provided information
+
+            # check for evenly spaced entries
+            steps = np.diff(points)
+            equal_steps = np.allclose(steps, steps[0])
+            if step:
+                if not equal_steps or step != steps[0]:
+                    raise ValueError("Given 'step' doesn't fit the provided data.")
+            else:
+                if equal_steps:
+                    step = steps[0]
             self._step = step
         elif bounds and num:
             self._limits = bounds
@@ -1672,12 +1688,21 @@ class Domain(object):
                                                    bounds[1],
                                                    self._num,
                                                    retstep=True)
-            if np.abs(step - self._step) > 1e-1:
+            if np.abs(step - self._step)/self._step > 1e-1:
                 warnings.warn("desired step-size {} doesn't fit to given "
                               "interval, changing to {}".format(step,
                                                                 self._step))
         else:
             raise ValueError("not enough arguments provided!")
+
+        # mimic some ndarray properties
+        self.shape = self._values.shape
+        self.view = self._values.view
+
+    def __str__(self):
+        return "Domain on {} (step={}, num={})".format(self.bounds,
+                                                      self._step,
+                                                      self._num)
 
     def __len__(self):
         return len(self._values)

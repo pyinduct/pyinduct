@@ -1,5 +1,7 @@
 import collections
 import unittest
+import warnings
+
 from numbers import Number
 
 import numpy as np
@@ -688,3 +690,127 @@ class ParamsTestCase(unittest.TestCase):
         self.assertTrue(p.a == 10)
         self.assertTrue(p.b == 12)
         self.assertTrue(p.c == "high")
+
+
+class DomainTestCase(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_init(self):
+        # if bounds is given, num or step are required
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 1))
+
+        # when given a number of steps
+        d = pi.Domain(bounds=(0, 10), num=11)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)  # should be added automatically
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # test default order
+        d = pi.Domain((0, 10), 11)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)  # should be added automatically
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # when given a step size
+        d = pi.Domain(bounds=(0, 10), step=1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # test default order
+        d = pi.Domain((0, 10), None, 1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # although a warning is displayed if the given step cannot be reached
+        # by using num steps
+        with self.assertWarns(UserWarning) as cm:
+            d = pi.Domain(bounds=(0, 1), step=.4)
+        w = cm.warning
+        self.assertTrue("changing to" in w.args[0])
+
+        # if both are given, num takes precedence
+        d = pi.Domain((0, 10), 11, 1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # although a warning is displayed if the given step cannot be reached
+        # by using num steps
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 1), step=2, num=10)
+
+
+        # if points are given, it always takes precedence
+        p = np.linspace(0, 100, num=101)
+        d = pi.Domain(points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # check default args
+        d = pi.Domain(None, None, None, p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # if bounds, num or step are given, they have to fit the provided data
+        d = pi.Domain(bounds=(0, 100), points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 125), points=p)
+
+        # good
+        d = pi.Domain(num=101, points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # bad
+        with self.assertRaises(ValueError):
+            pi.Domain(num=111, points=p)
+
+        # good
+        d = pi.Domain(step=1, points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # bad
+        with self.assertRaises(ValueError):
+            pi.Domain(step=5, points=p)
+
+        # if steps in pints are not regular, step attribute should not be set
+        pw = p[[10, 12, 44, 58, 79]]
+        d = pi.Domain(points=pw)
+        np.testing.assert_array_equal(pw, d.points)
+        np.testing.assert_array_equal(d.bounds, [10, 79])
+        self.assertEqual(d.step, None)
+
+        # also giving a step for this should fail
+        with self.assertRaises(ValueError):
+            pi.Domain(step=5, points=pw)
+
+    def test_handling(self):
+        d = pi.Domain(bounds=(10, 50), num=5)
+
+        # the object should behave like an array
+        self.assertEqual(len(d), 5)
+        self.assertEqual(d[2], 30)
+        np.testing.assert_array_equal(d[1:4:2], [20, 40])
+        self.assertEqual(d.shape, (5,))
+
+    def test_repr(self):
+        d = pi.Domain(bounds=(10, 50), num=5)
+        # printing the object should provide meaningful information
+        s = str(d)
+        self.assertIn("(10, 50)", s)
+        self.assertIn("5", s)
+        self.assertIn("10", s)
