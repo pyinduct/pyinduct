@@ -64,7 +64,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         self._time_storage.append(kwargs["time"])
         for key, value in out.items():
             entries = self._value_storage.get(key, [])
-            entries.append(value)
+            entries.append(copy(value))
             self._value_storage[key] = entries
 
         return np.atleast_1d(out["output"])
