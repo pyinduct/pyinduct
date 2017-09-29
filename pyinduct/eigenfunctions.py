@@ -923,7 +923,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
         r"""
-        Return the first *n_roots* eigenfrequencies :math:`\omega` and eigenvalues :math:`\lambda`.
+        Return the first *n_roots* eigenfrequencies :math:`\omega` and
+        eigenvalues :math:`\lambda`.
 
         .. math:: \omega_i = \sqrt{
             - \frac{a_1^2}{4a_2^2}
@@ -933,8 +934,10 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         to the considered eigenvalue problem.
 
         Args:
-            param (array_like): :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
-            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\ni z`.
+            param (array_like): Parameters
+                :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
+            l (numbers.Number): Right boundary value of the domain
+                :math:`[0,l]\ni z`.
             n_roots (int): Amount of eigenfrequencies to compute.
             show_plot (bool): Show a plot window of the characteristic equation.
 
@@ -966,20 +969,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                         + ((eta + beta) * (alpha - eta) / omega
                            - omega) * np.sin(omega * l))
 
-        if show_plot:
-            z_real = np.linspace(-15, 15)
-            z_imag = np.linspace(-5, 5)
-            vec_function = np.vectorize(characteristic_equation)
-            plt.plot(z_real, np.real(vec_function(z_real)))
-            plt.plot(z_real, np.imag(vec_function(z_real)))
-            plt.plot(z_imag, np.real(vec_function(z_imag * 1j)))
-            plt.plot(z_imag, np.imag(vec_function(z_imag * 1j)))
-            plt.plot(z_real, np.real(char_eq(z_real)))
-            plt.plot(z_real, np.imag(char_eq(z_real)))
-            plt.show()
-
         # assume 1 root per pi/l (safety factor = 3)
-        search_begin = np.pi / l * .1
+        search_begin = 0
         search_end = 3 * n_roots * np.pi / l
         start_values_real = np.linspace(search_begin,
                                         search_end,
@@ -988,17 +979,30 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                                         search_end,
                                         search_end / np.pi * l * 20)
 
+        if show_plot:
+            vec_function = np.vectorize(characteristic_equation)
+            plt.plot(start_values_real,
+                     np.real(vec_function(start_values_real)))
+            plt.plot(start_values_real,
+                     np.imag(vec_function(start_values_real)))
+            plt.show()
+            plt.plot(start_values_imag * 1j,
+                     np.real(vec_function(start_values_imag * 1j)))
+            plt.plot(start_values_imag * 1j,
+                     np.imag(vec_function(start_values_imag * 1j)))
+            plt.show()
+
         # search imaginary roots
         try:
             om = list(find_roots(characteristic_equation,
                                  [np.array([0]), start_values_imag],
-                                 rtol=1e-3*l, cmplx=True))
+                                 rtol=1e-3 / l, cmplx=True))
         except ValueError:
             om = list()
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
-                         2 * n_roots, rtol=1e-3*l,
+                         2 * n_roots, rtol=1e-3 / l,
                          cmplx=False).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0
@@ -1021,7 +1025,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
               if root.real >= 0 and np.isclose(root.imag, 0)]
 
         # delete all around om = 0
-        for i in [ind for ind, val in enumerate(np.isclose(np.array(om),
+        for i in [ind for ind, val in enumerate(np.isclose(np.array(om) * l,
                                                            0,
                                                            atol=1e-4)) if val]:
             om.pop(i)
