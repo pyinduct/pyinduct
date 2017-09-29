@@ -3,12 +3,6 @@ import unittest
 import numpy as np
 import pyinduct as pi
 import pyinduct.placeholder as ph
-from tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 class TestPlaceHolder(unittest.TestCase):
@@ -249,14 +243,14 @@ class ProductTest(unittest.TestCase):
         p3 = ph.Product(self.test_funcs)
         self.assertTrue(p3.b_empty)
         res = ph.evaluate_placeholder_function(p3.args[0], np.pi / 2)
-        self.assertTrue(np.allclose(res, [1, 0]))
+        np.testing.assert_array_almost_equal(res, [1, 0])
 
         # test automated evaluation of Product with Scaled function
         p4 = ph.Product(self.field_var, self.scale_funcs)
         self.assertTrue(isinstance(p4.args[0], ph.Placeholder))
         res = ph.evaluate_placeholder_function(p4.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
-                                                                   self.shape_base.fractions[1](0)])))
+        np.testing.assert_array_almost_equal(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
+                                                                            self.shape_base.fractions[1](0)]))
         self.assertEqual(p4.args[1], None)
         self.assertTrue(p4.b_empty)
 
@@ -270,18 +264,18 @@ class ProductTest(unittest.TestCase):
         self.assertFalse(p6.b_empty)
 
         res = ph.evaluate_placeholder_function(p5.args[0], 0)
-        self.assertTrue(np.allclose(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
-                                                                   self.shape_base.fractions[1](0)])))
+        np.testing.assert_array_almost_equal(res, self.scale(0) * np.array([self.shape_base.fractions[0](0),
+                                                                            self.shape_base.fractions[1](0)]))
         res1 = ph.evaluate_placeholder_function(p5.args[0], 1)
-        self.assertTrue(np.allclose(res1, self.scale(1) * np.array([self.shape_base.fractions[0](1),
-                                                                    self.shape_base.fractions[1](1)])))
+        np.testing.assert_array_almost_equal(res1, self.scale(1) * np.array([self.shape_base.fractions[0](1),
+                                                                             self.shape_base.fractions[1](1)]))
 
         res2 = ph.evaluate_placeholder_function(p5.args[1], 0)
-        self.assertTrue(np.allclose(res2, self.scale(0) * np.array([self.t_base.fractions[0](0),
-                                                                    self.t_base.fractions[1](0)])))
+        np.testing.assert_array_almost_equal(res2, self.scale(0) * np.array([self.t_base.fractions[0](0),
+                                                                             self.t_base.fractions[1](0)]))
         res3 = ph.evaluate_placeholder_function(p5.args[1], 1)
-        self.assertTrue(np.allclose(res3, self.scale(0) * np.array([self.t_base.fractions[0](1),
-                                                                    self.t_base.fractions[1](1)])))
+        np.testing.assert_array_almost_equal(res3, self.scale(0) * np.array([self.t_base.fractions[0](1),
+                                                                             self.t_base.fractions[1](1)]))
 
         # test methods
         self.assertEqual(p1.get_arg_by_class(ph.Input), [self.input])
@@ -326,7 +320,7 @@ class EquationTermsTest(unittest.TestCase):
         t1 = ph.ScalarTerm(self.xdz_at1)
         self.assertEqual(t1.scale, 1.0)  # default scale
         # check if automated evaluation works
-        self.assertTrue(np.allclose(t1.arg.args[0].data, np.array([-1, 1])))
+        np.testing.assert_array_almost_equal(t1.arg.args[0].data, np.array([[-1, 1]]))
 
     def test_IntegralTerm(self):
         self.assertRaises(TypeError, ph.IntegralTerm, 7, (0, 1))  # integrand is number
@@ -389,8 +383,8 @@ class EvaluatePlaceholderTestCase(unittest.TestCase):
                           eval_values)
 
         # check for correct results
-        res = ph.evaluate_placeholder_function(self.funcs, eval_values)
-        self.assertTrue(np.allclose(self.psi(eval_values), res))
+        res = ph.evaluate_placeholder_function(self.funcs, eval_values).flatten()
+        np.testing.assert_array_almost_equal(self.psi(eval_values), res)
 
     def tearDown(self):
         pi.deregister_base("funcs")

@@ -3,8 +3,9 @@ import unittest
 import numpy as np
 import sympy as sp
 import pyinduct as pi
-import tests.test_data.test_shapefunctions_data as shape_data
-from tests import show_plots
+import pyinduct.tests.test_data.test_shapefunctions_data as shape_data
+from pyinduct.tests import show_plots
+from pyinduct.core import integrate_function
 
 if show_plots:
     import pyqtgraph as pg
@@ -38,14 +39,14 @@ class CureTestCase(unittest.TestCase):
         nodes, base = pi.cure_interval(cls, dz.bounds, node_count=11)
         pi.register_base("test", base)
 
-        # approx_func = pi.Function(np.cos, domain=dz.bounds,
-        #                           derivative_handles=[lambda z: -np.sin(z), lambda z: -np.cos(z)])
         approx_func = pi.Function(lambda z: np.sin(3 * z), domain=dz.bounds,
-                                  derivative_handles=[lambda z: 3 * np.cos(3 * z), lambda z: -9 * np.sin(3 * z)])
+                                  derivative_handles=[
+                                      lambda z: 3 * np.cos(3 * z),
+                                      lambda z: -9 * np.sin(3 * z)])
 
-        weights = approx_func(nodes)
-
-        hull = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=dz,
+        weights = pi.project_on_base(approx_func, base)
+        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
+                                         temp_domain=dt, spat_domain=dz,
                                          spat_order=der_order)
 
         if show_plots:
@@ -67,7 +68,7 @@ class CureTestCase(unittest.TestCase):
             # plot original function
             pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                        pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
-            pg.QtCore.QCoreApplication.instance().exec_()
+            pi.show(show_mpl=False)
 
         pi.deregister_base("test")
         return np.sum(np.abs(hull.output_data[0, :] - approx_func.derive(der_order)(dz)))
@@ -106,13 +107,23 @@ class NthOrderCureTestCase(unittest.TestCase):
             num_nodes = 1 + (1 + conf) * order
             nodes, base = pi.cure_interval(pi.LagrangeNthOrder, (0, 1), node_count=num_nodes, order=order)
             pi.register_base("test", base)
-            weights = approx_func(nodes)
+
+            weights = pi.project_on_base(approx_func, base)
 
             for der_order in derivatives[order]:
                 hull_test = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt, spat_domain=nodes,
                                                       spat_order=der_order)
-                self.assertAlmostEqual(self.tolerances[(order, num_nodes, der_order)], np.sum(
-                    np.abs(hull_test.output_data[0, :] - approx_func.derive(der_order)(nodes))) / len(nodes))
+
+                def squared_error_function(z):
+                    return (np.sum(np.array([w * f(z)
+                                             for w, f in
+                                             zip(weights, base.fractions)]),
+                                   axis=0)
+                            - approx_func.derive(der_order)(z)) ** 2
+
+                self.assertAlmostEqual(
+                    self.tolerances[(order, num_nodes, der_order)],
+                    integrate_function(squared_error_function, [(0, 1)])[0])
 
                 if show_plots:
                     hull_show = pi.evaluate_approximation("test", np.atleast_2d(weights), temp_domain=dt,
@@ -145,6 +156,6 @@ class NthOrderCureTestCase(unittest.TestCase):
                     pw1.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                                 pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine),
                                                 name="original"))
-                    pg.QtCore.QCoreApplication.instance().exec_()
+                    pi.show(show_mpl=False)
 
             pi.deregister_base("test")

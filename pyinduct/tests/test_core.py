@@ -5,11 +5,9 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from tests import show_plots
+from pyinduct.tests import show_plots
+import pyqtgraph as pg
 
-if show_plots:
-    import pyqtgraph as pg
-    app = pg.QtGui.QApplication([])
 
 
 class SanitizeInputTestCase(unittest.TestCase):
@@ -218,6 +216,98 @@ class BaseTestCase(unittest.TestCase):
         b1 = pi.Base(self.fractions[0])
         b2 = pi.Base(self.fractions)
 
+    def test_scale(self):
+        f = pi.Base([pi.Function(np.sin,
+                                 derivative_handles=[np.cos, np.sin])
+                     for i in range(5)])
+
+        # no new fractions should be created since trivial scaling occurred
+        g1 = f.scale(1)
+        np.testing.assert_array_equal(f.fractions, g1.fractions)
+
+        # all fractions should be scaled the same way
+        factor = 10
+        values = np.linspace(1, 1e2)
+        g2 = f.scale(factor)
+        for a, b in zip(f.fractions, g2.fractions):
+            np.testing.assert_array_equal(10 * a(values), b(values))
+
+    def test_transformation_hint(self):
+        f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
+                     pi.Function(np.cos, domain=(0, np.pi))])
+
+        info = core.TransformationInfo()
+        info.src_lbl = "me"
+        info.dst_lbl = "me again"
+        info.src_base = f
+        info.dst_base = f
+        info.src_order = 1
+        info.dst_order = 1
+
+        # test defaults
+        func, extra = f.transformation_hint(info)
+        weights = np.array(range(4))
+        t_weights = func(weights)
+        np.testing.assert_array_almost_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # no transformation hint known
+        info.dst_base = pi.StackedBase(self.fractions, None)
+        func, extra = f.transformation_hint(info)
+        self.assertIsNone(func)
+        self.assertIsNone(extra)
+
+    def test_scalar_product_hint(self):
+        f = pi.Base(self.fractions)
+
+        # test defaults
+        self.assertEqual(f.scalar_product_hint(),
+                         self.fractions[0].scalar_product_hint())
+
+    def test_raise_to(self):
+        sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
+        cos_func = pi.Function(np.cos,
+                               derivative_handles=[lambda z: -np.sin(z)])
+        f = pi.Base([sin_func, cos_func])
+        self.assertEqual(f.fractions[0], sin_func)
+        self.assertEqual(f.fractions[1], cos_func)
+
+        numbers = np.random.random_sample((100, ))
+
+        # power 1
+        np.testing.assert_array_equal(f.raise_to(1).fractions[0](numbers),
+                                      sin_func.raise_to(1)(numbers))
+        np.testing.assert_array_equal(f.raise_to(1).fractions[1](numbers),
+                                      cos_func.raise_to(1)(numbers))
+
+        # power 4
+        np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
+                                      sin_func.raise_to(4)(numbers))
+        np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
+                                      cos_func.raise_to(4)(numbers))
+
+    def test_derive(self):
+        sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
+        cos_func = pi.Function(np.cos,
+                               derivative_handles=[lambda z: -np.sin(z)])
+        f = pi.Base([sin_func, cos_func])
+        self.assertEqual(f.fractions[0], sin_func)
+        self.assertEqual(f.fractions[1], cos_func)
+
+        numbers = np.random.random_sample((100, ))
+
+        # derivative 0
+        np.testing.assert_array_equal(f.derive(0).fractions[0](numbers),
+                                      sin_func.derive(0)(numbers))
+        np.testing.assert_array_equal(f.derive(0).fractions[1](numbers),
+                                      cos_func.derive(0)(numbers))
+
+        # derivative 1
+        np.testing.assert_array_equal(f.derive(1).fractions[0](numbers),
+                                      sin_func.derive(1)(numbers))
+        np.testing.assert_array_equal(f.derive(1).fractions[1](numbers),
+                                      cos_func.derive(1)(numbers))
+
 
 class StackedBaseTestCase(unittest.TestCase):
     def setUp(self):
@@ -232,7 +322,7 @@ class StackedBaseTestCase(unittest.TestCase):
                            ])
         pi.register_base("b2", self.b2)
 
-    @unittest.skip  # WIP
+    @unittest.skip  # TODO complete this
     def test_init(self):
         fractions = np.hstack([self.b1, self.b2])
         info = None
@@ -366,13 +456,13 @@ class ProjectionTest(unittest.TestCase):
                    pi.project_on_base(self.functions[3], self.lag_base)]
 
         # linear function -> should be fitted exactly
-        self.assertTrue(np.allclose(weights[0], self.functions[1](self.nodes)))
+        np.testing.assert_array_almost_equal(weights[0], self.functions[1](self.nodes))
 
         # quadratic function -> should be fitted somehow close
-        self.assertTrue(np.allclose(weights[1], self.functions[2](self.nodes), atol=.5))
+        np.testing.assert_array_almost_equal(weights[1], self.functions[2](self.nodes), decimal=0)
 
         # trig function -> will be crappy
-        self.assertTrue(np.allclose(weights[2], self.functions[3](self.nodes), atol=.5))
+        np.testing.assert_array_almost_equal(weights[2], self.functions[3](self.nodes), decimal=1)
 
         if show_plots:
             # since test function are lagrange1st order, plotting the results is fairly easy
@@ -380,14 +470,14 @@ class ProjectionTest(unittest.TestCase):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
                 pw.plot(x=self.nodes.points, y=w, pen="b")
-                app.exec_()
+                pi.show(show_mpl=False)
 
     def test_back_projection_from_lagrange_1st(self):
         vec_real_func = np.vectorize(self.functions[1])
         real_weights = vec_real_func(self.nodes)
         approx_func = pi.back_project_from_base(real_weights, self.lag_base)
         approx_func_dz = pi.back_project_from_base(real_weights, pi.get_base("lag_base").derive(1))
-        self.assertTrue(np.allclose(approx_func(self.z_values), vec_real_func(self.z_values)))
+        np.testing.assert_array_almost_equal(approx_func(self.z_values), vec_real_func(self.z_values))
 
         if show_plots:
             # lines should match exactly
@@ -395,7 +485,7 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=vec_real_func(self.z_values), pen="r")
             pw.plot(x=self.z_values, y=approx_func(self.z_values), pen="g")
             pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def tearDown(self):
         pi.deregister_base("lag_base")
@@ -412,7 +502,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
         pi.register_base("lag_base", self.lag_base)
         self.src_weights = pi.project_on_base(self.real_func, self.lag_base)
-        self.assertTrue(np.allclose(self.src_weights, [0, 1]))  # just to be sure
+        np.testing.assert_array_almost_equal(self.src_weights, [0, 1])  # just to be sure
         self.src_approx_handle = pi.back_project_from_base(self.src_weights, self.lag_base)
 
         # approximation by sin(w*x)
@@ -445,7 +535,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
             legend.addItem(i1, "f(x) = x")
             legend.addItem(i2, "2x Lagrange1st")
             legend.addItem(i3, "sin(wx) with w in [1, {0}]".format(destination_weights.shape[0]))
-            app.exec_()
+            pi.show(show_mpl=False)
 
         # should fit pretty nice
         self.assertLess(error, 1e-2)
@@ -556,9 +646,9 @@ class FindRootsTestCase(unittest.TestCase):
         grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
         roots = pi.find_roots(function=self.complex_eq, grid=grid, n_roots=5,
                               rtol=self.rtol, cmplx=True)
-        self.assertTrue(np.allclose(
+        np.testing.assert_array_almost_equal(
             [self.complex_eq(root) for root in roots],
-            [0] * len(roots)))
+            [0] * len(roots))
 
         # pi.visualize_roots(roots,
         #                    grid,

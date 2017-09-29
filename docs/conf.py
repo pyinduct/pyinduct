@@ -66,6 +66,9 @@ source_suffix = '.rst'
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
 
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
+
 # The master toctree document.
 master_doc = 'index'
 
@@ -166,7 +169,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # here, relative to this directory. They are copied after the builtin
 # static files, so a file named "default.css" will overwrite the builtin
 # "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.

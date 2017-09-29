@@ -6,12 +6,6 @@ import unittest
 
 import numpy as np
 import pyinduct as pi
-from tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 def simulation_benchmark(spat_domain, settings):
@@ -19,7 +13,7 @@ def simulation_benchmark(spat_domain, settings):
     This benchmark covers a typical simulation.
 
     Args:
-        spat_domain (:py:class:`core.Domain`): spatial domain for the simulation
+        spat_domain (:py:class:`.Domain`): spatial domain for the simulation
         settings (dict): settings to use for simulation run
 
     Returns:
@@ -49,16 +43,23 @@ def simulation_benchmark(spat_domain, settings):
 
     _c = time.clock()
     weak_form = pi.WeakFormulation([
-        pi.IntegralTerm(pi.Product(pi.FieldVariable(func_label, order=(1, 0)),
-                                                    pi.TestFunction(func_label)),
-                        spat_domain.bounds),
-        pi.IntegralTerm(pi.Product(pi.FieldVariable(func_label),
-                                   pi.TestFunction(func_label, order=1)),
-                        spat_domain.bounds, scale=-v),
-        pi.ScalarTerm(
-            pi.Product(pi.FieldVariable(func_label, location=spat_domain.bounds[-1]),
-                       pi.TestFunction(func_label, location=spat_domain.bounds[-1])), scale=v),
-        pi.ScalarTerm(pi.Product(pi.Input(u), pi.TestFunction(func_label, location=0)), scale=-v), ], name=sys_name)
+        pi.IntegralTerm(pi.Product(
+            pi.FieldVariable(func_label, order=(1, 0)),
+            pi.TestFunction(func_label)),
+            spat_domain.bounds),
+        pi.IntegralTerm(pi.Product(
+            pi.FieldVariable(func_label),
+            pi.TestFunction(func_label, order=1)),
+            spat_domain.bounds, scale=-v),
+        pi.ScalarTerm(pi.Product(
+            pi.FieldVariable(func_label, location=spat_domain.bounds[-1]),
+            pi.TestFunction(func_label, location=spat_domain.bounds[-1])),
+            scale=v),
+        pi.ScalarTerm(pi.Product(
+            pi.Input(u),
+            pi.TestFunction(func_label, location=0)), scale=-v),
+    ],
+        name=sys_name)
     _d = time.clock()
 
     initial_states = np.atleast_1d(init_x)
@@ -78,8 +79,8 @@ def simulation_benchmark(spat_domain, settings):
 
     temporal_order = min(initial_states.size - 1, 0)
     _i = time.clock()
-    eval_data = pi.process_sim_data(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
-                                     name=can_eq.dominant_form.name)
+    eval_data = pi.get_sim_result(can_eq.dominant_lbl, q, sim_domain, spat_domain, temporal_order, 0,
+                                  name=can_eq.dominant_form.name)
     _j = time.clock()
 
     pi.deregister_base("base")
@@ -104,10 +105,11 @@ def product_benchmark(base):
 
 class ShapeFunctionTestBench(unittest.TestCase):
     """
-    Compare LagrangeNthOrder with LagrangeSecondOrder (have a look at terminal output).
+    Compare LagrangeNthOrder with LagrangeSecondOrder (have a look at terminal 
+    output).
 
-    When it succeeds to get positive values (at least a few) under the "Difference" headline
-    by the transport system example, too, you can delete:
+    When it succeeds to get positive values (at least a few) under the 
+    "Difference" headline by the transport system example, too, you can delete:
     - this test case
     - LagrangeFirstOrder
     - LagrangeSecondOrder
@@ -115,13 +117,17 @@ class ShapeFunctionTestBench(unittest.TestCase):
 
     def setUp(self):
         self.node_cnt = 51
-        self.domain = pi.Domain(bounds=(0, 1), num=1e3)
+        self.domain = pi.Domain(bounds=(0, 1), num=1000)
 
         # first one is used as reference
         if True:
             self.candidates = [
-                dict(shapefunction_class=pi.LagrangeFirstOrder, interval=self.domain.bounds, node_count=self.node_cnt),
-                dict(shapefunction_class=pi.LagrangeNthOrder, interval=self.domain.bounds, node_count=self.node_cnt,
+                dict(shapefunction_class=pi.LagrangeFirstOrder,
+                     interval=self.domain.bounds,
+                     node_count=self.node_cnt),
+                dict(shapefunction_class=pi.LagrangeNthOrder,
+                     interval=self.domain.bounds,
+                     node_count=self.node_cnt,
                      order=1), ]
         else:
             self.candidates = [
@@ -133,7 +139,9 @@ class ShapeFunctionTestBench(unittest.TestCase):
                      node_count=self.node_cnt,
                      order=2),
             ]
-        print("comparing {} (1) against {} (2)".format(*[candidate["shapefunction_class"] for candidate in self.candidates]))
+        print("comparing {} (1) against {} (2)".format(
+            *[candidate["shapefunction_class"]
+              for candidate in self.candidates]))
 
     def test_simulation(self):
         print(">>> transport system example speed test: \n")
@@ -152,15 +160,20 @@ class ShapeFunctionTestBench(unittest.TestCase):
         mean = np.mean(res, axis=0)
         for idx in range(len(self.candidates)):
             self.print_time(
-                "means of {} rounds for {} in [s]:".format(n_iteration, self.candidates[idx]["shapefunction_class"]),
+                "means of {} rounds for {} in [s]:".format(
+                    n_iteration,
+                    self.candidates[idx]["shapefunction_class"]),
                 mean[idx])
 
         # process results
         diff = np.subtract(mean[1], mean[0])
-        frac = 100 * diff / mean[0]
-
-        self.print_time("absolute difference  (2-1) in [s]", diff)
-        self.print_time("relative difference  (2-1)/1 in [%]", frac)
+        try:
+            frac = 100 * diff / mean[0]
+            self.print_time("relative difference  (2-1)/1 in [%]", frac)
+        except FloatingPointError as e:
+            print("relative difference not available")
+        finally:
+            self.print_time("absolute difference  (2-1) in [s]", diff)
 
     def test_evaluation(self):
         print(">>> evaluation speed test:")
@@ -180,10 +193,13 @@ class ShapeFunctionTestBench(unittest.TestCase):
         res = np.array(timings)
         mean = np.mean(res, axis=0)
         diff = np.subtract(mean[1], mean[0])
-        frac = 100 * diff / mean[0]
-
-        print("absolute difference (2-1) in [s]:\n\t {}".format(diff))
-        print("relative difference (2-1)/1 in [%]:\n\t {}".format(frac))
+        try:
+            frac = 100 * diff / mean[0]
+            print("relative difference (2-1)/1 in [%]:\n\t {}".format(frac))
+        except FloatingPointError as e:
+            print("relative difference not available")
+        finally:
+            print("absolute difference (2-1) in [s]:\n\t {}".format(diff))
 
     def print_time(self, headline, times):
         print(headline + "\n" + "\t cure interval:    {}\n"

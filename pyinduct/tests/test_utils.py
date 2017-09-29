@@ -2,12 +2,6 @@ import os
 import unittest
 
 import pyinduct.utils as ut
-from tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 class CreateDirTestCase(unittest.TestCase):

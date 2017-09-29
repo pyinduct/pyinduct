@@ -25,12 +25,14 @@ def is_registered(label):
 
 def register_base(label, base, overwrite=False):
     """
-    Register a basis to make it accessible all over the :py:mod:`pyinduct` framework.
+    Register a basis to make it accessible all over the :py:mod:`pyinduct`
+    framework.
 
     Args:
-        base (:py:class:`pyinduct.core.Base`): base to register
+        base (:py:class:`.Base`): base to register
         label (str): String that will be used as label.
-        overwrite: Force overwrite if a basis is already registered under this label.
+        overwrite: Force overwrite if a basis is already registered under this
+            label.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as labels!")

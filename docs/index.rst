@@ -14,6 +14,7 @@ Contents:
    readme
    installation
    usage
+   background/index
    examples/index
    contributing
    modules/index

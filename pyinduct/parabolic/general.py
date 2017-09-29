@@ -11,31 +11,35 @@ from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTe
 from ..simulation import WeakFormulation
 
 __all__ = ["compute_rad_robin_eigenfrequencies", "eliminate_advection_term", "get_parabolic_dirichlet_weak_form",
-           "get_parabolic_robin_weak_form", "get_in_domain_transformation_matrix", "get_adjoint_rad_evp_param"]
+           "get_parabolic_robin_weak_form", "get_in_domain_transformation_matrix"]
 
 
 def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
-    """
-    Return the first :code:`n_roots` eigenfrequencies :math:`\\omega` (and eigenvalues :math:`\\lambda`)
+    r"""
+    Return the first :code:`n_roots` eigenfrequencies :math:`\omega`
+    (and eigenvalues :math:`\lambda`)
 
-    .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
+    .. math:: \omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}
 
     to the eigenvalue problem
 
     .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi'(0) &= \\alpha\\varphi(0) \\\\
-        \\varphi'(l) &= -\\beta\\varphi(l).
+        a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) = \lambda\varphi(z) \\
+        \varphi'(0) &= \alpha\varphi(0) \\
+        \varphi'(l) &= -\beta\varphi(l).
 
     Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-        l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
+        param (array_like): :math:`\Big( a_2, a_1, a_0, \alpha, \beta \Big)^T`
+        l (numbers.Number): Right boundary value of the domain
+            :math:`[0,l]\ni z`.
         n_roots (int): Amount of eigenfrequencies to be compute.
-        show_plot (bool): A plot window of the characteristic equation appears if it is :code:`True`.
+        show_plot (bool): A plot window of the characteristic equation appears
+            if it is :code:`True`.
 
     Return:
-        tuple --> booth tuple elements are numpy.ndarrays of length :code:`nroots`:
-            :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
+        tuple --> two numpy.ndarrays of length :code:`nroots`:
+        .. math:: \Big(\big[\omega_1,...,\omega_\text{n\_roots}\Big],
+            \Big[\lambda_1,...,\lambda_\text{n\_roots}\big]\Big)
     """
 
     a2, a1, a0, alpha, beta = param
@@ -92,89 +96,50 @@ def compute_rad_robin_eigenfrequencies(param, l, n_roots=10, show_plot=False):
     return eig_frequencies, eig_values
 
 
-def get_adjoint_rad_evp_param(param):
-    """
-    Calculates the parameters for the adjoint eigen value problem of the
-    reaction-advection-diffusion equation:
-
-    .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi(0) = 0 \\quad &\\text{or} \\quad \\varphi'(0) = \\alpha\\varphi(0) \\\\
-        \\varphi`(l) = 0 \\quad &\\text{or} \\quad \\varphi'(l) = -\\beta\\varphi(l)
-
-    with robin and/or dirichlet boundary conditions.
-
-    Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-
-    Return:
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=-a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
-            the adjoint problem
-
-            .. math::
-                a_2\\psi''(z) + a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
-                \\psi(0) = 0 \\quad &\\text{or} \\quad \\psi'(0) = \\tilde\\alpha\\psi(0) \\\\
-                \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l).
-    """
-    a2, a1, a0, alpha, beta = param
-
-    if alpha is None:
-        alpha_n = None
-    else:
-        alpha_n = a1 / a2 + alpha
-
-    if beta is None:
-        beta_n = None
-    else:
-        beta_n = -a1 / a2 + beta
-    a1_n = -a1
-
-    return a2, a1_n, a0, alpha_n, beta_n
-
-
-def eliminate_advection_term(param, domain_end=None):
-    """
+def eliminate_advection_term(param, domain_end):
+    r"""
     This method performs a transformation
 
-    .. math:: \\tilde x(z,t)=x(z,t)
-            e^{\\int_0^z \\frac{a_1(\\bar z)}{2 a_2}\,d\\bar z} ,
+    .. math:: \tilde x(z,t)=x(z,t)
+            e^{\int_0^z \frac{a_1(\bar z)}{2 a_2}\,d\bar z} ,
 
     on the system, which eliminates the advection term :math:`a_1 x(z,t)` from a
     reaction-advection-diffusion equation of the type:
 
-    .. math:: \\dot x(z,t) = a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t) .
+    .. math:: \dot x(z,t) = a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t) .
 
     The boundary can be given by robin
 
-    .. math:: x'(0,t) = \\alpha x(0,t), \\quad x'(l,t) = -\\beta x(l,t) ,
+    .. math:: x'(0,t) = \alpha x(0,t), \quad x'(l,t) = -\beta x(l,t) ,
 
     dirichlet
 
-    .. math:: x(0,t) = 0, \\quad x(l,t) = 0
+    .. math:: x(0,t) = 0, \quad x(l,t) = 0
 
     or mixed boundary conditions.
 
     Args:
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
+        param (array_like): :math:`\Big( a_2, a_1, a_0, \alpha, \beta \Big)^T`
         domain_end (float): upper bound of the spatial domain
 
     Raises:
-        TypeError: If :math:`a_1(z)` is callable but no derivative handle is defined for it.
+        TypeError: If :math:`a_1(z)` is callable but no derivative handle is
+        defined for it.
 
     Return:
-        SecondOrderOperator:
+        SecondOrderOperator or tuple:
+        Parameters
+        
+        .. math:: \big(a_2, \tilde a_1=0, \tilde a_0(z),
+            \tilde \alpha, \tilde \beta \big) for
+            
+        the transformed system
 
-        or
+        .. math:: \dot{\tilde{x}}(z,t) = a_2 \tilde x''(z,t) +
+            \tilde a_0(z) \tilde x(z,t)
 
-        tuple:
-            Parameters :math:`\\big(a_2, \\tilde a_1=0, \\tilde a_0(z), \\tilde \\alpha, \\tilde \\beta \\big)` for
-            the transformed system
-
-            .. math:: \\dot{\\tilde{x}}(z,t) = a_2 \\tilde x''(z,t) + \\tilde a_0(z) \\tilde x(z,t)
-
-            and the corresponding boundary conditions (:math:`\\alpha` and/or :math:`\\beta` set to None by dirichlet
-            boundary condition).
+        and the corresponding boundary conditions (:math:`\alpha` and/or
+        :math:`\beta` set to None by dirichlet boundary condition).
 
     """
     # TODO remove this compatibility wrapper and promote use of new Operator
@@ -242,14 +207,14 @@ def get_parabolic_dirichlet_weak_form(init_func_label,
     Args:
         init_func_label(str): Label of shape base to use.
         test_func_label(str): Label of test base to use.
-        input_handle(:py:class:`pyinduct.simulation.SimulationInput`): Input.
+        input_handle(:py:class:`.SimulationInput`): Input.
         param(tuple): Parameters of the spatial operator.
         spatial_domain(tuple): Spatial domain of the problem.
-        # spatial_domain(:py:class:`pyinduct.core.Domain`): Spatial domain of the
+        # spatial_domain(:py:class:`.Domain`): Spatial domain of the
         #  problem.
 
     Returns:
-        :py:class:`pyinduct.simulation.WeakFormulation`: Weak form of the system.
+        :py:class:`.WeakFormulation`: Weak form of the system.
     """
     a2, a1, a0, alpha, beta = param
     l = spatial_domain[1]
@@ -306,7 +271,7 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     l = spatial_domain[1]
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
-    created_base_labels = ["a0_z", "a1_z"]
+    created_base_labels = ("a0_z", "a1_z")
     a0_z = ScalarFunction.from_scalar(a0, created_base_labels[0])
     a1_z = ScalarFunction.from_scalar(a1, created_base_labels[1])
 

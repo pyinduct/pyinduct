@@ -6,19 +6,20 @@ as well as their implementation for simulation purposes.
 import numpy as np
 from itertools import chain
 
-from .core import real, get_weight_transformation, TransformationInfo
 from .registry import get_base
+from .core import real, get_weight_transformation, get_transformation_info
 from .simulation import SimulationInput, parse_weak_formulation
 
 __all__ = ["Controller", "LawEvaluator"]
 
 class Controller(SimulationInput):
     """
-    Wrapper class for all controllers that have to interact with the simulation environment.
+    Wrapper class for all controllers that have to interact with the simulation
+    environment.
 
     Args:
-        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
-            correct weights.
+        control_law (:py:class:`.WeakFormulation`): Function handle that
+            calculates the control output if provided with correct weights.
     """
 
     def __init__(self, control_law):
@@ -42,11 +43,11 @@ class Controller(SimulationInput):
 
 class LawEvaluator(object):
     """
-    Object that evaluates the control law approximation given by a :py:class:`pyinduct.simulation.CanonicalEquations`
-    object.
+    Object that evaluates the control law approximation given by a
+    :py:class:`.CanonicalEquations` object.
 
     Args:
-        cfs (:py:class:`pyinduct.simulation.CanonicalEquation`): evaluation handle
+        cfs (:py:class:`.CanonicalEquation`): evaluation handle
     """
 
     def __init__(self, cfs, storage=None):
@@ -101,14 +102,11 @@ class LawEvaluator(object):
                     self._eval_vectors[lbl] = self._build_eval_vector(law)
 
                 # collect information
-                info = TransformationInfo()
-                info.src_lbl = weight_label
-                info.dst_lbl = lbl
-                info.src_base = get_base(weight_label)
-                info.dst_base = get_base(lbl)
-                info.src_order = int(weights.size / info.src_base.fractions.size) - 1
-                info.dst_order = int(next(iter(self._eval_vectors[lbl].values())).size
-                                     / info.dst_base.fractions.size) - 1
+                info = get_transformation_info(weight_label,
+                                               lbl,
+                                               int(weights.size / get_base(weight_label).fractions.size) - 1,
+                                               int(next(iter(self._eval_vectors[lbl].values())).size
+                                                   / get_base(lbl).fractions.size) - 1)
 
                 # look up transformation
                 if info not in self._transformations.keys():

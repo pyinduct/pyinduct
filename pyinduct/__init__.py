@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import sys
 import numpy as np
 import matplotlib as mpl
 
@@ -34,6 +33,8 @@ from .simulation import *
 from .shapefunctions import *
 # noinspection PyUnresolvedReferences
 from .visualization import *
+# noinspection PyUnresolvedReferences
+from .examples import *
 
 # noinspection PyUnresolvedReferences
 
