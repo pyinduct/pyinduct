@@ -2229,7 +2229,8 @@ class EvalData:
             - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
 
         Returns:
-            :py:class:`EvalData` with pos as input_data and to pos interpolated output_data
+            :py:class:`EvalData` with `interp_axis` as new input_data and 
+                interpolated output_data.
         """
         assert isinstance(interp_axis, list)
         assert len(interp_axis) == len(self.input_data)
