@@ -791,9 +791,56 @@ class EvalDataTestCase(unittest.TestCase):
 
         # although, the output can have more dimensions (like a vector field)
         # if the flag `fill_axes` s given
+        # (dummy axis will be appended automatically)
         pi.EvalData(input_data=[test_data_1, test_data_2],
                     output_data=test_output_data_4,
                     fill_axes=True)
+
+        # labels can be given for the given input axes
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_2,
+                    input_labels=["x", "y"])
+
+        # but they have to fit the dimensions of input_data
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_2,
+                        input_labels=["x"])
+
+        # empty entries will be appended if axis are filled
+        e = pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_4,
+                        input_labels=["x", "y"],
+                        fill_axes=True)
+        self.assertEqual(e.input_labels[2], "")
+
+        # yet again for scalar case the list can be omitted
+        pi.EvalData(input_data=test_data_1,
+                    output_data=test_output_data_1,
+                    input_labels="x")
+
+        # also units can be given for the given input axes
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_2,
+                    input_units=["metre", "seconds"])
+
+        # but they have to fit the dimensions of input_data
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_2,
+                        input_units=["foot"])
+
+        # empty entries will be appended if axis are filled
+        e = pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_4,
+                        input_units=["kelvin", "calvin"],
+                        fill_axes=True)
+        self.assertEqual(e.input_units[2], "")
+
+        # yet again for scalar case the list can be omitted
+        pi.EvalData(input_data=test_data_1,
+                    output_data=test_output_data_1,
+                    input_labels="mississippis")
 
     def test_interpolate1d(self):
         data = self.data3.interpolate([[2, 7]])

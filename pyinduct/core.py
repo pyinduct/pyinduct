@@ -1729,10 +1729,33 @@ def real(data):
 
 class EvalData:
     """
-    Convenience wrapper for function evaluation.
-    Contains the input data that was used for evaluation and the results.
+    This class helps managing any kind o result data.
+    
+    The data gained by evaluation of a function is stored together with the
+    corresponding points of its evaluation. This way all data needed for
+    plotting or other postprocessing is stored in one place.
+    Next to the points of the evaluation the names and units of the included
+    axes can be stored.
+    After initialization an interpolator is set up, so that one can interolate
+    in the result data by using the overloaded :py:meth:`__call__` method.
+    
+    Args:
+        input_data: (List of) array(s) holding the axes of a regular grid on 
+            which the evaluation took place.
+        output_data: The result of the evaluation.
+        
+    Keyword Args:
+        input_names: (List of) names for the input axes.
+        input_units: (List of) units for the input axes.
+        name: Name of the generated data set.
+        fill_axes: If the dimension of `output_data` is higher than the 
+            length of the given `input_data` list, dummy entries will be 
+            appended until the required dimension is reached.
+    
     """
-    def __init__(self, input_data, output_data, fill_axes=False, name=""):
+    def __init__(self, input_data, output_data,
+                 input_labels=None, input_units=None,
+                 fill_axes=False, name=None):
         # check type and dimensions
         if isinstance(input_data, np.ndarray) and input_data.ndim == 1:
             # accept single array for single dimensional input
@@ -1743,14 +1766,33 @@ class EvalData:
         else:
             assert isinstance(input_data, list)
 
+        # if a list with names is provided, the dimension must fit
+        if input_labels is None:
+            input_labels = ["" for i in range(len(input_data))]
+        if not isinstance(input_labels, list):
+            input_labels = [input_labels]
+        assert len(input_labels) == len(input_data)
+
+        # if a list with units is provided, the dimension must fit
+        if input_units is None:
+            input_units = ["" for i in range(len(input_data))]
+        if not isinstance(input_units, list):
+            input_units = [input_units]
+        assert len(input_units) == len(input_data)
+
         assert isinstance(output_data, np.ndarray)
+        if output_data.size == 0:
+            raise ValueError("No initialisation possible with an empty array!")
 
         assert len(input_data) <= output_data.ndim
+
         if fill_axes:
             # add dummy axes to input_data for missing output dimensions
-            input_data += [
-                np.array(range(output_data.shape[dim + len(input_data)]))
-                for dim in range(output_data.ndim - len(input_data))]
+            for dim in range(output_data.ndim - len(input_data)):
+                input_data.append(np.array(
+                    range(output_data.shape[dim + len(input_data)])))
+                input_labels.append("")
+                input_units.append("")
 
         # output_data has to contain len(input_data) dimensions
         assert len(input_data) == output_data.ndim
@@ -1759,12 +1801,9 @@ class EvalData:
             assert len(input_data[dim]) == output_data.shape[dim]
 
         self.input_data = input_data
-        if output_data.size == 0:
-            raise ValueError("No initialisation possible with an empty array!")
         self.output_data = output_data
         self.min = output_data.min()
         self.max = output_data.max()
-        self.name = name
 
         if len(input_data) == 1:
             self._interpolator = interp1d(input_data[0],
@@ -1788,6 +1827,13 @@ class EvalData:
         else:
             self._interpolator = RegularGridInterpolator(input_data,
                                                          output_data)
+
+        # handle names and units
+        self.input_labels = input_labels
+        self.input_units = input_units
+        self.name = name
+        if self.name is None:
+            self.name = ""
 
     def adjust_input_vectors(self, other):
         """
