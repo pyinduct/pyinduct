@@ -145,7 +145,7 @@ class Function(BaseFraction):
     For the implementation of new shape functions subclass this implementation
     or directly provide a callable *eval_handle* and callable
     *derivative_handles* if spatial derivatives are required for the
-    application. 
+    application.
     """
 
     # TODO: overload add and mul operators
@@ -375,7 +375,6 @@ class Function(BaseFraction):
 
         Returns:
             :py:class:`.Function` the derived function.
-
         """
         if not isinstance(order, int):
             raise TypeError("only integer allowed as derivation order")
@@ -583,7 +582,7 @@ class Base:
         """
         Hint that returns steps for scalar product calculation with elements of
         this base.
-        
+
         Note:
             Overwrite to implement custom functionality.
             For an example implementation see :py:class:`.Function`
@@ -663,7 +662,6 @@ class StackedBase(Base):
                 requested transformation.
         Return:
             transformation handle
-
         """
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
@@ -767,7 +765,6 @@ def _dot_product_l2(first, second):
 
     Return:
         inner product
-
     """
     if not isinstance(first, Function) or not isinstance(second, Function):
         raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
@@ -810,8 +807,7 @@ def integrate_function(function, interval):
 
     Return:
         tuple: (Result of the Integration, errors that occurred during the
-            integration).
-
+        integration).
     """
     result = 0
     err = 0
@@ -1049,7 +1045,7 @@ def project_on_bases(states, canonical_equations):
 
     Returns:
         numpy.array: Finit dimensional state as 1d-array corresponding to the
-            concatenated dominant bases from *canonical_equations*.
+        concatenated dominant bases from *canonical_equations*.
     """
     q0 = np.array([])
     for ce in canonical_equations:
@@ -1116,7 +1112,7 @@ def project_weights(projection_matrix, src_weights):
 
     Return:
         :py:class:`numpy.ndarray`: weights in the target basis;
-            dimension (1, n)
+        dimension (1, n)
     """
     src_weights = sanitize_input(src_weights, Number)
     return np.dot(projection_matrix, src_weights)
@@ -1270,7 +1266,6 @@ def get_transformation_info(source_label, destination_label,
 
     Returns:
         :py:class:`.TransformationInfo`: Transformation info object.
-
     """
     info = TransformationInfo()
     info.src_lbl = source_label
@@ -1400,7 +1395,7 @@ def normalize_base(b1, b2=None):
 
     Return:
         :py:class:`.Base` : if *b2* is None,
-           otherwise: Tuple of 2 :py:class:`.Base`'s.
+        otherwise: Tuple of 2 :py:class:`.Base`'s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1606,7 +1601,7 @@ def complex_wrapper(func):
 
     Return:
         two-dimensional, callable: function handle,
-            taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
+        taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
     """
 
     def wrapper(x):
@@ -1730,7 +1725,7 @@ def real(data):
 class EvalData:
     """
     This class helps managing any kind o result data.
-    
+
     The data gained by evaluation of a function is stored together with the
     corresponding points of its evaluation. This way all data needed for
     plotting or other postprocessing is stored in one place.
@@ -1738,20 +1733,20 @@ class EvalData:
     axes can be stored.
     After initialization an interpolator is set up, so that one can interolate
     in the result data by using the overloaded :py:meth:`__call__` method.
-    
+
     Args:
-        input_data: (List of) array(s) holding the axes of a regular grid on 
+        input_data: (List of) array(s) holding the axes of a regular grid on
             which the evaluation took place.
         output_data: The result of the evaluation.
-        
+
     Keyword Args:
         input_names: (List of) names for the input axes.
         input_units: (List of) units for the input axes.
         name: Name of the generated data set.
-        fill_axes: If the dimension of `output_data` is higher than the 
-            length of the given `input_data` list, dummy entries will be 
+        fill_axes: If the dimension of `output_data` is higher than the
+            length of the given `input_data` list, dummy entries will be
             appended until the required dimension is reached.
-    
+
     """
     def __init__(self, input_data, output_data,
                  input_labels=None, input_units=None,
@@ -1839,7 +1834,7 @@ class EvalData:
         """
         Check the the inputs vectors of `self` and `other` for compatibility
         (equivalence) and harmonize them if they are compatible.
-        
+
         The compatibility check is performed for every input_vector in
         particular and examines whether they share the same boundaries.
         and equalize to the minimal discretized axis.
@@ -1851,9 +1846,11 @@ class EvalData:
             other (:py:class:`.EvalData`): Other EvalData class.
 
         Returns:
-            list: New common input vectors.
-            numpy.ndarray: Interpolated self output_data array.
-            numpy.ndarray: Interpolated other output_data array.
+            tuple:
+
+                - (list) - New common input vectors.
+                - (numpy.ndarray) - Interpolated self output_data array.
+                - (numpy.ndarray) - Interpolated other output_data array.
         """
         assert len(self.input_data) == len(other.input_data)
 
@@ -1886,24 +1883,24 @@ class EvalData:
         """
         Perform the element-wise addition of the output_data arrays from `self`
         and `other`
-        
-        This method is used to support addition by implementing 
-        __add__ (fromLeft=True) and __radd__(fromLeft=False)). 
-        If `other** is a :py:class:`.EvalData`, the `input_data` lists of `self`
-        and `other` are adjusted using :py:method:`.adjust_input_vectors`
-        The summation operation is performed on the interpolated output_data. 
+
+        This method is used to support addition by implementing
+        __add__ (fromLeft=True) and __radd__(fromLeft=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`
+        The summation operation is performed on the interpolated output_data.
         If `other` is a :class:`numbers.Number` it is added according to
         numpy's broadcasting rules.
-        
+
         Args:
-            other (:py:class:`numbers.Number` or :py:class:`.EvalData`): Number 
+            other (:py:class:`numbers.Number` or :py:class:`.EvalData`): Number
                 or EvalData object to add to self.
             from_left (bool): Perform the addition from left if True or from
                 right if False.
 
         Returns:
-            :py:class:`.EvalData` with adapted input_data and output_data as 
-                result of the addition.
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of the addition.
         """
         if isinstance(other, numbers.Number):
             if from_left:
@@ -1942,12 +1939,12 @@ class EvalData:
         """
         Perform the element-wise subtraction of the output_data arrays from
         `self` and `other` .
-        
-        This method is used to support subtraction by implementing 
-        __sub__ (from_left=True) and __rsub__(from_left=False)). 
-        If `other** is a :py:class:`.EvalData`, the `input_data` lists of `self`
-        and `other` are adjusted using :py:method:`.adjust_input_vectors`.
-        The subtraction operation is performed on the interpolated output_data. 
+
+        This method is used to support subtraction by implementing
+        __sub__ (from_left=True) and __rsub__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The subtraction operation is performed on the interpolated output_data.
         If `other` is a :class:`numbers.Number` it is handled according to
         numpy's broadcasting rules.
 
@@ -1958,8 +1955,8 @@ class EvalData:
                 right if False.
 
         Returns:
-            :py:class:`.EvalData` with adapted input_data and output_data as 
-                result of subtraction.
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of subtraction.
         """
         if isinstance(other, numbers.Number):
             if from_left:
@@ -1998,24 +1995,24 @@ class EvalData:
         """
         Perform the element-wise multiplication of the output_data arrays from
         `self` and `other` .
-        
-        This method is used to support multiplication by implementing 
-        __mul__ (from_left=True) and __rmul__(from_left=False)). 
-        If `other** is a :py:class:`.EvalData`, the `input_data` lists of `self`
-        and `other` are adjusted using :py:method:`.adjust_input_vectors`.
-        The multiplication operation is performed on the interpolated output_data. 
-        If `other` is a :class:`numbers.Number` it is handled according to
-        numpy's broadcasting rules.
-        
+
+        This method is used to support multiplication by implementing
+        __mul__ (from_left=True) and __rmul__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The multiplication operation is performed on the interpolated
+        output_data. If `other` is a :class:`numbers.Number` it is handled
+        according to numpy's broadcasting rules.
+
         Args:
             other (:class:`numbers.Number` or :py:class:`.EvalData`): Factor
                 to multiply with.
-            from_left boolean: Multiplication from left if True or from right 
+            from_left boolean: Multiplication from left if True or from right
                 if False.
 
         Returns:
-            :py:class:`.EvalData` with adapted input_data and output_data as 
-                result of multiplication.
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of multiplication.
         """
         if isinstance(other, numbers.Number):
             if from_left:
@@ -2053,24 +2050,24 @@ class EvalData:
         """
         Perform the matrix multiplication of the output_data arrays from
         `self` and `other` .
-        
-        This method is used to support matrix multiplication (@) by implementing 
-        __matmul__ (from_left=True) and __rmatmul__(from_left=False)). 
-        If `other** is a :py:class:`.EvalData`, the `input_data` lists of `self`
-        and `other` are adjusted using :py:method:`.adjust_input_vectors`.
-        The matrix multiplication operation is performed on the interpolated 
-        output_data. 
+
+        This method is used to support matrix multiplication (@) by implementing
+        __matmul__ (from_left=True) and __rmatmul__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The matrix multiplication operation is performed on the interpolated
+        output_data.
         If `other` is a :class:`numbers.Number` it is handled according to
         numpy's broadcasting rules.
-        
+
         Args:
             other (:py:class:`EvalData`): Object to multiply with.
             from_left (boolean): Matrix multiplication from left if True or
                 from right if False.
 
         Returns:
-            :py:class:`EvalData` with adapted input_data and output_data as 
-                result of matrix multiplication.
+            :py:class:`EvalData` with adapted input_data and output_data as
+            result of matrix multiplication.
         """
         if isinstance(other, EvalData):
             (input_data, self_output_data, other_output_data
@@ -2106,7 +2103,7 @@ class EvalData:
 
         Returns:
             :py:class:`EvalData` with self.input_data and output_data as results
-                of the raise operation.
+            of the raise operation.
         """
         if isinstance(power, numbers.Number):
             output_data = self.output_data ** power
@@ -2122,7 +2119,7 @@ class EvalData:
 
         Return:
              :py:class:`EvalData` with self.input_data and output_data as result
-                of root calculation.
+             of root calculation.
         """
         output_data = np.sqrt(self.output_data)
 
@@ -2136,8 +2133,8 @@ class EvalData:
         Get the absolute value of the elements form `self.output_data` .
 
         Return:
-            :py:class:`EvalData` with self.input_data and output_data as result 
-                of absolute value calculation.
+            :py:class:`EvalData` with self.input_data and output_data as result
+            of absolute value calculation.
         """
         output_data = np.abs(self.output_data)
 
@@ -2148,12 +2145,12 @@ class EvalData:
 
     def __call__(self, interp_axes):
         """
-        Interpolation method for output_data. 
-        
+        Interpolation method for output_data.
+
         Determines, if a one, two or three dimensional interpolation is used.
-        Method can handle slice objects in the pos lists. 
+        Method can handle slice objects in the pos lists.
         One slice object is allowed per axis list.
-        
+
         Example:
             without slices:
 
@@ -2185,7 +2182,8 @@ class EvalData:
             - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
 
         Returns:
-            :py:class:`EvalData` with pos as input_data and to pos interpolated output_data
+            :py:class:`EvalData` with pos as input_data and to pos interpolated
+            output_data.
         """
         if len(self.input_data) == 1:
             # special case for 1d data where the outermost list can be omitted
@@ -2218,8 +2216,8 @@ class EvalData:
 
     def interpolate(self, interp_axis):
         """
-        Main interpolation method for output_data. 
-        
+        Main interpolation method for output_data.
+
         Determines, if a one, two or three dimensional interpolation is used.
 
         Args:
@@ -2229,8 +2227,8 @@ class EvalData:
             - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
 
         Returns:
-            :py:class:`EvalData` with `interp_axis` as new input_data and 
-                interpolated output_data.
+            :py:class:`EvalData` with `interp_axis` as new input_data and
+            interpolated output_data.
         """
         assert isinstance(interp_axis, list)
         assert len(interp_axis) == len(self.input_data)
@@ -2259,7 +2257,8 @@ class EvalData:
         Interpolates the one dimensional output_data to the given axis positions
 
         Args:
-            pos (list(list)): axis positions in the form [axis] with axis=[1,2,3]
+            pos (list(list)): axis positions in the form [axis] with
+                axis=[1,2,3]
 
         Returns:
             numpy.ndarray: Interpolated values.
@@ -2278,7 +2277,8 @@ class EvalData:
         Interpolates the two dimensional output_data to the given axis positions
 
         Args:
-            pos (list(list)): two axis positions in the form [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+            pos (list(list)): two axis positions in the form [axis1, axis2] with
+                axis1=[1,2,3] and axis2=[0,1,2,3,4]
 
         Returns:
             numpy.ndarray: Interpolated values.
