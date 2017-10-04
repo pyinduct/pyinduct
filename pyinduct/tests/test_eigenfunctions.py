@@ -368,19 +368,22 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
     def evp_eq(self, a2, a1, a0, boundary_check):
         for eig_v, eig_f in zip(self.eig_val, self.eig_funcs):
-            np.testing.assert_array_almost_equal(a2 * eig_f.derive(2)(self.z)
-                                                 + a1 * eig_f.derive(1)(self.z)
-                                                 + a0 * eig_f(self.z),
-                                                 eig_v.real * eig_f(self.z))
-            boundary_check(eig_f, self.z[-1])
+            np.testing.assert_array_almost_equal(
+                (a2 * eig_f.derive(2)(self.z)
+                 + a1 * eig_f.derive(1)(self.z)
+                 + a0 * eig_f(self.z)) / eig_v,
+                 eig_v.real * eig_f(self.z) / eig_v,
+            decimal=4)
+            boundary_check(eig_v, eig_f, self.z[-1])
 
 
+    @unittest.skip("not implemented")
     def test_dirichlet_robin_constant_coefficient(self):
 
-        def boundary_check(eig_f, l):
-            self.assertTrue(np.isclose(eig_f(0), 0, atol=1e-4))
-            self.assertTrue(np.isclose(eig_f.derive(1)(l), -beta * eig_f(l),
-                                       atol=1e-4))
+        def boundary_check(eig_v, eig_f, l):
+            np.testing.assert_array_almost_equal(eig_f(0) / eig_v, 0)
+            np.testing.assert_array_almost_equal(eig_f.derive(1)(l) / eig_v,
+                                                 -beta * eig_f(l) / eig_v)
 
         a2, a1, a0, _, beta = self.param
         param = [a2, a1, a0, None, beta]
@@ -400,12 +403,13 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
         self.spatially_varying_coefficient(boundary_check)
 
 
+    @unittest.skip("not implemented")
     def test_robin_dirichlet_constant_coefficient(self):
 
-        def boundary_check(eig_f, l):
-            self.assertTrue(np.isclose(eig_f.derive(1)(0), alpha * eig_f(0),
-                                       atol=1e-4))
-            self.assertTrue(np.isclose(eig_f(l), 0, atol=1e-4))
+        def boundary_check(eig_v, eig_f, l):
+            np.testing.assert_array_almost_equal(eig_f.derive(1)(0) / eig_v,
+                                                 alpha * eig_f(0) / eig_v)
+            np.testing.assert_array_almost_equal(eig_f(l) / eig_v, 0)
 
         a2, a1, a0, alpha, _ = self.param
         param = [a2, a1, a0, alpha, None]
@@ -427,9 +431,9 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
     def test_dirichlet_constant_coefficient(self):
 
-        def boundary_check(eig_f, l):
-            self.assertTrue(np.isclose(eig_f(0), 0, atol=1e-4))
-            self.assertTrue(np.isclose(eig_f(l), 0, atol=1e-4))
+        def boundary_check(eig_v, eig_f, l):
+            np.testing.assert_array_almost_equal(eig_f(0) / eig_v, 0)
+            np.testing.assert_array_almost_equal(eig_f(l) / eig_v, 0)
 
         a2, a1, a0, _, _ = self.param
         param = [a2, a1, a0, None, None]
@@ -449,13 +453,11 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
     def test_robin_constant_coefficient(self):
 
-        def boundary_check(eig_f, l):
-            self.assertTrue(np.isclose(eig_f.derive(1)(0),
-                                       alpha * eig_f(0),
-                                       atol=1e-4))
-            self.assertTrue(np.isclose(eig_f.derive(1)(l),
-                                       - beta * eig_f(l),
-                                       atol=1e-4))
+        def boundary_check(eig_v, eig_f, l):
+            np.testing.assert_array_almost_equal(eig_f.derive(1)(0) / eig_v,
+                                                 alpha * eig_f(0) / eig_v)
+            np.testing.assert_array_almost_equal(eig_f.derive(1)(l) / eig_v,
+                                                 - beta * eig_f(l) / eig_v)
 
         a2, a1, a0, alpha, beta = self.param
 
@@ -503,7 +505,7 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
                 eig_v.real * eig_f(self.spatial_domain),
                 decimal=2)
 
-            boundary_check(eig_f, self.spatial_domain[-1])
+            boundary_check(eig_v, eig_f, self.spatial_domain[-1])
 
 
 class IntermediateTransformationTest(unittest.TestCase):
