@@ -1724,14 +1724,14 @@ def real(data):
 
 class EvalData:
     """
-    This class helps managing any kind o result data.
+    This class helps managing any kind of result data.
 
     The data gained by evaluation of a function is stored together with the
     corresponding points of its evaluation. This way all data needed for
     plotting or other postprocessing is stored in one place.
     Next to the points of the evaluation the names and units of the included
     axes can be stored.
-    After initialization an interpolator is set up, so that one can interolate
+    After initialization an interpolator is set up, so that one can interpolate
     in the result data by using the overloaded :py:meth:`__call__` method.
 
     Args:
@@ -1746,6 +1746,55 @@ class EvalData:
         fill_axes: If the dimension of `output_data` is higher than the
             length of the given `input_data` list, dummy entries will be
             appended until the required dimension is reached.
+
+    Examples:
+        When instantiating 1d EvalData objects, the list can be omitted
+
+        >>> axis = Domain((0, 10), 5)
+        >>> data = np.random.rand(5,)
+        >>> e_1d = EvalData(axis, data)
+
+        For other cases, input_data has to be a list
+
+        >>> axis1 = Domain((0, 0.5), 5)
+        >>> axis2 = Domain((0, 1), 11)
+        >>> data = np.random.rand(5, 11)
+        >>> e_2d = EvalData([axis1, axis2], data)
+
+        Adding two Instances (if the boundaries fit, the data will be
+        interpolated on the more coarse grid.) Same goes for subtraction and
+        multiplication.
+
+        >>> e_1 = EvalData(Domain((0, 10), 5), np.random.rand(5,))
+        >>> e_2 = EvalData(Domain((0, 10), 10), 100*np.random.rand(5,))
+        >>> e_3 = e_1 + e_2
+        >>> e_3.output_data.shape
+        (5,)
+
+        Interpolate in the output data by calling the object
+
+        >>> e_4 = EvalData(np.array(range(5)), 2*np.array(range(5))))
+        >>> e_4.output_data
+        array([0, 2, 4, 6, 8])
+        >>> e_5 = e_4([2, 5])
+        >>> e_5.output_data
+        array([4, 8])
+        >>> e_5.output_data.size
+        2
+
+        one may also give a slice
+
+        >>> e_6 = e_4(slice(1, 5, 2))
+        >>> e_6.output_data
+        array([2., 6.])
+        >>> e_5.output_data.size
+        2
+
+        For multi-dimensional interpolation a list has to be provided
+
+        >>> e_7 = e_2d([[.1, .5], [.3, .4, .7)])
+        >>> e_7.output_data.shape
+        (2, 3)
 
     """
     def __init__(self, input_data, output_data,
@@ -2151,30 +2200,6 @@ class EvalData:
         Method can handle slice objects in the pos lists.
         One slice object is allowed per axis list.
 
-        Example:
-            without slices:
-
-                axis1 = Domain((0, 0.5), 5)
-                axis2 = Domain((0, 1), 11)
-                data = np.random.rand(5, 11)
-                ed = EvalData(input_data=[axis1, axis2], output_data=data)
-                pos = [[0.1], [0.5, 0.7]]
-                values = ed(pos)        # values.output_data.size = 1 x 2
-
-            with slices:
-
-                axis1 = Domain((0, 0.5), 5)
-                axis2 = Domain((0, 1), 11)
-                data = np.random.rand(5, 11)
-                ed = EvalData(input_data=[axis1, axis2], output_data=data)
-                pos = [[slice(None)], [0.5, 0.7]]
-                values = ed(pos)        # values.output_data.size = 5 x 2
-
-            or:
-
-                pos = [[slice(0, 2)], [0.5, 0.7]]
-                values = ed(pos)        # values.output_data.size = 2 x 2
-
         Args:
             interp_axes (list(list)): axis positions in the form
 
@@ -2218,12 +2243,13 @@ class EvalData:
         """
         Main interpolation method for output_data.
 
-        Determines, if a one, two or three dimensional interpolation is used.
+        If one of the output dimensions is to be interpolated at one single
+        point, the dimension of the output will decrease by one.
 
         Args:
             interp_axis (list(list)): axis positions in the form
 
-            - 1D: [axis] with axis=[1,2,3]
+            - 1D: axis with axis=[1,2,3]
             - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
 
         Returns:
@@ -2251,43 +2277,3 @@ class EvalData:
         return EvalData(input_data=domains,
                         output_data=np.squeeze(interpolated_output),
                         name=self.name)
-
-    def _interpolate1d(self, values, dimension=None):
-        """
-        Interpolates the one dimensional output_data to the given axis positions
-
-        Args:
-            pos (list(list)): axis positions in the form [axis] with
-                axis=[1,2,3]
-
-        Returns:
-            numpy.ndarray: Interpolated values.
-        """
-        if dimension is None:
-            dimension = next((idx for idx, val in enumerate(values)
-                              if not (val is None or isinstance(val, slice))))
-            inter_values = values[dimension]
-        else:
-            inter_values = values
-
-        return self._1d_interpolators[dimension](inter_values)
-
-    def _interpolate2d(self, pos):
-        """
-        Interpolates the two dimensional output_data to the given axis positions
-
-        Args:
-            pos (list(list)): two axis positions in the form [axis1, axis2] with
-                axis1=[1,2,3] and axis2=[0,1,2,3,4]
-
-        Returns:
-            numpy.ndarray: Interpolated values.
-        """
-        # TODO check boundaries
-        f = interp2d(self.input_data[1], self.input_data[0], self.output_data)
-        values = f(pos[1], pos[0])
-        if values.ndim == 2:
-            return values
-        else:
-            return np.array([values])
-
