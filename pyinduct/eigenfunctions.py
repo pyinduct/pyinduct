@@ -559,7 +559,8 @@ class LambdifiedSympyExpression(Function):
                        for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord)
                  for der_ord in range(len(sympy_funcs))]
-        super().__init__(funcs[0],
+        Function.__init__(self, funcs[0],
+                         domain=spatial_domain,
                          nonzero=spatial_domain,
                          derivative_handles=funcs[1:])
 
@@ -903,7 +904,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
 
         funcs = [self._eig_func_factory(der_ord)
                  for der_ord in range(max_der_order + 1)]
-        Function.__init__(self, funcs[0], domain=(0, l),
+        Function.__init__(self, funcs[0], domain=(0, l), nonzero=(0, l),
                           derivative_handles=funcs[1:])
 
     def _eig_func_factory(self, der_order):
