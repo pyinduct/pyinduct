@@ -1025,10 +1025,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
               if root.real >= 0 and np.isclose(root.imag, 0)]
 
         # delete all around om = 0
-        for i in [ind for ind, val in enumerate(np.isclose(np.array(om) * l,
-                                                           0,
-                                                           atol=1e-4)) if val]:
-            om.pop(i)
+        om = [val for val in om if not np.isclose(val * l, 0, atol= 1e-4)]
 
         # if om = 0 is a root and the corresponding characteristic equation
         # is satisfied then add 0 to the list
