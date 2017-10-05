@@ -1,5 +1,3 @@
-.. _module-docs:
-
 Parabolic Module
 ================
 

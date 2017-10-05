@@ -1,7 +1,7 @@
 """
-The shapefunctions module contains generic shapefunctions that can be used to 
-approximate distributed systems without giving  any information about the 
-systems themselves. 
+The shapefunctions module contains generic shapefunctions that can be used to
+approximate distributed systems without giving  any information about the
+systems themselves.
 This is achieved by projecting them on generic, piecewise smooth functions.
 """
 
@@ -14,23 +14,28 @@ __all__ = ["LagrangeFirstOrder", "LagrangeSecondOrder", "LagrangeNthOrder", "cur
 
 
 class LagrangeNthOrder(Function):
-    """
+    r"""
     Lagrangian shape functions of order :math:`n`.
 
     Note:
-        The polynomials between the boundary-polynomials and the peak-polynomials, respectively
-        between peak-polynomials and peak-polynomials, are called mid-polynomials.
+        The polynomials between the boundary-polynomials and the
+        peak-polynomials, respectively between peak-polynomials and
+        peak-polynomials, are called mid-polynomials.
 
     Args:
         order (int): Order of the lagrangian polynomials.
-        nodes (numpy.array): Nodes on which the piecewise defined functions have to be one/zero.
-            Length of nodes must be either :math:`order * 2 + 1` (for peak-polynomials, see notes)
-            or 'order +1' (for boundary- and mid-polynomials).
-        left (bool): State the first node (*nodes[0]*) to be the left boundary of the considered domain.
-        right (bool): State the last node (*nodes[-1]*) to be the right boundary of the considered domain.
-        mid_num (int):  Local number of mid-polynomials (see notes) to use (only  used for *order* >= 2) .
-            :math:`\\text{mid\\_num} \\in \\{ 1, ..., \\text{order} - 1 \\}`
-        boundary (str): provide "left" or "right" to instantiate the according 
+        nodes (numpy.array): Nodes on which the piecewise defined functions have
+            to be one/zero. Length of nodes must be either :math:`order * 2 + 1`
+            (for peak-polynomials, see notes) or 'order +1'
+            (for boundary- and mid-polynomials).
+        left (bool): State the first node (*nodes[0]*) to be the left boundary
+            of the considered domain.
+        right (bool): State the last node (*nodes[-1]*) to be the right boundary
+            of the considered domain.
+        mid_num (int):  Local number of mid-polynomials (see notes) to use (only
+            used for *order* >= 2).
+            :math:`\text{mid\_num} \in \{ 1, ..., \text{order} - 1 \}`
+        boundary (str): provide "left" or "right" to instantiate the according
             boundary-polynomial.
         domain (tuple): Domain of the function.
     """
@@ -78,7 +83,11 @@ class LagrangeNthOrder(Function):
         else:
             funcs = [self._func_factory(d_ord, order, nodes, left, right, poly=poly) for d_ord in range(order + 1)]
 
-        Function.__init__(self, funcs[0], nonzero=(nodes[0], nodes[-1]), derivative_handles=funcs[1:])
+        Function.__init__(self,
+                          funcs[0],
+                          domain=domain,
+                          nonzero=(nodes[0], nodes[-1]),
+                          derivative_handles=funcs[1:])
 
     def _poly_factory(self, zero_nodes, one_node):
         poly = npoly.Polynomial(npoly.polyfromroots(zero_nodes))
@@ -156,24 +165,26 @@ class LagrangeNthOrder(Function):
 
     @staticmethod
     def cure_hint(domain, **kwargs):
-        """
-        Hint function that will cure the given interval with :py:class:`LagrangeNthOrder`.
-        Length of the domain argument :math:`L` must satisfy the condition
+        r"""
+        Hint function that will cure the given interval with
+        :py:class:`.LagrangeNthOrder`. Length of the domain argument :math:`L`
+        must satisfy the condition
 
-        .. math:: L = 1 + (1 + n) order \\quad \\forall n \\in \\mathbb N.
+        .. math:: L = 1 + (1 + n) order \quad \forall n \in \mathbb N.
 
         E.g. \n
-        - order = 1 -> :math:`L \\in \\{2, 3, 4, 5, ...\\}`
-        - order = 2 -> :math:`L \\in \\{3, 5, 7, 9, ...\\}`
-        - order = 3 -> :math:`L \\in \\{4, 7, 10, 13, ...\\}`
+        - order = 1 -> :math:`L \in \{2, 3, 4, 5, ...\}`
+        - order = 2 -> :math:`L \in \{3, 5, 7, 9, ...\}`
+        - order = 3 -> :math:`L \in \{4, 7, 10, 13, ...\}`
         - and so on.
 
         Args:
-            domain (:py:class:`core.Domain`): Domain to be cured.
+            domain (:py:class:`.Domain`): Domain to be cured.
             order (int): Order of the lagrange polynomials.
 
         Return:
-            tuple: (domain, funcs), where funcs is a set of :py:class:`LagrangeNthOrder` shapefunctions.
+            tuple: (domain, funcs), where funcs is a set of
+            :py:class:`.LagrangeNthOrder` shapefunctions.
         """
         order = kwargs["order"]
         nodes = np.array(domain)
@@ -310,10 +321,11 @@ class LagrangeFirstOrder(Function):
         Hint function that will cure the given interval with LagrangeFirstOrder.
 
         Args:
-            domain (:py:class:`core.Domain`): domain to be cured
+            domain (:py:class:`.Domain`): domain to be cured
 
         Return:
-            tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeFirstOrder` shapefunctions.
+            tuple: (domain, funcs), where funcs is set of
+            :py:class:`.LagrangeFirstOrder` shapefunctions.
         """
         funcs = np.empty((len(domain),), dtype=LagrangeFirstOrder)
         funcs[0] = LagrangeFirstOrder(domain[0],
@@ -456,13 +468,15 @@ class LagrangeSecondOrder(Function):
     @staticmethod
     def cure_hint(domain, **kwargs):
         """
-        Hint function that will cure the given interval with LagrangeSecondOrder.
+        Hint function that will cure the given interval with
+        :py:class:`.LagrangeSecondOrder`.
 
         Args:
-            domain (:py:class:`core.Domain`): domain to be cured
+            domain (:py:class:`.Domain`): domain to be cured
 
         Return:
-            tuple: (domain, funcs), where funcs is set of :py:class:`LagrangeSecondOrder` shapefunctions.
+            tuple: (domain, funcs), where funcs is set of
+            :py:class:`.LagrangeSecondOrder` shapefunctions.
         """
         if len(domain) < 3 or len(domain) % 2 != 1:
             raise ValueError("node count has to be at least 3 and can only be odd for Lag2nd!")
@@ -505,26 +519,31 @@ class LagrangeSecondOrder(Function):
 
 def cure_interval(shapefunction_class, interval, node_count=None, node_distance=None, **kwargs):
     """
-    Use shape functions to cure an interval with either *node_count* nodes or nodes with *node_distance*.
+    Use shape functions to cure an interval with either *node_count* nodes or
+    nodes with *node_distance*.
 
     Args:
-        shapefunction_class: Class to cure the interval (e.g. :py:class:`LagrangeFirstOrder`). The given class
-            has to provide a :py:func:`cure_hint`.
+        shapefunction_class: Class to cure the interval (e.g.
+            :py:class:`.LagrangeFirstOrder`). The given class has to provide a
+            :py:func:`.cure_hint`.
         interval (tuple): Limits that constrain the interval.
         node_count (int): Amount of nodes to use.
         node_distance (numbers.Number): Distance of nodes.
 
     Note:
-        Either *node_count* or *node_node_distance* can be specified. If both are given and are not consistent,
-        an exception will be raised by :py:class:`pyinduct.simulation.Domain` .
+        Either *node_count* or *node_node_distance* can be specified. If both
+        are given and are not consistent, an exception will be raised by
+        :py:class:`.Domain`.
 
     Raises:
-        TypeError: If given class does not provide a static :py:func:`cure_hint` method.
+        TypeError: If given class does not provide a static
+        :py:func:`.cure_hint` method.
 
     Return:
         tuple:
-            :code:`(domain, funcs)`: Where :code:`domain` is a :py:class:`pyinduct.simulation.Domain` instance
-            and :code:`funcs` is a list of (e.g. :py:class:`LagrangeFirstOrder`) shapefunctions.
+            :code:`(domain, funcs)`: Where :code:`domain` is a
+            :py:class:`.Domain` instance and :code:`funcs` is a list of (e.g.
+            :py:class:`.LagrangeFirstOrder`) shapefunctions.
     """
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 

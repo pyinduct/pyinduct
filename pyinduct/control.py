@@ -14,11 +14,12 @@ __all__ = ["Controller", "LawEvaluator"]
 
 class Controller(SimulationInput):
     """
-    Wrapper class for all controllers that have to interact with the simulation environment.
+    Wrapper class for all controllers that have to interact with the simulation
+    environment.
 
     Args:
-        control_law (:py:class:`ControlLaw`): Function handle that calculates the control output if provided with
-            correct weights.
+        control_law (:py:class:`.WeakFormulation`): Function handle that
+            calculates the control output if provided with correct weights.
     """
 
     def __init__(self, control_law):
@@ -42,11 +43,11 @@ class Controller(SimulationInput):
 
 class LawEvaluator(object):
     """
-    Object that evaluates the control law approximation given by a :py:class:`pyinduct.simulation.CanonicalEquations`
-    object.
+    Object that evaluates the control law approximation given by a
+    :py:class:`.CanonicalEquations` object.
 
     Args:
-        cfs (:py:class:`pyinduct.simulation.CanonicalEquation`): evaluation handle
+        cfs (:py:class:`.CanonicalEquation`): evaluation handle
     """
 
     def __init__(self, cfs, storage=None):

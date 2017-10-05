@@ -1,20 +1,14 @@
 import sys
 import unittest
+import copy
 
 import numpy as np
+
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
 import pyinduct.parabolic as parabolic
 import pyinduct.simulation as sim
 from pyinduct.tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
-else:
-    app = None
-
 
 # TODO Test for Domain
 
@@ -685,10 +679,16 @@ class StateSpaceTests(unittest.TestCase):
 
 
 class StringMassTest(unittest.TestCase):
+    example_data = None
+
+    def create_test_data(self):
+        if self.example_data is None:
+            self.setUp()
+            self.test_fem()
+            self.tearDown()
+        return copy.copy(self.example_data)
+
     def setUp(self):
-
-        self.example_data = None
-
         z_start = 0
         z_end = 1
         z_step = 0.1
@@ -786,7 +786,7 @@ class StringMassTest(unittest.TestCase):
             win = pi.PgAnimatedPlot(eval_data[:2],
                                     title="fem approx and derivative")
             win2 = pi.PgSurfacePlot(eval_data[0])
-            app.exec_()
+            pi.show(show_mpl=False)
 
         # test for correct transition
         self.assertAlmostEqual(eval_data[0].output_data[-1, 0],
@@ -880,7 +880,7 @@ class StringMassTest(unittest.TestCase):
                         break
                     pw_phin_k.plot(x=np.array(self.dz), y=norm_func_vals[n + k - 1], pen=clrs[k])
 
-            app.exec_()
+            pi.show(show_mpl=False)
 
         # create terms of weak formulation
         terms = [pi.IntegralTerm(pi.Product(pi.FieldVariable("norm_modal_base", order=(2, 0)),
@@ -911,7 +911,7 @@ class StringMassTest(unittest.TestCase):
         if show_plots:
             win = pi.PgAnimatedPlot(eval_data[0:2], title="modal approx and derivative")
             win2 = pi.PgSurfacePlot(eval_data[0])
-            app.exec_()
+            pi.show(show_mpl=False)
 
         pi.deregister_base("norm_modal_base")
 
@@ -1071,7 +1071,7 @@ class MultiplePDETest(unittest.TestCase):
         results = pi.simulate_system(self.weak_form_1, self.ic1, self.dt, self.dz1)
         win = pi.PgAnimatedPlot(results)
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
 
     def test_coupled_system(self):
         """
@@ -1086,7 +1086,8 @@ class MultiplePDETest(unittest.TestCase):
         win = pi.PgAnimatedPlot(res)
 
         if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
+            del win
 
     def test_triple_system(self):
         """
@@ -1105,6 +1106,10 @@ class MultiplePDETest(unittest.TestCase):
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
         win = pi.PgAnimatedPlot(res)
+
+        if show_plots:
+            pi.show(show_mpl=False)
+            del win
 
     def test_triple_system_with_swm(self):
         """
@@ -1130,10 +1135,8 @@ class MultiplePDETest(unittest.TestCase):
         win = pi.PgAnimatedPlot(res)
 
         if show_plots:
-            app.exec_()
-
-        if show_plots:
-            app.exec_()
+            pi.show(show_mpl=False)
+            del win
 
     def tearDown(self):
         pi.deregister_base("base_1")
@@ -1173,7 +1176,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'dirichlet'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
         rad_pde = parabolic.get_parabolic_dirichlet_weak_form("base_2", "base_2", u, self.param, self.dz.bounds)
@@ -1188,7 +1191,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
             eval_d = sim.evaluate_approximation("base_1", q, t, self.dz, spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
-            app.exec_()
+            pi.show(show_mpl=False)
 
         # TODO add Test here
         return t, q
@@ -1199,7 +1202,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'dirichlet'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # integral terms
         int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_2", order=1),
@@ -1236,11 +1239,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'robin'
-        u = parabolic.trajectory.RadTrajectory(self.l,
-                                               self.T,
-                                               self.param,
-                                               bound_cond_type,
-                                               actuation_type)
+        u = parabolic.RadFeedForward(self.l,
+                                                 self.T,
+                                                 self.param,
+                                                 bound_cond_type,
+                                                 actuation_type)
 
         # integral terms
         int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_1", order=1),
@@ -1276,7 +1279,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'robin'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
         rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
@@ -1334,9 +1337,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 50
         dt = pi.Domain(bounds=(0, t_end), num=temporal_disc)
 
-        # TODO use eigfreq_eigval_hint to obtain eigenvalues
-        omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
-        eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
+        (omega, eig_values
+         ) = pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(
+            param=param,
+            l=dz.bounds[-1],
+            n_roots=spatial_disc)
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
         eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(omega[i],
                                                                  param,
@@ -1358,11 +1363,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadTrajectory(l,
-                                    t_end,
-                                    param,
-                                    bound_cond_type,
-                                    actuation_type)
+        u = parabolic.RadFeedForward(l,
+                                     t_end,
+                                     param,
+                                     bound_cond_type,
+                                     actuation_type)
 
         # ------------- determine (A,B) with weak-formulation (pyinduct)
         # derive sate-space system
@@ -1379,15 +1384,15 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
             [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
-        # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])),
-                                    np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    decimal=5)
+        np.testing.assert_array_almost_equal(
+            np.sort(np.linalg.eigvals(ss_weak.A[1])),
+            np.sort(np.linalg.eigvals(ss_modal.A[1])))
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
-        # display results
         # TODO can the result be tested?
+
+        # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_base",
@@ -1396,7 +1401,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
                                                 dz,
                                                 spat_order=0)
             win2 = pi.PgSurfacePlot(eval_d)
-            app.exec_()
+            pi.show(show_mpl=False)
 
         pi.deregister_base("eig_base")
         pi.deregister_base("adjoint_eig_base")
@@ -1446,7 +1451,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(l, t_end, param, bound_cond_type, actuation_type)
 
         # determine pair (A, B) by weak-formulation (pyinduct)
         rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
@@ -1469,7 +1474,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
             eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz, spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
-            app.exec_()
+            pi.show(show_mpl=False)
 
         pi.deregister_base(extra_labels[0])
         pi.deregister_base(extra_labels[1])
@@ -1503,7 +1508,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
                                                1)
         if show_plots:
             p = pi.PgAnimatedPlot(eval_data)
-            app.exec_()
+            pi.show(show_mpl=False)
             del p
 
     def tearDown(self):

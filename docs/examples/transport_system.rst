@@ -26,4 +26,4 @@ Transport System
 
 * source code:
 
-.. literalinclude:: /../examples/transport_system.py
+.. literalinclude:: /../pyinduct/examples/transport_system.py

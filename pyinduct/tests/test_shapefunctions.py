@@ -68,7 +68,7 @@ class CureTestCase(unittest.TestCase):
             # plot original function
             pw.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                        pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine), name="original"))
-            pg.QtCore.QCoreApplication.instance().exec_()
+            pi.show(show_mpl=False)
 
         pi.deregister_base("test")
         return np.sum(np.abs(hull.output_data[0, :] - approx_func.derive(der_order)(dz)))
@@ -156,6 +156,6 @@ class NthOrderCureTestCase(unittest.TestCase):
                     pw1.addItem(pg.PlotDataItem(np.array(dz), approx_func.derive(der_order)(dz),
                                                 pen=pg.mkPen(color="m", width=2, style=pg.QtCore.Qt.DashLine),
                                                 name="original"))
-                    pg.QtCore.QCoreApplication.instance().exec_()
+                    pi.show(show_mpl=False)
 
             pi.deregister_base("test")

@@ -218,6 +218,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 htmlhelp_basename = 'pyinductdoc'
 
 # -- Options for LaTeX output ------------------------------------------
+
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     'papersize': 'a4paper',

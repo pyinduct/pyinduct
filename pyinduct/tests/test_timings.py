@@ -6,12 +6,6 @@ import unittest
 
 import numpy as np
 import pyinduct as pi
-from pyinduct.tests import show_plots
-
-if show_plots:
-    import pyqtgraph as pg
-
-    app = pg.QtGui.QApplication([])
 
 
 def simulation_benchmark(spat_domain, settings):
@@ -19,7 +13,7 @@ def simulation_benchmark(spat_domain, settings):
     This benchmark covers a typical simulation.
 
     Args:
-        spat_domain (:py:class:`core.Domain`): spatial domain for the simulation
+        spat_domain (:py:class:`.Domain`): spatial domain for the simulation
         settings (dict): settings to use for simulation run
 
     Returns:
@@ -111,10 +105,10 @@ def product_benchmark(base):
 
 class ShapeFunctionTestBench(unittest.TestCase):
     """
-    Compare LagrangeNthOrder with LagrangeSecondOrder (have a look at terminal 
+    Compare LagrangeNthOrder with LagrangeSecondOrder (have a look at terminal
     output).
 
-    When it succeeds to get positive values (at least a few) under the 
+    When it succeeds to get positive values (at least a few) under the
     "Difference" headline by the transport system example, too, you can delete:
     - this test case
     - LagrangeFirstOrder

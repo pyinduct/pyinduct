@@ -49,11 +49,13 @@ class ConstantTrajectory(SimulationInput):
 
 
 class SmoothTransition:
-    """
-    A smooth transition between two given steady-states *states* on an *interval*
-    using either:
-    polynomial method
-    trigonometric method
+    r"""
+    A smooth transition between two given steady-states *states* on an
+    *interval* using either:
+
+        - polynomial method
+
+        - trigonometric method
 
     To create smooth transitions.
 
@@ -61,7 +63,7 @@ class SmoothTransition:
         states (tuple): States at beginning and end of interval.
         interval (tuple): Time interval.
         method (str): Method to use (``poly`` or ``tanh``).
-        differential_order (int): Grade of differential flatness :math:`\\gamma`.
+        differential_order (int): Grade of differential flatness :math:`\gamma`.
     """
 
     def __init__(self, states, interval, method, differential_order=0):
@@ -102,14 +104,20 @@ class SmoothTransition:
         return self._desired_values(args[0])
 
     def _desired_values(self, t):
-        """
-        Calculates the desired trajectory and its derivatives for time-step *t*.
+        r"""
+        Calculates the desired trajectory and its derivatives for time-step `t`.
 
         Args:
-            t (array_like): Time-step for which trajectory and derivatives are needed.
+            t (array_like): Time-step for which trajectory and derivatives are
+                needed.
 
         Return:
-            numpy.ndarray: :math:`\\boldsymbol{y}_d = \\left(y_d, \\dot{y}_d, \\ddot{y}_d, \\dotsc, \\y_d^{(\\gamma)}\\right)`
+            numpy.ndarray:
+
+                .. math::
+
+                    \boldsymbol{y}_d = \left(y_d, \dot{y}_d, \ddot{y}_d,
+                    \dotsc, y_d^{(\gamma)}\right)
         """
         y = np.zeros((len(self.dphi_num)))
         if t <= self.t0:
@@ -130,33 +138,38 @@ class SmoothTransition:
 
 # TODO: kwarg: t_step
 def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
-    """
+    r"""
     Provide Gevrey function
 
     .. math::
-        \\eta(t) = \\left\\{ \\begin{array}{lcl}
-            0 & \\forall & t<0 \\\\
-            \\frac{1}{2} + \\frac{1}{2}\\tanh \\left(K \\frac{2(2t-1)}{(4(t^2-t))^\\sigma} \\right) & \\forall & 0\\le t \\le T \\\\
-            1 & \\forall & t>T  \\end{array} \\right.
+        \eta(t) = \left\{ \begin{array}{lcl}
+            0 & \forall & t<0 \\
+            \frac{1}{2} + \frac{1}{2}\tanh \left(K \frac{2(2t-1)}
+            {(4(t^2-t))^\sigma} \right) & \forall & 0\le t \le T \\
+            1 & \forall & t>T  \end{array} \right.
 
-    with the Gevrey-order :math:`\\rho=1+\\frac{1}{\\sigma}` and the derivatives up to order n.
+    with the Gevrey-order :math:`\rho=1+\frac{1}{\sigma}` and the derivatives
+    up to order n.
 
     Note:
 
         For details of the recursive calculation of the derivatives see:
 
-            Rudolph, J., J. Winkler und F. Woittennek: Flatness Based Control of Distributed Parameter \
-                Systems: Examples and Computer Exercises from Various Technological Domains (Berichte aus \
-                der Steuerungs- und Regelungstechnik). Shaker Verlag GmbH, Germany, 2003.
+            Rudolph, J., J. Winkler und F. Woittennek: Flatness Based Control of
+            Distributed Parameter Systems: Examples and Computer Exercises from
+            Various Technological Domains (Berichte aus der Steuerungs- und
+            Regelungstechnik). Shaker Verlag GmbH, Germany, 2003.
 
     Args:
         T (numbers.Number): End of the time domain=[0,T].
         n (int): The derivatives will calculated up to order n.
-        sigma (numbers.Number): Constant :math:`\\sigma` to adjust the Gevrey order :math:`\\rho=1+\\frac{1}{\\sigma}` of :math:`\\varphi(t)`.
-        K (numbers.Number): Constant to adust the slope of :math:`\\varphi(t)`.
+        sigma (numbers.Number): Constant :math:`\sigma` to adjust the Gevrey
+            order :math:`\rho=1+\frac{1}{\sigma}` of :math:`\varphi(t)`.
+        K (numbers.Number): Constant to adust the slope of :math:`\varphi(t)`.
 
     Return:
-        tuple: (numpy.array([[:math:`\\varphi(t)`], ... ,[:math:`\\varphi^{(n)}(t)`]]), numpy.array([0,...,T])
+        tuple: (numpy.array([[:math:`\varphi(t)`], ... ,
+        [:math:`\varphi^{(n)}(t)`]]), numpy.array([0,...,T])
     """
 
     t_init = t = np.linspace(0., T, int(0.5 * 10 ** (2 + np.log10(T))))
@@ -276,25 +289,26 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
 
 
 def coefficient_recursion(c0, c1, param):
-    """
+    r"""
     Return to the recursion
 
-    .. math:: c_k(t) = \\frac{ \dot c_{k-2}(t) - a_1 c_{k-1}(t) - a_0 c_{k-2}(t) }{ a_2 }
+    .. math:: c_k(t) = \frac{ \dot c_{k-2}(t) - a_1 c_{k-1}(t)
+        - a_0 c_{k-2}(t) }{ a_2 }
 
     with initial values
 
     .. math::
-        c_0 = numpy.array([c_0^{(0)}, ... , c_0^{(N)}]) \\\\
+        c_0 = numpy.array([c_0^{(0)}, ... , c_0^{(N)}]) \\
         c_1 = numpy.array([c_1^{(0)}, ... , c_1^{(N)}])
 
     as much as computable subsequent coefficients
 
     .. math::
 
-        c_2 = numpy.array&([c_2^{(0)}, ... , c_2^{(N-1)}])   \\\\
-        c_3 = numpy.array&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\\\
-        &\\vdots                                          \\\\
-        c_{2N-1} = numpy.array&([c_{2N-1}^{(0)}])                \\\\
+        c_2 = numpy.array&([c_2^{(0)}, ... , c_2^{(N-1)}])   \\
+        c_3 = numpy.array&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\
+        &\vdots                                          \\
+        c_{2N-1} = numpy.array&([c_{2N-1}^{(0)}])                \\
         c_{2N} = numpy.array&([c_{2N}^{(0)}])
 
     Args:
@@ -303,7 +317,7 @@ def coefficient_recursion(c0, c1, param):
         param (array_like): (a_2, a_1, a_0, None, None)
 
     Return:
-        dict: :math:`C = \\{0: c_0, 1: c_1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}\\}`
+        dict: :math:`C = \{0: c_0, 1: c_1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}\}`
     """
     # TODO: documentation: only constant coefficients
     if c0.shape != c1.shape:
@@ -326,26 +340,30 @@ def coefficient_recursion(c0, c1, param):
 
 
 def temporal_derived_power_series(z, C, up_to_order, series_termination_index, spatial_der_order=0):
-    """
+    r"""
     Compute the temporal derivatives
 
-    .. math:: q^{(j,i)}(z=z^*,t) = \\sum_{k=0}^{N} \\underbrace{c_{k+j}^{(i)}}_{\\text{C[k+j][i,:]}} \\frac{{z^*}^k}{k!}, \\qquad i=0,...,n.
+    .. math:: q^{(j,i)}(z=z^*,t) = \sum_{k=0}^{N}
+        \underbrace{c_{k+j}^{(i)}}_{\text{C[k+j][i,:]}}
+        \frac{{z^*}^k}{k!}, \qquad i=0,...,n.
 
     Args:
         z (numbers.Number): Evaluation point :math:`z^*`.
-        C (dict): Coefficient dictionary whose keys correspond to the coefficient index.
-            The values are 2D numpy.arrays.
-            For example C[1] should provide a 2d-array with the coefficient :math:`c_1(t)` and at least :math:`n`
-            temporal derivatives
+        C (dict): Coefficient dictionary whose keys correspond to the
+            coefficient index. The values are 2D numpy.arrays. For example C[1]
+            should provide a 2d-array with the coefficient :math:`c_1(t)` and at
+            least :math:`n` temporal derivatives
 
-            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]) .
+            .. math:: \text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]) .
 
-        up_to_order (int): Maximum temporal derivative order :math:`n` to compute.
+        up_to_order (int): Maximum temporal derivative order :math:`n` to
+            compute.
         series_termination_index (int): Series termination index :math:`N` .
         spatial_der_order (int): Spatial derivative order :math:`j` .
 
     Return:
-        numpy.ndarray: array holding the elements :math:`q^{(j,0)}, \dotsc, q^{(j,n)}`
+        numpy.ndarray: array holding the elements
+        :math:`q^{(j,0)}, \dotsc, q^{(j,n)}`
     """
 
     if not isinstance(z, Number):
@@ -366,20 +384,21 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
 
 
 def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
-    """
+    r"""
     Compute the function values
 
-    .. math:: x^{(j,i)}(z,t)=\sum_{k=0}^{N} c_{k+j}^{(i)}(t) \\frac{z^k}{k!}.
+    .. math:: x^{(j,i)}(z,t)=\sum_{k=0}^{N} c_{k+j}^{(i)}(t) \frac{z^k}{k!}.
 
     Args:
         z (array_like): Spatial steps to compute.
         t (array like): Temporal steps to compute.
         C (dict):
-            Coeffient dictionary which keys correspond to the coefficient index. The values are 2D numpy.array's.
-            For example C[1] should provide a 2d-array with the coefficient :math:`c_1(t)` and at least :math:`i`
+            Coeffient dictionary which keys correspond to the coefficient index.
+            The values are 2D numpy.array's. For example C[1] should provide a
+            2d-array with the coefficient :math:`c_1(t)` and at least :math:`i`
             temporal derivatives
 
-            .. math:: \\text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]).
+            .. math:: \text{np.array}([c_1^{(0)}(t), ... , c_1^{(i)}(t)]).
 
         spatial_der_order (int): Spatial derivative order :math:`j`.
         temporal_der_order (int): Temporal derivative order :math:`i`.
@@ -457,16 +476,21 @@ class InterpolationTrajectory(SimulationInput):
 
 class SignalGenerator(InterpolationTrajectory):
     """
-    Signal generator that combines :py:mod:`scipy.signal.waveforms` and :py:class:`InterpTrajectory`.
+    Signal generator that combines :py:mod:`scipy.signal.waveforms` and
+    :py:class:`.InterpTrajectory`.
 
     Args:
-        waveform (str): A waveform which is provided from :py:mod:`scipy.signal.waveforms`.
-        t (array_like): Array with time steps or :py:class:`pyinduct.simulation.Domain` instance.
-        scale (numbers.Number): Scale factor: output = waveform_output*scale + offset.
-        offset (numbers.Number): Offset value: output = waveform_output*scale + offset.
-        kwargs: The corresponding keyword arguments to the desired :py:mod:`scipy.signal` waveform.
-            In addition to the kwargs of the desired waveform function from scipy.signal
-            (which will simply forwarded) the keyword arguments :py:obj:`frequency`
+        waveform (str): A waveform which is provided from
+            :py:mod:`scipy.signal.waveforms`.
+        t (array_like): Array with time steps or :py:class:`.Domain` instance.
+        scale (numbers.Number): Scale factor:
+            output = waveform_output * scale + offset.
+        offset (numbers.Number): Offset value:
+            output = waveform_output * scale + offset.
+        kwargs: The corresponding keyword arguments to the desired
+            :py:mod:`scipy.signal` waveform. In addition to the kwargs of the
+            desired waveform function from scipy.signal (which will simply
+            forwarded) the keyword arguments :py:obj:`frequency`
             (for waveforms: 'sawtooth' and 'square') and :py:obj:`phase_shift`
             (for all waveforms) provided.
     """

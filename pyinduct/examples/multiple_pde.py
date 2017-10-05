@@ -1,67 +1,101 @@
-import pyinduct.core as cr
-import pyinduct.placeholder as ph
-import pyinduct.registry as reg
-import pyinduct.shapefunctions as sh
-import pyinduct.simulation as sim
-import pyinduct.trajectory as tr
-import pyinduct.visualization as vis
-import numpy as np
-import pyqtgraph as pg
+r"""
+This example considers the thermal behavior (simulation) of plug flow of an
+incompressible fluid through a pipe from [BacEtAl17]_, which can be described with the
+normed variables/parameters:
 
-v = 10
-c1, c2, c3 = [1, 1, 1]
-l = 5
-T = 5
-spat_domain = sim.Domain(bounds=(0, l), num=51)
-temp_domain = sim.Domain(bounds=(0, T), num=1e2)
+    - :math:`x_1(z,t)` ~ fluid temperature
 
-init_x1 = np.zeros(len(spat_domain))
-init_x2 = np.zeros(len(spat_domain) - 21)
+    - :math:`x_2(z,t)` ~ pipe wall temperature
 
-nodes, init_funcs1 = sh.cure_interval(sh.LagrangeSecondOrder, spat_domain.bounds, node_count=len(init_x1))
-nodes, init_funcs2 = sh.cure_interval(sh.LagrangeFirstOrder, spat_domain.bounds, node_count=len(init_x2))
-reg.register_base("x1_funcs", init_funcs1)
-reg.register_base("x2_funcs", init_funcs2)
+    - :math:`x_3(z,t)=0` ~ ambient temperature
 
-u = sim.SimulationInputSum([
-    tr.SignalGenerator('square', np.array(temp_domain), frequency=.03, scale=2, offset=4, phase_shift=1),
-])
+    - :math:`u(t)` ~ system input
 
-x1 = ph.FieldVariable("x1_funcs")
-psi1 = ph.TestFunction("x1_funcs")
-x2 = ph.FieldVariable("x2_funcs")
-psi2 = ph.TestFunction("x2_funcs")
+    - :math:`H(t)` ~ heaviside step function
 
-weak_form1 = sim.WeakFormulation(
-    [
-        ph.IntegralTerm(ph.Product(x1.derive(temp_order=1), psi1), limits=spat_domain.bounds),
-        ph.IntegralTerm(ph.Product(x1, psi1.derive(1)), limits=spat_domain.bounds, scale=-v),
-        ph.ScalarTerm(ph.Product(x1(l), psi1(l)), scale=v),
-        ph.ScalarTerm(ph.Product(ph.Input(u), psi1(0)), scale=-v),
-        ph.IntegralTerm(ph.Product(x1, psi1), limits=spat_domain.bounds, scale=c1),
-        ph.IntegralTerm(ph.Product(x2, psi1), limits=spat_domain.bounds, scale=-c1),
-    ],
-    dynamic_weights="x1_funcs"
-)
-weak_form2 = sim.WeakFormulation(
-    [
-        ph.IntegralTerm(ph.Product(x2.derive(temp_order=1), psi2), limits=spat_domain.bounds),
-        ph.IntegralTerm(ph.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
-        ph.IntegralTerm(ph.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c3),
-    ],
-    dynamic_weights="x2_funcs"
-)
+    - :math:`v` ~ fluid velocity
 
-cfs1 = sim.parse_weak_formulation(weak_form1)
-cfs2 = sim.parse_weak_formulation(weak_form2)
-state_space = sim.convert_cfs_to_state_space([cfs1, cfs2])
+    - :math:`c_1` ~ heat transfer coefficient (fluid - wall)
 
-t, q1, q2 = sim.simulate_state_space(state_space, np.hstack((init_x1, init_x2)), temp_domain)
-evald1 = sim.evaluate_approximation("x1_funcs", q1, temp_domain, spat_domain, spat_order=0)
-evald2 = sim.evaluate_approximation("x2_funcs", q2, temp_domain, spat_domain, spat_order=0)
+    - :math:`c_2` ~ heat transfer coefficient (wall - ambient)
 
-win1 = vis.PgAnimatedPlot(evald1, labels=dict(left='x_1(z,t)', bottom='z'), title="fluid temperature")
-win2 = vis.PgAnimatedPlot(evald2, labels=dict(left='x_2(z,t)', bottom='z'), title="wall temperature")
-win3 = vis.PgSurfacePlot(evald1, title="fluid temperature")
-win4 = vis.PgSurfacePlot(evald2, title="wall temperature")
-pg.QtGui.QApplication.instance().exec_()
+by the following equations:
+
+.. math::
+    :nowrap:
+
+    \begin{align*}
+        \dot{x}_1(z,t) + v x_1'(z,t) &= c_1(x_2(z,t) - x_1(z,t)), && z\in (0,l] \\
+        \dot{x}_2(z,t) &= c_1(x_1(z,t) - x_2(z,t)) + c_2(x_3(z,t) - x_2(z,t)), && z\in [0,l] \\
+        x_1(z,0) &= 0 \\
+        x_2(z,0) &= 0 \\
+        x_1(0,t) &= u(t) = 2 H(t)
+    \end{align*}
+
+
+.. [BacEtAl17] On thermal modelling of incrompressible pipe flows (Zur thermischen Modellierung inkompressibler Rohrströmungen),
+        Simon Bachler, Johannes Huber and Frank Woittennek, at-Automatisierungstechnik, DE GRUYTER, 2017
+"""
+
+# (sphinx directive) start actual script
+from pyinduct.tests import test_examples
+
+if __name__ == "__main__" or test_examples:
+    import pyinduct as pi
+
+    v = 10
+    c1, c2 = [1, 1]
+    l = 5
+    T = 5
+    spat_domain = pi.Domain(bounds=(0, l), num=51)
+    temp_domain = pi.Domain(bounds=(0, T), num=100)
+
+    _, init_funcs1 = pi.cure_interval(pi.LagrangeSecondOrder,
+                                      spat_domain.bounds,
+                                      node_count=51)
+    _, init_funcs2 = pi.cure_interval(pi.LagrangeFirstOrder,
+                                      spat_domain.bounds,
+                                      node_count=30)
+    pi.register_base("x1_funcs", init_funcs1)
+    pi.register_base("x2_funcs", init_funcs2)
+
+    u = pi.SimulationInputSum([
+        pi.SignalGenerator('square', temp_domain, frequency=.03,
+                           scale=2, offset=4, phase_shift=1),
+    ])
+
+    x1 = pi.FieldVariable("x1_funcs")
+    psi1 = pi.TestFunction("x1_funcs")
+    x2 = pi.FieldVariable("x2_funcs")
+    psi2 = pi.TestFunction("x2_funcs")
+
+    weak_form1 = pi.WeakFormulation(
+        [
+            pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi1), limits=spat_domain.bounds),
+            pi.IntegralTerm(pi.Product(x1, psi1.derive(1)), limits=spat_domain.bounds, scale=-v),
+            pi.ScalarTerm(pi.Product(x1(l), psi1(l)), scale=v),
+            pi.ScalarTerm(pi.Product(pi.Input(u), psi1(0)), scale=-v),
+            pi.IntegralTerm(pi.Product(x1, psi1), limits=spat_domain.bounds, scale=c1),
+            pi.IntegralTerm(pi.Product(x2, psi1), limits=spat_domain.bounds, scale=-c1),
+        ],
+        name="fluid temperature"
+    )
+    weak_form2 = pi.WeakFormulation(
+        [
+            pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2), limits=spat_domain.bounds),
+            pi.IntegralTerm(pi.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
+            pi.IntegralTerm(pi.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c1),
+        ],
+        name="wall temperature"
+    )
+
+    ics = {weak_form1.name: [pi.Function(lambda z: 0)],
+           weak_form2.name: [pi.Function(lambda z: 0)]}
+    spat_domains = {weak_form1.name: spat_domain, weak_form2.name: spat_domain}
+    evald1, evald2 = pi.simulate_systems([weak_form1, weak_form2], ics, temp_domain,
+                                         spat_domains)
+
+    win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'))
+    win3 = pi.PgSurfacePlot(evald1, title=weak_form1.name)
+    win4 = pi.PgSurfacePlot(evald2, title=weak_form2.name)
+    pi.show()

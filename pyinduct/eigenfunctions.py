@@ -95,7 +95,7 @@ class SecondOrderOperator:
                     \bar\beta_0 = \frac{a_1}{a_2} - \frac{\beta_0}{\beta_1} \:.
 
         Return:
-            :py:class:`SecondOrderOperator` : Parameter set describing
+            :py:class:`.SecondOrderOperator` : Parameter set describing
             :math:`A^*` .
         """
         return SecondOrderOperator(a2=self.a2,
@@ -142,9 +142,9 @@ class SecondOrderEigenVector(Function):
 
     Note:
         To easily instantiate a set of eigenvectors for a certain
-        system, use the :py:func:`cure_hint` of this class or even
+        system, use the :py:func:`.cure_hint` of this class or even
         better the helper-function
-        :py:func:`pyinduct.shapefunctions.cure_interval` .
+        :py:func:`.cure_interval` .
 
     Warn:
         Since an eigenvalue corresponds to a pair of conjugate complex
@@ -158,11 +158,11 @@ class SecondOrderEigenVector(Function):
         char_pair (tuple of complex): Characteristic root, corresponding to the
             eigenvalue :math:`\lambda` for which the eigenvector is
             to be determined.
-            (Can be obtained by :py:func:`convert_to_characteristic_root`)
+            (Can be obtained by :py:meth:`.convert_to_characteristic_root`)
         coefficients (tuple): Constants of the exponential ansatz solution.
 
     Returns:
-        :py:class:`SecondOrderEigenvector` : The eigenvector.
+        :py:class:`.SecondOrderEigenVector` : The eigenvector.
     """
 
     def __init__(self, char_pair, coefficients, domain, derivative_order):
@@ -192,24 +192,24 @@ class SecondOrderEigenVector(Function):
         Helper to cure an interval with eigenvectors.
 
         Parameters:
-            domain (:py:class:`core.domain`): Domain of the
+            domain (:py:class:`.Domain`): Domain of the
                 spatial problem.
-            params (:py:class:`SecondOrderOperator`): Parameters of the system,
+            params (:py:class:`.SecondOrderOperator`): Parameters of the system,
                 see :py:func:`__init__` for details on their definition.
                 Long story short, it must contain
                 :math:`a_2, a_1, a_0, \alpha_0, \alpha_1, \beta_0 \text{ and }
                 \beta_1` .
             count (int): Amount of eigenvectors to generate.
             derivative_order (int): Amount of derivative handles to provide.
-            kwargs: will be passed to :py:func:`calculate_eigenvalues`
+            kwargs: will be passed to :py:meth:`.calculate_eigenvalues`
 
         Keyword Arguments:
             debug (bool): If provided, this parameter will cause several debug
                 windows to open.
 
         Returns:
-            tuple of (array, :py:class:`Base`): An array holding the eigenvalues
-            paired with a basis spanned by the eigenvectors.
+            tuple of (array, :py:class:`.Base`): An array holding the
+            eigenvalues paired with a basis spanned by the eigenvectors.
         """
         diff = 1
         while diff > 0:
@@ -250,7 +250,7 @@ class SecondOrderEigenVector(Function):
         defined on *domain* .
 
         Parameters:
-            domain (:py:class:`core.Domain`): Domain of the
+            domain (:py:class:`.Domain`): Domain of the
                 spatial problem.
             params (bunch-like): Parameters of the system, see
                 :py:func:`__init__` for details on their definition.
@@ -335,9 +335,7 @@ class SecondOrderEigenVector(Function):
             If the limit exists it is used to lift poles of the
             function.
             """
-            # TODO add cache for lifted poles to speed up the process
-            # TODO export into own wrapper class
-            # (see LambdifiedSympyExpression)
+            # TODO export into own wrapper class (see LambdifiedSympyExpression)
 
             try:
                 return char_func(_z)
@@ -352,8 +350,8 @@ class SecondOrderEigenVector(Function):
                         return lim_m
                     else:
                         print("Unsteady function")
-                        # gained by dice roll, guaranteed to be fair.
-                        return 5
+                        # chosen by fair dice roll. guaranteed to be random.
+                        return 4
 
         if 0:
             # extract numerator and denominator
@@ -493,7 +491,7 @@ class SecondOrderEigenVector(Function):
         .. math:: \lambda = a_2 p^2 + a_1 p + a_0
 
         Parameters:
-            params (:py:class:`SecondOrderOperator`): System parameters.
+            params (:py:class:`.SecondOrderOperator`): System parameters.
             char_roots (tuple or array of tuples): Characteristic roots
         """
         char_roots = np.atleast_2d(char_roots)
@@ -522,7 +520,7 @@ class SecondOrderEigenVector(Function):
                             - \left(\frac{a_1}{2a_2}\right)^2 }
 
         Parameters:
-            params (bunch): system parameters, see :py:func:`cure_hint` .
+            params (bunch): system parameters, see :py:func:`.cure_hint` .
             eigenvalue (real): eigenvalue :math:`\lambda`
 
         Returns:
@@ -541,16 +539,19 @@ class SecondOrderEigenVector(Function):
 
 
 class LambdifiedSympyExpression(Function):
-    """
-    This class provides a :py:class:`pyinduct.core.Function` :math:`\\varphi(z)` based on a lambdified sympy expression.
-    The sympy expressions for the function and it's spatial derivatives must be provided as the list *sympy_funcs*.
-    The expressions must be provided with increasing derivative order, starting with order 0.
+    r"""
+    This class provides a :py:class:`.Function` :math:`\varphi(z)` based on a
+    lambdified sympy expression. The sympy expressions for the function and it's
+    spatial derivatives must be provided as the list *sympy_funcs*. The
+    expressions must be provided with increasing derivative order, starting with
+    order 0.
 
     Args:
-        sympy_funcs (array_like): Sympy expressions for the function and the derivatives:
-            :math:`\\varphi(z), \\varphi'(z), ...`.
+        sympy_funcs (array_like): Sympy expressions for the function and the
+            derivatives: :math:`\varphi(z), \varphi'(z), ...`.
         spat_symbol: Sympy symbol for the spatial variable :math:`z`.
-        spatial_domain (tuple): Domain on which :math:`\\varphi(z)` is defined (e.g.: :code:`spatial_domain=(0, 1)`).
+        spatial_domain (tuple): Domain on which :math:`\varphi(z)` is defined
+            (e.g.: :code:`spatial_domain=(0, 1)`).
     """
 
     def __init__(self, sympy_funcs, spat_symbol, spatial_domain):
@@ -558,7 +559,8 @@ class LambdifiedSympyExpression(Function):
                        for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord)
                  for der_ord in range(len(sympy_funcs))]
-        super().__init__(funcs[0],
+        Function.__init__(self, funcs[0],
+                         domain=spatial_domain,
                          nonzero=spatial_domain,
                          derivative_handles=funcs[1:])
 
@@ -573,54 +575,62 @@ class LambdifiedSympyExpression(Function):
 
 class SecondOrderEigenfunction(metaclass=ABCMeta):
     # TODO is lambda really element of R in the following docstring?
-    """
+    r"""
     Wrapper for all eigenvalue problems of the form
 
-    .. math:: a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z), \\qquad a_2, a_1, a_0, \\lambda \\in \\mathbb R
+    .. math:: a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) =
+        \lambda\varphi(z), \qquad a_2, a_1, a_0, \lambda \in \mathbb R
 
-    with eigenfunctions :math:`\\varphi` and eigenvalues :math:`\\lambda`.
-    The roots of the characteristic equation (belonging to the ode) are denoted by
+    with eigenfunctions :math:`\varphi` and eigenvalues :math:`\lambda`.
+    The roots of the characteristic equation (belonging to the ode) are denoted
+    by
 
-    .. math:: p = \\eta \\pm j\\omega, \\qquad \\eta \\in \\mathbb R, \\quad \\omega \\in \\mathbb C
+    .. math:: p = \eta \pm j\omega, \qquad \eta \in \mathbb R,
+        \quad \omega \in \mathbb C
 
-    .. math:: \\eta = -\\frac{a_1}{2a_2}, \\quad \\omega = \\sqrt{-\\frac{a_1^2}{4 a_2^2} + \\frac{a_0 - \\lambda}{a_2}}
+    .. math:: \eta = -\frac{a_1}{2a_2}, \quad
+        \omega = \sqrt{-\frac{a_1^2}{4 a_2^2} + \frac{a_0 - \lambda}{a_2}}
 
-    In the following the variable :math:`\\omega` is called an eigenfrequency.
+    In the following the variable :math:`\omega` is called an eigenfrequency.
     """
 
     @abstractstaticmethod
     def eigfreq_eigval_hint(param, l, n_roots):
-        """
+        r"""
         Args:
             param (array_like): Parameters :math:`(a_2, a_1, a_0, None, None)`.
-            l: End of the domain :math:`z\\in[0, 1]`.
+            l: End of the domain :math:`z\in[0, 1]`.
             n_roots (int): Number of eigenfrequencies/eigenvalues to be compute.
 
         Returns:
-            tuple: Booth tuple elements are numpy.ndarrays of the same length, one for eigenfrequencies and one for eigenvalues.
+            tuple: Booth tuple elements are numpy.ndarrays of the same length,
+            one for eigenfrequencies and one for eigenvalues.
 
-                :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
+            .. math:: \Big(\big[\omega_1,...,\omega_\text{n\_roots}\Big],
+                \Big[\lambda_1,...,\lambda_\text{n\_roots}\big]\Big)
         """
 
     @staticmethod
     def eigval_tf_eigfreq(param, eig_val=None, eig_freq=None):
-        """
-        Provide corresponding of eigenvalues/eigenfrequencies for given eigenfreqeuncies/eigenvalues, depending on which
+        r"""
+        Provide corresponding of eigenvalues/eigenfrequencies for given
+        eigenfreqeuncies/eigenvalues, depending on which
         type is given.
 
-        .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
+        .. math:: \omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}
 
         respectively
 
-        .. math:: \\lambda = -\\frac{a_1^2}{4a_2}+a_0 - a_2 \\omega.
+        .. math:: \lambda = -\frac{a_1^2}{4a_2}+a_0 - a_2 \omega.
 
         Args:
             param (array_like): Parameters :math:`(a_2, a_1, a_0, None, None)`.
-            eig_val (array_like): Eigenvalues :math:`\\lambda`.
-            eig_freq (array_like): Eigenfrequencies :math:`\\omega`.
+            eig_val (array_like): Eigenvalues :math:`\lambda`.
+            eig_freq (array_like): Eigenfrequencies :math:`\omega`.
 
         Returns:
-            numpy.array: Eigenfrequencies :math:`\\omega` or eigenvalues :math:`\\lambda`.
+            numpy.array: Eigenfrequencies :math:`\omega` or eigenvalues
+            :math:`\lambda`.
         """
         a2, a1, a0, _, _ = param
 
@@ -637,39 +647,44 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
 
     @staticmethod
     def get_adjoint_problem(param):
-        """
-        Return the parameters of the adjoint eigenvalue problem for the given parameter set.
-        Hereby, dirichlet or robin boundary condition at :math:`z=0`
+        r"""
+        Return the parameters of the adjoint eigenvalue problem for the given
+        parameter set. Hereby, dirichlet or robin boundary condition at
+        :math:`z=0`
 
-        .. math:: \\varphi(0) = 0 \\quad &\\text{or} \\quad \\varphi'(0) = \\alpha\\varphi(0)
+        .. math:: \varphi(0) = 0 \quad &\text{or} \quad
+            \varphi'(0) = \alpha\varphi(0)
 
         and dirichlet or robin boundary condition at :math:`z=l`
 
-        .. math:: \\varphi`(l) = 0 \\quad &\\text{or} \\quad \\varphi'(l) = -\\beta\\varphi(l)
+        .. math:: \varphi`(l) = 0 \quad &\text{or} \quad
+            \varphi'(l) = -\beta\varphi(l)
 
         can be imposed.
 
         Args:
-            param (array_like): To define a homogeneous dirichlet boundary condition set alpha or beta to `None` at the
-                corresponding side. Possibilities: \n
-                - :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`,
-                - :math:`\\Big( a_2, a_1, a_0, None, \\beta \\Big)^T`,
-                - :math:`\\Big( a_2, a_1, a_0, \\alpha, None \\Big)^T` or
-                - :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`.
+            param (array_like): To define a homogeneous dirichlet boundary
+                condition set alpha or beta to `None` at the corresponding side.
+                Possibilities:
+
+                - :math:`\Big( a_2, a_1, a_0, \alpha, \beta \Big)^T`,
+                - :math:`\Big( a_2, a_1, a_0, None, \beta \Big)^T`,
+                - :math:`\Big( a_2, a_1, a_0, \alpha, None \Big)^T` or
+                - :math:`\Big( a_2, a_1, a_0, None, None \Big)^T`.
 
         Return:
             tuple:
-                Parameters :math:`\\big(a_2, \\tilde a_1, a_0, \\tilde \\alpha, \\tilde \\beta \\big)` for
-                the adjoint problem
+            Parameters :math:`\big(a_2, \tilde a_1, a_0, \tilde \alpha, \tilde \beta \big)` for
+            the adjoint problem
 
-                .. math::
-                    a_2\\psi''(z) + \\tilde a_1&\\psi'(z) + a_0\\psi(z) = \\lambda\\psi(z) \\\\
-                    \\psi(0) = 0 \\quad &\\text{or} \\quad \\psi'(0) = \\tilde\\alpha\\psi(0) \\\\
-                    \\psi`(l) = 0 \\quad &\\text{or} \\quad \\psi'(l) = -\\tilde\\beta\\psi(l)
+            .. math::
+                a_2\psi''(z) + \tilde a_1&\psi'(z) + a_0\psi(z) = \lambda\psi(z) \\
+                \psi(0) = 0 \quad &\text{or} \quad \psi'(0) = \tilde\alpha\psi(0) \\
+                \psi`(l) = 0 \quad &\text{or} \quad \psi'(l) = -\tilde\beta\psi(l)
 
-                with
+            with
 
-                .. math:: \\tilde a_1 = -a_1, \\quad \\tilde\\alpha = \\frac{a_1}{a_2}\\alpha, \\quad \\tilde\\beta = -\\frac{a_1}{a_2}\\beta.
+            .. math:: \tilde a_1 = -a_1, \quad \tilde\alpha = \frac{a_1}{a_2}\alpha, \quad \tilde\beta = -\frac{a_1}{a_2}\beta.
         """
         a2, a1, a0, alpha, beta = param
 
@@ -689,31 +704,40 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
     @classmethod
     def solve_evp_hint(evp_class, param, l, n=None, eig_val=None, eig_freq=None, max_order=2, scale=None):
         """
-        Provide the first *n* eigenvalues and eigenfunctions (wraped inside a pyinduct base).
-        For the exact formulation of the considered eigenvalue problem, have a look at the
-        docstring from the eigenfunction class from which you will call this method.
+        Provide the first *n* eigenvalues and eigenfunctions (wraped inside a
+        pyinduct base). For the exact formulation of the considered eigenvalue
+        problem, have a look at the docstring from the eigenfunction class from
+        which you will call this method.
 
-        You must call this *classmethod* with one and only one of the kwargs: \n
-            - *n* (*eig_val* and *eig_freq* will be computed with the :py:func:`eigfreq_eigval_hint`)
-            - *eig_val* (*eig_freq* will be calculated with :py:func:`eigval_tf_eigfreq`)
-            - *eig_freq* (*eig_val* will be calculated with :py:func:`eigval_tf_eigfreq`),\n
+        You must call this *classmethod* with one and only one of the kwargs:
+
+            - *n* (*eig_val* and *eig_freq* will be computed with the
+              :py:meth:`.eigfreq_eigval_hint`)
+            - *eig_val* (*eig_freq* will be calculated with
+              :py:meth:`.eigval_tf_eigfreq`)
+            - *eig_freq* (*eig_val* will be calculated with
+              :py:meth:`.eigval_tf_eigfreq`),\n
         or (and) pass the kwarg scale (then n is set to len(scale)).
-        If you have the kwargs *eig_val* and *eig_freq* already calculated then these are preferable,
-        in the sense of performance.
+        If you have the kwargs *eig_val* and *eig_freq* already calculated then
+        these are preferable, in the sense of performance.
 
 
         Args:
-            param: Parameters :math:`(a_2, a_1, a_0, ...)` see *evp_class.__doc__*.
+            param: Parameters :math:`(a_2, a_1, a_0, ...)` see
+                *evp_class.__doc__*.
             l: End of the eigenfunction domain (start is 0).
             n: Number of eigenvalues/eigenfunctions to compute.
-            eig_freq (array_like): Pass your own choice of eigenfrequencies here.
+            eig_freq (array_like): Pass your own choice of eigenfrequencies
+                here.
             eig_val (array_like): Pass your own choice of eigenvalues here.
-            max_order: Maximum derivative order which must provided by the eigenfunctions.
-            scale (array_like): Here you can pass a list of values to scale the eigenfunctions.
+            max_order: Maximum derivative order which must provided by the
+                eigenfunctions.
+            scale (array_like): Here you can pass a list of values to scale the
+                eigenfunctions.
 
         Returns:
             Tuple with one list for the eigenvalues and one base which fractions are the
-                eigenfunctions.
+            eigenfunctions.
         """
         if np.sum([1 for arg in [n, eig_val, eig_freq] if arg is not None]) != 1 and scale is None:
             raise ValueError("You must pass one and only one of the kwargs:\n"
@@ -747,24 +771,26 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
 
 
 class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEigenfunction):
-    """
-    This class provides an eigenfunction :math:`\\varphi(z)` to eigenvalue problems of the form
+    r"""
+    This class provides an eigenfunction :math:`\varphi(z)` to eigenvalue
+    problems of the form
 
     .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi(0) &= 0 \\\\
-        \\varphi(l) &= 0.
+        a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) = \lambda\varphi(z) \\
+        \varphi(0) &= 0 \\
+        \varphi(l) &= 0.
 
     The eigenfrequency
 
-    .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
+    .. math:: \omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}
 
-    must be provided (for example with the :py:func:`eigfreq_eigval_hint` of this class).
+    must be provided (for example with the :py:meth:`.eigfreq_eigval_hint`
+    of this class).
 
     Args:
-        om (numbers.Number): eigenfrequency :math:`\\omega`
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
-        l (numbers.Number): End of the domain :math:`z\\in [0,l]`.
+        om (numbers.Number): eigenfrequency :math:`\omega`
+        param (array_like): :math:`\Big( a_2, a_1, a_0, None, None \Big)^T`
+        l (numbers.Number): End of the domain :math:`z\in [0,l]`.
         scale (numbers.Number): Factor to scale the eigenfunctions.
         max_der_order (int): Number of derivative handles that are needed.
     """
@@ -788,21 +814,26 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
 
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots):
-        """
-        Return the first *n_roots* eigenfrequencies :math:`\\omega` and eigenvalues :math:`\\lambda`.
+        r"""
+        Return the first *n_roots* eigenfrequencies :math:`\omega` and
+        eigenvalues :math:`\lambda`.
 
-        .. math:: \\omega_i = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda_i}{a_2}} \\quad i = 1,...,\\text{n\\_roots}
+        .. math:: \omega_i = \sqrt{-\frac{a_1^2}{4a_2^2}+
+            \frac{a_0-\lambda_i}{a_2}} \quad i = 1,...,\text{n\_roots}
 
         to the considered eigenvalue problem.
 
         Args:
-            param (array_like): :math:`\\Big( a_2, a_1, a_0, None, None \\Big)^T`
-            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\\ni z`.
+            param (array_like): :math:`\Big( a_2, a_1, a_0, None, None \Big)^T`
+            l (numbers.Number): Right boundary value of the domain
+                :math:`[0,l]\ni z`.
             n_roots (int): Amount of eigenfrequencies to be compute.
 
         Return:
-            tuple --> booth tuple elements are numpy.ndarrays of length *n_roots*:
-                :math:`\\Big(\\big[\\omega_1,...,\\omega_\\text{n\\_roots}\Big], \\Big[\\lambda_1,...,\\lambda_\\text{n\\_roots}\\big]\\Big)`
+            tuple --> two numpy.ndarrays of length *n_roots*:
+
+            .. math:: \Big(\big[\omega_1,...,\omega_\text{n\_roots}\Big],
+                \Big[\lambda_1,...,\lambda_\text{n\_roots}\big]\Big)
         """
         a2, a1, a0, _, _ = param
         eig_frequencies = np.array([i * np.pi / l for i in np.arange(1, n_roots + 1)])
@@ -812,25 +843,28 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
 
 
 class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
-    """
-    This class provides an eigenfunction :math:`\\varphi(z)` to the eigenvalue problem given by
+    r"""
+    This class provides an eigenfunction :math:`\varphi(z)` to the eigenvalue
+    problem given by
 
     .. math::
-        a_2\\varphi''(z) + a_1&\\varphi'(z) + a_0\\varphi(z) = \\lambda\\varphi(z) \\\\
-        \\varphi'(0) &= \\alpha \\varphi(0) \\\\
-        \\varphi'(l) &= -\\beta \\varphi(l).
+        a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) = \lambda\varphi(z) \\
+        \varphi'(0) &= \alpha \varphi(0) \\
+        \varphi'(l) &= -\beta \varphi(l).
 
     The eigenfrequency
 
-    .. math:: \\omega = \\sqrt{-\\frac{a_1^2}{4a_2^2}+\\frac{a_0-\\lambda}{a_2}}
+    .. math:: \omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}
 
-    must be provided (for example with the :py:func:`eigfreq_eigval_hint` of this class).
+    must be provided (for example with the :py:meth:`.eigfreq_eigval_hint` of
+    this class).
 
     Args:
-        om (numbers.Number): eigenfrequency :math:`\\omega`
-        param (array_like): :math:`\\Big( a_2, a_1, a_0, \\alpha, \\beta \\Big)^T`
-        l (numbers.Number): End of the domain :math:`z\\in [0,l]`.
-        scale (numbers.Number): Factor to scale the eigenfunctions (corresponds to :math:`\\varphi(0)=\\text{phi\\_0}`).
+        om (numbers.Number): eigenfrequency :math:`\omega`
+        param (array_like): :math:`\Big( a_2, a_1, a_0, \alpha, \beta \Big)^T`
+        l (numbers.Number): End of the domain :math:`z\in [0,l]`.
+        scale (numbers.Number): Factor to scale the eigenfunctions (corresponds
+            to :math:`\varphi(0)=\text{phi\_0}`).
         max_der_order (int): Number of derivative handles that are needed.
     """
 
@@ -866,11 +900,11 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         zero_limit_sp_funcs = [sp.limit(sp_func, omega, 0)
                                for sp_func in sp_funcs]
         self._zero_limit_funcs = LambdifiedSympyExpression(
-            zero_limit_sp_funcs, z, (0, 1))
+            zero_limit_sp_funcs, z, (0, l))
 
         funcs = [self._eig_func_factory(der_ord)
                  for der_ord in range(max_der_order + 1)]
-        Function.__init__(self, funcs[0], domain=(0, l),
+        Function.__init__(self, funcs[0], domain=(0, l), nonzero=(0, l),
                           derivative_handles=funcs[1:])
 
     def _eig_func_factory(self, der_order):
@@ -890,7 +924,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
         r"""
-        Return the first *n_roots* eigenfrequencies :math:`\omega` and eigenvalues :math:`\lambda`.
+        Return the first *n_roots* eigenfrequencies :math:`\omega` and
+        eigenvalues :math:`\lambda`.
 
         .. math:: \omega_i = \sqrt{
             - \frac{a_1^2}{4a_2^2}
@@ -900,8 +935,10 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         to the considered eigenvalue problem.
 
         Args:
-            param (array_like): :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
-            l (numbers.Number): Right boundary value of the domain :math:`[0,l]\ni z`.
+            param (array_like): Parameters
+                :math:`\big( a_2, a_1, a_0, \alpha, \beta \big)^T`
+            l (numbers.Number): Right boundary value of the domain
+                :math:`[0,l]\ni z`.
             n_roots (int): Amount of eigenfrequencies to compute.
             show_plot (bool): Show a plot window of the characteristic equation.
 
@@ -933,20 +970,8 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                         + ((eta + beta) * (alpha - eta) / omega
                            - omega) * np.sin(omega * l))
 
-        if show_plot:
-            z_real = np.linspace(-15, 15)
-            z_imag = np.linspace(-5, 5)
-            vec_function = np.vectorize(characteristic_equation)
-            plt.plot(z_real, np.real(vec_function(z_real)))
-            plt.plot(z_real, np.imag(vec_function(z_real)))
-            plt.plot(z_imag, np.real(vec_function(z_imag * 1j)))
-            plt.plot(z_imag, np.imag(vec_function(z_imag * 1j)))
-            plt.plot(z_real, np.real(char_eq(z_real)))
-            plt.plot(z_real, np.imag(char_eq(z_real)))
-            plt.show()
-
         # assume 1 root per pi/l (safety factor = 3)
-        search_begin = np.pi / l * .1
+        search_begin = 0
         search_end = 3 * n_roots * np.pi / l
         start_values_real = np.linspace(search_begin,
                                         search_end,
@@ -955,17 +980,30 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                                         search_end,
                                         search_end / np.pi * l * 20)
 
+        if show_plot:
+            vec_function = np.vectorize(characteristic_equation)
+            plt.plot(start_values_real,
+                     np.real(vec_function(start_values_real)))
+            plt.plot(start_values_real,
+                     np.imag(vec_function(start_values_real)))
+            plt.show()
+            plt.plot(start_values_imag * 1j,
+                     np.real(vec_function(start_values_imag * 1j)))
+            plt.plot(start_values_imag * 1j,
+                     np.imag(vec_function(start_values_imag * 1j)))
+            plt.show()
+
         # search imaginary roots
         try:
             om = list(find_roots(characteristic_equation,
                                  [np.array([0]), start_values_imag],
-                                 rtol=1e-3*l, cmplx=True))
+                                 rtol=1e-3 / l, cmplx=True))
         except ValueError:
             om = list()
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
-                         2 * n_roots, rtol=1e-3*l,
+                         2 * n_roots, rtol=1e-3 / l,
                          cmplx=False).tolist()
 
         # only "real" roots and complex roots with imaginary part != 0
@@ -988,10 +1026,7 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
               if root.real >= 0 and np.isclose(root.imag, 0)]
 
         # delete all around om = 0
-        for i in [ind for ind, val in enumerate(np.isclose(np.array(om),
-                                                           0,
-                                                           atol=1e-4)) if val]:
-            om.pop(i)
+        om = [val for val in om if not np.isclose(val * l, 0, atol= 1e-4)]
 
         # if om = 0 is a root and the corresponding characteristic equation
         # is satisfied then add 0 to the list
@@ -1031,7 +1066,7 @@ class TransformedSecondOrderEigenfunction(Function):
                 \text{Im}\{\varphi(0)\}, \text{Im}\{\varphi'(0)\}\Big)^T
         dgl_coefficients (array_like): Function handles
             :math:`\Big( a2(z), a1(z), a0(z) \Big)^T` .
-        domain (:py:class:`pyinduct.core.Domain`): Spatial domain of the
+        domain (:py:class:`.Domain`): Spatial domain of the
             problem.
     """
 
@@ -1106,10 +1141,11 @@ class TransformedSecondOrderEigenfunction(Function):
 
 class AddMulFunction(object):
     """
-    (Temporary) Function class which can multiplied with scalars and added with functions.
-    Only needed to compute the matrix (of scalars) vector (of functions) product in
-    :py:class:`FiniteTransformFunction`. Will be no longer needed when :py:class:`pyinduct.core.Function`
-    is overloaded with :code:`__add__` and :code:`__mul__` operator.
+    (Temporary) Function class which can multiplied with scalars and added with
+    functions. Only needed to compute the matrix (of scalars) vector
+    (of functions) product in :py:class:`.FiniteTransformFunction`. Will be no
+    longer needed when :py:class:`.Function` is overloaded with
+    :code:`__add__` and :code:`__mul__` operator.
 
     Args:
         function (callable):
@@ -1129,46 +1165,55 @@ class AddMulFunction(object):
 
 
 class FiniteTransformFunction(Function):
-    """
-    This class provides a transformed :py:class:`pyinduct.core.Function` :math:`\\bar x(z)` through the transformation
-    :math:`\\bar{\\boldsymbol{\\xi}} = T * \\boldsymbol \\xi`,
-    with the function vector :math:`\\boldsymbol \\xi\\in\\mathbb R^{2n}` and
-    with a given matrix :math:`T\\in\\mathbb R^{2n\\times 2n}`.
-    The operator :math:`*` denotes the matrix (of scalars) vector (of functions)
-    product. The interim result :math:`\\bar{\\boldsymbol{\\xi}}` is a vector
+    r"""
+    This class provides a transformed :py:class:`.Function` :math:`\bar x(z)`
+    through the transformation
+    :math:`\bar{\boldsymbol{\xi}} = T * \boldsymbol \xi`, with the function
+    vector :math:`\boldsymbol \xi\in\mathbb R^{2n}` and with a given matrix
+    :math:`T\in\mathbb R^{2n\times 2n}`. The operator :math:`*` denotes the
+    matrix (of scalars) vector (of functions) product. The interim result
+    :math:`\bar{\boldsymbol{\xi}}` is a vector
 
-    .. math:: \\bar{\\boldsymbol{\\xi}} = (\\bar\\xi_{1,0},...,\\bar\\xi_{1,n-1},\\bar\\xi_{2,0},...,\\bar\\xi_{2,n-1})^T.
+    .. math:: \bar{\boldsymbol{\xi}} = (\bar\xi_{1,0},...,\bar\xi_{1,n-1},
+        \bar\xi_{2,0},...,\bar\xi_{2,n-1})^T.
 
     of functions
 
     .. math::
-        &\\bar\\xi_{1,j} = \\bar x(jl_0 + z),\\qquad j=0,...,n-1, \\quad l_0=l/n, \\quad z\\in[0,l_0] \\\\
-        &\\bar\\xi_{2,j} = \\bar x(l - jl_0 + z).
+        &\bar\xi_{1,j} = \bar x(jl_0 + z),
+        \qquad j=0,...,n-1, \quad l_0=l/n, \quad z\in[0,l_0] \\
+        &\bar\xi_{2,j} = \bar x(l - jl_0 + z).
 
-    Finally, the provided function :math:`\\bar x(z)` is given through :math:`\\bar\\xi_{1,0},...,\\bar\\xi_{1,n-1}`.
+    Finally, the provided function :math:`\bar x(z)` is given through
+    :math:`\bar\xi_{1,0},...,\bar\xi_{1,n-1}`.
 
     Note:
         For a more extensive documentation see section 4.2 in:
 
-        - Wang, S. und F. Woittennek: Backstepping-Methode für parabolische Systeme mit punktförmigem inneren
-          Eingriff. Automatisierungstechnik, 2015.
-
+        - Wang, S. und F. Woittennek: Backstepping-Methode für parabolische
+          Systeme mit punktförmigem inneren Eingriff. Automatisierungstechnik,
+          2015.
           http://dx.doi.org/10.1515/auto-2015-0023
 
     Args:
         function (callable):
-            Function :math:`x(z)` that will act as start for the generation of :math:`2n` Functions :math:`\\xi_{i,j}`
+            Function :math:`x(z)` that will act as start for the generation of
+            :math:`2n` Functions :math:`\xi_{i,j}`
 
             .. math::
-                &\\bar\\xi_{1,j} = x(z + jl_0),\\qquad j=0,...,n-1, \\quad l_0=l/n, \\quad z\\in[0,l_0] \\\\
-                &\\bar\\xi_{2,j} = x(z + l - jl_0 ).
+                &\bar\xi_{1,j} = x(z + jl_0),
+                \qquad j=0,...,n-1, \quad l_0=l/n, \quad z\in[0,l_0] \\
+                &\bar\xi_{2,j} = x(z + l - jl_0 ).
 
-            The vector of functions :math:`\\boldsymbol\\xi` will then be constituted as follows:
+            The vector of functions :math:`\boldsymbol\xi` will then be
+            constituted as follows:
 
-            .. math:: \\boldsymbol\\xi = (\\xi_{1,0},...,\\xi_{1,n-1},\\xi_{2,0},...,\\xi_{2,n-1})^T .
+            .. math:: \boldsymbol\xi = (\xi_{1,0},...,\xi_{1,n-1},
+                \xi_{2,0},...,\xi_{2,n-1})^T .
 
-        M (numpy.ndarray): Matrix :math:`T\\in\\mathbb R^{2n\\times 2n}` of scalars.
-        l (numbers.Number): Length of the domain (:math:`z\\in [0,l]`).
+        M (numpy.ndarray): Matrix :math:`T\in\mathbb R^{2n\times 2n}` of
+            scalars.
+        l (numbers.Number): Length of the domain (:math:`z\in [0,l]`).
     """
 
     def __init__(self, function, M, l, scale_func=None, nested_lambda=False):
