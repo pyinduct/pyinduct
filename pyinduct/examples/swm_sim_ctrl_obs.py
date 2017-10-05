@@ -27,6 +27,7 @@ the implementation in the functions :py:func:`build_control_law` and :py:func:`b
 import pyinduct as pi
 import pyinduct.control as ct
 from pyinduct.parabolic.control import scale_equation_term_list
+from pyinduct.hyperbolic.feedforward import FlatString
 import numpy as np
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
@@ -453,11 +454,11 @@ if __name__ == "__main__":
         smooth_transition = pi.SmoothTransition((0, 1), (2, 4), method="poly", differential_order=2)
         closed_loop_traj = SecondOrderFeedForward(smooth_transition, params)
         # controller
-        ctrl = build_controller(sys_ctrl_lbl, params)
+        ctrl = build_controller(sys_lbl, params)
         u = pi.SimulationInputSum([closed_loop_traj, ctrl])
     else:
         # trajectory for the original input (open_loop_traj)
-        open_loop_traj = pi.FlatString(y0=0, y1=1, z0=spat_domain.bounds[0], z1=spat_domain.bounds[1],
+        open_loop_traj = FlatString(y0=0, y1=1, z0=spat_domain.bounds[0], z1=spat_domain.bounds[1],
                                        t0=1, dt=3, params=params)
         # u = pi.SimulationInputSum([open_loop_traj])
         u = pi.SimulationInputSum([pi.ConstantTrajectory(0)])

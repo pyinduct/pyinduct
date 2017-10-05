@@ -31,7 +31,7 @@ __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
            "get_sim_result", "evaluate_approximation",
            "parse_weak_formulations",
            "get_sim_results", "set_dominant_labels", "CanonicalEquation",
-           "CanonicalForm"]
+           "CanonicalForm", "SimulationInputVector"]
 
 
 class SimulationInput(object, metaclass=ABCMeta):
@@ -527,7 +527,7 @@ class CanonicalForm(object):
 
         type_group = self.matrices.get(term["name"], {})
         derivative_group = type_group.get(term["order"], {})
-        target_matrix = derivative_group.get(term["exponent"], np.zeros_like(value))
+        target_matrix = derivative_group.get(term["exponent"], np.zeros_like(value)).astype(complex)
 
         if target_matrix.shape != value.shape and column is None:
             raise ValueError("{0}{1}{2} was already initialized with dimensions {3} but value to add has "
@@ -537,7 +537,7 @@ class CanonicalForm(object):
         if column is not None:
             # check whether the dimensions fit or if the matrix has to be extended
             if column >= target_matrix.shape[1]:
-                new_target_matrix = np.zeros((target_matrix.shape[0], column + 1))
+                new_target_matrix = np.zeros((target_matrix.shape[0], column + 1)).astype(complex)
                 new_target_matrix[:target_matrix.shape[0], :target_matrix.shape[1]] = target_matrix
                 target_matrix = new_target_matrix
 
@@ -546,7 +546,7 @@ class CanonicalForm(object):
             target_matrix += value
 
         # store changes
-        derivative_group[term["exponent"]] = target_matrix
+        derivative_group[term["exponent"]] = np.real_if_close(target_matrix)
         type_group[term["order"]] = derivative_group
         self.matrices[term["name"]] = type_group
 

@@ -15,13 +15,12 @@ from scipy.interpolate import interp1d
 
 from .registry import get_base
 
-__all__ = ["Domain", "EvalData", "Parameters",
-           "find_roots", "sanitize_input", "real",
-           "Base", "BaseFraction", "StackedBase",
-           "Function", "ComposedFunctionVector",
-           "normalize_base",
-           "project_on_base", "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
+__all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
+           "real", "Base", "BaseFraction", "StackedBase", "Function",
+           "ComposedFunctionVector", "normalize_base", "project_on_base",
+           "change_projection_base", "project_on_bases",
+           "back_project_from_base", "calculate_scalar_product_matrix",
+           "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix", "dot_product_l2",
            "generic_scalar_product"]
 
@@ -1210,18 +1209,20 @@ def get_weight_transformation(info):
         handle, hint = info.src_base.transformation_hint(info)
 
     if handle is None:
-        raise TypeError(("get_weight_transformation():, \n"
-                         + "You requested information about how to transform to '{1}'({2}) from '{4}'({5}), \n"
-                         + "furthermore the source derivative order is {3} and the target one is {6}. \n"
-                         + "No transformation could be found, remember to implement your own 'transformation_hint'"
-                         + "method for non-standard bases.").format(
-            info.dst_lbl,
-            info.dst_base.__class__.__name__,
-            info.dst_order,
-            info.src_lbl,
-            info.src_base.__class__.__name__,
-            info.src_order,
-        ))
+        raise TypeError(
+            ("get_weight_transformation(): \n"
+             "You requested information about how to transform to '{0}'({1}) \n"
+             "from '{3}'({4}), furthermore the source derivative order is \n"
+             "{2} and the target one is {5}. No transformation could be \n"
+             "found, remember to implement your own 'transformation_hint' \n"
+             "method for non-standard bases.").format(
+                info.dst_lbl,
+                info.dst_base.__class__.__name__,
+                info.dst_order,
+                info.src_lbl,
+                info.src_base.__class__.__name__,
+                info.src_order,
+            ))
 
     # check termination criterion
     if hint is None:
