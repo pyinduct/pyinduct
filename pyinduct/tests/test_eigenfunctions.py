@@ -348,6 +348,7 @@ class TestEigenvalues(unittest.TestCase):
 
     def test_robin(self):
         param_desired_ef_pairs = [
+            ([.5, 0, 6, -1, -1], [1.543405j, 2.331122, 5.950173, 9.208434]),
             ([1, 0, 1, -2, -2], [2.39935728j, 0, 5.59677209, 8.98681892]),
             ([1, 0, 1, 0, 0], [0j, 3.14159265, 6.28318531, 9.42477796]),
             ([1, 2, 1, 3, 4], [2.06301691, 4.46395118, 7.18653501, 10.09113552]),
@@ -356,7 +357,7 @@ class TestEigenvalues(unittest.TestCase):
         for param, desired_eig_freq in param_desired_ef_pairs:
             eig_freq, _ = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
                 param, 1, 4, show_plot=False)
-            self.assertTrue(all(np.isclose(eig_freq, desired_eig_freq)))
+            np.testing.assert_array_almost_equal(eig_freq, desired_eig_freq)
 
 
 class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
