@@ -574,6 +574,9 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
 
 class FindRootsTestCase(unittest.TestCase):
     def setUp(self):
+        def _no_roots(omega):
+            return 2 + np.sin(np.abs(omega))
+
         def _frequent_equation(omega):
             return np.cos(10 * omega)
 
@@ -591,6 +594,7 @@ class FindRootsTestCase(unittest.TestCase):
                 return 0
             return lamda**5 - 1
 
+        self.no_roots = _no_roots
         self.frequent_eq = _frequent_equation
         self.char_eq = _char_equation
         self.univariate_eq = _univariate_equation
@@ -600,6 +604,12 @@ class FindRootsTestCase(unittest.TestCase):
         self.small_grid = np.arange(0, 1, 1)
         self.grid = np.arange(0, 50, 1)
         self.rtol = .1
+
+    def test_no_roots(self):
+        roots = pi.find_roots(function=self.no_roots,
+                              grid=self.grid, cmplx=False)
+        roots = pi.find_roots(function=self.no_roots,
+                              grid=[self.grid, self.grid], cmplx=True)
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
