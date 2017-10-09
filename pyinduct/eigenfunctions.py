@@ -993,13 +993,21 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
                      np.imag(vec_function(start_values_imag * 1j)))
             plt.show()
 
-        # search imaginary roots
+        # search around 0+0j
         try:
             om = list(find_roots(characteristic_equation,
-                                 [np.array([0]), start_values_imag],
+                                 [np.zeros(1), start_values_imag[0]],
+                                 rtol=1e-3 / l, cmplx=True))
+        except FloatingPointError:
+            om = list()
+
+        # search imaginary roots
+        try:
+            om += list(find_roots(characteristic_equation,
+                                 [np.zeros(1), start_values_imag[1:]],
                                  rtol=1e-3 / l, cmplx=True))
         except ValueError:
-            om = list()
+            pass
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
