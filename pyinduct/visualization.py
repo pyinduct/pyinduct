@@ -427,9 +427,8 @@ class PgSurfacePlot(PgDataPlot):
                                                  colors=mapped_colors)
 
             plot_item.scale(*self.scales)
-            plot_item.translate(*[
-                np.sign(self.extrema[0][i])*self.extrema[0][i]*self.scales[i]
-                for i in range(3)])
+            plot_item.translate(*[-self.extrema[0][i]*self.scales[i]
+                                  for i in range(3)])
             self.gl_widget.addItem(plot_item)
             self.plot_items.append(plot_item)
 
