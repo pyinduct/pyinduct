@@ -59,9 +59,6 @@ class FiniteTransformTest(unittest.TestCase):
         self.assertAlmostEqual(b, l)
         self.assertTrue(all(np.isclose(b_mat, np.diag(np.ones(b_mat.shape[0]))).all(1)))
 
-        a_mat = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
-        # TODO add test here
-
     def test_paper_example(self):
         l = 5
         k = 5
