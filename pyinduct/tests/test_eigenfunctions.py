@@ -48,13 +48,13 @@ class FiniteTransformTest(unittest.TestCase):
     def test_trivial(self):
         l = 5
         k = 5
-        b_desired = 0
-        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+
+        k1, k2, b = parabolic.control.split_domain(k, 0, l, mode='coprime')[0:3]
         a_mat = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
         self.assertAlmostEqual(b, 0)
         self.assertTrue(all(np.isclose(a_mat, np.linalg.inv(a_mat)).all(1)))
-        b_desired = l
-        k1, k2, b = parabolic.control.split_domain(k, b_desired, l, mode='coprime')[0:3]
+
+        k1, k2, b = parabolic.control.split_domain(k, l, l, mode='coprime')[0:3]
         b_mat = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
         self.assertAlmostEqual(b, l)
         self.assertTrue(all(np.isclose(b_mat, np.diag(np.ones(b_mat.shape[0]))).all(1)))
