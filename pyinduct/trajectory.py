@@ -23,8 +23,6 @@ __all__ = ["ConstantTrajectory", "InterpolationTrajectory",
            "coefficient_recursion"]
 
 # TODO move this to a more feasible location
-sigma_tanh = 1.1
-K_tanh = 2.
 
 
 class ConstantTrajectory(SimulationInput):
@@ -52,9 +50,9 @@ class SmoothTransition:
     r"""
     A smooth transition between two given steady-states *states* on an
     *interval* using either:
-    
+
         - polynomial method
-    
+
         - trigonometric method
 
     To create smooth transitions.
@@ -113,9 +111,9 @@ class SmoothTransition:
 
         Return:
             numpy.ndarray:
-            
+
                 .. math::
-                    
+
                     \boldsymbol{y}_d = \left(y_d, \dot{y}_d, \ddot{y}_d,
                     \dotsc, y_d^{(\gamma)}\right)
         """
@@ -137,7 +135,7 @@ class SmoothTransition:
 
 
 # TODO: kwarg: t_step
-def gevrey_tanh(T, n, sigma=sigma_tanh, K=K_tanh):
+def gevrey_tanh(T, n, sigma=1.1, K=2):
     r"""
     Provide Gevrey function
 

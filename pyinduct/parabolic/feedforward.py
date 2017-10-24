@@ -2,8 +2,8 @@ import numpy as np
 
 from .general import eliminate_advection_term
 from ..trajectory import (
-    InterpolationTrajectory, gevrey_tanh, SecondOrderOperator, sigma_tanh,
-    K_tanh, power_series_flat_out)
+    InterpolationTrajectory, gevrey_tanh, SecondOrderOperator,
+    power_series_flat_out)
 
 __all__ = ["RadFeedForward"]
 
@@ -58,9 +58,8 @@ class RadFeedForward(InterpolationTrajectory):
 
     """
 
-    # TODO: kwarg: t_step
     def __init__(self, l, T, param_original, bound_cond_type, actuation_type,
-                 n=80, sigma=sigma_tanh, k=K_tanh, y_start=0, y_end=1,
+                 n=80, sigma=None, k=None, y_start=0, y_end=1,
                  **kwargs):
 
         cases = {"dirichlet", "robin"}
@@ -76,11 +75,12 @@ class RadFeedForward(InterpolationTrajectory):
         self._bound_cond_type = bound_cond_type
         self._actuation_type = actuation_type
         self._n = n
-        self._sigma = sigma
-        self._K = k
         self._z = np.array([self._l])
 
-        delta, t = gevrey_tanh(self._T, self._n + 2, self._sigma, self._K)
+        kwargs = dict()
+        kwargs.update(sigma=sigma) if sigma is not None else None
+        kwargs.update(K=k) if k is not None else None
+        delta, t = gevrey_tanh(self._T, self._n + 2, **kwargs)
         y = delta * (y_end - y_start)
         y[0, :] += y_start
         x, d_x = power_series_flat_out(self._z,
