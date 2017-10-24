@@ -574,12 +574,11 @@ class LambdifiedSympyExpression(Function):
 
 
 class SecondOrderEigenfunction(metaclass=ABCMeta):
-    # TODO is lambda really element of R in the following docstring?
     r"""
     Wrapper for all eigenvalue problems of the form
 
     .. math:: a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) =
-        \lambda\varphi(z), \qquad a_2, a_1, a_0, \lambda \in \mathbb R
+        \lambda\varphi(z), \qquad a_2, a_1, a_0, \lambda \in \mathbb C
 
     with eigenfunctions :math:`\varphi` and eigenvalues :math:`\lambda`.
     The roots of the characteristic equation (belonging to the ode) are denoted
