@@ -268,6 +268,13 @@ class ParseTest(unittest.TestCase):
             pi.Product(pi.Product(self.scalar_func,
                                   self.test_funcs), self.input), (0, 1))
 
+        self.input_term3_scaled_sh = pi.IntegralTerm(
+            pi.Product(pi.Product(self.scalar_func,
+                                  self.test_funcs), self.input), (.5, 1))
+
+        self.input_term3_scaled_fh = pi.IntegralTerm(
+            pi.Product(pi.Product(self.scalar_func,
+                                  self.test_funcs), self.input), (0, .5))
         # pure test function terms
         self.func_term = pi.ScalarTerm(self.test_funcs_at1)
 
@@ -377,6 +384,20 @@ class ParseTest(unittest.TestCase):
             finalize=False).get_static_terms()
         np.testing.assert_array_almost_equal(terms["G"][0][1],
                                              np.array([[.0], [.25], [.25]]))
+
+        terms_sh = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.input_term3_scaled_sh, name="test"),
+            finalize=False).get_static_terms()
+
+        terms_fh = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.input_term3_scaled_fh, name="test"),
+            finalize=False).get_static_terms()
+
+        np.testing.assert_array_almost_equal(terms_sh["G"][0][1],
+                                             np.array([[.0], [.25], [.25]]))
+        np.testing.assert_array_almost_equal(terms_fh["G"][0][1],
+                                             np.array([[.0], [.0], [.0]]))
+
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(
