@@ -100,7 +100,7 @@ class SpatialPlaceholder(Placeholder):
     def __init__(self, data, order=0, location=None):
         Placeholder.__init__(self, data, order=(0, order), location=location)
 
-    def derive(self, order=0):
+    def derive(self, order=1):
         return super().derive(spat_order=order)
 
 
