@@ -22,8 +22,6 @@ __all__ = ["ConstantTrajectory", "InterpolationTrajectory",
            "gevrey_tanh", "power_series", "temporal_derived_power_series",
            "coefficient_recursion"]
 
-# TODO move this to a more feasible location
-
 
 class ConstantTrajectory(SimulationInput):
     """
@@ -134,8 +132,7 @@ class SmoothTransition:
         return y
 
 
-# TODO: kwarg: t_step
-def gevrey_tanh(T, n, sigma=1.1, K=2):
+def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
     r"""
     Provide Gevrey function
 
@@ -163,14 +160,20 @@ def gevrey_tanh(T, n, sigma=1.1, K=2):
         n (int): The derivatives will calculated up to order n.
         sigma (numbers.Number): Constant :math:`\sigma` to adjust the Gevrey
             order :math:`\rho=1+\frac{1}{\sigma}` of :math:`\varphi(t)`.
-        K (numbers.Number): Constant to adust the slope of :math:`\varphi(t)`.
+        K (numbers.Number): Constant to adjust the slope of :math:`\varphi(t)`.
+        length_t (int): Constant to specify the length of `t` (see Returns).
+            Default: :code:`int(0.5 * 10 ** (2 + numpy.log10(T)))`
 
     Return:
-        tuple: (numpy.array([[:math:`\varphi(t)`], ... ,
-        [:math:`\varphi^{(n)}(t)`]]), numpy.array([0,...,T])
+        tuple:
+        - numpy.array([[:math:`\varphi(t)`], ... , [:math:`\varphi^{(n)}(t)`]])
+        - t: numpy.array([0,...,T])
     """
 
-    t_init = t = np.linspace(0., T, int(0.5 * 10 ** (2 + np.log10(T))))
+    if length_t is None:
+        length_t = int(0.5 * 10 ** (2 + np.log10(T)))
+
+    t_init = t = np.linspace(0., T, length_t)
 
     # pop
     t = np.delete(t, 0, 0)
