@@ -5,6 +5,20 @@ import os
 from subprocess import call
 
 
+def get_resource(res_name):
+    """
+    Build absolute path to specified resource within the package
+    Args:
+        res_name (str): name of the resource
+        res_type (str): subdir
+    Return:
+        str: path to resource
+    """
+    own_path = os.path.dirname(__file__)
+    resource_path = os.path.abspath(os.path.join(own_path, "resources"))
+    return os.path.join(resource_path, res_name)
+
+
 def create_dir(dir_name):
     """
     Create a directory with name :py:obj:`dir_name` relative to the current path if it doesn't already exist and
