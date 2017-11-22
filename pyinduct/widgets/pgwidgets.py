@@ -8,11 +8,13 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
 import matplotlib as mpl
 import matplotlib.cm as cm
-from ..core import complex_wrapper, EvalData, Domain
-from ..utils import create_animation, create_dir, get_resource
+from ..core import EvalData
+from ..utils import get_resource
+from pyinduct.tests import show_plots
+import matplotlib.pyplot as plt
 
 
-def show():
+def show(show_pg=True, show_mpl=True, force=False):
     """
     Shortcut to show all pyqtgraph and matplotlib plots / animations.
 
@@ -22,7 +24,56 @@ def show():
         force (bool): Show plots even during unittest discover, setup
             and so on? Default: False
     """
-    pg.QtGui.QApplication.instance().exec_()
+    if show_plots or force:
+        if show_pg:
+            pg.QtGui.QApplication.instance().exec_()
+
+        if show_mpl:
+            plt.show()
+
+
+class DoubleSlider(pg.QtGui.QSlider):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.decimals = 5
+        self._max_int = 10 ** self.decimals
+
+        super().setMinimum(0)
+        super().setMaximum(self._max_int)
+
+        self._min_value = 0.0
+        self._max_value = 1.0
+
+    @property
+    def _value_range(self):
+        return self._max_value - self._min_value
+
+    def value(self):
+        return float(super().value()) / self._max_int * self._value_range + self._min_value
+
+    def setValue(self, value):
+        super().setValue(int((value - self._min_value) / self._value_range * self._max_int))
+
+    def setMinimum(self, value):
+        if value > self._max_value:
+            raise ValueError("Minimum limit cannot be higher than maximum")
+
+        self._min_value = value
+        self.setValue(self.value())
+
+    def setMaximum(self, value):
+        if value < self._min_value:
+            raise ValueError("Minimum limit cannot be higher than maximum")
+
+        self._max_value = value
+        self.setValue(self.value())
+
+    def minimum(self):
+        return self._min_value
+
+    def maximum(self):
+        return self._max_value
 
 
 class AdSlider(pg.QtGui.QWidget):
@@ -38,11 +89,10 @@ class AdSlider(pg.QtGui.QWidget):
         self.playButton.setFixedHeight(50)
         self.playButton.setFixedWidth(50)
         self.pauseButton = pg.QtGui.QPushButton()
-        print(get_resource("stop.png"))
         self.pauseButton.setIcon(QIcon(get_resource("stop.png")))
         self.pauseButton.setFixedHeight(50)
         self.pauseButton.setFixedWidth(50)
-        self.slider = pg.QtGui.QSlider(Qt.Horizontal)
+        self.slider = DoubleSlider(Qt.Horizontal)
         self.textLabelCurrent = pg.QtGui.QLabel('100')
         self.textLabelCurrent.setFixedHeight(20)
         self.textLabel = pg.QtGui.QLabel(":")
@@ -68,19 +118,19 @@ class DataPlot:
     def __init__(self, data):
 
         # just to be sure
-        # assert isinstance(data, list) or isinstance(data, EvalData)
-        # if isinstance(data, EvalData):
-        #     data = [data]
-        # else:
-        #     assert isinstance(data[0], EvalData)
+        assert isinstance(data, list) or isinstance(data, EvalData)
+        if isinstance(data, EvalData):
+            data = [data]
+        else:
+            assert isinstance(data[0], EvalData)
 
         self._data = data
         # TODO Test input vectors to be Domain objects and use
         # their .step attribute here
-        # self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
+        self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
-class PgDataPlot(pg.QtCore.QObject):
+class PgDataPlot(object):
     """
     Base class for all pyqtgraph plotting related classes.
     """
@@ -93,7 +143,6 @@ class PgDataPlot(pg.QtCore.QObject):
         data = kwargs.get('data', None)
         DataPlot.__init__(self, data)
         pg.mkQApp()
-        pg.QtCore.QObject.__init__(self)
         plotType = kwargs.get('plotType', '2D')
         self.colorMap = kwargs.get('colorMap', "viridis")
 
@@ -112,14 +161,12 @@ class PgDataPlot(pg.QtCore.QObject):
             self.generate3DAnimaionWindow()
         else:
             raise ValueError
-        pg.QtGui.QApplication.instance().exec_()
 
     def generate2DWindow(self):
         layout = pg.QtGui.QGridLayout()
         self.plotWidget = pg.PlotWidget()
+        self.plotWidget.sizeHint = lambda: pg.QtCore.QSize(self.windowWidth, self.windowHeight)
         layout.addWidget(self.plotWidget, 0, 0)
-        layout.setColumnStretch(1, 0)
-        layout.setHorizontalSpacing(0)
         self.w = pg.QtGui.QWidget()
         self.w.resize(self.windowWidth, self.windowHeight)
         self.w.setLayout(layout)
@@ -146,10 +193,10 @@ class PgDataPlot(pg.QtCore.QObject):
     def generate2DAnimaionWindow(self):
         layout = pg.QtGui.QGridLayout()
         self.plotWidget = pg.PlotWidget()
+        self.plotWidget.sizeHint = lambda: pg.QtCore.QSize(self.windowWidth, self.windowHeight)
         self.slider = AdSlider()
         layout.addWidget(self.plotWidget, 0, 0)
         layout.addWidget(self.slider, 1, 0)
-        layout.setColumnStretch(1, 0)
         layout.setHorizontalSpacing(0)
         self.w = pg.QtGui.QWidget()
         self.w.resize(self.windowWidth, self.windowHeight)
@@ -179,7 +226,7 @@ class PgDataPlot(pg.QtCore.QObject):
 
 class PgAnimation(PgDataPlot):
     def __init__(self, **kwargs):
-        PgDataPlot.__init__(**kwargs)
+        PgDataPlot.__init__(self, **kwargs)
         refresh_time = kwargs.get('refresh_time', 40)
         replay_gain = kwargs.get('replay_gain', 1)
 
@@ -191,6 +238,22 @@ class PgAnimation(PgDataPlot):
         self._end_time = max(max_times)
         self._longest_idx = max_times.index(self._end_time)
 
+        # slider config
+        self.autoPlay = True
+        self.slider.playButton.setEnabled(False)
+        self.slider.pauseButton.setEnabled(True)
+
+        self.slider.textLabelTotal.setText(str(self._end_time))
+        self.slider.textLabelCurrent.setFixedWidth(self.slider.textLabelTotal.width() + 5)
+        self.slider.textLabelCurrent.setText(str(self._start_time))
+        self.slider.slider.setMinimum(self._start_time)
+        self.slider.slider.setMaximum(self._end_time)
+        self.slider.slider.setValue(self._start_time)
+
+        # buttons
+        self.slider.playButton.clicked.connect(self.playAnimation)
+        self.slider.pauseButton.clicked.connect(self.stopAnimation)
+
         assert refresh_time > 0
         self._tr = refresh_time
         assert replay_gain > 0
@@ -198,26 +261,36 @@ class PgAnimation(PgDataPlot):
 
         self._t = self._start_time
 
-        self._timer = pg.QtCore.QTimer(self)
+        self._timer = pg.QtCore.QTimer()
         self._timer.timeout.connect(self._update_plot)
         self._timer.start(self._tr)
 
     # TODO Kopplung zum Slider herstellen, autostart aktivieren
+    # TODO sliderReleased für user bearbeitung, und bild update
     # TODO make abstract implementation in special classes
     def _update_plot(self):
         pass
+
+    def playAnimation(self):
+        self.autoPlay = True
+        self.slider.playButton.setEnabled(False)
+        self.slider.pauseButton.setEnabled(True)
+
+    def stopAnimation(self):
+        self.autoPlay = False
+        self.slider.playButton.setEnabled(True)
+        self.slider.pauseButton.setEnabled(False)
 
 
 class PgSurfacePlot(object):
     def __init__(self, **kwargs):
         animationAxis = kwargs.get('animationAxis', None)
-        if animationAxis:
-            _PgSurfacePlot(**dict(kwargs, plotType='3D-Animation'))
+        if animationAxis is not None:
+            _PgSurfacePlotAnimation(**dict(kwargs, plotType='3D-Animation'))
         else:
             _PgSurfacePlot(**dict(kwargs, plotType='3D'))
 
 
-# TODO test mit Daten
 class _PgSurfacePlot(PgDataPlot):
     def __init__(self, **kwargs):
         PgDataPlot.__init__(self, **kwargs)
@@ -225,7 +298,7 @@ class _PgSurfacePlot(PgDataPlot):
         self.xlabel = kwargs.get('xlabel', 't')
         self.ylabel = kwargs.get('ylabel', 'z')
         self.zlabel = kwargs.get('zlabel', 'x(z,t)')
-        scales = kwargs.get('scales', 'None')
+        scales = kwargs.get('scales', None)
 
         self.grid_size = 20
 
@@ -266,19 +339,17 @@ class _PgSurfacePlot(PgDataPlot):
         # setup color map
         norm = mpl.colors.Normalize(vmin=self.extrema[0, -1],
                                     vmax=self.extrema[1, -1])
-        self.mapping = cm.ScalarMappable(norm, self.cmap)
+        self.mapping = cm.ScalarMappable(norm, self.colorMap)
 
         # add plots
         self.plot_items = []
         for idx, data_set in enumerate(self._data):
-            if len(data_set.input_data) == 3:
-                # 1d system over time -> static
-                plot_item = gl.GLSurfacePlotItem(x=self.scales[0] * np.atleast_1d(self._data[idx].input_data[0]),
-                                                 y=self.scales[1] * np.flipud(np.atleast_1d(
-                                                     self._data[idx].input_data[1])),
-                                                 z=self.scales[2] * self._data[idx].output_data,
-                                                 colors=self.mapping.to_rgba(self._data[idx].output_data),
-                                                 computeNormals=False)
+            plot_item = gl.GLSurfacePlotItem(x=self.scales[0] * np.atleast_1d(self._data[idx].input_data[0]),
+                                             y=self.scales[1] * np.flipud(np.atleast_1d(
+                                                 self._data[idx].input_data[1])),
+                                             z=self.scales[2] * self._data[idx].output_data,
+                                             colors=self.mapping.to_rgba(self._data[idx].output_data),
+                                             computeNormals=False)
 
             self.plotWidget.addItem(plot_item)
             self.plot_items.append(plot_item)
@@ -418,13 +489,12 @@ class _PgSurfacePlotAnimation(PgAnimation):
 class Pg2DPlot(object):
     def __init__(self, **kwargs):
         animationAxis = kwargs.get('animationAxis', None)
-        if animationAxis:
-            _PgSurfacePlot(**dict(kwargs, plotType='2D-Animation'))
+        if animationAxis is not None:
+            _Pg2DPlotAnimation(**dict(kwargs, plotType='2D-Animation'))
         else:
-            _PgSurfacePlot(**dict(kwargs, plotType='2D'))
+            _Pg2DPlot(**dict(kwargs, plotType='2D'))
 
 
-# TODO test mit Daten
 class _Pg2DPlot(PgDataPlot):
     def __init__(self, **kwargs):
         PgDataPlot.__init__(self, **kwargs)
@@ -444,27 +514,20 @@ class _Pg2DPlot(PgDataPlot):
         self.plotWidget.setYRange(yData_min, yData_max)
 
         self._plot_data_items = []
-        self._plot_indexes = []
-        cmap = cm.get_cmap(self.color_map)
+        colorMap = cm.get_cmap(self.colorMap)
         for idx, data_set in enumerate(self._data):
-            self._plot_indexes.append(0)
-            if self.yData[idx].ndim == 2:
-                for _, _yData in enumerate(self.yData[idx]):
-                    self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cmap(idx / len(self._data), bytes=True),
-                                                                              width=2)))
-
-                    self.plotWidget.addItem(self._plot_data_items[-1])
-                    self._plot_data_items[-1].setData(x=self.xData[idx], y=_yData)
-            else:
-                self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cmap(idx / len(self._data), bytes=True),
-                                                                          width=2), name=data_set.name))
-                self.plotWidget.addItem(self._plot_data_items[-1])
-                self._plot_data_items[-1].setData(x=self.xData[idx], y=self.yData[idx])
+            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(colorMap(idx / len(self._data), bytes=True),
+                                                                      width=2), name=data_set.name))
+            self.plotWidget.addItem(self._plot_data_items[-1])
+            self._plot_data_items[-1].setData(x=self.xData[idx], y=self.yData[idx])
 
 
 class _Pg2DPlotAnimation(PgAnimation):
     def __init__(self, **kwargs):
         PgAnimation.__init__(self, **kwargs)
+
+        self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
+        self.state_data = [data_set.output_data for data_set in self._data]
 
         spat_min = np.min([np.min(data) for data in self.spatial_data])
         spat_max = np.max([np.max(data) for data in self.spatial_data])
@@ -474,21 +537,32 @@ class _Pg2DPlotAnimation(PgAnimation):
         state_max = np.max([np.max(data) for data in self.state_data])
         self.plotWidget.setYRange(state_min, state_max)
 
+        self._plot_data_items = []
+        self._plot_indexes = []
+        colorMap = cm.get_cmap(self.colorMap)
+        for idx, data_set in enumerate(self._data):
+            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(colorMap(idx / len(self._data), bytes=True),
+                                                                      width=2), name=data_set.name))
+            self.plotWidget.addItem(self._plot_data_items[-1])
+
     def _update_plot(self):
         """
         Update the rendering
         """
-        for idx, item in enumerate(self.plot_items):
-            # find nearest time index (0th order interpolation)
-            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+        if self.autoPlay:
+            for idx, item in enumerate(self._data):
+                # find nearest time index (0th order interpolation)
+                t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
 
-            # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+                # update data
+                self.slider.textLabelCurrent.setText(str(self._t))
+                self.slider.slider.setValue(self._t)
+                self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
 
-        self._t += self._t_step
+            self._t += self._t_step
 
-        if self._t > self._end_time:
-            self._t = self._start_time
+            if self._t > self._end_time:
+                self._t = self._start_time
 
 
 class PgGradientWidget(pg.GraphicsWidget):
@@ -500,7 +574,7 @@ class PgGradientWidget(pg.GraphicsWidget):
         cmap (matplotlib.cm.Colormap): color map, if None viridis is used
     """
 
-    def __init__(self, cmap=None):
+    def __init__(self, colorMap=None):
         pg.GraphicsWidget.__init__(self)
         self.length = 100
         self.maxDim = 20
@@ -509,10 +583,10 @@ class PgGradientWidget(pg.GraphicsWidget):
         self._min = 0
         self._max = 1
 
-        if cmap is None:
-            self.cmap = cm.get_cmap('viridis')
+        if colorMap is None:
+            self.colorMap = cm.get_cmap('viridis')
         else:
-            self.cmap = cmap
+            self.colorMap = colorMap
 
         self.gradRect = pg.QtGui.QGraphicsRectItem(pg.QtCore.QRectF(0, 0, self.length, self.rectSize))
         self.gradRect.setParentItem(self)
@@ -578,7 +652,7 @@ class PgGradientWidget(pg.GraphicsWidget):
             pg.QtGui.QLinearGradient: linear gradient for current min and max values
         """
         norm = mpl.colors.Normalize(vmin=self._min, vmax=self._max)
-        m = cm.ScalarMappable(norm=norm, cmap=self.cmap)
+        m = cm.ScalarMappable(norm=norm, cmap=self.colorMap)
 
         g = pg.QtGui.QLinearGradient(pg.QtCore.QPointF(0, 0), pg.QtCore.QPointF(self.length, 0))
 
@@ -785,7 +859,7 @@ class PgColorBarWidget(pg.GraphicsLayoutWidget):
     OpenGL Widget that depends on GraphicsLayoutWidget and realizes an axis and a color bar
     """
 
-    def __init__(self, color_map):
+    def __init__(self, colorMap):
         super(PgColorBarWidget, self).__init__()
 
         _min = 0
@@ -796,8 +870,7 @@ class PgColorBarWidget(pg.GraphicsLayoutWidget):
         self.ax.setRange(_min, _max)
         self.addItem(self.ax)
         # color bar gradients
-        cmap = cm.get_cmap(color_map)
-        self.gw = PgGradientWidget(cmap=cmap)
+        self.gw = PgGradientWidget(colorMap=cm.get_cmap(colorMap))
         self.setCBRange(_min, _max)
         self.addItem(self.gw)
 
