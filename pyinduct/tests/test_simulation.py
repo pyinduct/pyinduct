@@ -782,11 +782,11 @@ class StringMassTest(unittest.TestCase):
                 ["d" for x in range(der_idx)]) + "t" if der_idx > 0 else "")
 
         # display results
-        if show_plots:
-            win = pi.PgAnimatedPlot(eval_data[:2],
-                                    title="fem approx and derivative")
-            win2 = pi.PgSurfacePlot(eval_data[0])
-            pi.show(show_mpl=False)
+        # if show_plots:
+        #     win = pi.PgAnimatedPlot(eval_data[:2],
+        #                             title="fem approx and derivative")
+        #     win2 = pi.PgSurfacePlot(eval_data[0])
+        #     pi.show(show_mpl=False)
 
         # test for correct transition
         self.assertAlmostEqual(eval_data[0].output_data[-1, 0],
@@ -908,10 +908,10 @@ class StringMassTest(unittest.TestCase):
         eval_data = sim.simulate_system(modal_pde, self.ic, self.dt, self.dz, derivative_orders=(1, 0))
 
         # display results
-        if show_plots:
-            win = pi.PgAnimatedPlot(eval_data[0:2], title="modal approx and derivative")
-            win2 = pi.PgSurfacePlot(eval_data[0])
-            pi.show(show_mpl=False)
+        # if show_plots:
+        #     win = pi.PgAnimatedPlot(eval_data[0:2], title="modal approx and derivative")
+        #     win2 = pi.PgSurfacePlot(eval_data[0])
+        #     pi.show(show_mpl=False)
 
         pi.deregister_base("norm_modal_base")
 

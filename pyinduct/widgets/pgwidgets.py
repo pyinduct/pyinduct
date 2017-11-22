@@ -229,8 +229,9 @@ class PgAnimation(PgDataPlot):
         PgDataPlot.__init__(self, **kwargs)
         refresh_time = kwargs.get('refresh_time', 40)
         replay_gain = kwargs.get('replay_gain', 1)
+        axis = kwargs.get('animationAxis', 0)
 
-        self.time_data = [np.atleast_1d(data_set.input_data[-1]) for data_set in self._data]
+        self.time_data = [np.atleast_1d(data_set.input_data[axis]) for data_set in self._data]
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
 
@@ -467,23 +468,212 @@ class _PgSurfacePlotAnimation(PgAnimation):
     def __init__(self, **kwargs):
         PgAnimation.__init__(self, **kwargs)
 
+        self.xlabel = kwargs.get('xlabel', 'x')
+        self.ylabel = kwargs.get('ylabel', 'z')
+        self.zlabel = kwargs.get('zlabel', 'y(x,z,t)')
+        scales = kwargs.get('scales', None)
+        animationAxis = kwargs.get('animationAxis', None)
+
+        self.grid_size = 20
+
+        # calculate minima and maxima
+        extrema_list = []
+        for data_set in self._data:
+            _extrema_list = []
+            for entry in data_set.input_data:
+                _min_max = [min(entry), max(entry)]
+                _extrema_list.append(_min_max)
+
+            extrema_list.append(_extrema_list)
+
+        extrema_arr = np.array(extrema_list)
+
+        extrema = [np.min(extrema_arr[..., 0], axis=0),
+                   np.max(extrema_arr[..., 1], axis=0)]
+
+        self.extrema = np.hstack((
+            extrema,
+            ([min([data_set.min for data_set in self._data])],
+             [max([data_set.max for data_set in self._data])])))
+
+        self.deltas = np.diff(self.extrema, axis=0).squeeze()
+
+        if scales is None:
+            # scale all axes uniformly if no scales are given
+            _scales = []
+            for value in self.deltas:
+                if np.isclose(value, 0):
+                    _scales.append(1)
+                else:
+                    _scales.append(1 / value)
+            self.scales = np.array(_scales)
+        else:
+            self.scales = scales
+
+        # setup color map
+        norm = mpl.colors.Normalize(vmin=self.extrema[0, -1],
+                                    vmax=self.extrema[1, -1])
+        self.mapping = cm.ScalarMappable(norm, self.colorMap)
+
+        # add plots
+        self.plot_items = []
+        for idx, data_set in enumerate(self._data):
+            if len(data_set.input_data) == 3:
+                if animationAxis is None:
+                    raise ValueError("animation_axis has to be provided.")
+
+                # crop scale arrays
+                if len(self.scales) != len(data_set.input_data):
+                    # only remove time scaling if user provided one
+                    self.scales = np.delete(self.scales, animationAxis)
+
+                self.deltas = np.delete(self.deltas, animationAxis)
+                self.extrema = np.delete(self.extrema, animationAxis, axis=1)
+
+                # move animation axis to the end
+                self._data[idx].input_data.append(self._data[idx].input_data.pop(animationAxis))
+                self._data[idx].output_data = np.moveaxis(self._data[idx].output_data,
+                                                          animationAxis,
+                                                          -1)
+
+                plot_item = gl.GLSurfacePlotItem(x=self.scales[0] * np.atleast_1d(self._data[idx].input_data[0]),
+                                                 y=self.scales[1] * np.flipud(np.atleast_1d(
+                                                     self._data[idx].input_data[1])),
+                                                 z=self.scales[2] * self._data[idx].output_data[..., 0],
+                                                 colors=self.mapping.to_rgba(self._data[idx].output_data[..., 0]),
+                                                 computeNormals=False)
+
+            self.plotWidget.addItem(plot_item)
+            self.plot_items.append(plot_item)
+
+        # setup grids
+        self.sc_deltas = self.deltas * self.scales
+        self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._xygrid.setSpacing(self.sc_deltas[0] / 10, self.sc_deltas[1] / 10, 0)
+        self._xygrid.setSize(1.2 * self.sc_deltas[0], 1.2 * self.sc_deltas[1], 1)
+        self._xygrid.translate(
+            .5 * (self.extrema[1][0] + self.extrema[0][0]) * self.scales[0],
+            .5 * (self.extrema[1][1] + self.extrema[0][1]) * self.scales[1],
+            self.extrema[0][2] * self.scales[2] - 0.1 * self.sc_deltas[0]
+        )
+        self.plotWidget.addItem(self._xygrid)
+
+        self._xzgrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._xzgrid.setSpacing(self.sc_deltas[0] / 10, self.sc_deltas[2] / 10, 0)
+        self._xzgrid.setSize(1.2 * self.sc_deltas[0], 1.2 * self.sc_deltas[2], 1)
+        self._xzgrid.rotate(90, 1, 0, 0)
+        self._xzgrid.translate(
+            .5 * (self.extrema[1][0] + self.extrema[0][0]) * self.scales[0],
+            self.extrema[0][1] * self.scales[1] + 1.1 * self.sc_deltas[0],
+            .5 * (self.extrema[1][2] + self.extrema[0][2]) * self.scales[2]
+        )
+        self.plotWidget.addItem(self._xzgrid)
+
+        self._yzgrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
+        self._yzgrid.setSpacing(self.sc_deltas[1] / 10, self.sc_deltas[2] / 10, 0)
+        self._yzgrid.setSize(1.2 * self.sc_deltas[1], 1.2 * self.sc_deltas[2], 1)
+        self._yzgrid.rotate(90, 1, 0, 0)
+        self._yzgrid.rotate(90, 0, 0, 1)
+        self._yzgrid.translate(
+            self.extrema[0][0] * self.scales[0] + 1.1 * self.sc_deltas[0],
+            .5 * (self.extrema[1][1] + self.extrema[0][1]) * self.scales[1],
+            .5 * (self.extrema[1][2] + self.extrema[0][2]) * self.scales[2]
+        )
+        self.plotWidget.addItem(self._yzgrid)
+
+        # labels
+        self.plotWidget.setXLabel(self.xlabel, pos=[
+            self.extrema[0][0] * self.scales[0] + self.sc_deltas[0] - self.scales[0] * self.extrema[1][0],
+            self.extrema[0][1] * self.scales[1] + 0.35 * self.sc_deltas[1] - self.scales[1] * self.extrema[1][1],
+            self.extrema[0][2] * self.scales[2] + 0.4 * self.sc_deltas[2] - self.scales[2] * self.extrema[1][2]])
+        self.plotWidget.setYLabel(self.ylabel, pos=[
+            self.extrema[0][0] * self.scales[0] + 0.35 * self.sc_deltas[0] - self.scales[0] * self.extrema[1][0],
+            self.extrema[0][1] * self.scales[1] + self.sc_deltas[1] - self.scales[1] * self.extrema[1][1],
+            self.extrema[0][2] * self.scales[2] + 0.4 * self.sc_deltas[2] - self.scales[2] * self.extrema[1][2]])
+        self.plotWidget.setZLabel(self.zlabel, pos=[
+            self.extrema[0][0] * self.scales[0] + 1.6 * self.sc_deltas[0] - self.scales[0] * self.extrema[1][0],
+            self.extrema[0][1] * self.scales[1] + 1.6 * self.sc_deltas[1] - self.scales[1] * self.extrema[1][1],
+            self.extrema[0][2] * self.scales[2] + 1.6 * self.sc_deltas[2] - self.scales[2] * self.extrema[1][2]])
+
+        # colorbar
+        self.colorBar.setCBRange(self.extrema[0, -1], self.extrema[1, -1])
+        # tics
+        xTics = np.linspace(self.extrema[0, 1], self.extrema[1, 1], 6)
+        yTics = np.linspace(self.extrema[0, 0], self.extrema[1, 0], 6)
+        zTics = np.linspace(self.extrema[0, 2], self.extrema[1, 2], 6)
+        posXTics = []
+        posYTics = []
+        posZTics = []
+        for i, x in enumerate(np.linspace(
+                        self.extrema[0][0] * self.scales[0] + 1.6 * self.sc_deltas[0] - self.scales[0] *
+                self.extrema[1][0],
+                        self.extrema[0][0] * self.scales[0] + 0.4 * self.sc_deltas[0] - self.scales[0] *
+                self.extrema[1][0],
+            13)):
+            if i % 2 == 1:
+                posXTics.append([self.extrema[0][1] * self.scales[1] + 0.35 * self.sc_deltas[1] - self.scales[1] *
+                                 self.extrema[1][1],
+                                 x,
+                                 self.extrema[0][2] * self.scales[2] + 0.4 * self.sc_deltas[2] - self.scales[2] *
+                                 self.extrema[1][2]
+                                 ])
+        for i, y in enumerate(np.linspace(
+                        self.extrema[0][1] * self.scales[1] + 0.4 * self.sc_deltas[1] - self.scales[1] *
+                self.extrema[1][1],
+                        self.extrema[0][1] * self.scales[1] + 1.6 * self.sc_deltas[1] - self.scales[1] *
+                self.extrema[1][1],
+            13)):
+            if i % 2 == 1:
+                posYTics.append([y,
+                                 self.extrema[0][0] * self.scales[0] + 0.35 * self.sc_deltas[0] - self.scales[0] *
+                                 self.extrema[1][0],
+                                 self.extrema[0][2] * self.scales[2] + 0.4 * self.sc_deltas[2] - self.scales[2] *
+                                 self.extrema[1][2]])
+        for i, z in enumerate(
+            np.linspace(self.extrema[0][2] * self.scales[2] + 0.4 * self.sc_deltas[2] - self.scales[2] *
+                self.extrema[1][2],
+                        self.extrema[0][2] * self.scales[2] + 1.6 * self.sc_deltas[2] - self.scales[2] *
+                            self.extrema[1][2],
+                        13)):
+            if i % 2 == 1:
+                posZTics.append([self.extrema[0][0] * self.scales[0] + 1.6 * self.sc_deltas[0] - self.scales[0] *
+                                 self.extrema[1][0],
+                                 self.extrema[0][1] * self.scales[1] + 1.6 * self.sc_deltas[1] - self.scales[1] *
+                                 self.extrema[1][1],
+                                 z])
+
+        self.plotWidget.setXTics(xTics, posXTics)
+        self.plotWidget.setYTics(yTics, posYTics)
+        self.plotWidget.setZTics(zTics, posZTics)
+
+        # set origin (zoom point) to the middle of the figure
+        # (a better way would be to realize it directly via a method of
+        # self.plotWidget, instead to shift all items)
+        [item.translate(-self.scales[0] * self.extrema[1][0] + self.sc_deltas[0] / 2,
+                        -self.scales[1] * self.extrema[1][1] + self.sc_deltas[1] / 2,
+                        -self.scales[2] * self.extrema[1][2] + self.sc_deltas[2] / 2)
+         for item in self.plotWidget.items]
+
     def _update_plot(self):
         """
         Update the rendering
         """
-        for idx, item in enumerate(self.plot_items):
-            # find nearest time index (0th order interpolation)
-            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+        if self.autoPlay:
+            for idx, item in enumerate(self.plot_items):
+                # find nearest time index (0th order interpolation)
+                t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
 
-            # update data
-            z_data = self.scales[2] * self._data[idx].output_data[..., t_idx]
-            mapped_colors = self.mapping.to_rgba(self._data[idx].output_data[..., t_idx])
-            item.setData(z=z_data, colors=mapped_colors)
+                # update data
+                self.slider.textLabelCurrent.setText(str(self._t))
+                self.slider.slider.setValue(self._t)
+                z_data = self.scales[2] * self._data[idx].output_data[..., t_idx]
+                mapped_colors = self.mapping.to_rgba(self._data[idx].output_data[..., t_idx])
+                item.setData(z=z_data, colors=mapped_colors)
 
-        self._t += self._t_step
+            self._t += self._t_step
 
-        if self._t > self._end_time:
-            self._t = self._start_time
+            if self._t > self._end_time:
+                self._t = self._start_time
 
 
 class Pg2DPlot(object):
@@ -801,57 +991,57 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
         Overrides painGL function to render the text labels
         """
         gl.GLViewWidget.paintGL(self, *args, **kwds)
-        # self.renderText(self.posXLabel[0],
-        #                 self.posXLabel[1],
-        #                 self.posXLabel[2],
-        #                 self.xlabel)
-        # self.renderText(self.posYLabel[0],
-        #                 self.posYLabel[1],
-        #                 self.posYLabel[2],
-        #                 self.ylabel)
-        #
-        # self.renderText(self.oldPosZLabel[0],
-        #                 self.oldPosZLabel[1],
-        #                 self.oldPosZLabel[2],
-        #                 " " * 20)
-        # self.renderText(self.posZLabel[0],
-        #                 self.posZLabel[1],
-        #                 self.posZLabel[2],
-        #                 self.zlabel)
-        # self.oldPosZLabel = cp.copy(self.posZLabel)
-        #
-        # if self.showAllTics:
-        #     for i in range(len(self.xTics)):
-        #         self.renderText(self.posXTics[i][0],
-        #                         self.posXTics[i][1],
-        #                         self.posXTics[i][2],
-        #                         '{:.1f}'.format(self.xTics[i]))
-        #     for i in range(len(self.yTics)):
-        #         self.renderText(self.posYTics[i][0],
-        #                         self.posYTics[i][1],
-        #                         self.posYTics[i][2],
-        #                         '{:.1f}'.format(self.yTics[i]))
-        #     for i in range(len(self.zTics)):
-        #         self.renderText(self.posZTics[i][0],
-        #                         self.posZTics[i][1],
-        #                         self.posZTics[i][2],
-        #                         '{:.1f}'.format(self.zTics[i]))
-        # else:
-        #     for i in range(len(self.xTics)):
-        #         self.renderText(self.posXTics[i][0],
-        #                         self.posXTics[i][1],
-        #                         self.posXTics[i][2],
-        #                         str())
-        #     for i in range(len(self.yTics)):
-        #         self.renderText(self.posYTics[i][0],
-        #                         self.posYTics[i][1],
-        #                         self.posYTics[i][2],
-        #                         str())
-        #     for i in range(len(self.zTics)):
-        #         self.renderText(self.posZTics[i][0],
-        #                         self.posZTics[i][1],
-        #                         self.posZTics[i][2],
-        #                         str())
+        self.renderText(self.posXLabel[0],
+                        self.posXLabel[1],
+                        self.posXLabel[2],
+                        self.xlabel)
+        self.renderText(self.posYLabel[0],
+                        self.posYLabel[1],
+                        self.posYLabel[2],
+                        self.ylabel)
+
+        self.renderText(self.oldPosZLabel[0],
+                        self.oldPosZLabel[1],
+                        self.oldPosZLabel[2],
+                        " " * 20)
+        self.renderText(self.posZLabel[0],
+                        self.posZLabel[1],
+                        self.posZLabel[2],
+                        self.zlabel)
+        self.oldPosZLabel = cp.copy(self.posZLabel)
+
+        if self.showAllTics:
+            for i in range(len(self.xTics)):
+                self.renderText(self.posXTics[i][0],
+                                self.posXTics[i][1],
+                                self.posXTics[i][2],
+                                '{:.1f}'.format(self.xTics[i]))
+            for i in range(len(self.yTics)):
+                self.renderText(self.posYTics[i][0],
+                                self.posYTics[i][1],
+                                self.posYTics[i][2],
+                                '{:.1f}'.format(self.yTics[i]))
+            for i in range(len(self.zTics)):
+                self.renderText(self.posZTics[i][0],
+                                self.posZTics[i][1],
+                                self.posZTics[i][2],
+                                '{:.1f}'.format(self.zTics[i]))
+        else:
+            for i in range(len(self.xTics)):
+                self.renderText(self.posXTics[i][0],
+                                self.posXTics[i][1],
+                                self.posXTics[i][2],
+                                str())
+            for i in range(len(self.yTics)):
+                self.renderText(self.posYTics[i][0],
+                                self.posYTics[i][1],
+                                self.posYTics[i][2],
+                                str())
+            for i in range(len(self.zTics)):
+                self.renderText(self.posZTics[i][0],
+                                self.posZTics[i][1],
+                                self.posZTics[i][2],
+                                str())
 
 
 class PgColorBarWidget(pg.GraphicsLayoutWidget):
