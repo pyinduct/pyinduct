@@ -3,6 +3,7 @@
 
 # try:
 from setuptools import setup, find_packages
+import os
 # except ImportError:
 #     from distutils.core import setup
 
@@ -27,8 +28,8 @@ setup(
                 "controllers for boundary actuated infinite dimensional systems.",
     long_description=readme + '\n\n' + history,
     author="Stefan Ecklebe, Marcus Riesmeier",
-    author_email='stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de',
-    url='https://github.com/cklb/pyinduct/',
+    author_email='stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at',
+    url='https://github.com/pyinduct/pyinduct/',
     # packages=find_packages(),
     packages=[
         'pyinduct',
@@ -52,6 +53,6 @@ setup(
         # 'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
-    test_suite='tests',
+    test_suite='pyinduct.tests',
     tests_require=test_requirements
 )

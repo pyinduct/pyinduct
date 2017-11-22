@@ -9,11 +9,13 @@ Welcome to PyInduct's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    readme
    installation
    usage
+   background/index
+   examples/index
    contributing
    modules/index
    authors

@@ -1,25 +1,43 @@
 # -*- coding: utf-8 -*-
+import os
+import numpy as np
+import matplotlib as mpl
+
+# make everybody use the same qt version, try Qt5 first
+try:
+    __import__("PyQt5")
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+    mpl.use("Qt5Agg")
+except ImportError:
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt4"
+    mpl.use("Qt4Agg")
+
+# since this is a serious toolbox
+np.seterr(all="raise")
+
 # noinspection PyUnresolvedReferences
-from .registry import register_base, deregister_base, get_base, is_registered
+from .core import *
 # noinspection PyUnresolvedReferences
-from .core import Function, normalize_function
+from .control import *
 # noinspection PyUnresolvedReferences
-from .control import ControlLaw, Controller
+from .eigenfunctions import *
 # noinspection PyUnresolvedReferences
-from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
-                          TemporalDerivedFieldVariable, Product, TestFunction, Input)
+from .trajectory import *
 # noinspection PyUnresolvedReferences
-from .simulation import (Domain, EvalData, SimulationInput, SimulationInputSum, WeakFormulation, simulate_system,
-                         process_sim_data, evaluate_approximation)
+from .registry import *
 # noinspection PyUnresolvedReferences
-from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
+from .placeholder import *
 # noinspection PyUnresolvedReferences
-from .visualization import PgAnimatedPlot, PgSurfacePlot
+from .simulation import *
 # noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition
+from .shapefunctions import *
 # noinspection PyUnresolvedReferences
-from .utils import find_roots
+from .visualization import *
+# noinspection PyUnresolvedReferences
+from .examples import *
+
+# noinspection PyUnresolvedReferences
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
-__email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de"
-__version__ = '0.3.0'
+__email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
+__version__ = '0.4.0'
