@@ -430,9 +430,16 @@ class Product(object):
                                      "mismatch!")
 
             exp = other_func.data.get("exponent", 1)
-            new_base = Base(np.asarray(
-                [func.raise_to(exp).scale(scale_func)
-                 for func, scale_func in zip(o_func, s_func)]))
+
+            if scalar_func.location is None:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func)
+                     for func, scale_func in zip(o_func, s_func)]))
+            else:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func(scalar_func.location))
+                     for func, scale_func in zip(o_func, s_func)]))
+
             # TODO change name generation to more sane behaviour
             new_name = new_base.fractions.tobytes()
             register_base(new_name, new_base)
