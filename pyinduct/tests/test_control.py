@@ -23,7 +23,7 @@ class CollocatedTestCase(unittest.TestCase):
         alpha = 2
         self.term1 = pi.ScalarTerm(x_dt_at1, 1 + alpha)
         self.term2 = pi.ScalarTerm(x_dz_at0, 2)
-        self.term3 = pi.ScalarTerm(pi.Product(x(1), exp_at1))
+        self.term3 = pi.ScalarTerm(pi.Product(x(0), exp_at1))
 
         self.weight_label = "base"
         self.weights = np.array([1, 1, 1, 2, 2, 2])
