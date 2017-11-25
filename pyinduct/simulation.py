@@ -296,8 +296,9 @@ def simulate_system(weak_form, initial_states,
     return res
 
 
-def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domains, derivative_orders=None,
-                     settings=None):
+def simulate_systems(weak_forms, initial_states, temporal_domain,
+                     spatial_domains, derivative_orders=None, settings=None,
+                     out=None):
     """
     Convenience wrapper that encapsulates the whole simulation process.
 
@@ -313,6 +314,8 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         derivative_orders (dict): Dict, containing tuples of derivative orders
             (time, spat) that shall be evaluated additionally as values
         settings: Integrator settings, see :py:func:`.simulate_state_space`.
+        out (dict): Dictionary from user namespace, which will be updated with
+            the simulatin results (raw data / weights).
 
     Note:
         The *name* attributes of the given weak forms must be unique!
@@ -337,10 +340,12 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
     q0 = project_on_bases(initial_states, canonical_equations)
 
     print(">>> perform time step integration")
-    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain, settings=settings)
+    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain,
+                                         settings=settings)
 
     print(">>> perform postprocessing")
-    results = get_sim_results(sim_domain, spatial_domains, q, state_space_form, derivative_orders=derivative_orders)
+    results = get_sim_results(sim_domain, spatial_domains, q, state_space_form,
+                              derivative_orders=derivative_orders, out=out)
 
     print(">>> finished simulation")
     return results
@@ -380,7 +385,7 @@ def get_sim_result(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_ord
 
 
 def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
-                    derivative_orders=None):
+                    derivative_orders=None, out=None):
     """
     Convenience wrapper for :py:func:`.get_sim_result`.
 
@@ -394,6 +399,8 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
         names: List of names of the desired systems. If not given all available
             subssystems will be processed.
         derivative_orders (dict): Desired derivative orders.
+        out (dict): Dictionary from user namespace, which will be updated with
+            the simulatin results (raw data / weights).
 
     Returns:
         List of :py:class:`.EvalData` objects.
@@ -419,6 +426,9 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
     if derivative_orders is None:
         derivative_orders = dict([(name, (0, 0)) for name in names])
 
+    if out is not None:
+        out.update({state_space.base_lbl: weights})
+
     results = []
     for nm, lbl in zip(names, labels):
         # if derivative_orders[n] is None derivatives of the
@@ -436,8 +446,11 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
         transformation = get_weight_transformation(info)
 
         # project back
+        sub_weights = np.apply_along_axis(transformation, 1, weights)
+        if out is not None:
+            out.update({lbl: sub_weights})
         data = get_sim_result(info.dst_lbl,
-                              np.apply_along_axis(transformation, 1, weights),
+                              sub_weights,
                               temp_domain,
                               spat_domains[nm],
                               info.dst_order,
