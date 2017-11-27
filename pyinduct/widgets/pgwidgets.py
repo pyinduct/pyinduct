@@ -36,7 +36,7 @@ class DoubleSlider(pg.QtGui.QSlider):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.decimals = 5
+        self.decimals = 3
         self._max_int = 10 ** self.decimals
 
         super().setMinimum(0)
@@ -231,6 +231,8 @@ class PgAnimation(PgDataPlot):
         replay_gain = kwargs.get('replay_gain', 1)
         axis = kwargs.get('animationAxis', 0)
 
+        self._timer = None
+
         self.time_data = [np.atleast_1d(data_set.input_data[axis]) for data_set in self._data]
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
@@ -240,7 +242,6 @@ class PgAnimation(PgDataPlot):
         self._longest_idx = max_times.index(self._end_time)
 
         # slider config
-        self.autoPlay = True
         self.slider.playButton.setEnabled(False)
         self.slider.pauseButton.setEnabled(True)
 
@@ -250,6 +251,8 @@ class PgAnimation(PgDataPlot):
         self.slider.slider.setMinimum(self._start_time)
         self.slider.slider.setMaximum(self._end_time)
         self.slider.slider.setValue(self._start_time)
+        self.slider.slider.sliderPressed.connect(self._userSlider)
+        self.slider.slider.sliderMoved.connect(self._movePlot)
 
         # buttons
         self.slider.playButton.clicked.connect(self.playAnimation)
@@ -262,25 +265,36 @@ class PgAnimation(PgDataPlot):
 
         self._t = self._start_time
 
-        self._timer = pg.QtCore.QTimer()
-        self._timer.timeout.connect(self._update_plot)
-        self._timer.start(self._tr)
+        self.playAnimation()
 
-    # TODO Kopplung zum Slider herstellen, autostart aktivieren
     # TODO sliderReleased für user bearbeitung, und bild update
     # TODO make abstract implementation in special classes
+    def _userSlider(self):
+        self.slider.playButton.setEnabled(True)
+        self.slider.pauseButton.setEnabled(False)
+        if self._timer is not None:
+            self._timer.stop()
+
+    def _movePlot(self):
+        pass
+
     def _update_plot(self):
         pass
 
     def playAnimation(self):
-        self.autoPlay = True
         self.slider.playButton.setEnabled(False)
         self.slider.pauseButton.setEnabled(True)
+        if self._timer is not None:
+            self._timer.stop()
+        self._timer = pg.QtCore.QTimer()
+        self._timer.timeout.connect(self._update_plot)
+        self._timer.start(self._tr)
 
     def stopAnimation(self):
-        self.autoPlay = False
         self.slider.playButton.setEnabled(True)
         self.slider.pauseButton.setEnabled(False)
+        if self._timer is not None:
+            self._timer.stop()
 
 
 class PgSurfacePlot(object):
@@ -658,22 +672,36 @@ class _PgSurfacePlotAnimation(PgAnimation):
         """
         Update the rendering
         """
-        if self.autoPlay:
-            for idx, item in enumerate(self.plot_items):
-                # find nearest time index (0th order interpolation)
-                t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+        for idx, item in enumerate(self.plot_items):
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
 
-                # update data
-                self.slider.textLabelCurrent.setText(str(self._t))
-                self.slider.slider.setValue(self._t)
-                z_data = self.scales[2] * self._data[idx].output_data[..., t_idx]
-                mapped_colors = self.mapping.to_rgba(self._data[idx].output_data[..., t_idx])
-                item.setData(z=z_data, colors=mapped_colors)
+            # update data
+            self.slider.textLabelCurrent.setText(str(self._t))
+            self.slider.slider.setValue(self._t)
+            z_data = self.scales[2] * self._data[idx].output_data[..., t_idx]
+            mapped_colors = self.mapping.to_rgba(self._data[idx].output_data[..., t_idx])
+            item.setData(z=z_data, colors=mapped_colors)
 
-            self._t += self._t_step
+        self._t += self._t_step
 
-            if self._t > self._end_time:
-                self._t = self._start_time
+        if self._t > self._end_time:
+            self._t = self._start_time
+
+    def _movePlot(self):
+        """
+        Update the rendering by user
+        """
+        self._t = self.slider.slider.value()
+        self.slider.textLabelCurrent.setText(str(self._t))
+        for idx, item in enumerate(self.plot_items):
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+
+            # update data
+            z_data = self.scales[2] * self._data[idx].output_data[..., t_idx]
+            mapped_colors = self.mapping.to_rgba(self._data[idx].output_data[..., t_idx])
+            item.setData(z=z_data, colors=mapped_colors)
 
 
 class Pg2DPlot(object):
@@ -739,20 +767,32 @@ class _Pg2DPlotAnimation(PgAnimation):
         """
         Update the rendering
         """
-        if self.autoPlay:
-            for idx, item in enumerate(self._data):
-                # find nearest time index (0th order interpolation)
-                t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+        for idx, item in enumerate(self._data):
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
 
-                # update data
-                self.slider.textLabelCurrent.setText(str(self._t))
-                self.slider.slider.setValue(self._t)
-                self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+            # update data
+            self.slider.textLabelCurrent.setText(str(self._t))
+            self.slider.slider.setValue(self._t)
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
 
-            self._t += self._t_step
+        self._t += self._t_step
 
-            if self._t > self._end_time:
-                self._t = self._start_time
+        if self._t > self._end_time:
+            self._t = self._start_time
+
+    def _movePlot(self):
+        """
+        Update the rendering by User
+        """
+        self._t = self.slider.slider.value()
+        self.slider.textLabelCurrent.setText(str(self._t))
+        for idx, item in enumerate(self._data):
+            # find nearest time index (0th order interpolation)
+            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+
+            # update data
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
 
 
 class PgGradientWidget(pg.GraphicsWidget):
