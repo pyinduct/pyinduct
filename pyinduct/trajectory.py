@@ -162,7 +162,7 @@ def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
             order :math:`\rho=1+\frac{1}{\sigma}` of :math:`\varphi(t)`.
         K (numbers.Number): Constant to adjust the slope of :math:`\varphi(t)`.
         length_t (int): Ammount of sample points to use.
-            Default: :code:`50 * T`
+            Default: :code:`int(50 * T)`
 
     Return:
         tuple:
@@ -171,7 +171,7 @@ def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
     """
 
     if length_t is None:
-        length_t = 50 * T
+        length_t = int(50 * T)
 
     t_init = t = np.linspace(0., T, length_t)
 
