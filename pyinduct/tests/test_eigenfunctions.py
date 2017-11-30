@@ -41,23 +41,22 @@ class TestSecondOrderEigenfunction(unittest.TestCase):
 
 
 class FiniteTransformTest(unittest.TestCase):
-    def setUp(self):
-        # self.nested_lambda = True
-        self.nested_lambda = False
-
     def test_trivial(self):
         l = 5
         k = 5
 
         k1, k2, b = parabolic.control.split_domain(k, 0, l, mode='coprime')[0:3]
-        a_mat = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
+        a_mat = parabolic.general.get_in_domain_transformation_matrix(
+            k1, k2, mode="2n")
         self.assertAlmostEqual(b, 0)
         self.assertTrue(all(np.isclose(a_mat, np.linalg.inv(a_mat)).all(1)))
 
         k1, k2, b = parabolic.control.split_domain(k, l, l, mode='coprime')[0:3]
-        b_mat = parabolic.general.get_in_domain_transformation_matrix(k1, k2, mode="2n")
+        b_mat = parabolic.general.get_in_domain_transformation_matrix(
+            k1, k2, mode="2n")
         self.assertAlmostEqual(b, l)
-        self.assertTrue(all(np.isclose(b_mat, np.diag(np.ones(b_mat.shape[0]))).all(1)))
+        self.assertTrue(
+            all(np.isclose(b_mat, np.diag(np.ones(b_mat.shape[0]))).all(1)))
 
     def test_paper_example(self):
         l = 5
@@ -75,27 +74,29 @@ class FiniteTransformTest(unittest.TestCase):
             np.cos,
             m_mat,
             l,
-            nested_lambda=self.nested_lambda)
+            nested_lambda=False)
+        shifted_func_nl = pi.FiniteTransformFunction(
+            np.cos,
+            m_mat,
+            l,
+            nested_lambda=True)
 
         z = np.linspace(0, l, 1000)
+        np.testing.assert_array_almost_equal(
+            shifted_func(z), shifted_func_nl(z))
+
         if show_plots:
-            for i in [0]:
-                plt.figure()
-                plt.plot(z, shifted_func(z))
-                plt.plot(z, np.cos(z))
+            plt.figure()
+            plt.plot(z, shifted_func(z))
+            plt.plot(z, np.cos(z))
             plt.show()
 
     def test_const(self):
-
         n = 5
         k = 5
         b_desired = 2
         l = 5
-
-        params = pi.SecondOrderOperator(a2=2., a1=1.5, a0=-3.,
-                                        alpha1=1, alpha0=1.,
-                                        beta1=1, beta0=-.5)
-        limits = (0, l)
+        params = [2, 1.5, -3, 1, .5]
 
         k1, k2, b = parabolic.control.split_domain(k,
                                                    b_desired,
@@ -106,77 +107,24 @@ class FiniteTransformTest(unittest.TestCase):
                                                                   k2,
                                                                   mode="2n"))
 
-        if 0:
-            p = [params.a2, params.a1, params.a0, -params.alpha0, params.beta0]
-            eig_freq, eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
-                p, l, n, show_plot=show_plots)
-            eig_base = pi.Base(
-                [pi.SecondOrderRobinEigenfunction(om, p, limits[-1])
-                 for om in eig_freq])
-            shifted_eig_base = pi.Base([pi.FiniteTransformFunction(
-                func, M, l, nested_lambda=self.nested_lambda)
-                                         for func in eig_base.fractions])
+        eig_val, eig_base = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
+            params, l, n)
+        shifted_eig_base = pi.Base(np.array(
+            [pi.FiniteTransformFunction(
+                func, M, l, nested_lambda=False)
+                for func in eig_base]))
+        shifted_eig_base_nl = pi.Base(np.array(
+            [pi.FiniteTransformFunction(
+                func, M, l, nested_lambda=True)
+                for func in eig_base]))
 
-        else:
-            nodes, eig_base = pi.cure_interval(pi.SecondOrderEigenVector,
-                                               interval=limits,
-                                               node_count=n,
-                                               params=params,
-                                               count=n,
-                                               derivative_order=2,
-                                               debug=False)
-
-            shifted_eig_base = pi.Base([pi.FiniteTransformFunction(
-                func, M, l, nested_lambda=self.nested_lambda)
-                                         for func in eig_base.fractions])
-
-        # if show_plots:
-        #     pi.visualize_functions(eig_base.fractions, 1e3)
-        #     pi.visualize_functions(shifted_eig_base.fractions, 1e3)
-
-    @unittest.skip
-    def test_segmentation_fault(self):
-        """
-        I can't see the difference to test_const
-        """
+        z = np.linspace(0, l, 1000)
+        for f1, f2 in zip(shifted_eig_base, shifted_eig_base_nl):
+            np.testing.assert_array_almost_equal(f1(z), f2(z))
 
         if show_plots:
-            plt.figure()
-            fun_end = list()
-            for k in [5, 7, 9, 11, 13, 15, 17, 19]:
-                param = [2., 1.5, -3., -1., -.5]
-                l = 5.
-                spatial_domain = (0, l)
-                n = 1
-                b_desired = 2
-                k1, k2, b = parabolic.control.split_domain(k,
-                                                           b_desired,
-                                                           l,
-                                                           mode='coprime')[0:3]
-                M = np.linalg.inv(
-                    parabolic.general.get_in_domain_transformation_matrix(
-                        k1, k2, mode="2n"))
-                eig_freq, eig_val = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(param, l, n)
-                eig_funcs = np.array(
-                    [pi.SecondOrderRobinEigenfunction(om,
-                                                      param,
-                                                      spatial_domain[-1])
-                     for om in eig_freq])
-
-                shifted_eig_funcs = np.array([pi.FiniteTransformFunction(
-                    func,
-                    M,
-                    l,
-                    nested_lambda=self.nested_lambda)
-                                              for func in eig_funcs])
-
-                z = np.linspace(0, l, 1000)
-                y = shifted_eig_funcs[0](z)
-                self.assertLess(max(np.diff(y)), 0.1)
-                plt.plot(z, y, label=str(k) + " " + str(b))
-                plt.plot(z, eig_funcs[0](z))
-            plt.legend()
-            plt.show()
+            pi.visualize_functions(eig_base.fractions, 1000)
+            pi.visualize_functions(shifted_eig_base.fractions, 1000)
 
 
 def calc_dirichlet_eigenvalues(params):
