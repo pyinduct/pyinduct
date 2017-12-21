@@ -130,7 +130,7 @@ class DataPlot:
         self._dt = data[0].input_data[0][1] - data[0].input_data[0][0]
 
 
-class PgDataPlot(object):
+class PgDataPlot(DataPlot, pg.QtCore.QObject):
     """
     Base class for all pyqtgraph plotting related classes.
     """
@@ -142,9 +142,10 @@ class PgDataPlot(object):
     def __init__(self, **kwargs):
         data = kwargs.get('data', None)
         DataPlot.__init__(self, data)
-        pg.mkQApp()
         plotType = kwargs.get('plotType', '2D')
         self.colorMap = kwargs.get('colorMap', "viridis")
+        pg.mkQApp()
+        pg.QtCore.QObject.__init__(self)
 
         self.plotWidget = None
         self.colorBar = None
@@ -298,12 +299,12 @@ class PgAnimation(PgDataPlot):
 
 
 class PgSurfacePlot(object):
-    def __init__(self, **kwargs):
+    def __new__(self, **kwargs):
         animationAxis = kwargs.get('animationAxis', None)
         if animationAxis is not None:
-            _PgSurfacePlotAnimation(**dict(kwargs, plotType='3D-Animation'))
+            return _PgSurfacePlotAnimation(**dict(kwargs, plotType='3D-Animation'))
         else:
-            _PgSurfacePlot(**dict(kwargs, plotType='3D'))
+            return _PgSurfacePlot(**dict(kwargs, plotType='3D'))
 
 
 class _PgSurfacePlot(PgDataPlot):
@@ -705,12 +706,12 @@ class _PgSurfacePlotAnimation(PgAnimation):
 
 
 class Pg2DPlot(object):
-    def __init__(self, **kwargs):
+    def __new__(self, **kwargs):
         animationAxis = kwargs.get('animationAxis', None)
         if animationAxis is not None:
-            _Pg2DPlotAnimation(**dict(kwargs, plotType='2D-Animation'))
+            return _Pg2DPlotAnimation(**dict(kwargs, plotType='2D-Animation'))
         else:
-            _Pg2DPlot(**dict(kwargs, plotType='2D'))
+            return _Pg2DPlot(**dict(kwargs, plotType='2D'))
 
 
 class _Pg2DPlot(PgDataPlot):
