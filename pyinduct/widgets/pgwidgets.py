@@ -732,6 +732,9 @@ class _Pg2DPlot(PgDataPlot):
         yData_max = np.nanmax([np.nanmax(data) for data in self.yData])
         self.plotWidget.setYRange(yData_min, yData_max)
 
+        self.plotWidget.addLegend()
+        self.plotWidget.showGrid(x=True, y=True, alpha=0.5)
+
         self._plot_data_items = []
         colorMap = cm.get_cmap(self.colorMap)
         for idx, data_set in enumerate(self._data):
@@ -755,6 +758,9 @@ class _Pg2DPlotAnimation(PgAnimation):
         state_min = np.min([np.min(data) for data in self.state_data])
         state_max = np.max([np.max(data) for data in self.state_data])
         self.plotWidget.setYRange(state_min, state_max)
+
+        self.plotWidget.addLegend()
+        self.plotWidget.showGrid(x=True, y=True, alpha=0.5)
 
         self._plot_data_items = []
         self._plot_indexes = []
