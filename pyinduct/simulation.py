@@ -1002,18 +1002,17 @@ def create_state_space(canonical_equations):
     def observer_feedback(**kwargs):
         res = np.zeros(state_space_props.size)
         for ce in canonical_equations:
-            idx_a = (state_space_props.parts[ce.dominant_lbl]["start"] +
-                     state_space_props.parts[ce.dominant_lbl]["orig_size"] *
-                     state_space_props.parts[ce.dominant_lbl]["order"])
-            idx_b = (idx_a +
-                     state_space_props.parts[ce.dominant_lbl]["orig_size"])
-
             for fb in ce._static_form._observer_feedback:
+                idx_a = (state_space_props.parts[ce.dominant_lbl]["start"] +
+                         state_space_props.parts[ce.dominant_lbl]["orig_size"] *
+                         state_space_props.parts[ce.dominant_lbl]["order"])
+                idx_b = (idx_a +
+                         state_space_props.parts[ce.dominant_lbl]["orig_size"])
+
                 kwargs.update(obs_weight_lbl=ce.dominant_lbl)
                 res[idx_a: idx_b] += np.squeeze(
                     fb._calc_output(**kwargs)["output"], 1)
 
-            if "obs_weight_lbl" in kwargs:
                 kwargs.pop("obs_weight_lbl")
 
         return res

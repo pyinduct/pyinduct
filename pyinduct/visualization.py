@@ -33,7 +33,7 @@ __all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
 
-# pg.setConfigOption('background', 'w')
+pg.setConfigOption('background', 'w')
 # pg.setConfigOption('foreground', 'k')
 
 
