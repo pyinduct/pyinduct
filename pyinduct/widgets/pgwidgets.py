@@ -33,7 +33,9 @@ def show(show_pg=True, show_mpl=True, force=False):
 
 
 class DoubleSlider(pg.QtGui.QSlider):
-
+    """
+    Derived class of QSlider for double values
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.decimals = 3
@@ -77,11 +79,10 @@ class DoubleSlider(pg.QtGui.QSlider):
 
 
 class AdSlider(pg.QtGui.QWidget):
-
+    """
+    Advanced Slider class for combinated start/stop buttons a slider and two labels for current and max position
+    """
     def __init__(self, parent=None):
-        # TODO shortcuts for play/pause
-        # TODO current time / total time
-        # TODO edit widths
         super(AdSlider, self).__init__(parent)
         self.hBoxLayout = pg.QtGui.QHBoxLayout()
         self.playButton = pg.QtGui.QPushButton()
@@ -247,17 +248,23 @@ class PgAnimation(PgDataPlot):
         self.slider.pauseButton.setEnabled(True)
 
         self.slider.textLabelTotal.setText(str(self._end_time))
-        self.slider.textLabelCurrent.setFixedWidth(self.slider.textLabelTotal.width() + 5)
+        self.slider.textLabelCurrent.setFixedWidth(self.slider.textLabelTotal.width() + 13)
         self.slider.textLabelCurrent.setText(str(self._start_time))
         self.slider.slider.setMinimum(self._start_time)
         self.slider.slider.setMaximum(self._end_time)
         self.slider.slider.setValue(self._start_time)
         self.slider.slider.sliderPressed.connect(self._userSlider)
-        self.slider.slider.sliderMoved.connect(self._movePlot)
+        self.slider.slider.sliderMoved.connect(self.movePlot)
 
         # buttons
         self.slider.playButton.clicked.connect(self.playAnimation)
         self.slider.pauseButton.clicked.connect(self.stopAnimation)
+
+        # shortcuts
+        self.shortcutStop = QShortcut(QKeySequence("s"), self.slider)
+        self.shortcutStop.activated.connect(self.stopAnimation)
+        self.shortcutPlay = QShortcut(QKeySequence("p"), self.slider)
+        self.shortcutPlay.activated.connect(self.playAnimation)
 
         assert refresh_time > 0
         self._tr = refresh_time
@@ -268,18 +275,18 @@ class PgAnimation(PgDataPlot):
 
         self.playAnimation()
 
-    # TODO sliderReleased für user bearbeitung, und bild update
     # TODO make abstract implementation in special classes
     def _userSlider(self):
         self.slider.playButton.setEnabled(True)
         self.slider.pauseButton.setEnabled(False)
         if self._timer is not None:
             self._timer.stop()
+        self.movePlot()
 
-    def _movePlot(self):
+    def movePlot(self):
         pass
 
-    def _update_plot(self):
+    def updatePlot(self):
         pass
 
     def playAnimation(self):
@@ -288,7 +295,7 @@ class PgAnimation(PgDataPlot):
         if self._timer is not None:
             self._timer.stop()
         self._timer = pg.QtCore.QTimer()
-        self._timer.timeout.connect(self._update_plot)
+        self._timer.timeout.connect(self.updatePlot)
         self._timer.start(self._tr)
 
     def stopAnimation(self):
@@ -669,7 +676,7 @@ class _PgSurfacePlotAnimation(PgAnimation):
                         -self.scales[2] * self.extrema[1][2] + self.sc_deltas[2] / 2)
          for item in self.plotWidget.items]
 
-    def _update_plot(self):
+    def updatePlot(self):
         """
         Update the rendering
         """
@@ -689,7 +696,7 @@ class _PgSurfacePlotAnimation(PgAnimation):
         if self._t > self._end_time:
             self._t = self._start_time
 
-    def _movePlot(self):
+    def movePlot(self):
         """
         Update the rendering by user
         """
@@ -770,7 +777,7 @@ class _Pg2DPlotAnimation(PgAnimation):
                                                                       width=2), name=data_set.name))
             self.plotWidget.addItem(self._plot_data_items[-1])
 
-    def _update_plot(self):
+    def updatePlot(self):
         """
         Update the rendering
         """
@@ -788,7 +795,7 @@ class _Pg2DPlotAnimation(PgAnimation):
         if self._t > self._end_time:
             self._t = self._start_time
 
-    def _movePlot(self):
+    def movePlot(self):
         """
         Update the rendering by User
         """
@@ -806,7 +813,6 @@ class PgGradientWidget(pg.GraphicsWidget):
     """
     OpenGL Widget that depends on GraphicsWidget and realizes a color bar that depends on a QGraphicsRectItem and
     QLinearGradient
-
     Args:
         cmap (matplotlib.cm.Colormap): color map, if None viridis is used
     """
@@ -852,7 +858,6 @@ class PgGradientWidget(pg.GraphicsWidget):
     def setMaxDim(self, mx=None):
         """
         Sets the maximal width of the color bar widget
-
         Args:
              mx (float or None): new width of the color bar widget
         """
@@ -867,7 +872,6 @@ class PgGradientWidget(pg.GraphicsWidget):
     def setLength(self, newLen):
         """
         Gets the new length if the window is resize, updates the size and color of QGraphicsRectItem
-
         Args:
              newLen: new length of the window
         """
@@ -884,7 +888,6 @@ class PgGradientWidget(pg.GraphicsWidget):
     def getGradient(self):
         """
         Calculates for minimal and maximal value the linear gradient and assigns colors to the gradient.
-
         Return:
             pg.QtGui.QLinearGradient: linear gradient for current min and max values
         """
@@ -908,7 +911,6 @@ class PgGradientWidget(pg.GraphicsWidget):
     def setRange(self, _min, _max):
         """
         Method updates the min and max value of the colar bar and calculates the new gradient trend
-
         Args:
             _min (float): set the minimal value of the color bar
             _max (float): set the maximal value of the color bar
@@ -958,7 +960,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setXTics(self, xTics, pos):
         """
         Sets x tics on positions
-
         Args:
             xTics (list): x tics text to render
             pos (list): position as list with [[x, y, z], [x, y, z], ...] coordinate
@@ -972,7 +973,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setYTics(self, yTics, pos):
         """
         Sets y tics on positions
-
         Args:
             yTics (list): y tics text to render
             pos (list): position as list with [[x, y, z], [x, y, z], ...] coordinate
@@ -986,7 +986,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setZTics(self, zTics, pos):
         """
         Sets z tics on positions
-
         Args:
             zTics (list): z tics text to render
             pos (list): position as list with [[x, y, z], [x, y, z], ...] coordinate
@@ -1000,7 +999,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setXLabel(self, text, pos):
         """
         Sets x label on position
-
         Args:
             text (str): x axis text to render
             pos (list): position as list with [x, y, z] coordinate
@@ -1012,7 +1010,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setYLabel(self, text, pos):
         """
         Sets y label on position
-
         Args:
             text (str): y axis text to render
             pos (list): position as list with [x, y, z] coordinate
@@ -1024,7 +1021,6 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
     def setZLabel(self, text, pos):
         """
         Sets z label on position
-
         Args:
             text (str): z axis text to render
             pos (list): position as list with [x, y, z] coordinate
@@ -1114,11 +1110,9 @@ class PgColorBarWidget(pg.GraphicsLayoutWidget):
     def setCBRange(self, _min, _max):
         """
         Sets the minimal and maximal value of axis and color bar
-
         Args:
             _min (float): minimal value
             _max (float): maximal value
         """
         self.gw.setRange(_min, _max)
         self.ax.setRange(_min, _max)
-
