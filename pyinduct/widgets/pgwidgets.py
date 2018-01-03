@@ -1,4 +1,5 @@
 # coding=utf-8
+import platform
 import numpy as np
 import copy as cp
 import pyqtgraph as pg
@@ -6,6 +7,7 @@ import pyqtgraph.opengl as gl
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
 import matplotlib as mpl
 import matplotlib.cm as cm
 from ..core import EvalData
@@ -36,6 +38,8 @@ class DoubleSlider(pg.QtGui.QSlider):
     """
     Derived class of QSlider for double values
     """
+    mouseEvent = QtCore.pyqtSignal(float)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.decimals = 3
@@ -77,11 +81,33 @@ class DoubleSlider(pg.QtGui.QSlider):
     def maximum(self):
         return self._max_value
 
+    def mousePressEvent(self, event):
+        style_option = QStyleOptionSlider()
+        self.initStyleOption(style_option)
+        handle_rect = self.style().subControlRect(QStyle.CC_Slider, style_option, QStyle.SC_SliderHandle, self)
+        if event.button() == Qt.LeftButton and not handle_rect.contains(event.pos()):
+            if self.orientation == Qt.Vertical:
+                factor = (self.height() - event.y()) / self.height()
+            else:
+                factor = event.x() / self.width()
+            value = self.minimum() + (self.maximum() - self.minimum()) * factor
+
+            if self.invertedAppearance():
+                value = self.maximum() - value
+
+            self.setValue(value)
+            self.mouseEvent.emit(value)
+
+            event.accept()
+
+        QSlider.mousePressEvent(self, event)
+
 
 class AdSlider(pg.QtGui.QWidget):
     """
     Advanced Slider class for combinated start/stop buttons a slider and two labels for current and max position
     """
+
     def __init__(self, parent=None):
         super(AdSlider, self).__init__(parent)
         self.hBoxLayout = pg.QtGui.QHBoxLayout()
@@ -253,8 +279,10 @@ class PgAnimation(PgDataPlot):
         self.slider.slider.setMinimum(self._start_time)
         self.slider.slider.setMaximum(self._end_time)
         self.slider.slider.setValue(self._start_time)
+        # TODO überschreiben mit float values
         self.slider.slider.sliderPressed.connect(self._userSlider)
         self.slider.slider.sliderMoved.connect(self.movePlot)
+        self.slider.slider.mouseEvent.connect(self.movePlot)
 
         # buttons
         self.slider.playButton.clicked.connect(self.playAnimation)
@@ -281,7 +309,6 @@ class PgAnimation(PgDataPlot):
         self.slider.pauseButton.setEnabled(False)
         if self._timer is not None:
             self._timer.stop()
-        self.movePlot()
 
     def movePlot(self):
         pass
@@ -439,8 +466,8 @@ class _PgSurfacePlot(PgDataPlot):
                         self.extrema[0][0] * self.scales[0] + 1.6 * self.sc_deltas[0] - self.scales[0] *
                 self.extrema[1][0],
                         self.extrema[0][0] * self.scales[0] + 0.4 * self.sc_deltas[0] - self.scales[0] *
-                            self.extrema[1][0],
-                        13)):
+                self.extrema[1][0],
+            13)):
             if i % 2 == 1:
                 posXTics.append([self.extrema[0][1] * self.scales[1] + 0.35 * self.sc_deltas[1] - self.scales[1] *
                                  self.extrema[1][1],
@@ -452,8 +479,8 @@ class _PgSurfacePlot(PgDataPlot):
                         self.extrema[0][1] * self.scales[1] + 0.4 * self.sc_deltas[1] - self.scales[1] *
                 self.extrema[1][1],
                         self.extrema[0][1] * self.scales[1] + 1.6 * self.sc_deltas[1] - self.scales[1] *
-                            self.extrema[1][1],
-                        13)):
+                self.extrema[1][1],
+            13)):
             if i % 2 == 1:
                 posYTics.append([y,
                                  self.extrema[0][0] * self.scales[0] + 0.35 * self.sc_deltas[0] - self.scales[0] *
@@ -782,13 +809,13 @@ class _Pg2DPlotAnimation(PgAnimation):
         Update the rendering
         """
         for idx, item in enumerate(self._data):
-            # find nearest time index (0th order interpolation)
-            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+            axis = [[self._t], self.spatial_data[idx]]
+            _interpolData = item._interpolator(*axis)[0]
 
             # update data
             self.slider.textLabelCurrent.setText(str(self._t))
             self.slider.slider.setValue(self._t)
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=_interpolData)
 
         self._t += self._t_step
 
@@ -802,11 +829,11 @@ class _Pg2DPlotAnimation(PgAnimation):
         self._t = self.slider.slider.value()
         self.slider.textLabelCurrent.setText(str(self._t))
         for idx, item in enumerate(self._data):
-            # find nearest time index (0th order interpolation)
-            t_idx = (np.abs(self.time_data[idx] - self._t)).argmin()
+            axis = [[self._t], self.spatial_data[idx]]
+            _interpolData = item._interpolator(*axis)[0]
 
             # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=_interpolData)
 
 
 class PgGradientWidget(pg.GraphicsWidget):
@@ -1034,64 +1061,64 @@ class PgAdvancedViewWidget(gl.GLViewWidget):
         Overrides painGL function to render the text labels
         """
         gl.GLViewWidget.paintGL(self, *args, **kwds)
-        self.renderText(self.posXLabel[0],
-                        self.posXLabel[1],
-                        self.posXLabel[2],
-                        self.xlabel)
-        self.renderText(self.posYLabel[0],
-                        self.posYLabel[1],
-                        self.posYLabel[2],
-                        self.ylabel)
+        if platform.system() != 'Darwin':
+            self.renderText(self.posXLabel[0],
+                            self.posXLabel[1],
+                            self.posXLabel[2],
+                            self.xlabel)
+            self.renderText(self.posYLabel[0],
+                            self.posYLabel[1],
+                            self.posYLabel[2],
+                            self.ylabel)
 
-        self.renderText(self.oldPosZLabel[0],
-                        self.oldPosZLabel[1],
-                        self.oldPosZLabel[2],
-                        " " * 20)
-        self.renderText(self.posZLabel[0],
-                        self.posZLabel[1],
-                        self.posZLabel[2],
-                        self.zlabel)
-        self.oldPosZLabel = cp.copy(self.posZLabel)
+            self.renderText(self.oldPosZLabel[0],
+                            self.oldPosZLabel[1],
+                            self.oldPosZLabel[2],
+                            " " * 20)
+            self.renderText(self.posZLabel[0],
+                            self.posZLabel[1],
+                            self.posZLabel[2],
+                            self.zlabel)
+            self.oldPosZLabel = cp.copy(self.posZLabel)
 
-        if self.showAllTics:
-            for i in range(len(self.xTics)):
-                self.renderText(self.posXTics[i][0],
-                                self.posXTics[i][1],
-                                self.posXTics[i][2],
-                                '{:.1f}'.format(self.xTics[i]))
-            for i in range(len(self.yTics)):
-                self.renderText(self.posYTics[i][0],
-                                self.posYTics[i][1],
-                                self.posYTics[i][2],
-                                '{:.1f}'.format(self.yTics[i]))
-            for i in range(len(self.zTics)):
-                self.renderText(self.posZTics[i][0],
-                                self.posZTics[i][1],
-                                self.posZTics[i][2],
-                                '{:.1f}'.format(self.zTics[i]))
-        else:
-            for i in range(len(self.xTics)):
-                self.renderText(self.posXTics[i][0],
-                                self.posXTics[i][1],
-                                self.posXTics[i][2],
-                                str())
-            for i in range(len(self.yTics)):
-                self.renderText(self.posYTics[i][0],
-                                self.posYTics[i][1],
-                                self.posYTics[i][2],
-                                str())
-            for i in range(len(self.zTics)):
-                self.renderText(self.posZTics[i][0],
-                                self.posZTics[i][1],
-                                self.posZTics[i][2],
-                                str())
+            if self.showAllTics:
+                for i in range(len(self.xTics)):
+                    self.renderText(self.posXTics[i][0],
+                                    self.posXTics[i][1],
+                                    self.posXTics[i][2],
+                                    '{:.1f}'.format(self.xTics[i]))
+                for i in range(len(self.yTics)):
+                    self.renderText(self.posYTics[i][0],
+                                    self.posYTics[i][1],
+                                    self.posYTics[i][2],
+                                    '{:.1f}'.format(self.yTics[i]))
+                for i in range(len(self.zTics)):
+                    self.renderText(self.posZTics[i][0],
+                                    self.posZTics[i][1],
+                                    self.posZTics[i][2],
+                                    '{:.1f}'.format(self.zTics[i]))
+            else:
+                for i in range(len(self.xTics)):
+                    self.renderText(self.posXTics[i][0],
+                                    self.posXTics[i][1],
+                                    self.posXTics[i][2],
+                                    str())
+                for i in range(len(self.yTics)):
+                    self.renderText(self.posYTics[i][0],
+                                    self.posYTics[i][1],
+                                    self.posYTics[i][2],
+                                    str())
+                for i in range(len(self.zTics)):
+                    self.renderText(self.posZTics[i][0],
+                                    self.posZTics[i][1],
+                                    self.posZTics[i][2],
+                                    str())
 
 
 class PgColorBarWidget(pg.GraphicsLayoutWidget):
     """
     OpenGL Widget that depends on GraphicsLayoutWidget and realizes an axis and a color bar
     """
-
     def __init__(self, colorMap):
         super(PgColorBarWidget, self).__init__()
 
