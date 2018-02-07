@@ -1703,8 +1703,8 @@ class Domain(object):
 
     def __str__(self):
         return "Domain on {} (step={}, num={})".format(self.bounds,
-                                                      self._step,
-                                                      self._num)
+                                                       self._step,
+                                                       self._num)
 
     def __len__(self):
         return len(self._values)
@@ -1723,6 +1723,10 @@ class Domain(object):
     @property
     def points(self):
         return self._values
+
+    @property
+    def ndim(self):
+        return self._values.ndim
 
 
 def real(data):
@@ -1771,12 +1775,15 @@ class EvalData:
         output_data: The result of the evaluation.
 
     Keyword Args:
-        input_names: (List of) names for the input axes.
+        input_labels: (List of) labels for the input axes.
         input_units: (List of) units for the input axes.
         name: Name of the generated data set.
         fill_axes: If the dimension of `output_data` is higher than the
             length of the given `input_data` list, dummy entries will be
             appended until the required dimension is reached.
+        enable_extrapolation (bool): If True, internal interpolators will allow
+            extrapolation. Otherwise, the last giben value will be repeated for
+            1D cases and the result will be padded with zeros for cases > 1D.
 
     Examples:
         When instantiating 1d EvalData objects, the list can be omitted
@@ -1830,6 +1837,7 @@ class EvalData:
     """
     def __init__(self, input_data, output_data,
                  input_labels=None, input_units=None,
+                 enable_extrapolation=False,
                  fill_axes=False, name=None):
         # check type and dimensions
         if isinstance(input_data, np.ndarray) and input_data.ndim == 1:
@@ -1840,6 +1848,11 @@ class EvalData:
             input_data = [input_data]
         else:
             assert isinstance(input_data, list)
+
+        # convert numpy arrays to domains
+        input_data = [Domain(points=entry)
+                      if isinstance(entry, np.ndarray) else entry
+                      for entry in input_data]
 
         # if a list with names is provided, the dimension must fit
         if input_labels is None:
@@ -1863,8 +1876,8 @@ class EvalData:
             # add dummy axes to input_data for missing output dimensions
             dim_diff = output_data.ndim - len(input_data)
             for dim in range(dim_diff):
-                input_data.append(
-                    np.array(range(output_data.shape[-(dim_diff - dim)])))
+                input_data.append(Domain(points=np.array(
+                    range(output_data.shape[-(dim_diff - dim)]))))
                 input_labels.append("")
                 input_units.append("")
 
@@ -1880,27 +1893,53 @@ class EvalData:
         self.max = output_data.max()
 
         if len(input_data) == 1:
+            if enable_extrapolation:
+                fill_val = "extrapolate"
+            else:
+                fill_val = (output_data[0], output_data[-1])
+
             self._interpolator = interp1d(input_data[0],
                                           output_data,
                                           axis=-1,
                                           bounds_error=False,
-                                          fill_value=(output_data[0],
-                                                      output_data[-1]))
+                                          fill_value=fill_val)
         elif len(input_data) == 2 and output_data.ndim == 2:
             # pure 2d case
-            if len(input_data[0]) > 2 and len(input_data[1]) > 2:
+            if enable_extrapolation:
+                raise ValueError("Extrapolation not supported for 2d data. See "
+                                 "https://github.com/scipy/scipy/issues/8099"
+                                 "for details.")
+            if len(input_data[0]) > 3 and len(input_data[1]) > 3:
                 # special treatment for very common case (faster than interp2d)
+                # boundary values are used as fill values
                 self._interpolator = RectBivariateSpline(*input_data,
                                                          output_data)
             else:
+                # this will trigger nearest neighbour interpolation
+                fill_val = None
+
+                # if enable_extrapolation:
+                #     fill_val = None
+                # else:
+                #     Since the value has to be the same at every border
+                    # fill_val = 0
+
                 self._interpolator = interp2d(input_data[0],
                                               input_data[1],
                                               output_data.T,
                                               bounds_error=False,
-                                              fill_value=0)
+                                              fill_value=fill_val)
         else:
+            if enable_extrapolation:
+                fill_val = None
+            else:
+                # Since the value has to be the same at every border
+                fill_val = 0
+
             self._interpolator = RegularGridInterpolator(input_data,
-                                                         output_data)
+                                                         output_data,
+                                                         bounds_error=False,
+                                                         fill_value=fill_val)
 
         # handle names and units
         self.input_labels = input_labels
@@ -2222,7 +2261,7 @@ class EvalData:
                       name="abs({})".format(self.name))
         return ed
 
-    def __call__(self, interp_axes):
+    def __call__(self, interp_axes, as_eval_data=True):
         """
         Interpolation method for output_data.
 
@@ -2231,10 +2270,14 @@ class EvalData:
         One slice object is allowed per axis list.
 
         Args:
-            interp_axes (list(list)): axis positions in the form
+            interp_axes (list(list)): Axis positions in the form
 
             - 1D: [axis] with axis=[1,2,3]
             - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+            as_eval_data (bool): Return the interpolation result as EvalData
+                object. If `False`, the output_data array of the results is
+                returned.
 
         Returns:
             :py:class:`EvalData` with pos as input_data and to pos interpolated
@@ -2267,7 +2310,12 @@ class EvalData:
                     raise ValueError("Coordinates must be given as iterable!")
             _list.append(_entry)
 
-        return self.interpolate(_list)
+        res = self.interpolate(_list)
+
+        if as_eval_data:
+            return res
+        else:
+            return res.output_data
 
     def interpolate(self, interp_axis):
         """
