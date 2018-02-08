@@ -1853,13 +1853,12 @@ class EvalData:
         if output_data.size == 0:
             raise ValueError("No initialisation possible with an empty array!")
 
-        assert len(input_data) <= output_data.ndim
-
         if fill_axes:
             # add dummy axes to input_data for missing output dimensions
-            for dim in range(output_data.ndim - len(input_data)):
-                input_data.append(np.array(
-                    range(output_data.shape[dim + len(input_data)])))
+            dim_diff = output_data.ndim - len(input_data)
+            for dim in range(dim_diff):
+                input_data.append(
+                    np.array(range(output_data.shape[-(dim_diff - dim)])))
                 input_labels.append("")
                 input_units.append("")
 

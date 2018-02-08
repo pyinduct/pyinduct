@@ -910,7 +910,7 @@ class EvalDataTestCase(unittest.TestCase):
                         output_data=test_output_data_3)
 
         # and have no ndim > len(input_data)
-        test_output_data_4 = np.random.rand(11, 5, 3)
+        test_output_data_4 = np.random.rand(11, 5, 3, 7)
         with self.assertRaises(AssertionError):
             pi.EvalData(input_data=[test_data_1, test_data_2],
                         output_data=test_output_data_4)
