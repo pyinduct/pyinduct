@@ -608,20 +608,18 @@ class FindRootsTestCase(unittest.TestCase):
         self.rtol = .1
 
     def test_no_roots(self):
+        # function does not have any roots
         roots = pi.find_roots(function=self.no_roots,
                               grid=self.grid, cmplx=False)
+        self.assertEqual(len(roots), 0)
         roots = pi.find_roots(function=self.no_roots,
                               grid=[self.grid, self.grid], cmplx=True)
+        self.assertEqual(len(roots), 0)
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
         roots = pi.find_roots(function=self.frequent_eq, grid=grid,
                               n_roots=self.n_roots, rtol=self.rtol/100)
-
-        # if show_plots:
-        #     pi.visualize_roots(roots,
-        #                        [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
-        #                        self.frequent_eq)
 
         real_roots = [(2*k - 1)*np.pi/2/10 for k in range(1, self.n_roots+1)]
         np.testing.assert_array_almost_equal(roots, real_roots)
@@ -629,7 +627,6 @@ class FindRootsTestCase(unittest.TestCase):
     def test_in_fact_roots(self):
         roots = pi.find_roots(function=self.char_eq, grid=self.grid,
                               n_roots=self.n_roots, rtol=self.rtol)
-        # pi.visualize_roots(roots, self.grid, self.char_eq)
 
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
@@ -643,6 +640,10 @@ class FindRootsTestCase(unittest.TestCase):
         # bigger area, check good amount
         roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
+
+        # we deliberately request to be given zero roots
+        roots = pi.find_roots(self.char_eq, self.grid, 0, self.rtol)
+        self.assertEqual(len(roots), 0)
 
     def test_rtol(self):
         roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
@@ -662,19 +663,12 @@ class FindRootsTestCase(unittest.TestCase):
             [self.complex_eq(root) for root in roots],
             [0] * len(roots))
 
-        # pi.visualize_roots(roots,
-        #                    grid,
-        #                    self.complex_eq,
-        #                    cmplx=True)
-
     def test_n_dim_func(self):
         grid = [np.linspace(0, 10),
                 np.linspace(0, 2)]
         roots = pi.find_roots(function=self.univariate_eq, grid=grid, n_roots=6,
                               rtol=self.rtol)
-        grid = [np.arange(0, 10, .1), np.arange(0, 10, .1)]
-
-        # pi.visualize_roots(roots, grid, self.univariate_eq)
+        # TODO check results!
 
     def tearDown(self):
         pass
