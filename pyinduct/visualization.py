@@ -714,20 +714,27 @@ def save_2d_pg_plot(plot, filename):
     return path_filename, path
 
 
-def visualize_roots(roots, grid, function, cmplx=False):
+def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
     """
     Visualize a given set of roots by examining the output
     of the generating function.
 
     Args:
-        roots (array like): list of roots to display.
-        grid (list): list of arrays that form the grid, used for
-            the evaluation of the given *function*
-        function (callable): possibly vectorial function handle
-            that will take input of of the shape ('len(grid)', )
-        cmplx (bool): If True, the complex valued *function* is
-            handled as a vectorial function returning [Re(), Im()]
+        roots (array like): Roots to display, if `None` is given, no roots will
+            be displayed, this is useful to get a view of *func* and choosing
+            an appropriate `grid`.
+        grid (list): List of arrays that form the grid, used for
+            the evaluation of the given *func*.
+        func (callable): Possibly vectorial function handle
+            that will take input of of the shape ('len(grid)', ).
+        cmplx (bool): If True, the complex valued *func* is
+            handled as a vectorial function returning [Re(func), Im(func)].
+        delay_exec (bool): If True the graphics window is not shown directly.
+            In this case, a reference to the plot window is returned.
+
+    Returns: A PgPlotWindow if *delay_exec* is True.
     """
+    roots = np.atleast_1d(roots)
     if isinstance(grid[0], Number):
         grid = [grid]
 
@@ -736,8 +743,9 @@ def visualize_roots(roots, grid, function, cmplx=False):
 
     if cmplx:
         assert dim == 2
-        function = complex_wrapper(function)
-        roots = np.array([np.real(roots), np.imag(roots)]).T
+        func = complex_wrapper(func)
+        if roots.size > 0:
+            roots = np.array([np.real(roots), np.imag(roots)]).T
 
     grids = np.meshgrid(*[row for row in grid])
     values = np.vstack([arr.flatten() for arr in grids]).T
@@ -745,7 +753,7 @@ def visualize_roots(roots, grid, function, cmplx=False):
     components = []
     absolute = []
     for val in values:
-        components.append(function(val))
+        components.append(func(val))
         absolute.append(np.linalg.norm(components[-1]))
 
     comp_values = np.array(components)
@@ -759,7 +767,9 @@ def visualize_roots(roots, grid, function, cmplx=False):
     if dim == 1:
         # plot function with roots
         pl = pw.addPlot()
-        pl.plot(roots, np.zeros(roots.shape[0]), pen=None, symbolPen=pg.mkPen("g"))
+        if roots.size > 0:
+            pl.plot(roots, np.zeros(roots.shape[0]),
+                    pen=None, symbolPen=pg.mkPen("g"))
         pl.plot(np.squeeze(values), np.squeeze(comp_values), pen=pg.mkPen("b"))
     else:
         # plot function components
@@ -781,9 +791,10 @@ def visualize_roots(roots, grid, function, cmplx=False):
             p_img.addItem(img)
 
             # add roots on top
-            p_img.plot(roots[:, 0], roots[:, 1],
-                       pen=None,
-                       symbolPen=pg.mkPen("g"))
+            if roots.size > 0:
+                p_img.plot(roots[:, 0], roots[:, 1],
+                           pen=None,
+                           symbolPen=pg.mkPen("g"))
 
             hist = pg.HistogramLUTItem()
             hist.setImageItem(img)
@@ -806,8 +817,14 @@ def visualize_roots(roots, grid, function, cmplx=False):
         hist = pg.HistogramLUTItem()
         hist.setImageItem(img)
         pw.addItem(hist)
+
         # add roots on top
-        p_abs.plot(roots[:, 0], roots[:, 1], pen=None, symbolPen=pg.mkPen("g"))
+        if roots.size > 0:
+            p_abs.plot(roots[:, 0], roots[:, 1],
+                       pen=None, symbolPen=pg.mkPen("g"))
 
     pw.show()
-    pg.QAPP.exec_()
+    if not delay_exec:
+        pg.QAPP.exec_()
+    else:
+        return pw

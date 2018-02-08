@@ -423,7 +423,7 @@ class SecondOrderEigenVector(Function):
         if kwargs.get("debug", False):
             visualize_roots(roots,
                             grid=[np.linspace(-2, 2), np.linspace(-30, 30)],
-                            function=patched_func,
+                            func=patched_func,
                             cmplx=True)
 
         # reconstruct characteristic pairs p1 and p2
