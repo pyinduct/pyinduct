@@ -1553,9 +1553,14 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     if n_roots is None:
         n_roots = len(roots)
 
+    if n_roots == 0:
+        # Either no roots have been found or zero roots have been requested
+        return np.array([])
+
     if len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(
+                         "Check provided function (see `visualize_roots`) or "
+                         "try to increase the search area.".format(
                             len(roots), n_roots))
 
     valid_roots = np.array(roots)
