@@ -1605,8 +1605,9 @@ def complex_wrapper(func):
     """
 
     def wrapper(x):
-        return np.array([np.real(func(np.complex(x[0], x[1]))),
-                         np.imag(func(np.complex(x[0], x[1])))])
+        val = func(np.complex(x[0], x[1]))
+        return np.array([np.real(val),
+                         np.imag(val)])
 
     return wrapper
 
