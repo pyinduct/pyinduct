@@ -1010,7 +1010,7 @@ def create_state_space(canonical_equations):
                          state_space_props.parts[ce.dominant_lbl]["orig_size"])
 
                 kwargs.update(obs_weight_lbl=ce.dominant_lbl)
-                res[idx_a: idx_b] += np.squeeze(
+                res[idx_a: idx_b] += ce.dominant_form.e_n_pb_inv @ np.squeeze(
                     fb._calc_output(**kwargs)["output"], 1)
 
                 kwargs.pop("obs_weight_lbl")

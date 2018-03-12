@@ -8,7 +8,8 @@ import numpy as np
 from itertools import chain
 
 from .registry import get_base
-from .core import real, get_weight_transformation, get_transformation_info
+from .core import (get_weight_transformation, get_transformation_info,
+                   calculate_scalar_product_matrix)
 from .simulation import SimulationInput, parse_weak_formulation
 
 __all__ = ["Controller", "ObserverFeedback"]
@@ -130,27 +131,37 @@ def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
                 raise NotImplementedError
 
             # collect information
+            org_base = get_base(lbl)
+            tar_base = get_base(weight_label)
             if is_observer:
                 info = get_transformation_info(
                     lbl,
                     weight_label,
                     int(next(iter(vectors.values())).size
-                        / get_base(lbl).fractions.size) - 1,
-                    int(max(vect_shape) / len(get_base(weight_label))) - 1)
+                        / org_base.fractions.size) - 1,
+                    int(max(vect_shape) / len(tar_base)) - 1)
             else:
                 info = get_transformation_info(
                     weight_label,
                     lbl,
-                    int(max(vect_shape) / len(get_base(weight_label))) - 1,
+                    int(max(vect_shape) / len(tar_base)) - 1,
                     int(next(iter(vectors.values())).size
-                        / get_base(lbl).fractions.size) - 1)
+                        / org_base.fractions.size) - 1)
 
             # fetch handle
             transformation = get_weight_transformation(info)
 
             # evaluate
             if is_observer:
-                gain += transformation(vectors[1])
+                # map the available projections to the origin weights
+                org_weights_trafo = calculate_scalar_product_matrix(
+                    org_base.scalar_product_hint()[0], org_base, org_base)
+                # map the desired projections to the target weights
+                tar_weights_trafo = calculate_scalar_product_matrix(
+                    tar_base.scalar_product_hint()[0], tar_base, tar_base)
+                # map the availabel projections to the target projections
+                gain += tar_weights_trafo @ transformation(
+                    np.linalg.inv(org_weights_trafo) @ vectors[1])
             else:
                 for i, iv in enumerate(identity):
                     gain[0, i] += np.dot(vectors[1], transformation(iv))

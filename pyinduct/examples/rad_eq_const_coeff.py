@@ -74,7 +74,7 @@ if __name__ == "__main__" or test_examples:
 
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
-    n_modal = 30
+    n_modal = 10
     # number FEM test functions, used for system approximation/simulation
     n_fem = 30
     # control law parameter
