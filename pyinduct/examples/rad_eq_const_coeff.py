@@ -80,7 +80,7 @@ if __name__ == "__main__" or test_examples:
     # control law parameter
     # stabilizing: param_a0_t < 0
     # destabilizing: param_a0_t > 0
-    param_a0_t = -10
+    param_a0_t = -6
 
     # system/simulation parameters
     l = 1
@@ -158,12 +158,12 @@ if __name__ == "__main__" or test_examples:
     sys_lbl = "sys_base"
     obs_sys_lbl = "obs_sys_base"
     tar_sys_lbl = "tar_sys_base"
-    pi.register_base(sys_lbl, fem_funcs)
-    pi.register_base(obs_sys_lbl, fem_funcs)
+    pi.register_base(sys_lbl, eig_funcs_r)
+    pi.register_base(obs_sys_lbl, eig_funcs_r)
     pi.register_base(tar_sys_lbl, eig_funcs_r_t)
     ctrl_lbl = "ctrl_appr_base"
     ctrl_target_lbl = "ctrl_appr_target_base"
-    pi.register_base(ctrl_lbl, eig_funcs.set_sb_source(obs_sys_lbl))
+    pi.register_base(ctrl_lbl, eig_funcs.set_sb_source(sys_lbl))
     pi.register_base(ctrl_target_lbl, eig_funcs_t)
     obs_lbl = "obs_appr_base"
     obs_target_lbl = "obs_appr_target_base"
@@ -223,12 +223,10 @@ if __name__ == "__main__" or test_examples:
         system_input,
         param,
         spatial_domain.bounds)
-    rad_pde.name = "system state x(z,t)"
 
     # observer
     obs_rad_pde, obs_base_labels = approximate_observer(
         sys_lbl, obs_sys_lbl, obs_lbl, obs_target_lbl)
-    obs_rad_pde.name = "observer state \hat x(z,t)"
 
     # desired observer error system
     obs_err_rad_pde, tar_obs_base_labels = parabolic.get_parabolic_robin_weak_form(
@@ -261,15 +259,11 @@ if __name__ == "__main__" or test_examples:
     C = pi.coefficient_recursion(y_d, alpha * y_d, param)
     x_l = pi.power_series(np.array(spatial_domain), t_d, C)
     evald_traj = pi.EvalData([t_d, np.array(spatial_domain)], x_l,
-                             name="desired system state x_d(z,t)")
-    sys_err_ed = pi.EvalData(sys_ed.input_data,
-                         sys_ed.output_data - evald_traj.output_data,
-                         name="tracking error state x(z,t) - x_d(z,t)")
+                             name="x(z,t) desired")
 
     # error system
     err_ed = pi.EvalData(sys_ed.input_data,
-                         obs_ed.output_data - sys_ed.output_data,
-                         name="observer error state \\hat x(z,t) - x(z,t)")
+                         obs_ed.output_data - sys_ed.output_data)
 
     # simulate coefficients of the target (error) system
     def obs_err_ic(z): return obs_ic(z) - sys_ic(z)
@@ -278,18 +272,15 @@ if __name__ == "__main__" or test_examples:
             [pi.Function(obs_err_ic)], pi.get_base(obs_lbl))
         err_t_ss = pi.create_state_space(pi.parse_weak_formulation(obs_err_rad_pde))
         err_t_ss.A[1] = np.transpose(err_t_ss.A[1])
-        print(pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
-            param_t, l, n_modal)[1])
-        print(np.flipud(np.sort(np.linalg.eig(err_t_ss.A[1])[0])))
         _, err_t_weights = pi.simulate_state_space(
             err_t_ss, obs_err_ic_weights, temporal_domain)
         err_t_ed = get_sim_result(
             obs_lbl, err_t_weights, temporal_domain, spatial_domain,
-            0, 0, name="observer error target system \hat x(z,t)")[0]
+            0, 0, name="error target system")[0]
     else:
         obs_err_ic_weights = pi.project_on_base(
             [pi.Function(obs_err_ic)], eig_funcs_r)
-        l = np.matrix([[f.derive(1)(0)] for f in eig_funcs_r_t])
+        l = np.matrix([[f.derive(1)(0) - alpha_t * f(0)] for f in eig_funcs_r_t])
         c = np.matrix([[f(0) for f in eig_funcs_r]])
         lam = np.matrix(np.diag(np.real_if_close(eig_val)))
         A = np.asarray(lam + l @ c)
@@ -307,19 +298,16 @@ if __name__ == "__main__" or test_examples:
     plots.append(pi.PgAnimatedPlot(
         [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
     plots.append(pi.PgAnimatedPlot(
-        [err_ed, sys_err_ed], title="animation", replay_gain=.05))
+        [err_ed, err_t_ed], title="animation", replay_gain=.05))
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([evald_traj, sys_ed, obs_ed], spatial_point=0,
                                  legend_label=["$x_d(0,t)$",
                                                "$x(0,t)$",
                                                "$\hat x(0,t)$"]))
-    plots.append(pi.MplSlicePlot([evald_traj, sys_ed, obs_ed], spatial_point=1,
-                                 legend_label=["$x_d(1,t)$",
-                                               "$x(1,t)$",
-                                               "$\hat x(1,t)$"]))
     pi.show()
 
     pi.tear_down((sys_lbl, obs_sys_lbl, ctrl_lbl, ctrl_target_lbl,
                   obs_lbl, obs_target_lbl) + \
                  base_labels + obs_base_labels + tar_obs_base_labels,
                  plots)
+
