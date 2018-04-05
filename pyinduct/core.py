@@ -1667,7 +1667,8 @@ class Domain(object):
             equal_steps = np.allclose(steps, steps[0])
             if step:
                 if not equal_steps or step != steps[0]:
-                    raise ValueError("Given 'step' doesn't fit the provided data.")
+                    raise ValueError("Given 'step' doesn't fit the provided "
+                                     "data.")
             else:
                 if equal_steps:
                     step = steps[0]
@@ -1701,10 +1702,10 @@ class Domain(object):
         self.shape = self._values.shape
         self.view = self._values.view
 
-    def __str__(self):
-        return "Domain on {} (step={}, num={})".format(self.bounds,
-                                                       self._step,
-                                                       self._num)
+    def __repr__(self):
+        return "Domain(bounds={}, step={}, num={})".format(self.bounds,
+                                                           self._step,
+                                                           self._num)
 
     def __len__(self):
         return len(self._values)
