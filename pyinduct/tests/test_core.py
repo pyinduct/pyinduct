@@ -826,7 +826,7 @@ class EvalDataTestCase(unittest.TestCase):
         test_data_spatial1 = pi.core.Domain((0, 1), 5)
         xx, yy = np.meshgrid(test_data_time1, test_data_spatial1.points,
                              indexing="ij")
-        test_output_data1 = 2 * xx - 4 * yy
+        test_output_data1 = 2 * xx + 4 * yy
         self.data1 = pi.core.EvalData(input_data=[test_data_time1,
                                                   test_data_spatial1],
                                       output_data=test_output_data1)
@@ -986,12 +986,12 @@ class EvalDataTestCase(unittest.TestCase):
                     output_data=test_output_data_1,
                     input_labels="mississippis")
 
-        # extrapolation for 2d is diasbled, due to bugs in scipy
+        # extrapolation for 2d is disabled, due to bugs in scipy
         with self.assertRaises(ValueError):
-            self.data1_extra = pi.core.EvalData(input_data=[test_data_time1,
-                                                            test_data_spatial1],
-                                                output_data=test_output_data1,
-                                                enable_extrapolation=True)
+            self.data1_extra = pi.core.EvalData(
+                input_data=[test_data_1, test_data_1],
+                output_data=np.random.rand(11, 11),
+                enable_extrapolation=True)
 
     def test_interpolate1d(self):
         data = self.data3.interpolate([[2, 7]])
