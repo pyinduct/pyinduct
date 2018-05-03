@@ -220,6 +220,9 @@ class ParseTest(unittest.TestCase):
         self.test_funcs_dz = self.test_funcs.derive(1)
         self.test_funcs_dz_at1 = self.test_funcs_dz(1)
 
+        # Scalar Functions
+        self.scalar_func = pi.ScalarFunction("heavyside_base")
+
         # Distributed / Field Variables
         self.field_var = pi.FieldVariable("distributed_base")
         self.field_var_squared = pi.FieldVariable("distributed_base",
@@ -259,22 +262,25 @@ class ParseTest(unittest.TestCase):
 
         self.input_term3 = pi.IntegralTerm(pi.Product(self.test_funcs,
                                                       self.input),
-                                           (0, 1))
+                                           limits=(0, 1))
         self.input_term3_swapped = pi.IntegralTerm(pi.Product(self.input,
                                                               self.test_funcs),
-                                                   (0, 1))
-        self.scalar_func = pi.ScalarFunction("heavyside_base")
+                                                   limits=(0, 1))
         self.input_term3_scaled = pi.IntegralTerm(
-            pi.Product(pi.Product(self.scalar_func,
-                                  self.test_funcs), self.input), (0, 1))
+            pi.Product(pi.Product(self.scalar_func, self.test_funcs),
+                       self.input),
+            limits=(0, 1))
 
-        self.input_term3_scaled_sh = pi.IntegralTerm(
-            pi.Product(pi.Product(self.scalar_func,
-                                  self.test_funcs), self.input), (.5, 1))
+        self.input_term3_scaled_first_half = pi.IntegralTerm(
+            pi.Product(pi.Product(self.scalar_func, self.test_funcs),
+                       self.input),
+            limits=(0, .5))
 
-        self.input_term3_scaled_fh = pi.IntegralTerm(
-            pi.Product(pi.Product(self.scalar_func,
-                                  self.test_funcs), self.input), (0, .5))
+        self.input_term3_scaled_second_half = pi.IntegralTerm(
+            pi.Product(pi.Product(self.scalar_func, self.test_funcs),
+                       self.input),
+            limits=(.5, 1))
+
         # pure test function terms
         self.func_term = pi.ScalarTerm(self.test_funcs_at1)
 
@@ -284,7 +290,8 @@ class ParseTest(unittest.TestCase):
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = pi.ScalarTerm(self.field_var_ddt_at1)
 
-        self.field_int = pi.IntegralTerm(self.field_var, (0, 1))
+        self.field_int = pi.IntegralTerm(self.field_var, limits=(0, 1))
+        self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
         self.field_squared_int = pi.IntegralTerm(self.field_var_squared, (0, 1))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
@@ -330,13 +337,13 @@ class ParseTest(unittest.TestCase):
 
         self.temp_int = pi.IntegralTerm(pi.Product(self.field_var_ddt,
                                                    self.test_funcs),
-                                        (0, 1))
+                                        limits=(0, 1))
         self.spat_int = pi.IntegralTerm(pi.Product(self.field_var_dz,
                                                    self.test_funcs_dz),
-                                        (0, 1))
+                                        limits=(0, 1))
         self.spat_int_asymmetric = pi.IntegralTerm(pi.Product(self.field_var_dz,
                                                               self.test_funcs),
-                                                   (0, 1))
+                                                   limits=(0, 1))
 
         self.prod_term_tf_at0_lv_at0 = pi.ScalarTerm(
             pi.Product(self.test_funcs(0), self.lumped_var(0)))
@@ -352,7 +359,7 @@ class ParseTest(unittest.TestCase):
 
         self.alternating_weights_term = pi.IntegralTerm(
             self.odd_weight_field_var,
-            (0, 1))
+            limits=(0, 1))
 
     def test_Input_term(self):
         terms = sim.parse_weak_formulation(
@@ -385,19 +392,17 @@ class ParseTest(unittest.TestCase):
         np.testing.assert_array_almost_equal(terms["G"][0][1],
                                              np.array([[.0], [.25], [.25]]))
 
-        terms_sh = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term3_scaled_sh, name="test"),
-            finalize=False).get_static_terms()
-
         terms_fh = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term3_scaled_fh, name="test"),
+            sim.WeakFormulation(self.input_term3_scaled_first_half, name="test"),
             finalize=False).get_static_terms()
-
-        np.testing.assert_array_almost_equal(terms_sh["G"][0][1],
-                                             np.array([[.0], [.25], [.25]]))
         np.testing.assert_array_almost_equal(terms_fh["G"][0][1],
                                              np.array([[.0], [.0], [.0]]))
 
+        terms_sh = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.input_term3_scaled_second_half, name="test"),
+            finalize=False).get_static_terms()
+        np.testing.assert_array_almost_equal(terms_sh["G"][0][1],
+                                             np.array([[.0], [.25], [.25]]))
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(
@@ -436,6 +441,12 @@ class ParseTest(unittest.TestCase):
             finalize=False).get_dynamic_terms()["distributed_base"]
         np.testing.assert_array_almost_equal(terms["E"][0][1],
                                              np.array([[.25, .5, .25]]))
+
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.field_int_half, name="test"),
+            finalize=False).get_dynamic_terms()["distributed_base"]
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[.25, .25, 0]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_squared_int, name="test"),
@@ -1567,7 +1578,8 @@ class SetDominantLabel(unittest.TestCase):
                 limits=self.limits),
         ], name="sys_2")
         weak_form_3 = pi.WeakFormulation([
-            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
+            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3),
+                            limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
         ], name="sys_3")
         ces = sim.parse_weak_formulations([weak_form_1, weak_form_2,
@@ -1584,7 +1596,8 @@ class SetDominantLabel(unittest.TestCase):
             pi.ScalarTerm(pi.Product(self.x2(0), self.psi_1(0))),
         ], name="sys_1")
         weak_form_2 = pi.WeakFormulation([
-            pi.IntegralTerm(pi.Product(self.x2.derive(temp_order=1), self.psi_2), limits=self.limits),
+            pi.IntegralTerm(pi.Product(self.x2.derive(temp_order=1), self.psi_2),
+                            limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x2(0), self.psi_2(0))),
         ], name="sys_2")
         ces = sim.parse_weak_formulations([weak_form_1, weak_form_2])
@@ -1605,7 +1618,8 @@ class SetDominantLabel(unittest.TestCase):
                 limits=self.limits),
         ], name="sys_2")
         weak_form_3 = pi.WeakFormulation([
-            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3), limits=self.limits),
+            pi.IntegralTerm(pi.Product(self.x3.derive(temp_order=1), self.psi_3),
+                            limits=self.limits),
             pi.ScalarTerm(pi.Product(self.x3(0), self.psi_3(0))),
         ], name="sys_3")
         ces = sim.parse_weak_formulations([weak_form_1, weak_form_2,
