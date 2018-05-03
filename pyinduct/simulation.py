@@ -14,14 +14,16 @@ from scipy.integrate import ode
 from scipy.interpolate import interp1d
 from scipy.linalg import block_diag
 
-from .core import (Domain, Parameters, Function, integrate_function,
+from .core import (Domain, Parameters, Function,
+                   domain_intersection, integrate_function,
                    calculate_scalar_product_matrix,
                    dot_product_l2, sanitize_input,
                    StackedBase, get_weight_transformation,
                    get_transformation_info,
                    EvalData, project_on_bases)
 from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
-                          EquationTerm, get_common_target, get_common_form)
+                          EquationTerm, ScalarTerm, IntegralTerm,
+                          get_common_target, get_common_form)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
@@ -520,7 +522,9 @@ class CanonicalForm(object):
 
         # get entry
         if term["name"] == "f":
-            if ("order" in term) or ("exponent" in term and term["exponent"] is not 0):
+            if ("order" in term) \
+                or ("exponent" in term
+                    and term["exponent"] is not 0):
                 warnings.warn("order and exponent are ignored for f_vector!")
             f_vector = self.matrices.get("f", np.zeros_like(value))
             self.matrices["f"] = value + f_vector
@@ -528,18 +532,27 @@ class CanonicalForm(object):
 
         type_group = self.matrices.get(term["name"], {})
         derivative_group = type_group.get(term["order"], {})
-        target_matrix = derivative_group.get(term["exponent"], np.zeros_like(value))
+        target_matrix = derivative_group.get(term["exponent"],
+                                             np.zeros_like(value))
 
         if target_matrix.shape != value.shape and column is None:
-            raise ValueError("{0}{1}{2} was already initialized with dimensions {3} but value to add has "
-                             "dimension {4}".format(term["name"], term["order"], term["exponent"],
-                                                    target_matrix.shape, value.shape))
+            msg = "{0}{1}{2} was already initialized with dimensions {3} but " \
+                  "value to add has dimension {4}".format(term["name"],
+                                                          term["order"],
+                                                          term["exponent"],
+                                                          target_matrix.shape,
+                                                          value.shape)
+            raise ValueError(msg)
 
         if column is not None:
-            # check whether the dimensions fit or if the matrix has to be extended
+            # check whether the dimensions fit or if the matrix must be extended
             if column >= target_matrix.shape[1]:
-                new_target_matrix = np.zeros((target_matrix.shape[0], column + 1))
-                new_target_matrix[:target_matrix.shape[0], :target_matrix.shape[1]] = target_matrix
+                new_target_matrix = np.zeros((target_matrix.shape[0],
+                                              column + 1))
+                new_target_matrix[
+                    :target_matrix.shape[0],
+                    :target_matrix.shape[1]
+                ] = target_matrix
                 target_matrix = new_target_matrix
 
             target_matrix[:, column:column + 1] += value
@@ -1006,19 +1019,24 @@ def parse_weak_formulation(weak_form, finalize=False):
     # handle each term
     for term in weak_form.terms:
         # extract Placeholders
-        placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
-                            functions=term.arg.get_arg_by_class(TestFunction),
-                            field_variables=term.arg.get_arg_by_class(FieldVariable),
-                            inputs=term.arg.get_arg_by_class(Input))
+        placeholders = dict(
+            scalars=term.arg.get_arg_by_class(Scalars),
+            functions=term.arg.get_arg_by_class(TestFunction),
+            field_variables=term.arg.get_arg_by_class(FieldVariable),
+            inputs=term.arg.get_arg_by_class(Input))
 
         # field variable terms: sort into E_np, E_n-1p, ..., E_0p
         if placeholders["field_variables"]:
+            assert isinstance(term, IntegralTerm)
+
             if len(placeholders["field_variables"]) != 1:
                 raise NotImplementedError
 
             field_var = placeholders["field_variables"][0]
             if not field_var.simulation_compliant:
-                raise ValueError("Shape- and test-function labels of FieldVariable must match for simulation purposes.")
+                msg = "Shape- and test-function labels of FieldVariable must " \
+                      "match for simulation purposes."
+                raise ValueError(msg)
 
             temp_order = field_var.order[0]
             exponent = field_var.data["exponent"]
@@ -1036,17 +1054,21 @@ def parse_weak_formulation(weak_form, finalize=False):
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
                 func = placeholders["functions"][0]
-                test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1])
+                fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
                 result = calculate_scalar_product_matrix(dot_product_l2,
-                                                         test_funcs,
+                                                         fractions,
                                                          shape_funcs)
             else:
                 # extract constant term and compute integral
                 # TODO this is a source of complex data, since integrate
                 # function will return complex dtype.
-                a = Scalars(np.atleast_2d(
-                    [integrate_function(func, func.nonzero)[0]
-                     for func in shape_funcs.fractions]))
+                components = []
+                for func in shape_funcs.fractions:
+                    area = domain_intersection(term.limits, func.nonzero)
+                    res, err = integrate_function(func, area)
+                    components.append(res)
+
+                a = Scalars(np.atleast_2d(components))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
@@ -1061,24 +1083,26 @@ def parse_weak_formulation(weak_form, finalize=False):
 
         # TestFunctions or pre evaluated terms, those can end up in E, f or G
         if placeholders["functions"]:
+            assert isinstance(term, IntegralTerm)
+
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
             func = placeholders["functions"][0]
-            test_funcs = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
+            fractions = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
+            components = []
+            for frac in fractions:
+                area = domain_intersection(term.limits, frac.nonzero)
+                res, err = integrate_function(frac, area)
+                components.append(res)
 
             if len(placeholders["functions"]) == 2:
-                # TODO this computation is nonsense. Result must be a vector containing int(tf1*tf2)
+                # TODO Result must be a vector containing int(tf1*tf2)
                 raise NotImplementedError
-                #
-                # func2 = placeholders["functions"][1]
-                # test_funcs2 = get_base(func2.data["func_lbl"], func2.order[2])
-                # result = calculate_scalar_product_matrix(dot_product_l2, test_funcs, test_funcs2)
-                # cf.add_to(("f", 0), result * term.scale)
-                # continue
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
+                b = Scalars(np.vstack(components))
+
                 result = _compute_product_of_scalars([a, b])
 
                 ce.add_to(weight_label=a.target_form,
@@ -1096,14 +1120,18 @@ def parse_weak_formulation(weak_form, finalize=False):
                 input_order = input_var.order[0]
                 term_info = dict(name="G", order=input_order, exponent=input_exp)
 
-                result = np.array([[integrate_function(func, func.nonzero)[0]] for func in test_funcs])
+                # create column vector
+                result = np.atleast_2d(components).T
 
-                ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
+                ce.add_to(weight_label=None, term=term_info,
+                          val=result * term.scale, column=input_index)
                 ce.input_function = input_func
                 continue
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
+            assert isinstance(term, ScalarTerm)
+
             result = _compute_product_of_scalars(placeholders["scalars"])
             target = get_common_target(placeholders["scalars"])
             target_form = get_common_form(placeholders)
@@ -1117,19 +1145,22 @@ def parse_weak_formulation(weak_form, finalize=False):
                 term_info = dict(name="G", order=input_order, exponent=input_exp)
 
                 if input_order > 0:
-                    # here we would need to provide derivative handles in the callable
+                    # derivative handels of the callablewould be needed here
                     raise NotImplementedError
 
                 if target["name"] == "E":
-                    # this would mean that the input term should appear in a matrix like E1 or E2
-                    # the result would be a time dependant sate transition matrix
+                    # this would mean that the input term should appear in a
+                    # matrix like E1 or E2, again leading to a time dependant
+                    # state transition matrix
                     raise NotImplementedError
 
-                ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
+                ce.add_to(weight_label=None, term=term_info,
+                          val=result * term.scale, column=input_index)
                 ce.input_function = input_func
                 continue
 
-            ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
+            ce.add_to(weight_label=target_form, term=target,
+                      val=result * term.scale)
             continue
 
     # inform object that the parsing process is complete

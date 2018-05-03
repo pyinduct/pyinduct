@@ -424,7 +424,7 @@ class Product(object):
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
                     # only one function provided, use it for all others
-                    s_func = s_func[[0 for i in range(o_func.shape[0])]]
+                    s_func = s_func[[0] * o_func.shape[0]]
                 else:
                     raise ValueError("Cannot simplify Product due to dimension "
                                      "mismatch!")
