@@ -100,7 +100,7 @@ class SpatialPlaceholder(Placeholder):
     def __init__(self, data, order=0, location=None):
         Placeholder.__init__(self, data, order=(0, order), location=location)
 
-    def derive(self, order=0):
+    def derive(self, order=1):
         return super().derive(spat_order=order)
 
 
@@ -430,9 +430,16 @@ class Product(object):
                                      "mismatch!")
 
             exp = other_func.data.get("exponent", 1)
-            new_base = Base(np.asarray(
-                [func.raise_to(exp).scale(scale_func)
-                 for func, scale_func in zip(o_func, s_func)]))
+
+            if scalar_func.location is None:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func)
+                     for func, scale_func in zip(o_func, s_func)]))
+            else:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func(scalar_func.location))
+                     for func, scale_func in zip(o_func, s_func)]))
+
             # TODO change name generation to more sane behaviour
             new_name = new_base.fractions.tobytes()
             register_base(new_name, new_base)

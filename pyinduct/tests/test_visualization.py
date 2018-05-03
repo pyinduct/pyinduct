@@ -6,6 +6,47 @@ import pyinduct as pi
 import pyinduct.visualization as vis
 from pyinduct.tests import show_plots
 from pyinduct.tests.test_simulation import StringMassTest
+from pyinduct.tests.test_core import FindRootsTestCase
+
+
+class VisualizeRootsTestCase(unittest.TestCase):
+    funcs = FindRootsTestCase()
+    funcs.setUp()
+
+    def test_real_function(self):
+        # lets have a first look without knowing any roots
+        p1 = pi.visualize_roots(None,
+                                [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
+                                self.funcs.frequent_eq,
+                                delay_exec=True)
+
+        # lets check some roots we guessed
+        p2 = pi.visualize_roots(np.array(range(10)),
+                                [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
+                                self.funcs.frequent_eq,
+                                delay_exec=True)
+        if show_plots:
+            pi.show(show_mpl=False)
+
+    def test_complex_function(self):
+        grid = [np.linspace(-2, 2), np.linspace(-2, 2)]
+
+        # lets have a first look without knowing any roots
+        p1 = pi.visualize_roots(None,
+                                grid,
+                                self.funcs.complex_eq,
+                                cmplx=True,
+                                delay_exec=True)
+
+        # lets check some roots we guessed
+        p2 = pi.visualize_roots(np.array(range(5))
+                                + 1j*np.array(range(5, 0, -1)),
+                                grid,
+                                self.funcs.complex_eq,
+                                cmplx=True,
+                                delay_exec=True)
+        if show_plots:
+            pi.show(show_mpl=False)
 
 
 class PlotTestCase(unittest.TestCase):

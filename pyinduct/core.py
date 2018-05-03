@@ -1553,9 +1553,14 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     if n_roots is None:
         n_roots = len(roots)
 
+    if n_roots == 0:
+        # Either no roots have been found or zero roots have been requested
+        return np.array([])
+
     if len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(
+                         "Check provided function (see `visualize_roots`) or "
+                         "try to increase the search area.".format(
                             len(roots), n_roots))
 
     valid_roots = np.array(roots)
@@ -1605,8 +1610,9 @@ def complex_wrapper(func):
     """
 
     def wrapper(x):
-        return np.array([np.real(func(np.complex(x[0], x[1]))),
-                         np.imag(func(np.complex(x[0], x[1])))])
+        val = func(np.complex(x[0], x[1]))
+        return np.array([np.real(val),
+                         np.imag(val)])
 
     return wrapper
 
@@ -1853,13 +1859,12 @@ class EvalData:
         if output_data.size == 0:
             raise ValueError("No initialisation possible with an empty array!")
 
-        assert len(input_data) <= output_data.ndim
-
         if fill_axes:
             # add dummy axes to input_data for missing output dimensions
-            for dim in range(output_data.ndim - len(input_data)):
-                input_data.append(np.array(
-                    range(output_data.shape[dim + len(input_data)])))
+            dim_diff = output_data.ndim - len(input_data)
+            for dim in range(dim_diff):
+                input_data.append(
+                    np.array(range(output_data.shape[-(dim_diff - dim)])))
                 input_labels.append("")
                 input_units.append("")
 

@@ -73,6 +73,15 @@ class FormalPowerSeriesTest(unittest.TestCase):
         self.n_y = 80
         self.y, self.t = pi.gevrey_tanh(self.T, self.n_y, 1.1, 2)
 
+    def test_gevrey_tanh(self):
+        self.assertEqual(self.t[0], 0)
+        self.assertEqual(self.t[-1], self.T)
+        self.assertEqual(self.y[0,0], 0)
+        self.assertEqual(self.y[0,-1], 1)
+        for slice in self.y[1:]:
+            self.assertEqual(slice[0], 0)
+            self.assertEqual(slice[-1], 0)
+
     def test_temporal_derive(self):
 
         b_desired = 0.4

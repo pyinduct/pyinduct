@@ -8,8 +8,8 @@ PyInduct
 .. image:: https://readthedocs.org/projects/pyinduct/badge/?version=latest
         :target: http://pyinduct.readthedocs.io/en/latest/?badge=latest
 
-.. image:: https://img.shields.io/codecov/c/github/pyinduct/pyinduct.svg
-        :target: https://codecov.io/github/pyinduct/pyinduct
+.. image:: https://codecov.io/gh/pyinduct/pyinduct/branch/master/graph/badge.svg
+        :target: https://codecov.io/gh/pyinduct/pyinduct
 
 .. image:: https://img.shields.io/pypi/v/pyinduct.svg
         :target: https://pypi.python.org/pypi/pyinduct
