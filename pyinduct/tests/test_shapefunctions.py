@@ -19,7 +19,10 @@ class CureTestCase(unittest.TestCase):
         self.dz = pi.Domain((0, 1), step=.001)
         self.dt = pi.Domain((0, 0), num=1)
 
-        self.func_classes = [pi.LagrangeFirstOrder, pi.LagrangeSecondOrder]
+        self.func_classes = [
+            pi.LagrangeFirstOrder,
+            pi.LagrangeSecondOrder
+        ]
         self.derivatives = {pi.LagrangeFirstOrder: range(0, 2),
                             pi.LagrangeSecondOrder: range(0, 3)}
         self.tolerances = {pi.LagrangeFirstOrder: [5e0, 1.5e2],
@@ -35,23 +38,29 @@ class CureTestCase(unittest.TestCase):
         for func_cls in self.func_classes:
             for n in range(3, self.node_count, 2):
                 nodes, base = self.generate_base(func_cls, n)
-                test_weights = np.ones((n,))  # constant profile
+                test_dom = pi.Domain(bounds=nodes.bounds, num=50)
+
+                # constant profile
+                ref_func = pi.Function.from_constant(1)
+                test_weights = pi.project_on_base(ref_func, base)
 
                 values = pi.back_project_from_base(test_weights,
-                                                   base)(nodes)
+                                                   base)(test_dom)
                 if show_plots:
                     pg.mkQApp()
-                    pg.plot(nodes.points,
+                    pg.plot(test_dom.points,
                             values,
                             title="{} times {} derivative {}"
                                   "".format(n, func_cls, 0))
                     pg.QAPP.exec_()
                 np.testing.assert_array_almost_equal(values, 1)
+
+                # first derivative
                 values = pi.back_project_from_base(test_weights,
-                                                   base.derive(1))(nodes)
+                                                   base.derive(1))(test_dom)
                 if show_plots:
                     pg.mkQApp()
-                    pg.plot(nodes.points,
+                    pg.plot(test_dom.points,
                             values,
                             title="{} times {} derivative {}"
                                   "".format(n, func_cls, 1))
@@ -98,8 +107,9 @@ class CureTestCase(unittest.TestCase):
     def test_smoothness(self):
         for func_cls in self.func_classes:
             for order in self.derivatives[func_cls]:
+                approx_error = self.shape_generator(func_cls, order)
                 self.assertGreater(self.tolerances[func_cls][order],
-                                   self.shape_generator(func_cls, order))
+                                   approx_error)
 
     def generate_base(self, cls, order, register=False):
         nodes, base = pi.cure_interval(cls,
@@ -120,12 +130,11 @@ class CureTestCase(unittest.TestCase):
                                   derivative_handles=[
                                       lambda z: 3 * np.cos(3 * z),
                                       lambda z: -9 * np.sin(3 * z)])
-
         weights = pi.project_on_base(approx_func, base)
-        hull = pi.evaluate_approximation("test", np.atleast_2d(weights),
-                                         temp_domain=self.dt,
-                                         spat_domain=self.dz,
-                                         spat_order=der_order)
+
+        hull_func = pi.back_project_from_base(weights, base.derive(der_order))
+        hull_vals = hull_func(self.dz)
+        hull = pi.EvalData(self.dz, hull_vals)
 
         if show_plots:
             # plot shapefunctions
@@ -147,8 +156,8 @@ class CureTestCase(unittest.TestCase):
                                        pen=pg.mkPen(width=2),
                                        name="hull-curve"))
             # plot original function
-            pw.addItem(pg.PlotDataItem(x=dz.points,
-                                       y=approx_func.derive(der_order)(dz),
+            pw.addItem(pg.PlotDataItem(x=self.dz.points,
+                                       y=approx_func.derive(der_order)(self.dz),
                                        pen=pg.mkPen(color="m", width=2,
                                                     style=pg.QtCore.Qt.DashLine),
                                        name="original"))
@@ -156,7 +165,7 @@ class CureTestCase(unittest.TestCase):
 
         pi.deregister_base("test")
 
-        return np.sum(np.abs(hull.output_data[0, :]
+        return np.sum(np.abs(hull.output_data
                              - approx_func.derive(der_order)(self.dz)))
 
 
@@ -258,9 +267,3 @@ class NthOrderCureTestCase(unittest.TestCase):
                     pi.show(show_mpl=False)
 
             pi.deregister_base("test")
-
-
-# class Lagrange2ndOrderTestCase(unittest.TestCase):
-#
-#     def setUp(self):
-#         self.domain

@@ -484,16 +484,30 @@ class LagrangeSecondOrder(Function):
         funcs = np.empty((len(domain),), dtype=LagrangeSecondOrder)
 
         # boundary special cases
-        funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
-                                       curvature="concave",
-                                       half="left",
-                                       left_border=True,
-                                       domain=domain.bounds)
-        funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
-                                        curvature="concave",
-                                        half="right",
-                                        right_border=True,
-                                        domain=domain.bounds)
+        if len(domain) == 3:
+            funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
+                                           curvature="concave",
+                                           half="left",
+                                           left_border=True,
+                                           right_border=True,
+                                           domain=domain.bounds)
+            funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
+                                            curvature="concave",
+                                            half="right",
+                                            left_border=True,
+                                            right_border=True,
+                                            domain=domain.bounds)
+        else:
+            funcs[0] = LagrangeSecondOrder(domain[0], domain[1], domain[2],
+                                           curvature="concave",
+                                           half="left",
+                                           left_border=True,
+                                           domain=domain.bounds)
+            funcs[-1] = LagrangeSecondOrder(domain[-3], domain[-2], domain[-1],
+                                            curvature="concave",
+                                            half="right",
+                                            right_border=True,
+                                            domain=domain.bounds)
 
         # interior
         for idx in range(1, len(domain) - 1):
