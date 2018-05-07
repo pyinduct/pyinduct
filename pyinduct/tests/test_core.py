@@ -11,7 +11,6 @@ from pyinduct.tests import show_plots
 import pyqtgraph as pg
 
 
-
 class SanitizeInputTestCase(unittest.TestCase):
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
@@ -383,6 +382,41 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
 
 
+class IntegrateFunctionTestCase(unittest.TestCase):
+    def setUp(self):
+        self.int1 = [(0, 10)]
+        self.int2 = [(0, 10), (20, 30)]
+        self.int3 = [(0, 20), (20, 30)]
+        self.int4 = [(0, 20), (20, 30)]
+
+        self.func1 = lambda x: 2*x
+        self.func2 = lambda z: 3*z**2 + 2j*z
+        self.func2_int = lambda z: z**3 + 1j*z**2
+
+    def test_real_integration(self):
+        # real integrals
+        res, err = core.integrate_function(self.func1, self.int1)
+        self.assertFalse(np.iscomplexobj(res))
+        np.testing.assert_almost_equal(res, 100)
+
+        res, err = core.integrate_function(self.func1, self.int2)
+        self.assertFalse(np.iscomplexobj(res))
+        np.testing.assert_almost_equal(res, 10**2-0**2 + 30**2-20**2)
+
+        # multiple regions
+        res3, err = core.integrate_function(self.func1, self.int3)
+        res4, err = core.integrate_function(self.func1, self.int4)
+        self.assertFalse(np.iscomplexobj(res3))
+        self.assertFalse(np.iscomplexobj(res4))
+        np.testing.assert_almost_equal(res3, 30**2)
+        np.testing.assert_almost_equal(res3, res4)
+
+    def test_complex_integration(self):
+        res, err = core.integrate_function(self.func2, self.int1)
+        self.assertTrue(np.iscomplexobj(res))
+        np.testing.assert_almost_equal(res, self.func2_int(10))
+
+
 # TODO tests for dot_product_l2 (vectorial case)
 
 
@@ -390,8 +424,14 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         nodes = 5
-        self.nodes1, self.initial_functions1 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=nodes)
-        self.nodes2, self.initial_functions2 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=2*nodes-1)
+        self.nodes1, self.initial_functions1 = pi.cure_interval(
+            pi.LagrangeFirstOrder,
+            interval,
+            node_count=nodes)
+        self.nodes2, self.initial_functions2 = pi.cure_interval(
+            pi.LagrangeFirstOrder,
+            interval,
+            node_count=2*nodes-1)
         self.optimization = None
         # print(np.array(self.nodes1), np.array(self.nodes2))
 
@@ -401,22 +441,28 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         """
         # symmetrical
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1, self.initial_functions1,
+                                                 self.initial_functions1,
+                                                 self.initial_functions1,
                                                  optimize=self.optimization)
+        self.assertFalse(np.iscomplexobj(mat))
         # print(mat)
         # print()
 
         # rect1
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2, self.initial_functions1,
+                                                 self.initial_functions2,
+                                                 self.initial_functions1,
                                                  optimize=self.optimization)
+        self.assertFalse(np.iscomplexobj(mat))
         # print(mat)
         # print()
 
         # rect2
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1, self.initial_functions2,
+                                                 self.initial_functions1,
+                                                 self.initial_functions2,
                                                  optimize=self.optimization)
+        self.assertFalse(np.iscomplexobj(mat))
         # print(mat)
         # print()
 

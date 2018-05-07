@@ -784,24 +784,24 @@ def _dot_product_l2(first, second):
             pass
 
     # standard case
-    def function(z):
+    def func(z):
         """
         Take the complex conjugate of the first element and multiply it
         by the second.
         """
         return np.conj(first(z)) * second(z)
 
-    result, error = integrate_function(function, areas)
-    return np.real_if_close(result)
+    result, error = integrate_function(func, areas)
+    return result
 
 
-def integrate_function(function, interval):
+def integrate_function(func, interval):
     """
-    Integrates the given *function* over the *interval* using
+    Numerically integrate a function on a given interval using
     :func:`.complex_quadrature`.
 
     Args:
-        function(callable): Function to integrate.
+        func(callable): Function to integrate.
         interval(list of tuples): List of (start, end) values of the intervals
             to integrate on.
 
@@ -812,11 +812,11 @@ def integrate_function(function, interval):
     result = 0
     err = 0
     for area in interval:
-        res = complex_quadrature(function, area[0], area[1])
+        res = complex_quadrature(func, area[0], area[1])
         result += res[0]
         err += res[1]
 
-    return result, err
+    return np.real_if_close(result), err
 
 
 def complex_quadrature(func, a, b, **kwargs):

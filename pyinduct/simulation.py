@@ -1060,8 +1060,6 @@ def parse_weak_formulation(weak_form, finalize=False):
                                                          shape_funcs)
             else:
                 # extract constant term and compute integral
-                # TODO this is a source of complex data, since integrate
-                # function will return complex dtype.
                 components = []
                 for func in shape_funcs.fractions:
                     area = domain_intersection(term.limits, func.nonzero)
