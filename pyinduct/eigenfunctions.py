@@ -21,6 +21,7 @@ from sympy.utilities.lambdify import lambdify
 from .core import (Domain, Base, Function, generic_scalar_product,
                    calculate_scalar_product_matrix, dot_product_l2,
                    normalize_base, find_roots, real)
+from .shapefunctions import ShapeFunction
 from .visualization import visualize_roots
 
 __all__ = ["SecondOrderOperator", "SecondOrderEigenVector", "SecondOrderEigenfunction",
@@ -110,7 +111,7 @@ class SecondOrderOperator:
                                    )
 
 
-class SecondOrderEigenVector(Function):
+class SecondOrderEigenVector(ShapeFunction):
     r"""
     This class provides eigenvectors of the form
 
@@ -186,13 +187,15 @@ class SecondOrderEigenVector(Function):
                          domain=domain,
                          derivative_handles=num_handles[1:])
 
+        self.char_pair = char_pair
+
     @staticmethod
-    def cure_hint(domain, params, count, derivative_order, **kwargs):
+    def cure_interval(interval, params, count, derivative_order, **kwargs):
         r"""
         Helper to cure an interval with eigenvectors.
 
         Parameters:
-            domain (:py:class:`.Domain`): Domain of the
+            interval (:py:class:`.Domain`): Domain of the
                 spatial problem.
             params (:py:class:`.SecondOrderOperator`): Parameters of the system,
                 see :py:func:`__init__` for details on their definition.
@@ -215,7 +218,7 @@ class SecondOrderEigenVector(Function):
         while diff > 0:
             eig_values, char_roots, coefficients = \
                 SecondOrderEigenVector.calculate_eigenvalues(
-                    domain,
+                    interval,
                     params,
                     count + diff,
                     extended_output=True,
@@ -225,7 +228,7 @@ class SecondOrderEigenVector(Function):
             for root_set, coeffs in zip(char_roots, coefficients):
                 frac = SecondOrderEigenVector(char_pair=root_set,
                                               coefficients=coeffs,
-                                              domain=domain.bounds,
+                                              domain=interval.bounds,
                                               derivative_order=derivative_order)
                 fractions.append(frac)
 
@@ -240,7 +243,7 @@ class SecondOrderEigenVector(Function):
             diff = max(0, count - len(eig_vectors))
 
         base = normalize_base(Base(eig_vectors[:count]))
-        return eig_values, base
+        return base
 
     @staticmethod
     def calculate_eigenvalues(domain, params, count, extended_output=False,

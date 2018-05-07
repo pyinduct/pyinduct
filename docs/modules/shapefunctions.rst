@@ -4,6 +4,9 @@ Shapefunctions
 
 .. automodule:: pyinduct.shapefunctions
 
+.. autoclass:: pyinduct.shapefunctions.ShapeFunction
+    :members:
+
 Shapefunction Types
 -------------------
 .. autoclass:: pyinduct.shapefunctions.LagrangeFirstOrder

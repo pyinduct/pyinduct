@@ -11,7 +11,6 @@ from pyinduct.tests import show_plots
 import pyqtgraph as pg
 
 
-
 class SanitizeInputTestCase(unittest.TestCase):
     def test_scalar(self):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
@@ -309,6 +308,24 @@ class BaseTestCase(unittest.TestCase):
                                       sin_func.derive(1)(numbers))
         np.testing.assert_array_equal(f.derive(1).fractions[1](numbers),
                                       cos_func.derive(1)(numbers))
+
+    def test_get_attribute(self):
+        sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
+        cos_func = pi.Function(np.cos,
+                               derivative_handles=[lambda z: -np.sin(z)])
+        f = pi.Base([sin_func, cos_func])
+
+        domains = f.get_attribute("domain")
+        self.assertIsInstance(domains, np.ndarray)
+        self.assertEqual(len(domains), 2)
+
+        # query something that is not there
+        res = f.get_attribute("Answer to the ultimate question of life, "
+                              "The universe, and Everything")
+        self.assertIsInstance(res, np.ndarray)
+        self.assertEqual(len(res), 2)
+        self.assertIsNone(res[0])
+        self.assertIsNone(res[1])
 
 
 class StackedBaseTestCase(unittest.TestCase):
