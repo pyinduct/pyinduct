@@ -31,7 +31,7 @@ before_script:
   - sleep 3 # give xvfb some time to start
 
 script:
-  - coverage run --omit=tests/*,setup.py setup.py test
+  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test
 
 after_success:
   - codecov

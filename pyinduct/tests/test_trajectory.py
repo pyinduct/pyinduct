@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 import scipy.signal as sig
+
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
 import pyinduct.parabolic as parabolic
@@ -72,6 +73,15 @@ class FormalPowerSeriesTest(unittest.TestCase):
         self.n_y = 80
         self.y, self.t = pi.gevrey_tanh(self.T, self.n_y, 1.1, 2)
 
+    def test_gevrey_tanh(self):
+        self.assertEqual(self.t[0], 0)
+        self.assertEqual(self.t[-1], self.T)
+        self.assertEqual(self.y[0,0], 0)
+        self.assertEqual(self.y[0,-1], 1)
+        for slice in self.y[1:]:
+            self.assertEqual(slice[0], 0)
+            self.assertEqual(slice[-1], 0)
+
     def test_temporal_derive(self):
 
         b_desired = 0.4
@@ -104,8 +114,8 @@ class FormalPowerSeriesTest(unittest.TestCase):
         u_a = pi.InterpolationTrajectory(self.t, u_c, show_plot=show_plots)
         u_a_t = u_a(time=self.t)
         # explicit
-        u_b = parabolic.RadTrajectory(self.l, self.T, self.param, "robin", "robin", n=self.n_y,
-                                      show_plot=show_plots)
+        u_b = parabolic.RadFeedForward(self.l, self.T, self.param, "robin", "robin", n=self.n_y,
+                                                   show_plot=show_plots)
         u_b_t = u_b(time=self.t)
         self.assertTrue(all(np.isclose(u_b_t, u_a_t, atol=0.005)))
         if show_plots:

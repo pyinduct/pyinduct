@@ -6,7 +6,6 @@ if __name__ == "__main__" or test_examples:
     import numpy as np
     import scipy.integrate as si
 
-
     # system/simulation parameters
     actuation_type = 'robin'
     bound_cond_type = 'robin'
@@ -63,7 +62,7 @@ if __name__ == "__main__" or test_examples:
     pi.register_base("fem_funcs", fem_base)
 
     # init trajectory
-    traj = parabolic.trajectory.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type)
+    traj = parabolic.RadFeedForward(l, T, param_ti, bound_cond_type, actuation_type)
 
     # original () and target (_t) field variable
     fem_field_variable = pi.FieldVariable("fem_funcs", location=l)

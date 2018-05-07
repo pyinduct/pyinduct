@@ -1,5 +1,7 @@
 import collections
 import unittest
+import warnings
+
 from numbers import Number
 
 import numpy as np
@@ -322,7 +324,7 @@ class StackedBaseTestCase(unittest.TestCase):
                            ])
         pi.register_base("b2", self.b2)
 
-    @unittest.skip  # WIP
+    @unittest.skip  # TODO complete this
     def test_init(self):
         fractions = np.hstack([self.b1, self.b2])
         info = None
@@ -574,6 +576,9 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
 
 class FindRootsTestCase(unittest.TestCase):
     def setUp(self):
+        def _no_roots(omega):
+            return 2 + np.sin(np.abs(omega))
+
         def _frequent_equation(omega):
             return np.cos(10 * omega)
 
@@ -591,6 +596,7 @@ class FindRootsTestCase(unittest.TestCase):
                 return 0
             return lamda**5 - 1
 
+        self.no_roots = _no_roots
         self.frequent_eq = _frequent_equation
         self.char_eq = _char_equation
         self.univariate_eq = _univariate_equation
@@ -601,15 +607,19 @@ class FindRootsTestCase(unittest.TestCase):
         self.grid = np.arange(0, 50, 1)
         self.rtol = .1
 
+    def test_no_roots(self):
+        # function does not have any roots
+        roots = pi.find_roots(function=self.no_roots,
+                              grid=self.grid, cmplx=False)
+        self.assertEqual(len(roots), 0)
+        roots = pi.find_roots(function=self.no_roots,
+                              grid=[self.grid, self.grid], cmplx=True)
+        self.assertEqual(len(roots), 0)
+
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
         roots = pi.find_roots(function=self.frequent_eq, grid=grid,
                               n_roots=self.n_roots, rtol=self.rtol/100)
-
-        # if show_plots:
-        #     pi.visualize_roots(roots,
-        #                        [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
-        #                        self.frequent_eq)
 
         real_roots = [(2*k - 1)*np.pi/2/10 for k in range(1, self.n_roots+1)]
         np.testing.assert_array_almost_equal(roots, real_roots)
@@ -617,7 +627,6 @@ class FindRootsTestCase(unittest.TestCase):
     def test_in_fact_roots(self):
         roots = pi.find_roots(function=self.char_eq, grid=self.grid,
                               n_roots=self.n_roots, rtol=self.rtol)
-        # pi.visualize_roots(roots, self.grid, self.char_eq)
 
         for root in roots:
             self.assertAlmostEqual(self.char_eq(root), 0)
@@ -631,6 +640,10 @@ class FindRootsTestCase(unittest.TestCase):
         # bigger area, check good amount
         roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
         self.assertEqual(len(roots), self.n_roots)
+
+        # we deliberately request to be given zero roots
+        roots = pi.find_roots(self.char_eq, self.grid, 0, self.rtol)
+        self.assertEqual(len(roots), 0)
 
     def test_rtol(self):
         roots = pi.find_roots(self.char_eq, self.grid, self.n_roots, self.rtol)
@@ -650,19 +663,12 @@ class FindRootsTestCase(unittest.TestCase):
             [self.complex_eq(root) for root in roots],
             [0] * len(roots))
 
-        # pi.visualize_roots(roots,
-        #                    grid,
-        #                    self.complex_eq,
-        #                    cmplx=True)
-
     def test_n_dim_func(self):
         grid = [np.linspace(0, 10),
                 np.linspace(0, 2)]
         roots = pi.find_roots(function=self.univariate_eq, grid=grid, n_roots=6,
                               rtol=self.rtol)
-        grid = [np.arange(0, 10, .1), np.arange(0, 10, .1)]
-
-        # pi.visualize_roots(roots, grid, self.univariate_eq)
+        # TODO check results!
 
     def tearDown(self):
         pass
@@ -688,3 +694,561 @@ class ParamsTestCase(unittest.TestCase):
         self.assertTrue(p.a == 10)
         self.assertTrue(p.b == 12)
         self.assertTrue(p.c == "high")
+
+
+class DomainTestCase(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_init(self):
+        # if bounds is given, num or step are required
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 1))
+
+        # when given a number of steps
+        d = pi.Domain(bounds=(0, 10), num=11)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)  # should be added automatically
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # test default order
+        d = pi.Domain((0, 10), 11)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)  # should be added automatically
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # when given a step size
+        d = pi.Domain(bounds=(0, 10), step=1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # test default order
+        d = pi.Domain((0, 10), None, 1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # although a warning is displayed if the given step cannot be reached
+        # by using num steps
+        with self.assertWarns(UserWarning) as cm:
+            d = pi.Domain(bounds=(0, 1), step=.4)
+        w = cm.warning
+        self.assertTrue("changing to" in w.args[0])
+
+        # if both are given, num takes precedence
+        d = pi.Domain((0, 10), 11, 1)
+        np.testing.assert_array_equal(d.bounds, (0, 10))
+        self.assertEqual(d.step, 1)
+        np.testing.assert_array_equal(d.points, np.linspace(0, 10, 11))
+
+        # although a warning is displayed if the given step cannot be reached
+        # by using num steps
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 1), step=2, num=10)
+
+
+        # if points are given, it always takes precedence
+        p = np.linspace(0, 100, num=101)
+        d = pi.Domain(points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # check default args
+        d = pi.Domain(None, None, None, p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # if bounds, num or step are given, they have to fit the provided data
+        d = pi.Domain(bounds=(0, 100), points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        with self.assertRaises(ValueError):
+            pi.Domain(bounds=(0, 125), points=p)
+
+        # good
+        d = pi.Domain(num=101, points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # bad
+        with self.assertRaises(ValueError):
+            pi.Domain(num=111, points=p)
+
+        # good
+        d = pi.Domain(step=1, points=p)
+        np.testing.assert_array_equal(p, d.points)
+        np.testing.assert_array_equal(d.bounds, [0, 100])
+        self.assertEqual(d.step, 1)
+
+        # bad
+        with self.assertRaises(ValueError):
+            pi.Domain(step=5, points=p)
+
+        # if steps in pints are not regular, step attribute should not be set
+        pw = p[[10, 12, 44, 58, 79]]
+        d = pi.Domain(points=pw)
+        np.testing.assert_array_equal(pw, d.points)
+        np.testing.assert_array_equal(d.bounds, [10, 79])
+        self.assertEqual(d.step, None)
+
+        # also giving a step for this should fail
+        with self.assertRaises(ValueError):
+            pi.Domain(step=5, points=pw)
+
+    def test_handling(self):
+        d = pi.Domain(bounds=(10, 50), num=5)
+
+        # the object should behave like an array
+        self.assertEqual(len(d), 5)
+        self.assertEqual(d[2], 30)
+        np.testing.assert_array_equal(d[1:4:2], [20, 40])
+        self.assertEqual(d.shape, (5,))
+
+    def test_repr(self):
+        d = pi.Domain(bounds=(10, 50), num=5)
+        # printing the object should provide meaningful information
+        s = str(d)
+        self.assertIn("(10, 50)", s)
+        self.assertIn("5", s)
+        self.assertIn("10", s)
+
+
+class EvalDataTestCase(unittest.TestCase):
+    def setUp(self):
+        test_data_time1 = pi.core.Domain((0, 10), 11)
+        test_data_spatial1 = pi.core.Domain((0, 1), 5)
+        test_output_data1 = np.random.rand(11, 5)
+        self.data1 = pi.core.EvalData(input_data=[test_data_time1,
+                                                  test_data_spatial1],
+                                      output_data=test_output_data1)
+
+        test_data_time2 = pi.core.Domain((0, 10), 11)
+        test_data_spatial2 = pi.core.Domain((0, 1), 5)
+        test_output_data2 = np.random.rand(11, 5)
+        self.data2 = pi.core.EvalData(input_data=[test_data_time2,
+                                                  test_data_spatial2],
+                                      output_data=test_output_data2)
+
+        test_data_time3 = pi.core.Domain((0, 10), 101)
+        test_output_data3 = np.random.rand(101)
+        self.data3 = pi.core.EvalData(input_data=[test_data_time3],
+                                      output_data=test_output_data3)
+
+        test_data_time4 = pi.core.Domain((0, 10), 101)
+        test_data_spatial4 = pi.core.Domain((0, 1), 11)
+        test_output_data4 = np.random.rand(101, 11)
+        self.data4 = pi.core.EvalData(input_data=[test_data_time4,
+                                                  test_data_spatial4],
+                                      output_data=test_output_data4)
+
+        test_data_time5 = pi.core.Domain((0, 10), 101)
+        test_data_spatial5 = pi.core.Domain((0, 10), 11)
+        test_output_data5 = -np.random.rand(101, 11)
+        self.data5 = pi.core.EvalData(input_data=[test_data_time5,
+                                                  test_data_spatial5],
+                                      output_data=test_output_data5)
+
+        test_data_time6 = pi.core.Domain((0, 10), 101)
+        test_data_spatial6 = pi.core.Domain((0, 1), 101)
+        test_output_data6 = -np.random.rand(101, 101)
+        self.data6 = pi.core.EvalData(input_data=[test_data_time6,
+                                                  test_data_spatial6],
+                                      output_data=test_output_data6)
+
+        test_data_time7 = pi.core.Domain((0, 10), 101)
+        test_data_spatial7 = pi.core.Domain((0, 1), 101)
+        test_output_data7 = -np.random.rand(101, 101)
+        self.data7 = pi.core.EvalData(input_data=[test_data_time7,
+                                                  test_data_spatial7],
+                                      output_data=test_output_data7)
+
+        test_data_time8 = pi.core.Domain((0, 10), 11)
+        test_data_spatial8_1 = pi.core.Domain((0, 20), 21)
+        test_data_spatial8_2 = pi.core.Domain((0, 30), 31)
+        test_output_data8 = -np.random.rand(11, 21, 31)
+        self.data8 = pi.core.EvalData(input_data=[test_data_time8,
+                                                  test_data_spatial8_1,
+                                                  test_data_spatial8_2],
+                                      output_data=test_output_data8)
+
+    def test_init(self):
+        test_data_1 = pi.core.Domain((0, 10), 11)
+        test_output_data_1 = np.random.rand(11,)
+
+        # single domain can be given for input data
+        ed = pi.EvalData(input_data=test_data_1, output_data=test_output_data_1)
+
+        # but standard case is a list
+        ed = pi.EvalData(input_data=[test_data_1],
+                         output_data=test_output_data_1)
+
+        # same goes for numpy arrays
+        ed = pi.EvalData(input_data=test_data_1.points,
+                         output_data=test_output_data_1)
+        ed = pi.EvalData(input_data=[test_data_1.points],
+                         output_data=test_output_data_1)
+
+        test_data_2 = pi.core.Domain((0, 1), 5)
+        test_output_data_2 = np.random.rand(11, 5)
+
+        # if several input vectors are given, they must be provided as list
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_2)
+
+        # not as tuple
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=(test_data_1, test_data_2),
+                        output_data=test_output_data_2)
+
+        # and the output should fit the dimensions of input_data
+        test_output_data_3 = np.random.rand(11, 7)  # should've been (11, 5)
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=(test_data_1, test_data_2),
+                        output_data=test_output_data_3)
+
+        # and have no ndim > len(input_data)
+        test_output_data_4 = np.random.rand(11, 5, 3, 7)
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_4)
+
+        # although, the output can have more dimensions (like a vector field)
+        # if the flag `fill_axes` s given
+        # (dummy axis will be appended automatically)
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_4,
+                    fill_axes=True)
+
+        # labels can be given for the given input axes
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_2,
+                    input_labels=["x", "y"])
+
+        # but they have to fit the dimensions of input_data
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_2,
+                        input_labels=["x"])
+
+        # empty entries will be appended if axis are filled
+        e = pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_4,
+                        input_labels=["x", "y"],
+                        fill_axes=True)
+        self.assertEqual(e.input_labels[2], "")
+
+        # yet again for scalar case the list can be omitted
+        pi.EvalData(input_data=test_data_1,
+                    output_data=test_output_data_1,
+                    input_labels="x")
+
+        # also units can be given for the given input axes
+        pi.EvalData(input_data=[test_data_1, test_data_2],
+                    output_data=test_output_data_2,
+                    input_units=["metre", "seconds"])
+
+        # but they have to fit the dimensions of input_data
+        with self.assertRaises(AssertionError):
+            pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_2,
+                        input_units=["foot"])
+
+        # empty entries will be appended if axis are filled
+        e = pi.EvalData(input_data=[test_data_1, test_data_2],
+                        output_data=test_output_data_4,
+                        input_units=["kelvin", "calvin"],
+                        fill_axes=True)
+        self.assertEqual(e.input_units[2], "")
+
+        # yet again for scalar case the list can be omitted
+        pi.EvalData(input_data=test_data_1,
+                    output_data=test_output_data_1,
+                    input_labels="mississippis")
+
+    def test_interpolate1d(self):
+        data = self.data3.interpolate([[2, 7]])
+        self.assertEqual(data.output_data[0], self.data3.output_data[20])
+        self.assertEqual(data.output_data[1], self.data3.output_data[70])
+
+    def test_interpolate2dAxis1(self):
+        data = self.data1.interpolate([[2, 5], [0.5]])
+        np.testing.assert_array_almost_equal(data.output_data[0],
+                                             self.data1.output_data[2, 2])
+        np.testing.assert_array_almost_equal(data.output_data[1],
+                                             self.data1.output_data[5, 2])
+
+    def test_interpolate2dAxis2(self):
+        data = self.data1.interpolate([[2], [0.25, 0.5]])
+        np.testing.assert_array_almost_equal(data.output_data[0],
+                                             self.data1.output_data[2, 1])
+        np.testing.assert_array_almost_equal(data.output_data[1],
+                                             self.data1.output_data[2, 2])
+
+    def test_call3d_one_axis(self):
+        data = self.data8(
+            [slice(None, None, 2), slice(None), slice(None)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[::2])
+
+        data = self.data8(
+            [slice(None), slice(None, None, 2), slice(None)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[:, ::2])
+
+        data = self.data8(
+            [slice(None), slice(None), slice(None, None, 2)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[..., ::2])
+
+    def test_call1d(self):
+        data = self.data3([[1]])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data3.output_data[[10]])
+
+        data = self.data3([[1, 3, 6]])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data3.output_data[[10, 30, 60]])
+
+        data = self.data3([slice(None)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data3.output_data[:])
+
+    def test_call_1d_simple(self):
+        # these calls may also omit the outermost list since the array is 1d
+        data = self.data3([1])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data3.output_data[[10]])
+
+        data = self.data3([1, 3, 6])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data3.output_data[[10, 30, 60]])
+
+        data = self.data3(slice(None))
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data3.output_data[:])
+
+    @unittest.skip
+    def test_call1dWrong(self):
+        data = self.data3([[1, 2, slice(None)]])
+        np.testing.assert_array_almost_equal(data.output_data[:],
+                                             self.data3.output_data[:])
+
+    def test_call2d(self):
+        data = self.data1([slice(None), [0.75]])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data[:, 3])
+
+    def test_call2d_multi(self):
+        data = self.data1([slice(None), [0.25, 0.75]])
+        np.testing.assert_array_almost_equal(data.output_data[:, 0],
+                                             self.data1.output_data[:, 1])
+        np.testing.assert_array_almost_equal(data.output_data[:, 1],
+                                             self.data1.output_data[:, 3])
+        data1 = data([slice(None), [0.25, 0.75]])
+        np.testing.assert_array_almost_equal(data1.output_data[:, 0],
+                                             self.data1.output_data[:, 1])
+
+    def test_call2d_slice(self):
+        data = self.data1([slice(1, 5), [0.75]])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data[1:5, 3])
+
+    def test_call3d_two_axis(self):
+        data = self.data8(
+            [slice(None, None, 2), slice(5, 14, 2), slice(None)])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data8.output_data[::2, 5:14:2, :])
+
+    def test_call3d_three_axis(self):
+        data = self.data8(
+            [slice(None, None, 2), slice(5, 14, 2), slice(2, 27, 5)])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data8.output_data[::2, 5:14:2, 2:27:5])
+
+    def test_interpolation_chain(self):
+        # we start with a 2d data  object and interpolate it on a wider grid
+        data = self.data6([slice(None, None, 2), slice(None, None, 2)])
+        self.assertEqual(data.output_data.shape, (51, 51))
+        np.testing.assert_almost_equal(data.output_data,
+                                       self.data6.output_data[::2, ::2])
+
+        # now we will degenerate this 2d set by selecting a particular axis
+        data1 = data([[5], slice(None)])
+        # normally the result would be of shape (1, 50) but this is essentially
+        # a 2d date set, so it is converted to be of shape (50, ) with the first
+        # axis now being the former 2nd one.
+        self.assertEqual(data1.output_data.shape, (51, ))
+        np.testing.assert_almost_equal(data1.output_data,
+                                       self.data6.output_data[50, ::2])
+
+        # this should work for both axes
+        data2 = data([slice(None), [.5]])
+        self.assertEqual(data2.output_data.shape, (51, ))
+        np.testing.assert_almost_equal(data2.output_data,
+                                       self.data6.output_data[::2, 50])
+
+        # now we again pick an particular value and receive a float
+        data3 = data2([[7]])
+        self.assertEqual(data3.output_data.shape, ())
+
+        np.testing.assert_almost_equal(data3.output_data,
+                                       self.data6.output_data[70, 50])
+
+    def test_add_const(self):
+        data = self.data1 + 4
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data + 4)
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_radd_const(self):
+        data = 4 + self.data1
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data + 4)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_add_evaldata(self):
+        data = self.data1 + self.data2
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data1.output_data + self.data2.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_add_evaldata_diff(self):
+        data = self.data1 + self.data4
+        data4red = self.data4(self.data1.input_data)
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data
+                                             + data4red.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_sub_const(self):
+        data = self.data1 - 4
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data - 4)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_rsub_const(self):
+        data = 4 - self.data1
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             4 - self.data1.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_sub_evaldata(self):
+        data = self.data1 - self.data2
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data
+                                             - self.data2.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_mul_const(self):
+        data = self.data1 * 4
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data * 4)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_mul_evaldata(self):
+        data = self.data1 * self.data2
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data1.output_data * self.data2.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_rmul_const(self):
+        data = 4 * self.data1
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data1.output_data * 4)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_matmul_evaldata(self):
+        data = self.data6 @ self.data7
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data6.output_data @ self.data7.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data6.input_data[0],
+                                      self.data7.input_data[0])
+
+    def test_rmatmul_evaldata(self):
+        data = self.data7 @ self.data6
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data7.output_data @ self.data6.output_data)
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data6.input_data[0],
+                                      self.data7.input_data[0])
+
+    def test_sqrt_evaldata(self):
+        data = self.data1.sqrt()
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             np.sqrt(self.data1.output_data))
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data1.input_data[0],
+                                      self.data2.input_data[0])
+
+    def test_abs_evaldata(self):
+        data = self.data5.abs()
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             np.abs(self.data5.output_data))
+
+        # check whether the information have been copied or only referenced
+        data.input_data[0].points[0] = 999
+        np.testing.assert_array_equal(self.data5.input_data[0],
+                                      self.data5.input_data[0])

@@ -5,7 +5,6 @@ if __name__ == "__main__" or test_examples:
     import pyinduct as pi
     import pyinduct.parabolic as parabolic
 
-
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -109,7 +108,7 @@ if __name__ == "__main__" or test_examples:
     scale_factor = transform_i(-l)
 
     # trajectory initialization
-    trajectory = parabolic.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type, scale=scale_factor)
+    trajectory = parabolic.RadFeedForward(l, T, param_ti, bound_cond_type, actuation_type, scale=scale_factor)
 
     # controller initialization
     controller = parabolic.control.get_parabolic_robin_backstepping_controller(state=x_i_at_l, approx_state=x_i_at_l,

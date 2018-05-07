@@ -3,6 +3,7 @@ import unittest
 import copy
 
 import numpy as np
+
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
 import pyinduct.parabolic as parabolic
@@ -1175,7 +1176,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'dirichlet'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
         rad_pde = parabolic.get_parabolic_dirichlet_weak_form("base_2", "base_2", u, self.param, self.dz.bounds)
@@ -1201,7 +1202,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'dirichlet'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # integral terms
         int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_2", order=1),
@@ -1238,11 +1239,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'robin'
-        u = parabolic.trajectory.RadTrajectory(self.l,
-                                               self.T,
-                                               self.param,
-                                               bound_cond_type,
-                                               actuation_type)
+        u = parabolic.RadFeedForward(self.l,
+                                                 self.T,
+                                                 self.param,
+                                                 bound_cond_type,
+                                                 actuation_type)
 
         # integral terms
         int1 = pi.IntegralTerm(pi.Product(pi.TemporalDerivedFieldVariable("base_1", order=1),
@@ -1278,7 +1279,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'robin'
         actuation_type = 'robin'
-        u = parabolic.RadTrajectory(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
 
         # derive state-space system
         rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("base_1", "base_1", u, self.param, self.dz.bounds)
@@ -1336,9 +1337,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         temporal_disc = 50
         dt = pi.Domain(bounds=(0, t_end), num=temporal_disc)
 
-        # TODO use eigfreq_eigval_hint to obtain eigenvalues
-        omega = np.array([(i + 1) * np.pi / l for i in range(spatial_disc)])
-        eig_values = a0 - a2 * omega ** 2 - a1 ** 2 / 4. / a2
+        (omega, eig_values
+         ) = pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(
+            param=param,
+            l=dz.bounds[-1],
+            n_roots=spatial_disc)
         norm_fak = np.ones(omega.shape) * np.sqrt(2)
         eig_base = pi.Base([pi.SecondOrderDirichletEigenfunction(omega[i],
                                                                  param,
@@ -1360,11 +1363,11 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadTrajectory(l,
-                                    t_end,
-                                    param,
-                                    bound_cond_type,
-                                    actuation_type)
+        u = parabolic.RadFeedForward(l,
+                                     t_end,
+                                     param,
+                                     bound_cond_type,
+                                     actuation_type)
 
         # ------------- determine (A,B) with weak-formulation (pyinduct)
         # derive sate-space system
@@ -1381,15 +1384,15 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
             [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
-        # TODO: resolve the big tolerance (rtol=3e-01) between ss_modal.A and ss_weak.A
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])),
-                                    np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                    decimal=5)
+        np.testing.assert_array_almost_equal(
+            np.sort(np.linalg.eigvals(ss_weak.A[1])),
+            np.sort(np.linalg.eigvals(ss_modal.A[1])))
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
-        # display results
         # TODO can the result be tested?
+
+        # display results
         if show_plots:
             t, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
             eval_d = sim.evaluate_approximation("eig_base",
@@ -1448,7 +1451,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadTrajectory(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(l, t_end, param, bound_cond_type, actuation_type)
 
         # determine pair (A, B) by weak-formulation (pyinduct)
         rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)

@@ -64,7 +64,7 @@ class SimulationInput(object, metaclass=ABCMeta):
         self._time_storage.append(kwargs["time"])
         for key, value in out.items():
             entries = self._value_storage.get(key, [])
-            entries.append(value)
+            entries.append(copy(value))
             self._value_storage[key] = entries
 
         return np.atleast_1d(out["output"])
@@ -95,10 +95,10 @@ class SimulationInput(object, metaclass=ABCMeta):
         Args:
             time_steps: Time points where values are demanded.
             result_key: Type of values to be returned.
-            interpolation: Interpolation method to use if demanded time-steps 
-                are not covered by the storage, see 
+            interpolation: Interpolation method to use if demanded time-steps
+                are not covered by the storage, see
                 :func:`scipy.interpolate.interp1d` for all possibilities.
-            as_eval_data (bool): Return results as 
+            as_eval_data (bool): Return results as
                 :py:class:`.EvalData` object for straightforward display.
 
         Return:
@@ -114,14 +114,15 @@ class SimulationInput(object, metaclass=ABCMeta):
         if as_eval_data:
             return EvalData([time_steps],
                             values,
-                            name=".".join([self.name, result_key]))
+                            name=".".join([self.name, result_key]),
+                            fill_axes=True)
 
         return values
 
     def clear_cache(self):
         """
         Clear the internal value storage.
-        
+
         When the same *SimulationInput* is used to perform various simulations,
         there is no possibility to distinguish between the different runs when
         :py:meth:`.get_results` gets called. Therefore this method can be used

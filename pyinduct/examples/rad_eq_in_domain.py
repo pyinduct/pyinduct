@@ -5,7 +5,6 @@ if __name__ == "__main__" or test_examples:
     import pyinduct.parabolic as parabolic
     import numpy as np
 
-
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -94,7 +93,7 @@ if __name__ == "__main__" or test_examples:
     # THE TOOLBOX OFFERS TWO WAYS TO GENERATE A TRAJECTORY FOR THE TARGET SYSTEM
     if False:
         # First way: simply instantiate pi.RadTrajectory
-        traj = parabolic.trajectory.RadTrajectory(l, T, param_ti, bound_cond_type, actuation_type, show_plot=show_plots)
+        traj = parabolic.RadFeedForward(l, T, param_ti, bound_cond_type, actuation_type, show_plot=show_plots)
     else:
         # Second (and more general) way:
         #   - calculate the power series coefficients with pi.coefficient_recursion
