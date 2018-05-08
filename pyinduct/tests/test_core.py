@@ -406,9 +406,12 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
 class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
-        nodes = 5
-        self.nodes1, self.initial_functions1 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=nodes)
-        self.nodes2, self.initial_functions2 = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=2*nodes-1)
+        self.nodes1 = pi.Domain(interval, num=5)
+        self.nodes2 = pi.Domain(interval, num=9)
+        self.initial_functions1 = pi.LagrangeFirstOrder.cure_interval(
+            self.nodes1),
+        self.initial_functions2 = pi.LagrangeFirstOrder.cure_interval(
+            self.nodes2),
         self.optimization = None
         # print(np.array(self.nodes1), np.array(self.nodes2))
 
@@ -418,21 +421,24 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         """
         # symmetrical
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1, self.initial_functions1,
+                                                 self.initial_functions1,
+                                                 self.initial_functions1,
                                                  optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect1
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2, self.initial_functions1,
+                                                 self.initial_functions2,
+                                                 self.initial_functions1,
                                                  optimize=self.optimization)
         # print(mat)
         # print()
 
         # rect2
         mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1, self.initial_functions2,
+                                                 self.initial_functions1,
+                                                 self.initial_functions2,
                                                  optimize=self.optimization)
         # print(mat)
         # print()
@@ -453,11 +459,13 @@ class ProjectionTest(unittest.TestCase):
     def setUp(self):
         interval = (0, 10)
         node_cnt = 11
-        self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, interval, node_count=node_cnt)
+        self.nodes = pi.Domain(interval, num=node_cnt)
+        self.lag_base = pi.LagrangeFirstOrder.cure_interval(self.nodes)
         pi.register_base("lag_base", self.lag_base, overwrite=True)
 
         # "real" functions
-        self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)  # because we are smarter
+        # because we are smarter
+        self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)
         self.functions = [pi.Function(lambda x: 2),
                           pi.Function(lambda x: 2 * x),
                           pi.Function(lambda x: x ** 2),
@@ -518,7 +526,8 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         self.real_func_handle = np.vectorize(self.real_func)
 
         # approximation by lag1st
-        self.nodes, self.lag_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        self.nodes = pi.Domain((0, 1), num=2)
+        self.lag_base = pi.LagrangeFirstOrder.cure_interval(self.nodes)
         pi.register_base("lag_base", self.lag_base)
         self.src_weights = pi.project_on_base(self.real_func, self.lag_base)
         np.testing.assert_array_almost_equal(self.src_weights, [0, 1])  # just to be sure

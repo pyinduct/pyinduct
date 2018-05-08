@@ -50,12 +50,9 @@ if __name__ == "__main__" or test_examples:
     spat_domain = pi.Domain(bounds=(0, l), num=51)
     temp_domain = pi.Domain(bounds=(0, T), num=100)
 
-    _, init_funcs1 = pi.cure_interval(pi.LagrangeSecondOrder,
-                                      spat_domain.bounds,
-                                      node_count=51)
-    _, init_funcs2 = pi.cure_interval(pi.LagrangeFirstOrder,
-                                      spat_domain.bounds,
-                                      node_count=30)
+    init_funcs1 = pi.LagrangeSecondOrder.cure_interval(spat_domain)
+    nodes = pi.Domain(spat_domain.bounds, num=30)
+    init_funcs2 = pi.LagrangeFirstOrder.cure_interval(nodes)
     pi.register_base("x1_funcs", init_funcs1)
     pi.register_base("x2_funcs", init_funcs2)
 
