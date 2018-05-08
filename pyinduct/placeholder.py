@@ -214,8 +214,9 @@ class Input(Placeholder):
         exponent (numbers.Number): See :py:class:`.FieldVariable`.
 
     Note:
-        if *order* is nonzero, the callable has to provide the temporal
-        derivatives.
+        if *order* is nonzero, the callable is expected to return the temporal
+        derivatives of the input signal by returning an array of
+        ``len(order)+1``.
     """
 
     def __init__(self, function_handle, index=0, order=0, exponent=1):

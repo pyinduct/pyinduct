@@ -453,7 +453,7 @@ class CanonicalForm(object):
         self.matrices = {}
         # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
-        self._input_function = None
+        self._input_functions = None
         self._finalized = False
         self.powers = None
         self.max_power = None
@@ -476,15 +476,23 @@ class CanonicalForm(object):
     #                 self._matrices[name][der][p] += pow
 
     @property
-    def input_function(self):
-        return self._input_function
+    def input_functions(self):
+        return self._input_functions
 
-    @input_function.setter
-    def input_function(self, func):
-        if self._input_function is None:
-            self._input_function = func
-        if self._input_function != func:
-            raise ValueError("already defined input is overridden!")
+    def set_input_function(self, func, index=0):
+        if self._input_functions is None:
+            self._input_functions = np.atleast_1d(func)
+
+        # check whether the dimensions must be extended
+        if index >= self.input_functions.shape[0]:
+            old_len = self._input_functions.shape[0]
+            new_input_functions = np.empty(index + 1, dtype=object)
+            new_input_functions[:old_len] = self._input_functions
+            self._input_functions = new_input_functions
+            self._input_functions[index] = func
+        else:
+            if self._input_functions[index] != func:
+                raise ValueError("already defined input is overridden!")
 
     # @property
     # def weights(self):
@@ -688,7 +696,7 @@ class CanonicalForm(object):
         a_matrices.update({0: f_mat})
 
         ss = StateSpace(a_matrices, b_matrices,
-                        input_handle=self.input_function)
+                        input_handle=self.input_functions)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
@@ -835,15 +843,14 @@ class CanonicalEquation(object):
         return {label: val.get_terms() for label, val in self.dynamic_forms.items()}
 
     @property
-    def input_function(self):
+    def input_functions(self):
         """
-        The input handle for the equation.
+        The input handles for the equation.
         """
-        return self._static_form.input_function
+        return self._static_form.input_functions
 
-    @input_function.setter
-    def input_function(self, func):
-        self._static_form.input_function = func
+    def set_input_function(self, func, index=0):
+        self._static_form.set_input_function(func, index)
 
 
 def create_state_space(canonical_equations):
@@ -920,9 +927,9 @@ def create_state_space(canonical_equations):
 
         # update input handles
         if state_space_props.input is None:
-            state_space_props.input = eq.input_function
+            state_space_props.input = eq.input_functions
         else:
-            if eq.input_function is not None and state_space_props.input != eq.input_function:
+            if eq.input_functions is not None and state_space_props.input != eq.input_functions:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
@@ -1123,7 +1130,7 @@ def parse_weak_formulation(weak_form, finalize=False):
 
                 ce.add_to(weight_label=None, term=term_info,
                           val=result * term.scale, column=input_index)
-                ce.input_function = input_func
+                ce.set_input_function(input_func, input_index)
                 continue
 
         # pure scalar terms, sort into corresponding matrices
@@ -1140,11 +1147,10 @@ def parse_weak_formulation(weak_form, finalize=False):
                 input_index = input_var.data["index"]
                 input_exp = input_var.data["exponent"]
                 input_order = input_var.order[0]
-                term_info = dict(name="G", order=input_order, exponent=input_exp)
 
-                if input_order > 0:
-                    # derivative handels of the callablewould be needed here
-                    raise NotImplementedError
+                term_info = dict(name="G",
+                                 order=input_order,
+                                 exponent=input_exp)
 
                 if target["name"] == "E":
                     # this would mean that the input term should appear in a
@@ -1154,7 +1160,7 @@ def parse_weak_formulation(weak_form, finalize=False):
 
                 ce.add_to(weight_label=None, term=term_info,
                           val=result * term.scale, column=input_index)
-                ce.input_function = input_func
+                ce.set_input_function(input_func, input_index)
                 continue
 
             ce.add_to(weight_label=target_form, term=target,

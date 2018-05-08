@@ -37,10 +37,10 @@ class CorrectInput(sim.SimulationInput):
     """
     a diligent input
     """
-    def __init__(self, limits):
+    def __init__(self, output, limits=(0, 1), der_order=0):
         super().__init__(self)
-        self.t_min = limits[0]
-        self.t_max = limits[1]
+        self.out = np.ones(der_order + 1) * output
+        self.t_min, self.t_max = limits
 
     def _calc_output(self, **kwargs):
         if "time" not in kwargs:
@@ -49,7 +49,7 @@ class CorrectInput(sim.SimulationInput):
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
-        return dict(output=0)
+        return dict(output=np.zeros(self.der_order+1))
 
 
 class AlternatingInput(sim.SimulationInput):
@@ -86,7 +86,7 @@ class SimulationInputTest(unittest.TestCase):
     def test_call_arguments(self):
         a = np.eye(2, 2)
         b = np.array([[0], [1]])
-        u = CorrectInput(limits=(0, 1))
+        u = CorrectInput(output=1, limits=(0, 1))
         ic = np.zeros((2, 1))
         ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
@@ -151,16 +151,21 @@ class CanonicalFormTest(unittest.TestCase):
         self.assertTrue(np.array_equal(self.cf.matrices["E"][0][1], 6 * a))
 
         b = np.eye(10)
-        self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), b)
+        self.assertRaises(ValueError,
+                          self.cf.add_to,
+                          dict(name="E", order=0, exponent=1), b)
         self.cf.add_to(dict(name="E", order=2, exponent=1), b)
         self.assertTrue(np.array_equal(self.cf.matrices["E"][2][1], b))
 
         f = np.atleast_2d(np.array(range(5))).T
-        self.assertRaises(ValueError, self.cf.add_to, dict(name="E", order=0, exponent=1), f)
+        self.assertRaises(ValueError,
+                          self.cf.add_to,
+                          dict(name="E", order=0, exponent=1), f)
         self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], f))
 
-        # try to add something with derivative or exponent to f: value should end up in f
+        # try to add something with derivative or exponent to f: value should
+        #  end up in f
         self.cf.add_to(dict(name="f"), f)
         self.assertTrue(np.array_equal(self.cf.matrices["f"], 2 * f))
 
@@ -171,11 +176,22 @@ class CanonicalFormTest(unittest.TestCase):
 
         # here G01 as to be expanded
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=1)
-        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1], np.hstack((c, c))))
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1],
+                                       np.hstack((c, c))))
 
         # here G01 as to be expanded again
         self.cf.add_to(dict(name="G", order=0, exponent=1), c, column=3)
-        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1], np.hstack((c, c, np.zeros_like(c), c))))
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][0][1],
+                                       np.hstack((c, c, np.zeros_like(c), c))))
+
+        # input derivatives can occur
+        self.cf.add_to(dict(name="G", order=1, exponent=1), c, column=0)
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][1][1], c))
+
+        # expansion should still work
+        self.cf.add_to(dict(name="G", order=1, exponent=1), c, column=1)
+        self.assertTrue(np.array_equal(self.cf.matrices["G"][1][1],
+                                       np.hstack((c, c))))
 
 
 class ParseTest(unittest.TestCase):
@@ -183,10 +199,26 @@ class ParseTest(unittest.TestCase):
         # scalars
         self.scalars = pi.Scalars(np.vstack(list(range(3))))
 
-        # inputs
+        # callbacks
         self.u = np.sin
+        self.u1 = CorrectInput(output=1)
+        self.u2 = CorrectInput(output=2)
+        self.u_dt = CorrectInput(output=1, der_order=1)
+        self.u1_dt = CorrectInput(output=1, der_order=1)
+        self.u2_dt = CorrectInput(output=2, der_order=1)
+
+        # inputs
         self.input = pi.Input(self.u)
+
         self.input_squared = pi.Input(self.u, exponent=2)
+
+        self.vec_input_1 = pi.Input(self.u1, index=0)
+        self.vec_input_2 = pi.Input(self.u2, index=1)
+
+        self.input_dt = pi.Input(self.u_dt, order=1)
+
+        self.vec_input_dt_1 = pi.Input(self.u1_dt, index=0, order=1)
+        self.vec_input_dt_2 = pi.Input(self.u2_dt, index=1, order=1)
 
         # scale function
         def heavyside(z):
@@ -278,6 +310,20 @@ class ParseTest(unittest.TestCase):
             pi.Product(pi.Product(self.scalar_func, self.test_funcs),
                        self.input),
             limits=(.5, 1))
+
+        self.input_term_dt = pi.IntegralTerm(pi.Product(self.test_funcs,
+                                                        self.input_dt),
+                                             limits=(0, 1))
+
+        self.input_term_vectorial1 = pi.ScalarTerm(
+            pi.Product(self.test_funcs_at0, self.vec_input_1))
+        self.input_term_vectorial2 = pi.ScalarTerm(
+            pi.Product(self.test_funcs_at1, self.vec_input_2))
+
+        self.input_term_vectorial_dt1 = pi.ScalarTerm(
+            pi.Product(self.test_funcs_at0, self.vec_input_dt_1))
+        self.input_term_vectorial_dt2 = pi.ScalarTerm(
+            pi.Product(self.test_funcs_at1, self.vec_input_dt_2))
 
         # pure test function terms
         self.func_term = pi.ScalarTerm(self.test_funcs_at1)
@@ -377,9 +423,9 @@ class ParseTest(unittest.TestCase):
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3, name="test"),
             finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["G"][0][1]))
         np.testing.assert_array_almost_equal(terms["G"][0][1],
                                              np.array([[.25], [.5], [.25]]))
-        self.assertFalse(np.iscomplexobj(terms["G"][0][1]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3_swapped, name="test"),
@@ -408,6 +454,37 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["G"][0][1]))
         np.testing.assert_array_almost_equal(terms_sh["G"][0][1],
                                              np.array([[.0], [.25], [.25]]))
+
+        # vectorial inputs
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(
+            [self.input_term_vectorial1, self.input_term_vectorial2],
+            name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["G"][0][1]))
+        np.testing.assert_array_almost_equal(terms["G"][0][1],
+                                             np.array([[1, 0],
+                                                       [0, 0],
+                                                       [0, 1]]))
+
+        # time derivatives of inputs
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(
+            self.input_term_dt,
+            name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["G"][1][1]))
+        np.testing.assert_array_almost_equal(terms["G"][1][1],
+                                             np.array([[.25], [.5], [.25]]))
+
+        # time derivative of vectorial inputs
+        terms = sim.parse_weak_formulation(sim.WeakFormulation(
+            [self.input_term_vectorial_dt1, self.input_term_vectorial_dt2],
+            name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["G"][1][1]))
+        np.testing.assert_array_almost_equal(terms["G"][1][1],
+                                             np.array([[1, 0],
+                                                       [0, 0],
+                                                       [0, 1]]))
 
     def test_TestFunction_term(self):
         terms = sim.parse_weak_formulation(
@@ -732,7 +809,7 @@ class StateSpaceTests(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             ss.B[0][1],
             np.array([[0], [0], [0], [0.125], [-1.75], [6.875]]))
-        self.assertEqual(self.ce.input_function, self.u)
+        self.assertEqual(self.ce.input_functions, self.u)
 
     def test_simulate_state_space(self):
         """
