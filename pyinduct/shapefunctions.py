@@ -155,7 +155,9 @@ class LagrangeNthOrder(Function):
 
         def function(zz):
             z = np.array(zz, dtype=np.float_)
-            res = np.piecewise(z, cond_list(z), func_list)
+            # HACK convert single entry arrays to scalars
+            cl = [c[0] for c in cond_list(z)]
+            res = np.piecewise(z, cl, func_list)
             if np.ndim(zz) == 0:
                 return np.float_(res)
             else:
