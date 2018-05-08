@@ -9,7 +9,7 @@ from numbers import Number
 
 import numpy as np
 import pyqtgraph as pg
-import scipy.misc as sm
+import scipy.special as ss
 import scipy.signal as sig
 import sympy as sp
 
@@ -201,9 +201,9 @@ def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
             if k == 0:
                 sum_z = np.zeros(len(t))
                 for j in range(i):
-                    sum_z += -sm.comb(i - 1, j) * yy[j] * yy[i - 1 - j]
+                    sum_z += -ss.comb(i - 1, j) * yy[j] * yy[i - 1 - j]
                 z[i - 1] = sum_z
-            sum_yy += sm.comb(i - 1, k) * a[k + 2] * z[i - 1 - k]
+            sum_yy += ss.comb(i - 1, k) * a[k + 2] * z[i - 1 - k]
         yy[i] = sum_yy
 
     # push
@@ -270,8 +270,8 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
         for j in range(n):
             sum_b = np.zeros(len(z))
             for k in range(j + 1):
-                sum_b += sm.comb(j, k) * (-a0) ** (j - k) * y[k, i]
-            sum_x += (is_robin + alpha * z / (2. * j + 1.)) * z ** (2 * j) / sm.factorial(2 * j) / a2 ** j * sum_b
+                sum_b += ss.comb(j, k) * (-a0) ** (j - k) * y[k, i]
+            sum_x += (is_robin + alpha * z / (2. * j + 1.)) * z ** (2 * j) / ss.factorial(2 * j) / a2 ** j * sum_b
         x[i, :] = sum_x
 
     for i in range(len(t)):
@@ -279,10 +279,10 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
         for j in range(n):
             sum_b = np.zeros(len(z))
             for k in range(j + 2):
-                sum_b += sm.comb(j + 1, k) * (-a0) ** (j - k + 1) * y[k, i]
+                sum_b += ss.comb(j + 1, k) * (-a0) ** (j - k + 1) * y[k, i]
             if j == 0:
                 sum_x += alpha * y[0, i]
-            sum_x += (is_robin + alpha * z / (2. * (j + 1))) * z ** (2 * j + 1) / sm.factorial(2 * j + 1) / a2 ** (
+            sum_x += (is_robin + alpha * z / (2. * (j + 1))) * z ** (2 * j + 1) / ss.factorial(2 * j + 1) / a2 ** (
                 j + 1) * sum_b
         d_x[i, :] = sum_x
 
@@ -378,7 +378,7 @@ def temporal_derived_power_series(z, C, up_to_order, series_termination_index, s
     for i in range(up_to_order + 1):
         sum_Q = np.zeros(len_t)
         for j in range(series_termination_index + 1 - spatial_der_order):
-            sum_Q += C[j + spatial_der_order][i, :] * z ** (j) / sm.factorial(j)
+            sum_Q += C[j + spatial_der_order][i, :] * z ** (j) / ss.factorial(j)
         Q[i, :] = sum_Q
 
     return Q
@@ -418,7 +418,7 @@ def power_series(z, t, C, spatial_der_order=0, temporal_der_order=0):
     for i in range(len(z)):
         sum_x = np.zeros(t.shape[0])
         for j in range(len(C) - spatial_der_order):
-            sum_x += C[j + spatial_der_order][temporal_der_order, :] * z[i] ** j / sm.factorial(j)
+            sum_x += C[j + spatial_der_order][temporal_der_order, :] * z[i] ** j / ss.factorial(j)
         x[:, i] = sum_x
 
     if any([dim == 1 for dim in x.shape]):
