@@ -868,9 +868,12 @@ class DomainTestCase(unittest.TestCase):
 
 class EvalDataTestCase(unittest.TestCase):
     def setUp(self):
-        test_data_time1 = pi.core.Domain((0, 10), 11)
+        # test_data_time1 = pi.core.Domain((0, 10), 11)
+        test_data_time1 = np.linspace(0, 10, 11)
         test_data_spatial1 = pi.core.Domain((0, 1), 5)
-        test_output_data1 = np.random.rand(11, 5)
+        xx, yy = np.meshgrid(test_data_time1, test_data_spatial1.points,
+                             indexing="ij")
+        test_output_data1 = 2 * xx + 4 * yy
         self.data1 = pi.core.EvalData(input_data=[test_data_time1,
                                                   test_data_spatial1],
                                       output_data=test_output_data1)
@@ -883,9 +886,12 @@ class EvalDataTestCase(unittest.TestCase):
                                       output_data=test_output_data2)
 
         test_data_time3 = pi.core.Domain((0, 10), 101)
-        test_output_data3 = np.random.rand(101)
+        test_output_data3 = 10 * test_data_time3.points + 5
         self.data3 = pi.core.EvalData(input_data=[test_data_time3],
                                       output_data=test_output_data3)
+        self.data3_extra = pi.core.EvalData(input_data=[test_data_time3],
+                                            output_data=test_output_data3,
+                                            enable_extrapolation=True)
 
         test_data_time4 = pi.core.Domain((0, 10), 101)
         test_data_spatial4 = pi.core.Domain((0, 1), 11)
@@ -918,11 +924,20 @@ class EvalDataTestCase(unittest.TestCase):
         test_data_time8 = pi.core.Domain((0, 10), 11)
         test_data_spatial8_1 = pi.core.Domain((0, 20), 21)
         test_data_spatial8_2 = pi.core.Domain((0, 30), 31)
-        test_output_data8 = -np.random.rand(11, 21, 31)
+        xx, yy, zz = np.meshgrid(test_data_time8.points,
+                                 test_data_spatial8_1.points,
+                                 test_data_spatial8_2.points,
+                                 indexing="ij")
+        test_output_data8 = 2 * xx - 4 * yy + 6 * zz
         self.data8 = pi.core.EvalData(input_data=[test_data_time8,
                                                   test_data_spatial8_1,
                                                   test_data_spatial8_2],
                                       output_data=test_output_data8)
+        self.data8_extra = pi.core.EvalData(input_data=[test_data_time8,
+                                                        test_data_spatial8_1,
+                                                        test_data_spatial8_2],
+                                            output_data=test_output_data8,
+                                            enable_extrapolation=True)
 
     def test_init(self):
         test_data_1 = pi.core.Domain((0, 10), 11)
@@ -966,7 +981,7 @@ class EvalDataTestCase(unittest.TestCase):
                         output_data=test_output_data_4)
 
         # although, the output can have more dimensions (like a vector field)
-        # if the flag `fill_axes` s given
+        # if the flag `fill_axes` is given
         # (dummy axis will be appended automatically)
         pi.EvalData(input_data=[test_data_1, test_data_2],
                     output_data=test_output_data_4,
@@ -1018,6 +1033,13 @@ class EvalDataTestCase(unittest.TestCase):
                     output_data=test_output_data_1,
                     input_labels="mississippis")
 
+        # extrapolation for 2d is disabled, due to bugs in scipy
+        with self.assertRaises(ValueError):
+            self.data1_extra = pi.core.EvalData(
+                input_data=[test_data_1, test_data_1],
+                output_data=np.random.rand(11, 11),
+                enable_extrapolation=True)
+
     def test_interpolate1d(self):
         data = self.data3.interpolate([[2, 7]])
         self.assertEqual(data.output_data[0], self.data3.output_data[20])
@@ -1037,22 +1059,6 @@ class EvalDataTestCase(unittest.TestCase):
         np.testing.assert_array_almost_equal(data.output_data[1],
                                              self.data1.output_data[2, 2])
 
-    def test_call3d_one_axis(self):
-        data = self.data8(
-            [slice(None, None, 2), slice(None), slice(None)])
-        np.testing.assert_array_almost_equal(data.output_data,
-                                             self.data8.output_data[::2])
-
-        data = self.data8(
-            [slice(None), slice(None, None, 2), slice(None)])
-        np.testing.assert_array_almost_equal(data.output_data,
-                                             self.data8.output_data[:, ::2])
-
-        data = self.data8(
-            [slice(None), slice(None), slice(None, None, 2)])
-        np.testing.assert_array_almost_equal(data.output_data,
-                                             self.data8.output_data[..., ::2])
-
     def test_call1d(self):
         data = self.data3([[1]])
         np.testing.assert_array_almost_equal(
@@ -1067,6 +1073,22 @@ class EvalDataTestCase(unittest.TestCase):
         data = self.data3([slice(None)])
         np.testing.assert_array_almost_equal(data.output_data,
                                              self.data3.output_data[:])
+
+    def test_call1d_extrapolation(self):
+        values = [-10, 0, 10, 20]
+
+        # if extrapolation is disabled, the boundary values are used
+        data = self.data3([values])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data3.output_data[[0, 0, 100, 100]])
+
+        # if enabled, extrapolated output is generated
+        data = self.data3_extra([values])
+        extra_out = 10 * np.array(values) + 5
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            extra_out)
 
     def test_call_1d_simple(self):
         # these calls may also omit the outermost list since the array is 1d
@@ -1095,6 +1117,22 @@ class EvalDataTestCase(unittest.TestCase):
         np.testing.assert_array_almost_equal(data.output_data,
                                              self.data1.output_data[:, 3])
 
+    def test_call2d_extrapolation(self):
+        # if extrapolation is disabled, the boundary values are used
+        values = [-.5, 0, 1, 1.5]
+        data = self.data1([slice(None), values])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            self.data1.output_data[:, [0, 0, -1, -1]]
+        )
+        # since BiRectSpline does not support extra extrapolation, if
+        # extrapolation is forced, interp2d is used which, sadly has a bug
+        # see https://github.com/scipy/scipy/issues/8099 for details
+
+        # data = self.data1_extra([[5], values])
+        # extra_output = (2 * 5 - 4 * np.array(values))
+        # np.testing.assert_array_almost_equal(data.output_data, extra_output)
+
     def test_call2d_multi(self):
         data = self.data1([slice(None), [0.25, 0.75]])
         np.testing.assert_array_almost_equal(data.output_data[:, 0],
@@ -1110,6 +1148,22 @@ class EvalDataTestCase(unittest.TestCase):
         np.testing.assert_array_almost_equal(data.output_data,
                                              self.data1.output_data[1:5, 3])
 
+    def test_call3d_one_axis(self):
+        data = self.data8(
+            [slice(None, None, 2), slice(None), slice(None)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[::2])
+
+        data = self.data8(
+            [slice(None), slice(None, None, 2), slice(None)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[:, ::2])
+
+        data = self.data8(
+            [slice(None), slice(None), slice(None, None, 2)])
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             self.data8.output_data[..., ::2])
+
     def test_call3d_two_axis(self):
         data = self.data8(
             [slice(None, None, 2), slice(5, 14, 2), slice(None)])
@@ -1123,6 +1177,24 @@ class EvalDataTestCase(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             data.output_data,
             self.data8.output_data[::2, 5:14:2, 2:27:5])
+
+    def test_call3d_extrapolation(self):
+        # no neigherest neighbour available,
+        # values outside are padded with zeros
+        data = self.data8([[2], [3], [-10, 0, 30, 40]])
+        np.testing.assert_array_almost_equal(
+            data.output_data,
+            np.hstack((0, self.data8.output_data[2, 3, [0, -1]] , 0))
+        )
+
+        x = [-10, 0, 10, 20]
+        y = [-10, 0, 20, 30]
+        z = [-10, 0, 30, 40]
+        data = self.data8_extra([x, y, z])
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        test_output_data8 = 2 * xx - 4 * yy + 6 * zz
+        np.testing.assert_array_almost_equal(data.output_data,
+                                             test_output_data8)
 
     def test_interpolation_chain(self):
         # we start with a 2d data  object and interpolate it on a wider grid
