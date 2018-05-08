@@ -71,9 +71,9 @@ if __name__ == "__main__" or test_examples:
     D = pi.coefficient_recursion(np.zeros(u_i.shape), u_i, param_i)
 
     # compute power series for the desired in-domain intermediate (_id) fieldvariable (subdivided in x1_i & x2_i)
-    z_x1 = np.linspace(0, b, len(spatial_domain) * k1 / k)
+    z_x1 = np.linspace(0, b, int(len(spatial_domain) * k1 / k))
     x1_id_desired = pi.power_series(z_x1, t_x, C)
-    z_x2 = np.linspace(b, l, len(spatial_domain) * k2 / k)[1:]
+    z_x2 = np.linspace(b, l, int(len(spatial_domain) * k2 / k))[1:]
     x2_id_desired = pi.power_series(z_x2, t_x, C) - pi.power_series(z_x2 - b, t_x, D)
     z_x = np.array(list(z_x1) + list(z_x2))
     x_id = np.concatenate((x1_id_desired, x2_id_desired), axis=1)
