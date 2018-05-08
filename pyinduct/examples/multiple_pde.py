@@ -1,7 +1,7 @@
 r"""
 This example considers the thermal behavior (simulation) of plug flow of an
-incompressible fluid through a pipe from [BacEtAl17]_, which can be described with the
-normed variables/parameters:
+incompressible fluid through a pipe from [BacEtAl17]_, which can be described
+with the normed variables/parameters:
 
     - :math:`x_1(z,t)` ~ fluid temperature
 
@@ -25,16 +25,20 @@ by the following equations:
     :nowrap:
 
     \begin{align*}
-        \dot{x}_1(z,t) + v x_1'(z,t) &= c_1(x_2(z,t) - x_1(z,t)), && z\in (0,l] \\
-        \dot{x}_2(z,t) &= c_1(x_1(z,t) - x_2(z,t)) + c_2(x_3(z,t) - x_2(z,t)), && z\in [0,l] \\
+        \dot{x}_1(z,t) + v x_1'(z,t) &=
+            c_1(x_2(z,t) - x_1(z,t)), && z\in (0,l] \\
+        \dot{x}_2(z,t) &=
+            c_1(x_1(z,t) - x_2(z,t)) + c_2(x_3(z,t) - x_2(z,t)), &&z\in [0,l] \\
         x_1(z,0) &= 0 \\
         x_2(z,0) &= 0 \\
         x_1(0,t) &= u(t) = 2 H(t)
     \end{align*}
 
 
-.. [BacEtAl17] On thermal modelling of incrompressible pipe flows (Zur thermischen Modellierung inkompressibler Rohrströmungen),
-        Simon Bachler, Johannes Huber and Frank Woittennek, at-Automatisierungstechnik, DE GRUYTER, 2017
+.. [BacEtAl17] On thermal modelling of incrompressible pipe flows (Zur
+        thermischen Modellierung inkompressibler Rohrströmungen),
+        Simon Bachler, Johannes Huber and Frank Woittennek,
+        at-Automatisierungstechnik, DE GRUYTER, 2017
 """
 
 # (sphinx directive) start actual script
@@ -68,20 +72,32 @@ if __name__ == "__main__" or test_examples:
 
     weak_form1 = pi.WeakFormulation(
         [
-            pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi1), limits=spat_domain.bounds),
-            pi.IntegralTerm(pi.Product(x1, psi1.derive(1)), limits=spat_domain.bounds, scale=-v),
+            pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi1),
+                            limits=spat_domain.bounds),
+            pi.IntegralTerm(pi.Product(x1, psi1.derive(1)),
+                            limits=spat_domain.bounds,
+                            scale=-v),
             pi.ScalarTerm(pi.Product(x1(l), psi1(l)), scale=v),
             pi.ScalarTerm(pi.Product(pi.Input(u), psi1(0)), scale=-v),
-            pi.IntegralTerm(pi.Product(x1, psi1), limits=spat_domain.bounds, scale=c1),
-            pi.IntegralTerm(pi.Product(x2, psi1), limits=spat_domain.bounds, scale=-c1),
+            pi.IntegralTerm(pi.Product(x1, psi1),
+                            limits=spat_domain.bounds,
+                            scale=c1),
+            pi.IntegralTerm(pi.Product(x2, psi1),
+                            limits=spat_domain.bounds,
+                            scale=-c1),
         ],
         name="fluid temperature"
     )
     weak_form2 = pi.WeakFormulation(
         [
-            pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2), limits=spat_domain.bounds),
-            pi.IntegralTerm(pi.Product(x1, psi2), limits=spat_domain.bounds, scale=-c2),
-            pi.IntegralTerm(pi.Product(x2, psi2), limits=spat_domain.bounds, scale=c2 + c1),
+            pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2),
+                            limits=spat_domain.bounds),
+            pi.IntegralTerm(pi.Product(x1, psi2),
+                            limits=spat_domain.bounds,
+                            scale=-c2),
+            pi.IntegralTerm(pi.Product(x2, psi2),
+                            limits=spat_domain.bounds,
+                            scale=c2 + c1),
         ],
         name="wall temperature"
     )
@@ -89,7 +105,9 @@ if __name__ == "__main__" or test_examples:
     ics = {weak_form1.name: [pi.Function(lambda z: 0)],
            weak_form2.name: [pi.Function(lambda z: 0)]}
     spat_domains = {weak_form1.name: spat_domain, weak_form2.name: spat_domain}
-    evald1, evald2 = pi.simulate_systems([weak_form1, weak_form2], ics, temp_domain,
+    evald1, evald2 = pi.simulate_systems([weak_form1, weak_form2],
+                                         ics,
+                                         temp_domain,
                                          spat_domains)
 
     win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'))

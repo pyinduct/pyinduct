@@ -203,10 +203,8 @@ class ParseTest(unittest.TestCase):
         pi.register_base("heavyside_base", base)
 
         # distributed base
-        nodes, self.distributed_base = pi.cure_interval(
-            pi.LagrangeFirstOrder,
-            (0, 1),
-            node_count=3)
+        nodes = pi.Domain((0, 1), num=3)
+        self.distributed_base = pi.LagrangeSecondOrder.cure_interval(nodes)
         pi.register_base("distributed_base", self.distributed_base)
 
         # lumped base
@@ -652,7 +650,7 @@ class StateSpaceTests(unittest.TestCase):
         self.time_domain = pi.Domain((0, 1), num=10)
         node_cnt = 3
         spat_domain = pi.Domain((0, 1), num=node_cnt)
-        nodes, lag_base = pi.cure_interval(pi.LagrangeFirstOrder, spat_domain.bounds, node_count=node_cnt)
+        lag_base = pi.LagrangeFirstOrder.cure_interval(spat_domain)
         pi.register_base("swm_base", lag_base)
 
         # input
@@ -765,8 +763,8 @@ class StringMassTest(unittest.TestCase):
         use best documented fem case to test all steps in simulation process
         """
         # enter string with mass equations
-        nodes, fem_base = pi.cure_interval(pi.LagrangeSecondOrder,
-                                           self.dz.bounds, node_count=11)
+        nodes = pi.Domain(self.dz.bounds, num=11)
+        fem_base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("fem_base", fem_base)
 
         field_var = pi.FieldVariable("fem_base")
@@ -1050,10 +1048,15 @@ class MultiplePDETest(unittest.TestCase):
         self.ic4 = np.array([fx, fx])
 
         # weak formulations
-        nodes1, base1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz1.bounds, node_count=3)
-        nodes2, base2 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz2.bounds, node_count=3)
-        nodes3, base3 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz3.bounds, node_count=3)
-        nodes4, base4 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz4.bounds, node_count=15)
+        nodes1 = pi.Domain(self.dz1.bounds, num=3)
+        nodes2 = pi.Domain(self.dz2.bounds, num=3)
+        nodes3 = pi.Domain(self.dz3.bounds, num=3)
+        nodes4 = pi.Domain(self.dz4.bounds, num=15)
+
+        base1 = pi.LagrangeFirstOrder.cure_interval(nodes1)
+        base2 = pi.LagrangeFirstOrder.cure_interval(nodes2)
+        base3 = pi.LagrangeFirstOrder.cure_interval(nodes3)
+        base4 = pi.LagrangeFirstOrder.cure_interval(nodes4)
 
         pi.register_base("base_1", base1)
         pi.register_base("base_2", base2)
@@ -1179,8 +1182,9 @@ class MultiplePDETest(unittest.TestCase):
 
 class RadFemTrajectoryTest(unittest.TestCase):
     """
-    Test FEM simulation with pi.LagrangeFirstOrder and pi.LagrangeSecondOrder test functions and generic trajectory
-    generator RadTrajectory for the reaction-advection-diffusion equation.
+    Test FEM simulation with pi.LagrangeFirstOrder and pi.LagrangeSecondOrder
+    test functions and generic trajectory generator RadTrajectory for the
+    reaction-advection-diffusion equation.
     """
     def setUp(self):
         self.param = [2., -1.5, -3., 2., .5]
@@ -1195,11 +1199,12 @@ class RadFemTrajectoryTest(unittest.TestCase):
         self.dt = pi.Domain(bounds=(0, self.T), num=temporal_disc)
 
         # create test functions
-        self.nodes_1, self.base_1 = pi.cure_interval(pi.LagrangeFirstOrder, self.dz.bounds,
-                                                     node_count=spatial_disc)
+        self.nodes_1 = pi.Domain(self.dz.bounds, num=spatial_disc)
+        self.base1 = pi.LagrangeFirstOrder.cure_interval(self.nodes_1)
         pi.register_base("base_1", self.base_1)
-        self.nodes_2, self.base_2 = pi.cure_interval(pi.LagrangeSecondOrder, self.dz.bounds,
-                                                     node_count=spatial_disc)
+
+        self.nodes_2 = pi.Domain(self.dz.bounds, num=spatial_disc)
+        self.base2 = pi.LagrangeSecondOrder.cure_interval(self.nodes_1)
         pi.register_base("base_2", self.base_2)
 
     @unittest.skip  # needs border homogenization to work
@@ -1208,19 +1213,32 @@ class RadFemTrajectoryTest(unittest.TestCase):
         # trajectory
         bound_cond_type = 'dirichlet'
         actuation_type = 'dirichlet'
-        u = parabolic.RadFeedForward(self.l, self.T, self.param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(self.l,
+                                     self.T,
+                                     self.param,
+                                     bound_cond_type, actuation_type)
 
         # derive state-space system
-        rad_pde = parabolic.get_parabolic_dirichlet_weak_form("base_2", "base_2", u, self.param, self.dz.bounds)
+        rad_pde = parabolic.get_parabolic_dirichlet_weak_form("base_2",
+                                                              "base_2",
+                                                              u,
+                                                              self.param,
+                                                              self.dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss = sim.create_state_space(ce)
 
         # simulate system
-        t, q = sim.simulate_state_space(ss, np.zeros(self.base_2.shape), self.dt)
+        t, q = sim.simulate_state_space(ss,
+                                        np.zeros(self.base_2.shape),
+                                        self.dt)
 
         # display results
         if show_plots:
-            eval_d = sim.evaluate_approximation("base_1", q, t, self.dz, spat_order=1)
+            eval_d = sim.evaluate_approximation("base_1",
+                                                q,
+                                                t,
+                                                self.dz,
+                                                spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
             pi.show(show_mpl=False)
@@ -1522,9 +1540,8 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.spat_dom = pi.Domain((0, 1), num=self.node_cnt)
 
         # create initial functions
-        self.nodes, self.funcs = pi.cure_interval(pi.LagrangeFirstOrder,
-                                                  self.spat_dom.bounds,
-                                                  node_count=self.node_cnt)
+        self.nodes = pi.Domain(self.spat_dom.bounds, num=self.node_cnt)
+        self.funcs = pi.LagrangeSecondOrder.cure_interval(self.nodes)
         pi.register_base("approx_funcs", self.funcs, overwrite=True)
 
         # create a slow rising, nearly horizontal line
@@ -1552,8 +1569,8 @@ class SetDominantLabel(unittest.TestCase):
     def setUp(self):
         self.limits = (0, 1)
         domain = pi.Domain(bounds=self.limits, num=100)
-        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder, domain.bounds,
-                                       node_count=3)
+        nodes = pi.Domain(domain.bounds, num=3)
+        base = pi.LagrangeSecondOrder.cure_interval(nodes)
 
         pi.register_base("base_1", base)
         pi.register_base("base_2", base)
