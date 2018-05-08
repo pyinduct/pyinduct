@@ -24,7 +24,7 @@ class ShapeFunction(Function):
     the :math:`\varphi_i(z)` denote the shape functions.
     """
     def __init__(self, *args, **kwargs):
-        super(self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def cure_interval(self, interval, **kwargs):

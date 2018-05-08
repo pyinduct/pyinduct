@@ -764,7 +764,7 @@ class StringMassTest(unittest.TestCase):
         """
         # enter string with mass equations
         nodes = pi.Domain(self.dz.bounds, num=11)
-        fem_base = pi.LagrangeFirstOrder.cure_interval(nodes)
+        fem_base = pi.LagrangeSecondOrder.cure_interval(nodes)
         pi.register_base("fem_base", fem_base)
 
         field_var = pi.FieldVariable("fem_base")
@@ -811,6 +811,8 @@ class StringMassTest(unittest.TestCase):
             eval_data[-1].name = "{0}{1}".format(self.cf.name, "_" + "".join(
                 ["d" for x in range(der_idx)]) + "t" if der_idx > 0 else "")
 
+        pi.deregister_base("fem_base")
+
         # display results
         if show_plots:
             win = pi.PgAnimatedPlot(eval_data[:2],
@@ -825,8 +827,6 @@ class StringMassTest(unittest.TestCase):
 
         # save some test data for later use
         self.example_data = eval_data
-
-        pi.deregister_base("fem_base")
 
     def test_modal(self):
         order = 8
@@ -1200,11 +1200,11 @@ class RadFemTrajectoryTest(unittest.TestCase):
 
         # create test functions
         self.nodes_1 = pi.Domain(self.dz.bounds, num=spatial_disc)
-        self.base1 = pi.LagrangeFirstOrder.cure_interval(self.nodes_1)
+        self.base_1 = pi.LagrangeFirstOrder.cure_interval(self.nodes_1)
         pi.register_base("base_1", self.base_1)
 
         self.nodes_2 = pi.Domain(self.dz.bounds, num=spatial_disc)
-        self.base2 = pi.LagrangeSecondOrder.cure_interval(self.nodes_1)
+        self.base_2 = pi.LagrangeSecondOrder.cure_interval(self.nodes_1)
         pi.register_base("base_2", self.base_2)
 
     @unittest.skip  # needs border homogenization to work

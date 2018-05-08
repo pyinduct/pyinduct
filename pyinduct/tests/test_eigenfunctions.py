@@ -1,10 +1,11 @@
 import unittest
-
-import matplotlib.pyplot as plt
 import numpy as np
+
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
 from pyinduct.tests import show_plots
+
+import matplotlib.pyplot as plt
 
 
 class TestAddMulFunction(unittest.TestCase):
@@ -230,12 +231,14 @@ class TestSecondOrderEigenVector(unittest.TestCase):
                           self.p_robin)
 
     def _test_helper(self, params, l_ref, p_ref):
-        eig_values, eig_base = pi.SecondOrderEigenVector.cure_hint(
-            self.domain,
-            params,
-            count=self.cnt,
-            derivative_order=2,
-            debug=False)
+        eig_base = pi.SecondOrderEigenVector.cure_interval(self.domain,
+                                                           params=params,
+                                                           count=self.cnt,
+                                                           derivative_order=2,
+                                                           debug=False)
+        char_roots = eig_base.get_attribute("char_pair")
+        eig_values = pi.SecondOrderEigenVector.convert_to_eigenvalue(params,
+                                                                     char_roots)
 
         # if show_plots:
         #     pi.visualize_functions(eig_base.fractions)
@@ -245,9 +248,6 @@ class TestSecondOrderEigenVector(unittest.TestCase):
         if l_ref is not None:
             np.testing.assert_array_equal(eig_values, l_ref, verbose=True)
 
-        char_roots = pi.SecondOrderEigenVector.convert_to_characteristic_root(
-            params,
-            eig_values)
         if p_ref is not None:
             print(char_roots)
             print(p_ref)

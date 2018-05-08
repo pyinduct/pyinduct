@@ -409,9 +409,9 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         self.nodes1 = pi.Domain(interval, num=5)
         self.nodes2 = pi.Domain(interval, num=9)
         self.initial_functions1 = pi.LagrangeFirstOrder.cure_interval(
-            self.nodes1),
+            self.nodes1)
         self.initial_functions2 = pi.LagrangeFirstOrder.cure_interval(
-            self.nodes2),
+            self.nodes2)
         self.optimization = None
         # print(np.array(self.nodes1), np.array(self.nodes2))
 
