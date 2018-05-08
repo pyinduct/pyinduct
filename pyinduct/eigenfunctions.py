@@ -972,12 +972,13 @@ class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
         # assume 1 root per pi/l (safety factor = 3)
         search_begin = 0
         search_end = 3 * n_roots * np.pi / l
+        search_cnt = int(search_end/ np.pi * l)
         start_values_real = np.linspace(search_begin,
                                         search_end,
-                                        search_end / np.pi * l * 100)
+                                        search_cnt * 100)
         start_values_imag = np.linspace(search_begin,
                                         search_end,
-                                        search_end / np.pi * l * 20)
+                                        search_cnt * 20)
 
         if show_plot:
             vec_function = np.vectorize(characteristic_equation)
