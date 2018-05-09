@@ -105,7 +105,7 @@ if __name__ == "__main__" or test_examples:
     initial_state = full_start_state[1:-1]
 
     start_state_bar = a_tilde @ initial_state - (b1 * u(time=0)).flatten()
-    ss = pi.StateSpace(a_bar, b_bar, base_lbl="sim", input_handle=u)
+    ss = pi.StateSpace(a_bar, b_bar, base_lbl="sim", input_handles=u)
     sim_temp_domain, sim_weights_bar = pi.simulate_state_space(ss,
                                                                start_state_bar,
                                                                temp_domain)

@@ -88,7 +88,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput(output=1, limits=(0, 1))
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
+        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handles=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, pi.Domain((0, 1), num=10))
@@ -98,7 +98,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = MonotonousInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace(a, b, input_handle=u)
+        ss = sim.StateSpace(a, b, input_handles=u)
 
         # run simulation to fill the internal storage
         domain = pi.Domain((0, 10), step=.1)
@@ -1541,7 +1541,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         a_mat = np.diag(eig_values)
         b_mat = -a2 * np.atleast_2d(
             [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(
@@ -1620,7 +1620,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine pair (A, B) by modal transformation
         a_mat = np.diag(np.real_if_close(eig_val))
         b_mat = a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),

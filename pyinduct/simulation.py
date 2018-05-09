@@ -5,7 +5,7 @@ and functions for postprocessing of simulation data.
 
 import warnings
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
+from collections import OrderedDict, Callable
 from copy import copy
 from itertools import chain
 
@@ -195,13 +195,14 @@ class StateSpace(object):
             for the corresponding powers of :math:`\boldsymbol{x}`
         b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
             temporal derivative order, exponent .
-        input_handle:  function handle, returning the system input :math:`u(t)`
+        input_handles (array):  (Array of) callables for the the system inputs
+            :math:`u(t)`.
         c_matrix: :math:`\boldsymbol{C}`
         d_matrix: :math:`\boldsymbol{D}`
     """
 
     def __init__(self, a_matrices, b_matrices, base_lbl=None,
-                 input_handle=None, c_matrix=None, d_matrix=None):
+                 input_handles=None, c_matrix=None, d_matrix=None):
         self.C = c_matrix
         self.D = d_matrix
         self.base_lbl = base_lbl
@@ -231,12 +232,10 @@ class StateSpace(object):
         if self.D is None:
             self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
-        self.input = input_handle
-        if self.input is None:
+        if input_handles is None:
             self.input = EmptyInput(self.B[0][available_power].shape[1])
-
-        if not callable(self.input):
-            raise TypeError("input must be callable!")
+        else:
+            self.input = sanitize_input(input_handles, Callable)
 
     # TODO export cython code?
     def rhs(self, _t, _q):
@@ -250,17 +249,19 @@ class StateSpace(object):
         Returns:
             (array): :math:`\boldsymbol{\dot{x}}(t)`
         """
-        q_t = self.A[0]
-        for p, a_mat in self.A.items():
-            q_t = q_t + a_mat @ np.power(_q, p)
+        state_part = self.A[0]
+        for power, a_mat in self.A.items():
+            state_part = state_part + a_mat @ np.power(_q, power)
 
-        # TODO make compliant with definition of temporal derived input
-        u = self.input(time=_t, weights=_q, weight_lbl=self.base_lbl)
-        for o, p_mats in self.B.items():
-            for p, b_mat in p_mats.items():
-                # q_t = q_t + (b_mat @ np.power(u, p)).flatten()
-                q_t = q_t + b_mat @ np.power(u, p)
+        input_part = np.zeros_like(state_part)
+        inputs = np.atleast_2d([u(time=_t, weights=_q, weight_lbl=self.base_lbl)
+                                for u in self.input])
+        for der_order, power_dict in self.B.items():
+            for power, b_mat in power_dict.items():
+                for idx, col in enumerate(b_mat.T):
+                    input_part = input_part + col * inputs[idx, der_order]
 
+        q_t = state_part + input_part
         return q_t
 
 
@@ -696,7 +697,7 @@ class CanonicalForm(object):
         a_matrices.update({0: f_mat})
 
         ss = StateSpace(a_matrices, b_matrices,
-                        input_handle=self.input_functions)
+                        input_handles=self.input_functions)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
@@ -993,7 +994,7 @@ def create_state_space(canonical_equations):
             b_matrices.update({order: b_order_mats})
 
     dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
-                        input_handle=state_space_props.input)
+                        input_handles=state_space_props.input)
     return dom_ss
 
 
@@ -1242,11 +1243,6 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     """
     if not isinstance(state_space, StateSpace):
         raise TypeError
-
-    input_handle = state_space.input
-
-    if not isinstance(input_handle, SimulationInput):
-        raise TypeError("only simulation.SimulationInput supported.")
 
     q = [initial_state]
     t = [temp_domain[0]]
