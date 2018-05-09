@@ -200,7 +200,7 @@ class ParseTest(unittest.TestCase):
         self.scalars = pi.Scalars(np.vstack(list(range(3))))
 
         # callbacks
-        self.u = np.sin
+        self.u = pi.ConstantTrajectory(7)
         self.u1 = CorrectInput(output=1)
         self.u2 = CorrectInput(output=2)
         self.u_dt = CorrectInput(output=1, der_order=1)
