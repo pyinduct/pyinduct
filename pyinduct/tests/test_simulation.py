@@ -204,7 +204,7 @@ class ParseTest(unittest.TestCase):
 
         # distributed base
         nodes = pi.Domain((0, 1), num=3)
-        self.distributed_base = pi.LagrangeSecondOrder.cure_interval(nodes)
+        self.distributed_base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("distributed_base", self.distributed_base)
 
         # lumped base
