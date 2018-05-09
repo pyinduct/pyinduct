@@ -49,6 +49,28 @@ class VisualizeRootsTestCase(unittest.TestCase):
             pi.show(show_mpl=False)
 
 
+class VisualizeFunctionsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.cos_func = pi.Function(np.cos, domain=(0, 1))
+        self.sin_func = pi.Function(np.sin, domain=(0, 2))
+        self.complex_func = pi.Function(lambda x: (x + 2j)**2, domain=(-5, 5))
+        self.vectorial_funcs = [self.cos_func, self.sin_func]
+
+        self.tan_func = pi.Function(lambda x: np.tan(x),
+                                    domain={(0, np.pi/2-1e-2),
+                                            (np.pi/2+1e-2, np.pi)})
+
+    def test_cont_dom(self):
+        pi.visualize_functions(self.cos_func)
+        pi.visualize_functions(self.sin_func)
+        pi.visualize_functions(self.complex_func)
+        pi.visualize_functions(self.vectorial_funcs)
+
+    def test_disc_dom(self):
+        pi.visualize_functions(self.tan_func)
+
+
 class PlotTestCase(unittest.TestCase):
     swm = StringMassTest()
 
