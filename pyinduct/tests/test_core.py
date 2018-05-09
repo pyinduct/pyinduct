@@ -64,10 +64,14 @@ class FunctionTestCase(unittest.TestCase):
             p = pi.Function(np.sin, **{kwarg: {(5, 0), (-10, -5)}})
             self.assertEqual(getattr(p, kwarg), {(-10, -5), (0, 5)})
 
+            # check simplification
+            p = pi.Function(np.sin, **{kwarg: {(0, 5), (3, 10)}})
+            self.assertEqual(getattr(p, kwarg), {(0, 10)})
+
             if kwarg == "domain":
                 # check domain check
                 self.assertRaises(ValueError, p, -3)
-                self.assertRaises(ValueError, p, 10)
+                self.assertRaises(ValueError, p, 13)
             else:
                 # TODO check if nonzero check generates warning
                 pass

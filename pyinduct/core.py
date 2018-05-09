@@ -174,9 +174,7 @@ class Function(BaseFraction):
                     raise TypeError("(Set of) or tuple(s) has to be provided "
                                     "for {0}".format(kw))
 
-            setattr(self,
-                    kw,
-                    {(min(interval), max(interval)) for interval in val})
+            setattr(self, kw, domain_simplification(val))
 
         self.function_handle = eval_handle
         self.derivative_handles = derivative_handles
@@ -733,7 +731,7 @@ def domain_simplification(domain):
     if new_dom and new_dom != domain:
         return domain_simplification(new_dom)
     else:
-        return domain
+        return set(temp_dom)
 
 
 def domain_intersection(first, second):
