@@ -281,6 +281,9 @@ class ParseTest(unittest.TestCase):
 
         # pure test function terms
         self.func_term = pi.ScalarTerm(self.test_funcs_at1)
+        self.func_term_int = pi.IntegralTerm(pi.Product(self.test_funcs,
+                                                        self.test_funcs),
+                                             limits=(0, 1))
 
         # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
@@ -416,6 +419,15 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["f"]))
         np.testing.assert_array_almost_equal(terms["f"],
                                              np.array([[0], [0], [1]]))
+
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.func_term_int, name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["f"]))
+        np.testing.assert_array_almost_equal(terms["f"],
+                                             np.array([[1 / 6],
+                                                       [1 / 3],
+                                                       [1 / 6]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
