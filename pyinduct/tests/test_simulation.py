@@ -49,7 +49,7 @@ class CorrectInput(sim.SimulationInput):
             raise ValueError("mandatory key not found!")
         if "weight_lbl" not in kwargs:
             raise ValueError("mandatory key not found!")
-        return dict(output=np.zeros(self.der_order+1))
+        return dict(output=self.out)
 
 
 class AlternatingInput(sim.SimulationInput):
@@ -772,7 +772,7 @@ class StateSpaceTests(unittest.TestCase):
         pi.register_base("swm_base", lag_base)
 
         # input
-        self.u = CorrectInput(limits=(0, 10))
+        self.u = CorrectInput(output=5, limits=(0, 10))
         # self.u = CorrectInput(limits=self.time_domain.bounds)
 
         field_var = pi.FieldVariable("swm_base")

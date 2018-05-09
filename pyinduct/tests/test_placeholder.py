@@ -102,10 +102,13 @@ class InputTestCase(unittest.TestCase):
         self.assertRaises(TypeError, ph.Input, self.handle, -1)
 
         term = ph.Input(function_handle=self.handle, index=1, order=0)
-        self.assertEqual(term.order, (1, 0))
+        self.assertEqual(term.order, (0, 0))
         self.assertEqual(term.data["input"], self.handle)
         self.assertEqual(term.data["index"], 1)
-        self.assertEqual(term.data["exponent"], 0)
+        self.assertEqual(term.data["exponent"], 1)
+
+        term = ph.Input(function_handle=self.handle, index=1, order=7)
+        self.assertEqual(term.order, (7, 0))
 
 
 class ScalarsTest(unittest.TestCase):

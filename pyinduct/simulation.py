@@ -195,8 +195,8 @@ class StateSpace(object):
             for the corresponding powers of :math:`\boldsymbol{x}`
         b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
             temporal derivative order, exponent .
-        input_handles (array):  (Array of) callables for the the system inputs
-            :math:`u(t)`.
+        input_handles (np.ndarray):  (Array of) callables for the the system
+            inputs :math:`u(t)`.
         c_matrix: :math:`\boldsymbol{C}`
         d_matrix: :math:`\boldsymbol{D}`
     """
@@ -235,7 +235,7 @@ class StateSpace(object):
         if input_handles is None:
             self.input = EmptyInput(self.B[0][available_power].shape[1])
         else:
-            self.input = sanitize_input(input_handles, Callable)
+            self.input = sanitize_input(input_handles, SimulationInput)
 
     # TODO export cython code?
     def rhs(self, _t, _q):
@@ -481,6 +481,9 @@ class CanonicalForm(object):
         return self._input_functions
 
     def set_input_function(self, func, index=0):
+        if not isinstance(func, SimulationInput):
+            raise TypeError("Inputs must be of type `SimulationInput`.")
+
         if self._input_functions is None:
             self._input_functions = np.atleast_1d(func)
 
