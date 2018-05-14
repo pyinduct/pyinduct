@@ -1113,7 +1113,7 @@ def project_on_bases(states, canonical_equations):
         canonical_equations: List of :py:class:`.CanonicalEquation` instances.
 
     Returns:
-        numpy.array: Finit dimensional state as 1d-array corresponding to the
+        numpy.array: Finite dimensional state as 1d-array corresponding to the
         concatenated dominant bases from *canonical_equations*.
     """
     q0 = np.array([])
