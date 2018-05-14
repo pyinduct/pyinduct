@@ -62,13 +62,13 @@ class VisualizeFunctionsTestCase(unittest.TestCase):
                                             (np.pi/2+1e-2, np.pi)})
 
     def test_cont_dom(self):
-        pi.visualize_functions(self.cos_func)
-        pi.visualize_functions(self.sin_func)
-        pi.visualize_functions(self.complex_func)
-        pi.visualize_functions(self.vectorial_funcs)
+        pi.visualize_functions(self.cos_func, delay_exec=True)
+        pi.visualize_functions(self.sin_func, delay_exec=True)
+        pi.visualize_functions(self.complex_func, delay_exec=True)
+        pi.visualize_functions(self.vectorial_funcs, delay_exec=True)
 
     def test_disc_dom(self):
-        pi.visualize_functions(self.tan_func)
+        pi.visualize_functions(self.tan_func, delay_exec=True)
 
 
 class PlotTestCase(unittest.TestCase):

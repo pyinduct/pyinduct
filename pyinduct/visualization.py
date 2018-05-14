@@ -72,7 +72,7 @@ def create_colormap(cnt):
     return col_map.map(indexes, mode="qcolor")
 
 
-def visualize_functions(functions, points=100):
+def visualize_functions(functions, points=100, delay_exec=False):
     """
     Visualizes a set of :py:class:`.Function` s on
     their domain.
@@ -82,6 +82,10 @@ def visualize_functions(functions, points=100):
             :py:class:`.Function` s to display.
         points (int): Points to use for sampling
             the domain.
+        delay_exec (bool): If True the graphics window is not shown directly.
+            In this case, a reference to the plot window is returned.
+
+    Returns: A PgPlotWindow if *delay_exec* is True.
     """
     # convenience
     if isinstance(functions, Function):
@@ -143,7 +147,10 @@ def visualize_functions(functions, points=100):
         pw.addItem(p_imag)
 
     pw.show()
-    pg.QAPP.exec_()
+    if not delay_exec:
+        pg.QAPP.exec_()
+    else:
+        return pw
 
 
 class DataPlot:
