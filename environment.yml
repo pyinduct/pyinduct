@@ -1,3 +1,4 @@
+# pyinduct.readthedocs.io configuration, see readthedocs.yml
 name: latest
 dependencies:
 - python=3.5

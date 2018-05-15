@@ -8,15 +8,34 @@ branches:
 language: python
 
 python:
+  # we dont test under python 3.4 (see install)
+  # instead we test under the latest conda python (miniconda3)
+  - "3.4"
   - "3.5"
   - "3.6"
 
 install:
-  - sudo apt-get update
-  - pip install -r requirements.txt
-  - pip install -r test_requirements.txt
-  - pip install .
-  - pip list
+  - >
+    if [ "$TRAVIS_PYTHON_VERSION" == "3.4" ]; then
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+      bash miniconda.sh -b -p $HOME/miniconda;
+      export PATH="$HOME/miniconda/bin:$PATH";
+      hash -r;
+      conda config --set always_yes yes --set changeps1 no;
+      conda update -q conda;
+      conda info -a;
+      sed -i s/PyQt5\>/pyqt\>/g requirements.txt;
+      conda create -q -n pyinductcondaenv python=3 --file requirements.txt;
+      sed -i s/pyqt\>/PyQt5\>/g requirements.txt;
+      source activate pyinductcondaenv;
+      python setup.py install;
+      pip install codecov;
+      conda list;
+    else
+      pip install -r test_requirements.txt;
+      pip install .;
+      pip list;
+    fi;
 
 before_script:
   # Start x virtual framebuffer for gui
@@ -26,7 +45,9 @@ before_script:
   - sleep 3
 
 script:
-  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test
+  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
 
 after_success:
-  - codecov
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then
+      codecov;
+    fi
