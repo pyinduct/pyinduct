@@ -105,11 +105,7 @@ if __name__ == "__main__" or test_examples:
     eig_base = calc_eigen(7, 1, EI, mu)
     pi.register_base("eig_base", eig_base)
 
-    act_base = pi.Base(pi.Function(lambda x: x, domain=spat_domain.bounds))
-    pi.register_base("act_base", act_base)
-
     approx_lbl = "eig_base"
-    input_lbl = "act_base"
 
     class ImpulseExcitation(pi.SimulationInput):
 
@@ -118,7 +114,7 @@ if __name__ == "__main__" or test_examples:
             if t < 1:
                 value = 0
             elif t < 1.1:
-                value = 10
+                value = 1000
             else:
                 value = 0
             # value = 0
@@ -162,7 +158,8 @@ if __name__ == "__main__" or test_examples:
                                    settings=dict(name="vode",
                                                  method="bdf",
                                                  order=5,
-                                                 nsteps=1e4))
+                                                 nsteps=1e4,
+                                                 max_step=temp_domain.step))
 
     # pyqtgraph visualization
     # win0 = pg.plot(np.array(eval_data[0].input_data[0]).flatten(),
