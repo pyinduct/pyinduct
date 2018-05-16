@@ -17,7 +17,6 @@ class CureTestCase(unittest.TestCase):
 
     def setUp(self):
         self.dz = pi.Domain((0, 1), step=.001)
-        self.dt = pi.Domain((0, 0), num=1)
 
         self.func_classes = [
             pi.LagrangeFirstOrder,
@@ -112,9 +111,9 @@ class CureTestCase(unittest.TestCase):
                                    approx_error)
 
     def generate_base(self, cls, order, register=False):
-        nodes, base = pi.cure_interval(cls,
-                                       self.dz.bounds,
-                                       node_count=order)
+        nodes = pi.Domain(bounds=self.dz.bounds, num=order)
+        base = cls.cure_interval(nodes)
+
         if register:
             pi.register_base("test", base)
         return nodes, base
@@ -198,22 +197,19 @@ class NthOrderCureTestCase(unittest.TestCase):
                                   derivative_handles=lam_sin_func[1:])
 
         dz = pi.Domain((0, 1), step=.001)
-        dt = pi.Domain((0, 0), num=1)
 
         for order in orders:
             num_nodes = 1 + (1 + conf) * order
-            nodes, base = pi.cure_interval(pi.LagrangeNthOrder,
-                                           (0, 1),
-                                           node_count=num_nodes,
-                                           order=order)
+            nodes = pi.Domain(bounds=(0, 1), num=num_nodes)
+            base = pi.LagrangeNthOrder.cure_interval(nodes, order=order)
             pi.register_base("test", base)
 
             weights = pi.project_on_base(approx_func, base)
 
             for der_order in derivatives[order]:
                 shape_vals_test = np.array([func.derive(der_order)(nodes)
-                                       for func in base])
-                hull_test = pi.EvalData(nodes,  weights @ shape_vals_test)
+                                            for func in base])
+                hull_test = pi.EvalData(nodes, weights @ shape_vals_test)
 
                 def squared_error_function(z):
                     return (np.sum(np.array([w * f(z)

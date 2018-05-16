@@ -1097,16 +1097,31 @@ def parse_weak_formulation(weak_form, finalize=False):
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
             func = placeholders["functions"][0]
-            fractions = get_base(func.data["func_lbl"]).derive(func.order[1]).fractions
+            fractions = get_base(func.data["func_lbl"]
+                                 ).derive(func.order[1]).fractions
+
+            if len(placeholders["functions"]) == 2:
+                func2 = placeholders["functions"][1]
+                fractions2 = get_base(func2.data["func_lbl"]
+                                      ).derive(func2.order[1]).fractions
+                res = []
+                for frac, frac2 in zip(fractions, fractions2):
+                    scaled_frac = frac.scale(frac2)
+                    dom = domain_intersection(scaled_frac.domain, term.limits)
+                    _res, err = integrate_function(scaled_frac, dom)
+                    res.append(_res)
+
+                # create column vector
+                res = np.atleast_2d(res).T * term.scale
+                term_info = dict(name="f", exponent=0)
+                ce.add_to(weight_label=None, term=term_info, val=res)
+                continue
+
             components = []
             for frac in fractions:
                 area = domain_intersection(term.limits, frac.nonzero)
                 res, err = integrate_function(frac, area)
                 components.append(res)
-
-            if len(placeholders["functions"]) == 2:
-                # TODO Result must be a vector containing int(tf1*tf2)
-                raise NotImplementedError
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]

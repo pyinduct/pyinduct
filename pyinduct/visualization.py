@@ -734,7 +734,8 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
 
     Returns: A PgPlotWindow if *delay_exec* is True.
     """
-    roots = np.atleast_1d(roots)
+    if roots is not None:
+        roots = np.atleast_1d(roots)
     if isinstance(grid[0], Number):
         grid = [grid]
 
@@ -744,7 +745,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
     if cmplx:
         assert dim == 2
         func = complex_wrapper(func)
-        if roots.size > 0:
+        if np.iscomplexobj(roots):
             roots = np.array([np.real(roots), np.imag(roots)]).T
 
     grids = np.meshgrid(*[row for row in grid])
@@ -767,7 +768,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
     if dim == 1:
         # plot function with roots
         pl = pw.addPlot()
-        if roots.size > 0:
+        if roots is not None:
             pl.plot(roots, np.zeros(roots.shape[0]),
                     pen=None, symbolPen=pg.mkPen("g"))
         pl.plot(np.squeeze(values), np.squeeze(comp_values), pen=pg.mkPen("b"))
@@ -791,7 +792,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
             p_img.addItem(img)
 
             # add roots on top
-            if roots.size > 0:
+            if roots is not None:
                 p_img.plot(roots[:, 0], roots[:, 1],
                            pen=None,
                            symbolPen=pg.mkPen("g"))
@@ -819,7 +820,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
         pw.addItem(hist)
 
         # add roots on top
-        if roots.size > 0:
+        if roots is not None:
             p_abs.plot(roots[:, 0], roots[:, 1],
                        pen=None, symbolPen=pg.mkPen("g"))
 

@@ -17,9 +17,9 @@ with open('HISTORY.rst') as history_file:
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
-test_requirements = [
-    # TODO: put package test requirements here
-]
+with open('test_requirements.txt') as f:
+    test_requirements = f.read().splitlines()
+
 
 setup(
     name='pyinduct',
@@ -45,13 +45,8 @@ setup(
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'Natural Language :: English',
-        # "Programming Language :: Python :: 2",
-        # 'Programming Language :: Python :: 2.6',
-        # 'Programming Language :: Python :: 2.7',
-        # 'Programming Language :: Python :: 3',
-        # 'Programming Language :: Python :: 3.3',
-        # 'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
     test_suite='pyinduct.tests',
     tests_require=test_requirements
