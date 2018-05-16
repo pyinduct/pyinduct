@@ -9,29 +9,45 @@ language: python
 
 python:
   - "3.5"
+  - "3.6"
+env:
+  - DIST=anaconda
+  - DIST=pypi
 
 install:
-  - sudo apt-get update
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file requirements.txt
-  - source activate test-environment
-  - python setup.py install
-  - pip install codecov
+  - >
+    if [ "$DIST" == "anaconda" ]; then
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+      bash miniconda.sh -b -p $HOME/miniconda;
+      export PATH="$HOME/miniconda/bin:$PATH";
+      hash -r;
+      conda config --set always_yes yes --set changeps1 no;
+      conda update -q conda;
+      conda info -a;
+      sed -i s/PyQt5\>/pyqt\>/g requirements.txt;
+      conda create -q -n pyinductcondaenv python=$TRAVIS_PYTHON_VERSION --file requirements.txt;
+      sed -i s/pyqt\>/PyQt5\>/g requirements.txt;
+      source activate pyinductcondaenv;
+      python setup.py install;
+      pip install codecov;
+      conda list;
+    else
+      pip install -r test_requirements.txt;
+      pip install .;
+      pip list;
+    fi;
 
 before_script:
   # Start x virtual framebuffer for gui
-  - "export DISPLAY=:99.0"
-  - "sh -e /etc/init.d/xvfb start"
-  - sleep 3 # give xvfb some time to start
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+  # give xvfb some time to start
+  - sleep 3
 
 script:
-  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test
+  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
 
 after_success:
-  - codecov
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" && "$DIST" == "pypi" ]]; then
+      codecov;
+    fi

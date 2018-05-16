@@ -31,7 +31,7 @@ if __name__ == "__main__" or test_examples:
     l = 1
     T = 1
     spatial_domain = pi.Domain(bounds=(0, l), num=30)
-    temporal_domain = pi.Domain(bounds=(0, T), num=1e2)
+    temporal_domain = pi.Domain(bounds=(0, T), num=100)
     n = n_modal
 
     # eigenvalues /-functions original system
@@ -74,7 +74,7 @@ if __name__ == "__main__" or test_examples:
     control_law = pi.SimulationInputSum([traj, controller])
 
     # determine (A,B) with modal-transformation
-    A = np.diag(eig_values)
+    A = np.diag(np.real_if_close(eig_values))
     B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
     B = np.reshape(B, (B.size, 1))
     ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handle=control_law)
