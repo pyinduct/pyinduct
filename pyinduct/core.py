@@ -585,7 +585,6 @@ class Base:
 
         Note:
             Overwrite to implement custom functionality.
-            For an example implementation see :py:class:`.Function`
         """
         return self.fractions[0].scalar_product_hint()
 
@@ -593,7 +592,6 @@ class Base:
         """
         Basic implementation of derive function.
         Empty implementation, overwrite to use this functionality.
-        For an example implementation see :py:class:`.Function`
 
         Args:
             order (:class:`numbers.Number`): derivative order
@@ -628,6 +626,20 @@ class Base:
             return self
         else:
             return self.__class__([f.raise_to(power) for f in self.fractions])
+
+    def get_attribute(self, attr):
+        """
+        Retrieve an attribute from the fractions of the base.
+
+        Args:
+            attr(str): Attribute to query the fractions for.
+
+        Returns:
+            :py:class:`np.ndarray`: Array of ``len(fractions)` holding the
+            attributes. With `None` entries if the attribute is missing.
+
+        """
+        return np.array([getattr(frac, attr, None) for frac in self.fractions])
 
 
 class StackedBase(Base):

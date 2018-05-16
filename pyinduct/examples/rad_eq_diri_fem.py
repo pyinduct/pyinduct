@@ -20,9 +20,8 @@ if __name__ == "__main__" or test_examples:
     spat_domain = pi.Domain(bounds=(0, l), num=n_fem * 11)
 
     # initial and test functions
-    nodes, fem_base = pi.cure_interval(pi.LagrangeFirstOrder,
-                                       spat_domain.bounds,
-                                       node_count=n_fem)
+    nodes = pi.Domain(spat_domain.bounds, num=n_fem)
+    fem_base = pi.LagrangeFirstOrder.cure_interval(nodes)
     act_fem_base = pi.Base(fem_base[-1])
     not_act_fem_base = pi.Base(fem_base[1:-1])
     vis_fems_base = pi.Base(fem_base)

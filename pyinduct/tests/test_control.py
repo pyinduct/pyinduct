@@ -7,9 +7,8 @@ import pyinduct as pi
 class CollocatedTestCase(unittest.TestCase):
     def setUp(self):
         spat_dom = pi.Domain((0, 1), 10)
-        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder,
-                                       spat_dom.bounds,
-                                       3)
+        nodes = pi.Domain(spat_dom.bounds, num=3)
+        base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("base", base)
 
         x = pi.FieldVariable("base")
@@ -56,7 +55,8 @@ class ContinuousTestCase(unittest.TestCase):
         self.weight_label = "base"
 
         interval = (0, 1)
-        nodes, funcs = pi.cure_interval(pi.LagrangeFirstOrder, interval, 3)
+        nodes = pi.Domain(interval, num=3)
+        funcs = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base(self.weight_label, funcs)
 
         x = pi.FieldVariable(self.weight_label)
