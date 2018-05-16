@@ -53,10 +53,10 @@ if __name__ == "__main__" or test_examples:
     param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
     # create (not normalized) eigenfunctions
-    eig_val, init_eig_funcs = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param, l, n=n)
-    _, init_adjoint_eig_funcs = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        adjoint_param, l, eig_val=eig_val)
+    eig_val, init_eig_funcs = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=param, n=n)
+    _, init_adjoint_eig_funcs = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=adjoint_param, eig_val=eig_val)
 
     # normalize eigenfunctions and adjoint eigenfunctions
     eig_funcs, adjoint_eig_funcs = pi.normalize_base(init_eig_funcs,
@@ -64,9 +64,9 @@ if __name__ == "__main__" or test_examples:
 
     # eigenfunctions from target system ("_t")
     scale_t = [func(0) for func in eig_funcs]
-    _, eig_funcs_t = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param_t,
-        l,
+    _, eig_funcs_t = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain,
+        param=param_t,
         eig_val=eig_val,
         scale=scale_t)
 

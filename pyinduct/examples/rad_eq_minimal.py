@@ -36,8 +36,8 @@ if __name__ == "__main__" or test_examples:
 
     # eigenvalues /-functions original system
     scale = np.ones(n) * np.sqrt(2)
-    eig_values, eig_funcs = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(
-        param, l, n=n, scale=scale)
+    eig_values, eig_funcs = pi.SecondOrderDirichletEigenfunction.cure_interval(
+        spatial_domain, param=param, n=n, scale=scale)
     pi.register_base("eig_funcs", eig_funcs)
 
     # eigenfunctions target system
@@ -46,8 +46,8 @@ if __name__ == "__main__" or test_examples:
     eig_freq_t = pi.SecondOrderDirichletEigenfunction.eigval_tf_eigfreq(
         param_t, eig_val=eig_values)
     scale_t = scale * eig_freq / eig_freq_t
-    _, eig_funcs_t = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(
-        param_t, l, eig_freq=eig_freq_t, scale=scale_t)
+    _, eig_funcs_t = pi.SecondOrderDirichletEigenfunction.cure_interval(
+        spatial_domain, param=param_t, eig_freq=eig_freq_t, scale=scale_t)
     pi.register_base("eig_funcs_t", eig_funcs_t)
 
     # init controller

@@ -135,10 +135,10 @@ if __name__ == "__main__" or test_examples:
     # traj.scale /= x1_id_desired[-1, 0]
 
     # create (not normalized) eigenfunctions
-    eig_val, init_eig_base = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param, l, n=n)
-    _, init_adjoint_eig_base = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        adjoint_param, l, eig_val=eig_val)
+    eig_val, init_eig_base = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=param, n=n)
+    _, init_adjoint_eig_base = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=adjoint_param, eig_val=eig_val)
 
     # normalize eigenfunctions and adjoint eigenfunctions
     eig_base, adjoint_eig_base = pi.normalize_base(init_eig_base,
@@ -147,17 +147,17 @@ if __name__ == "__main__" or test_examples:
     # eigenfunctions of the in-domain intermediate (_id) and the intermediate
     #  (_i) system
     scale_id = [f(0) for f in eig_base]
-    eig_val_i, eig_base_id = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param_i, l, eig_val=eig_val, scale=scale_id)
+    eig_val_i, eig_base_id = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=param_i, eig_val=eig_val, scale=scale_id)
     scale_i = [e_f(0) * e_f_id(l) / e_f_id(b)
                for e_f, e_f_id in zip(eig_base, eig_base_id)]
-    _, eig_base_i = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param_i, l, eig_val=eig_val, scale=scale_i)
+    _, eig_base_i = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=param_i, eig_val=eig_val, scale=scale_i)
 
     # eigenfunctions from target intermediate system ("_ti")
     scale_ti = [f(0) for f in eig_base_i]
-    _, eig_base_ti = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param_ti, l, eig_val=eig_val, scale=scale_ti)
+    _, eig_base_ti = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param=param_ti, eig_val=eig_val, scale=scale_ti)
 
     # create test-functions
     fem_base = pi.LagrangeFirstOrder.cure_interval(spatial_domain)

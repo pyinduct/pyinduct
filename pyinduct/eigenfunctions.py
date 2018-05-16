@@ -19,13 +19,13 @@ import sympy as sp
 from sympy.utilities.lambdify import lambdify
 
 from .core import (Domain, Base, Function, generic_scalar_product,
-                   calculate_scalar_product_matrix, dot_product_l2,
                    normalize_base, find_roots, real)
 from .shapefunctions import ShapeFunction
 from .visualization import visualize_roots
 
-__all__ = ["SecondOrderOperator", "SecondOrderEigenVector", "SecondOrderEigenfunction",
-           "SecondOrderDirichletEigenfunction", "SecondOrderRobinEigenfunction",
+__all__ = ["SecondOrderOperator", "SecondOrderEigenVector",
+           "SecondOrderEigenfunction", "SecondOrderDirichletEigenfunction",
+           "SecondOrderRobinEigenfunction",
            "TransformedSecondOrderEigenfunction", "AddMulFunction",
            "LambdifiedSympyExpression", "FiniteTransformFunction"]
 
@@ -576,7 +576,7 @@ class LambdifiedSympyExpression(Function):
         return function
 
 
-class SecondOrderEigenfunction(metaclass=ABCMeta):
+class SecondOrderEigenfunction(ShapeFunction, metaclass=ABCMeta):
     r"""
     Wrapper for all eigenvalue problems of the form
 
@@ -704,7 +704,8 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         return a2, a1_n, a0, alpha_n, beta_n
 
     @classmethod
-    def solve_evp_hint(evp_class, param, l, n=None, eig_val=None, eig_freq=None, max_order=2, scale=None):
+    def cure_interval(cls, interval, param=None, n=None, eig_val=None,
+                      eig_freq=None, max_order=2, scale=None):
         """
         Provide the first *n* eigenvalues and eigenfunctions (wraped inside a
         pyinduct base). For the exact formulation of the considered eigenvalue
@@ -723,11 +724,13 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
         If you have the kwargs *eig_val* and *eig_freq* already calculated then
         these are preferable, in the sense of performance.
 
-
         Args:
+            interval (:py:class:`.Domain`): Domain/Interval of
+                the eigenvalue problem.
+
+        Keyword Args:
             param: Parameters :math:`(a_2, a_1, a_0, ...)` see
                 *evp_class.__doc__*.
-            l: End of the eigenfunction domain (start is 0).
             n: Number of eigenvalues/eigenfunctions to compute.
             eig_freq (array_like): Pass your own choice of eigenfrequencies
                 here.
@@ -738,41 +741,55 @@ class SecondOrderEigenfunction(metaclass=ABCMeta):
                 eigenfunctions.
 
         Returns:
-            Tuple with one list for the eigenvalues and one base which fractions are the
-            eigenfunctions.
+            tuple:
+            - eigenvalues (numpy.array)
+            - eigenfunctions (:py:class:`.Base`)
         """
-        if np.sum([1 for arg in [n, eig_val, eig_freq] if arg is not None]) != 1 and scale is None:
-            raise ValueError("You must pass one and only one of the kwargs:\n"
-                             "\t - n (Number of eigenvalues/eigenfunctions to be compute)\n"
-                             "\t - eig_val (Eigenvalues)\n"
-                             "\t - eig_freq (Eigenfrequencies),\n"
-                             "or (and) pass the kwarg scale (then n is set to len(scale)).")
+        if (interval[0] != 0 or interval[-1] <= 0 or
+            not isinstance(interval, Domain)):
+            raise ValueError("Check your interval/domain.")
+        if param is None:
+            raise ValueError("The parameters from the eigenvalue problem"
+                             "has to be provided.")
+        if (np.sum([1 for arg in [n,eig_val,eig_freq] if arg is not None]) != 1
+            and (scale is None)):
+                raise ValueError("You must pass one and only one of the "
+                                 "kwargs:\n"
+                                 "\t - n (Number of"
+                                 "eigenvalues/eigenfunctions to be compute)\n"
+                                 "\t - eig_val (Eigenvalues)\n"
+                                 "\t - eig_freq (Eigenfrequencies),\n"
+                                 "or (and) pass the kwarg scale "
+                                 "(then n is set to len(scale)).")
         elif eig_val is not None:
-            eig_freq = evp_class.eigval_tf_eigfreq(param, eig_val=eig_val)
+            eig_freq = cls.eigval_tf_eigfreq(param, eig_val=eig_val)
             _n = len(eig_val)
         elif eig_freq is not None:
-            eig_val = evp_class.eigval_tf_eigfreq(param, eig_freq=eig_freq)
+            eig_val = cls.eigval_tf_eigfreq(param, eig_freq=eig_freq)
             _n = len(eig_freq)
         else:
             if n is None:
                 __n = len(scale)
             else:
                 __n = n
-            eig_freq, eig_val = evp_class.eigfreq_eigval_hint(param, l, __n)
+            eig_freq, eig_val = cls.eigfreq_eigval_hint(
+                param, interval[-1], __n)
             _n = n
 
         if scale is not None and _n is not None and len(scale) != _n:
-            raise ValueError("Length of scale must match {n, len(eig_val), len(eig_freq}.")
+            raise ValueError("Length of scale must match"
+                             "{n, len(eig_val), len(eig_freq}.")
         elif scale is None:
             scale = np.ones(eig_freq.shape)
 
-        eig_func = np.array([evp_class(om, param, l, scale=sc, max_der_order=max_order) for om, sc in
-                             zip(np.array(eig_freq, dtype=complex), scale)])
+        eig_func = np.array(
+            [cls(om, param, interval[-1], scale=sc, max_der_order=max_order)
+             for om, sc in zip(np.array(eig_freq, dtype=complex), scale)])
 
         return np.array(eig_val, dtype=complex), Base(eig_func)
 
 
-class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEigenfunction):
+class SecondOrderDirichletEigenfunction(SecondOrderEigenfunction):
     r"""
     This class provides an eigenfunction :math:`\varphi(z)` to eigenvalue
     problems of the form
@@ -812,7 +829,11 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
         for _ in np.arange(max_der_order):
             sp_funcs.append(sp_funcs[-1].diff(z))
 
-        LambdifiedSympyExpression.__init__(self, sp_funcs, z, (0, l))
+        self._funcs = LambdifiedSympyExpression(sp_funcs, z, (0, l))
+        funcs = [self._funcs.derive(der_ord)
+                 for der_ord in range(max_der_order + 1)]
+        Function.__init__(self, funcs[0], domain=(0, l), nonzero=(0, l),
+                          derivative_handles=funcs[1:])
 
     @staticmethod
     def eigfreq_eigval_hint(param, l, n_roots):
@@ -844,7 +865,7 @@ class SecondOrderDirichletEigenfunction(LambdifiedSympyExpression, SecondOrderEi
         return eig_frequencies, eig_values
 
 
-class SecondOrderRobinEigenfunction(Function, SecondOrderEigenfunction):
+class SecondOrderRobinEigenfunction(SecondOrderEigenfunction):
     r"""
     This class provides an eigenfunction :math:`\varphi(z)` to the eigenvalue
     problem given by

@@ -21,24 +21,48 @@ class TestSecondOrderEigenfunction(unittest.TestCase):
     def test_error_raiser(self):
         param = [1, 1, 1, 1, 1]
         l = 1
+        z = pi.Domain((0, l), 2)
         n = 10
-        eig_val, eig_funcs = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, scale=np.ones(n))
-        eig_freq = pi.SecondOrderDirichletEigenfunction.eigval_tf_eigfreq(param, eig_val=eig_val)
-        _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n)
-        _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n=n, scale=np.ones(n))
-        _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, scale=np.ones(n))
-        _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_freq=eig_freq, scale=np.ones(n))
+        eig_val, eig_funcs = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            z, param=param, scale=np.ones(n))
+        eig_freq = pi.SecondOrderDirichletEigenfunction.eigval_tf_eigfreq(
+            param, eig_val=eig_val)
+        _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            z, param=param, n=n)
+        _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            z, param=param, n=n, scale=np.ones(n))
+        _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            z, param=param, eig_val=eig_val, scale=np.ones(n))
+        _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            z, param=param, eig_freq=eig_freq, scale=np.ones(n))
 
         with self.assertRaises(ValueError):
-            _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, scale=np.ones(n+1))
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                z, param=param, n=n, scale=np.ones(n + 1))
         with self.assertRaises(ValueError):
-            _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, scale=np.ones(n+1))
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                z, param=param, eig_val=eig_val, scale=np.ones(n + 1))
         with self.assertRaises(ValueError):
-            _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, eig_freq=eig_freq)
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                z, param=param, n=n, eig_freq=eig_freq)
         with self.assertRaises(ValueError):
-            _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, eig_val=eig_val, eig_freq=eig_freq)
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                z, param=param, eig_val=eig_val, eig_freq=eig_freq)
         with self.assertRaises(ValueError):
-            _, _ = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(param, l, n, eig_val=eig_val, eig_freq=eig_freq)
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                z, param=param, n=n, eig_val=eig_val, eig_freq=eig_freq)
+        with self.assertRaises(ValueError):
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            pi.Domain((1, 2), 2), param=param, n=n)
+        with self.assertRaises(ValueError):
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                pi.Domain((0, -2), 2), param=param, n=n)
+        with self.assertRaises(ValueError):
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                pi.Domain((0, 0), 2), param=param, n=n)
+        with self.assertRaises(ValueError):
+            _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
+                (0, 1), param=param, n=n)
 
 
 class FiniteTransformTest(unittest.TestCase):
@@ -97,6 +121,7 @@ class FiniteTransformTest(unittest.TestCase):
         k = 5
         b_desired = 2
         l = 5
+        z = pi.Domain((0, l), 2)
         params = [2, 1.5, -3, 1, .5]
 
         k1, k2, b = parabolic.control.split_domain(k,
@@ -108,8 +133,8 @@ class FiniteTransformTest(unittest.TestCase):
                                                                   k2,
                                                                   mode="2n"))
 
-        eig_val, eig_base = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-            params, l, n)
+        eig_val, eig_base = pi.SecondOrderRobinEigenfunction.cure_interval(
+            z, param=params, n=n)
         shifted_eig_base = pi.Base(np.array(
             [pi.FiniteTransformFunction(
                 func, M, l, nested_lambda=False)
@@ -119,9 +144,9 @@ class FiniteTransformTest(unittest.TestCase):
                 func, M, l, nested_lambda=True)
                 for func in eig_base]))
 
-        z = np.linspace(0, l, 1000)
+        zz = np.linspace(0, l, 1000)
         for f1, f2 in zip(shifted_eig_base, shifted_eig_base_nl):
-            np.testing.assert_array_almost_equal(f1(z), f2(z))
+            np.testing.assert_array_almost_equal(f1(zz), f2(zz))
 
         if show_plots:
             pi.visualize_functions(eig_base.fractions, 1000)
@@ -307,8 +332,7 @@ class TestEigenvalues(unittest.TestCase):
 class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
     def setUp(self):
         self.param = [2, 1.5, -3, -5, -.5]
-        self.spatial_domain = pi.Domain((0, 1), num=100)
-        self.z = self.spatial_domain.points
+        self.z = pi.Domain((0, 1), num=100)
         self.n = 10
 
     def evp_eq(self, a2, a1, a0, boundary_check):
@@ -335,10 +359,10 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
         eig_freq, self.eig_val \
             = pi.SecondOrderDiriRobEigenfunction.eigfreq_eigval_hint(
-            param, self.z[-1], self.n, show_plot=True)
+            self.z, param=param, n=self.n, show_plot=True)
 
-        _, self.eig_funcs = pi.SecondOrderDiriRobEigenfunction.solve_evp_hint(
-            param, self.z[-1], eig_freq=eig_freq)
+        _, self.eig_funcs = pi.SecondOrderDiriRobEigenfunction.cure_interval(
+            self.z, param=param, eig_freq=eig_freq)
 
         [plt.plot(self.z, func(self.z)) for func in self.eig_funcs]
         plt.show()
@@ -361,10 +385,10 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
         eig_freq, self.eig_val \
             = pi.SecondOrderRobDiriEigenfunction.eigfreq_eigval_hint(
-            param, self.z[-1], self.n, show_plot=True)
+            self.z, param=param, n=self.n, show_plot=True)
 
-        _, self.eig_funcs = pi.SecondOrderRobDiriEigenfunction.solve_evp_hint(
-            param, self.z[-1], eig_freq=eig_freq)
+        _, self.eig_funcs = pi.SecondOrderRobDiriEigenfunction.cure_interval(
+            self.z, param=param, eig_freq=eig_freq)
 
         [plt.plot(self.z, func(self.z)) for func in self.eig_funcs]
         plt.show()
@@ -382,14 +406,13 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
         a2, a1, a0, _, _ = self.param
         param = [a2, a1, a0, None, None]
-        z = self.spatial_domain.points
 
         eig_freq, self.eig_val \
             = pi.SecondOrderDirichletEigenfunction.eigfreq_eigval_hint(
             param, self.z[-1], self.n)
 
-        _, self.eig_funcs = pi.SecondOrderDirichletEigenfunction.solve_evp_hint(
-            param, self.z[-1], eig_freq=eig_freq)
+        _, self.eig_funcs = pi.SecondOrderDirichletEigenfunction.cure_interval(
+            self.z, param=param, eig_freq=eig_freq)
 
         self.evp_eq(a2, a1, a0, boundary_check)
 
@@ -413,10 +436,8 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
             self.n,
             show_plot=show_plots)
 
-        self.eig_funcs = np.array([pi.SecondOrderRobinEigenfunction(om,
-                                                                    self.param,
-                                                                    self.z[-1])
-                                   for om in eig_freq])
+        _, self.eig_funcs = pi.SecondOrderRobinEigenfunction.cure_interval(
+            self.z, param=self.param, eig_freq=eig_freq)
 
         self.evp_eq(a2, a1, a0, boundary_check)
 
@@ -435,7 +456,7 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
             self.eig_val[i],
             [self.eig_funcs[i](0), self.eig_funcs[i].derive(1)(0), 0, 0],
             [a2_z, a1_z, a0_z],
-            self.spatial_domain)
+            self.z)
                                       for i in range(len(self.eig_funcs))]
         # TODO: provide second derivative of transformed eigenfunctions
         for i in range(len(self.eig_funcs)):
@@ -444,13 +465,13 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
             # interval
             np.testing.assert_array_almost_equal(
-                a2_z(self.spatial_domain) * self.eig_funcs[i].derive(2)(self.spatial_domain)
-                + a1_z(self.spatial_domain) * eig_f.derive(1)(self.spatial_domain)
-                + a0_z(self.spatial_domain) * eig_f(self.spatial_domain),
-                eig_v.real * eig_f(self.spatial_domain),
+                a2_z(self.z) * self.eig_funcs[i].derive(2)(self.z)
+                + a1_z(self.z) * eig_f.derive(1)(self.z)
+                + a0_z(self.z) * eig_f(self.z),
+                eig_v.real * eig_f(self.z),
                 decimal=2)
 
-            boundary_check(eig_v, eig_f, self.spatial_domain[-1])
+            boundary_check(eig_v, eig_f, self.z[-1])
 
 
 class IntermediateTransformationTest(unittest.TestCase):

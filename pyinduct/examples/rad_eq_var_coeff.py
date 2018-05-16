@@ -44,11 +44,11 @@ if __name__ == "__main__" or test_examples:
 
     # create (not normalized) target (_t) eigenfunctions
     eig_val_t, init_eig_base_t = \
-        pi.SecondOrderRobinEigenfunction.solve_evp_hint(param_t, l, n=n)
+        pi.SecondOrderRobinEigenfunction.cure_interval(
+            spatial_domain, param=param_t, n=n)
     _, init_adjoint_eig_base_t = \
-        pi.SecondOrderRobinEigenfunction.solve_evp_hint(adjoint_param_t,
-                                                        l,
-                                                        eig_val=eig_val_t)
+        pi.SecondOrderRobinEigenfunction.cure_interval(
+            spatial_domain, param=adjoint_param_t, eig_val=eig_val_t)
 
     # normalize eigenfunctions and adjoint eigenfunctions
     eig_base_t, adjoint_eig_base_t = pi.normalize_base(init_eig_base_t,
