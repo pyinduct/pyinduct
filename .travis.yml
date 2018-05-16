@@ -48,6 +48,6 @@ script:
   - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
 
 after_success:
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" and "$DIST" == "pypi" ]]; then
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" && "$DIST" == "pypi" ]]; then
       codecov;
     fi
