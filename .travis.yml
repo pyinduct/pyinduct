@@ -17,7 +17,7 @@ env:
 install:
   - >
     if [ "$DIST" == "anaconda" ]; then
-      wget https://repo.continuum.io/miniconda/Miniconda3-$(python --version)-Linux-x86_64.sh -O miniconda.sh;
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
       bash miniconda.sh -b -p $HOME/miniconda;
       export PATH="$HOME/miniconda/bin:$PATH";
       hash -r;
@@ -25,7 +25,7 @@ install:
       conda update -q conda;
       conda info -a;
       sed -i s/PyQt5\>/pyqt\>/g requirements.txt;
-      conda create -q -n pyinductcondaenv python=3 --file requirements.txt;
+      conda create -q -n pyinductcondaenv python=$TRAVIS_PYTHON_VERSION --file requirements.txt;
       sed -i s/pyqt\>/PyQt5\>/g requirements.txt;
       source activate pyinductcondaenv;
       python setup.py install;
