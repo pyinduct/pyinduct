@@ -33,14 +33,14 @@ class ShapeFunction(Function):
         Create a network or set of functions from this class and returns
         a approximation base (:py:class:`.Base`) on the given interval.
 
-        The interface (klass, interval, **kwargs) is just an recommendation,
+        The interface (class, interval, **kwargs) is just an recommendation,
         e.g. you can specify in ``kwargs`` the order of approximation or
         the amount of functions to use. Just overwrite this interface in
         your kind class if its not that what you need.
 
-        If you dont need to now from which class this method is called,
+        If you don't need to now from which class this method is called,
         you can overwrite the ``@classmethod`` decorator in the kind class
-        with the ``@staticmethod`` decorator, but you dont have to.
+        with the ``@staticmethod`` decorator, but you don't have to.
 
         Short reference: Inside a ``@staticmethod`` you know nothing about the
         class from which it is called and you can just play with the given
