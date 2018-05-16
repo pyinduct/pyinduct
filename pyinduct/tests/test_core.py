@@ -812,7 +812,6 @@ class DomainTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             pi.Domain(bounds=(0, 1), step=2, num=10)
 
-
         # if points are given, it always takes precedence
         p = np.linspace(0, 100, num=101)
         d = pi.Domain(points=p)
@@ -865,6 +864,11 @@ class DomainTestCase(unittest.TestCase):
         # also giving a step for this should fail
         with self.assertRaises(ValueError):
             pi.Domain(step=5, points=pw)
+
+    def test_degenerate(self):
+        # degenerated domains should not raise errors
+        d = pi.Domain(bounds=(0, 1), num=1)
+        d = pi.Domain(points=np.array([7]))
 
     def test_handling(self):
         d = pi.Domain(bounds=(10, 50), num=5)

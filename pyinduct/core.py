@@ -1675,15 +1675,18 @@ class Domain(object):
             self._num = self._values.size
 
             # check for evenly spaced entries
-            steps = np.diff(self._values)
-            equal_steps = np.allclose(steps, steps[0])
-            if step:
-                if not equal_steps or step != steps[0]:
-                    raise ValueError("Given 'step' doesn't fit the provided "
-                                     "data.")
+            if self._num > 1:
+                steps = np.diff(self._values)
+                equal_steps = np.allclose(steps, steps[0])
+                if step:
+                    if not equal_steps or step != steps[0]:
+                        raise ValueError("Given 'step' doesn't fit the provided "
+                                         "data.")
+                else:
+                    if equal_steps:
+                        step = steps[0]
             else:
-                if equal_steps:
-                    step = steps[0]
+                step = np.nan
             self._step = step
         elif bounds and num:
             self._limits = bounds
