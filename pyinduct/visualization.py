@@ -72,7 +72,7 @@ def create_colormap(cnt):
     return col_map.map(indexes, mode="qcolor")
 
 
-def visualize_functions(functions, points=100, delay_exec=False):
+def visualize_functions(functions, points=100, return_window=False):
     """
     Visualizes a set of :py:class:`.Function` s on
     their domain.
@@ -82,7 +82,7 @@ def visualize_functions(functions, points=100, delay_exec=False):
             :py:class:`.Function` s to display.
         points (int): Points to use for sampling
             the domain.
-        delay_exec (bool): If True the graphics window is not shown directly.
+        return_window (bool): If True the graphics window is not shown directly.
             In this case, a reference to the plot window is returned.
 
     Returns: A PgPlotWindow if *delay_exec* is True.
@@ -147,7 +147,7 @@ def visualize_functions(functions, points=100, delay_exec=False):
         pw.addItem(p_imag)
 
     pw.show()
-    if not delay_exec:
+    if not return_window:
         pg.QAPP.exec_()
     else:
         return pw
@@ -729,7 +729,7 @@ def save_2d_pg_plot(plot, filename):
     return path_filename, path
 
 
-def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
+def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
     """
     Visualize a given set of roots by examining the output
     of the generating function.
@@ -744,7 +744,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
             that will take input of of the shape ('len(grid)', ).
         cmplx (bool): If True, the complex valued *func* is
             handled as a vectorial function returning [Re(func), Im(func)].
-        delay_exec (bool): If True the graphics window is not shown directly.
+        return_window (bool): If True the graphics window is not shown directly.
             In this case, a reference to the plot window is returned.
 
     Returns: A PgPlotWindow if *delay_exec* is True.
@@ -839,7 +839,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
                        pen=None, symbolPen=pg.mkPen("g"))
 
     pw.show()
-    if not delay_exec:
+    if not return_window:
         pg.QAPP.exec_()
     else:
         return pw

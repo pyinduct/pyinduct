@@ -18,13 +18,13 @@ class VisualizeRootsTestCase(unittest.TestCase):
         p1 = pi.visualize_roots(None,
                                 [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
                                 self.funcs.frequent_eq,
-                                delay_exec=True)
+                                return_window=True)
 
         # lets check some roots we guessed
         p2 = pi.visualize_roots(np.array(range(10)),
                                 [np.linspace(np.pi/20, 3*np.pi/2, num=1000)],
                                 self.funcs.frequent_eq,
-                                delay_exec=True)
+                                return_window=True)
         if show_plots:
             pi.show(show_mpl=False)
 
@@ -36,15 +36,15 @@ class VisualizeRootsTestCase(unittest.TestCase):
                                 grid,
                                 self.funcs.complex_eq,
                                 cmplx=True,
-                                delay_exec=True)
+                                return_window=True)
 
         # lets check some roots we guessed
         p2 = pi.visualize_roots(np.array(range(5))
-                                + 1j*np.array(range(5, 0, -1)),
+                                + 1j * np.array(range(5, 0, -1)),
                                 grid,
                                 self.funcs.complex_eq,
                                 cmplx=True,
-                                delay_exec=True)
+                                return_window=True)
         if show_plots:
             pi.show(show_mpl=False)
 
@@ -62,13 +62,13 @@ class VisualizeFunctionsTestCase(unittest.TestCase):
                                             (np.pi/2+1e-2, np.pi)})
 
     def test_cont_dom(self):
-        pi.visualize_functions(self.cos_func, delay_exec=True)
-        pi.visualize_functions(self.sin_func, delay_exec=True)
-        pi.visualize_functions(self.complex_func, delay_exec=True)
-        pi.visualize_functions(self.vectorial_funcs, delay_exec=True)
+        pi.visualize_functions(self.cos_func, return_window=True)
+        pi.visualize_functions(self.sin_func, return_window=True)
+        pi.visualize_functions(self.complex_func, return_window=True)
+        pi.visualize_functions(self.vectorial_funcs, return_window=True)
 
     def test_disc_dom(self):
-        pi.visualize_functions(self.tan_func, delay_exec=True)
+        pi.visualize_functions(self.tan_func, return_window=True)
 
 
 class PlotTestCase(unittest.TestCase):
