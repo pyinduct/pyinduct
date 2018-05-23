@@ -14,7 +14,7 @@ class ImpulseExcitation(pi.SimulationInput):
 
     def _calc_output(self, **kwargs):
         t = kwargs["time"]
-        a = 1/4
+        a = 1/20
         value = 100 / (a * np.sqrt(np.pi)) * np.exp(-((t-1)/a)**2)
         return dict(output=value)
 
@@ -169,15 +169,16 @@ def run():
     init_form_dt = pi.Function.from_constant(0)
     initial_conditions = [init_form, init_form_dt]
 
-    eval_data = pi.simulate_system(weak_form,
-                                   initial_conditions,
-                                   temp_domain,
-                                   spat_domain,
-                                   settings=dict(name="vode",
-                                                 method="bdf",
-                                                 order=5,
-                                                 nsteps=1e8,
-                                                 max_step=temp_domain.step))
+    with np.errstate(under="ignore"):
+        eval_data = pi.simulate_system(weak_form,
+                                       initial_conditions,
+                                       temp_domain,
+                                       spat_domain,
+                                       settings=dict(name="vode",
+                                                     method="bdf",
+                                                     order=5,
+                                                     nsteps=1e8,
+                                                     max_step=temp_domain.step))
 
     # visualization
 
