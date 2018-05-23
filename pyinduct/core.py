@@ -154,7 +154,7 @@ class Function(BaseFraction):
         """
         Args:
             eval_handle (callable): Callable object that can be evaluated.
-            domain((list of) tuples: Domain on which the eval_handle is defined.
+            domain((list of) tuples): Domain on which the eval_handle is defined.
             nonzero(tuple): Region in which the eval_handle will return
                 nonzero output. Must be a subset of *domain*
             derivative_handles (list): List of callable(s) that contain
@@ -167,13 +167,14 @@ class Function(BaseFraction):
 
         # domain and nonzero area
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
-            if not isinstance(val, list):
+            if not isinstance(val, set):
                 if isinstance(val, tuple):
-                    val = [val]
+                    val = {val}
                 else:
-                    print(domain)
-                    raise TypeError("List or tuple has to be provided for {0}".format(kw))
-            setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
+                    raise TypeError("(Set of) or tuple(s) has to be provided "
+                                    "for {0}".format(kw))
+
+            setattr(self, kw, domain_simplification(val))
 
         self.function_handle = eval_handle
         self.derivative_handles = derivative_handles
@@ -204,7 +205,7 @@ class Function(BaseFraction):
             raise TypeError("callable has to be provided as function_handle")
 
         # handle must return scalar when called with scalar
-        test_value = self.domain[0][1]
+        test_value = next(iter(self.domain))[1]
         if test_value is np.inf:
             test_value = 1
         if not isinstance(eval_handle(test_value), Number):
@@ -246,18 +247,15 @@ class Function(BaseFraction):
         """
         # in_domain = False
         values = np.atleast_1d(values)
+        mask = np.full(len(values), False)
         for interval in self.domain:
-            if any(values < interval[0]) or any(values > interval[1]):
-                raise ValueError("Function evaluated outside it's "
-                                 "domain {} with {}".format(self.domain,
-                                                            values))
+            d_mask = np.logical_and(values >= interval[0], values <= interval[1])
+            np.logical_or(mask, d_mask, out=mask)
 
-                # if all(value >= interval[0]) and all(value <= interval[1]):
-                #     in_domain = True
-                #     break
-
-                # if not in_domain:
-                #     raise ValueError("Function evaluated outside its domain!")
+        if not all(mask):
+            raise ValueError("Function evaluated outside it's domain {} with {}"
+                             "".format(self.domain,
+                                       values[np.logical_not(mask)]))
 
     def __call__(self, argument):
         """
@@ -693,23 +691,82 @@ class StackedBase(Base):
         return selection_func, None
 
 
+def domain_simplification(domain):
+    """
+    Simplify a domain, given by possibly overlapping subdomains.
+
+    Args:
+        domain (set): Set of tuples, defining the (start, end) points of the
+            subdomains.
+
+    Returns:
+        list: Simplified domain.
+    """
+    new_dom = set()
+    temp_dom = list()
+
+    # sort sub domains
+    for idx, sub_dom in enumerate(domain):
+        if sub_dom[0] > sub_dom[1]:
+            temp_dom.append(sub_dom[::-1])
+        else:
+            temp_dom.append(sub_dom)
+
+    # look for overlapping sub domains
+    for s_idx, start_dom in enumerate(temp_dom):
+        candidates = []
+        for e_idx, end_dom in enumerate(temp_dom):
+            if s_idx == e_idx:
+                continue
+
+            if start_dom[0] > end_dom[0]:
+                # second one starts earlier, postpone
+                continue
+
+            if start_dom[1] > end_dom[0]:
+                # two domains overlap
+                candidates.append(e_idx)
+
+        if not candidates:
+            continue
+
+        greatest_idx = candidates[np.argmax([temp_dom[idx][1]
+                                             for idx in candidates])]
+        if start_dom[1] >= temp_dom[greatest_idx][1]:
+            # the second domain is a real sub set of the first one
+            # save only the first
+            new_dom.add(start_dom)
+        else:
+            # second one goes further -> join them
+            new_dom.add((start_dom[0], temp_dom[greatest_idx][1]))
+
+    if new_dom and new_dom != domain:
+        return domain_simplification(new_dom)
+    else:
+        return set(temp_dom)
+
+
 def domain_intersection(first, second):
     """
     Calculate intersection(s) of two domains.
 
     Args:
-        first (:py:class:`.Domain`): first domain
-        second (:py:class:`.Domain`): second domain
+        first (set): (Set of) tuples defining the first domain.
+        second (set): (Set of) tuples defining the second domain.
 
     Return:
-        list: intersection(s) given by (start, end) tuples.
+        set: Intersection given by (start, end) tuples.
     """
     if isinstance(first, tuple):
         first = [first]
+    if isinstance(first, set):
+        first = list(first)
     if isinstance(second, tuple):
         second = [second]
+    if isinstance(second, set):
+        second = list(second)
 
-    intersection = []
+    intersection = set()
     first_idx = 0
     second_idx = 0
     last_first_idx = 0
@@ -759,7 +816,7 @@ def domain_intersection(first, second):
 
         # complete domain found
         if not np.isclose(start, end):
-            intersection.append((start, end))
+            intersection.add((start, end))
 
     return intersection
 

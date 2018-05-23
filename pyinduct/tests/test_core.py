@@ -43,28 +43,35 @@ class FunctionTestCase(unittest.TestCase):
         p = pi.Function(np.sin)
 
         # default kwargs
-        self.assertEqual(p.domain, [(-np.inf, np.inf)])
-        self.assertEqual(p.nonzero, [(-np.inf, np.inf)])
+        self.assertEqual(p.domain, {(-np.inf, np.inf)})
+        self.assertEqual(p.nonzero, {(-np.inf, np.inf)})
 
         for kwarg in ["domain", "nonzero"]:
             # some nice but wrong variants
             for val in ["4-2", dict(start=1, stop=2), [1, 2]]:
-                self.assertRaises(TypeError, pi.Function, np.sin, **{kwarg: val})
+                self.assertRaises(TypeError,
+                                  pi.Function,
+                                  np.sin,
+                                  **{kwarg: val})
 
             # a correct one
             pi.Function(np.sin, **{kwarg: (0, 10)})
-            pi.Function(np.sin, **{kwarg: [(0, 3), (5, 10)]})
+            pi.Function(np.sin, **{kwarg: {(0, 3), (5, 10)}})
 
             # check sorting
             p = pi.Function(np.sin, **{kwarg: (0, -10)})
-            self.assertEqual(getattr(p, kwarg), [(-10, 0)])
-            p = pi.Function(np.sin, **{kwarg: [(5, 0), (-10, -5)]})
-            self.assertEqual(getattr(p, kwarg), [(-10, -5), (0, 5)])
+            self.assertEqual(getattr(p, kwarg), {(-10, 0)})
+            p = pi.Function(np.sin, **{kwarg: {(5, 0), (-10, -5)}})
+            self.assertEqual(getattr(p, kwarg), {(-10, -5), (0, 5)})
+
+            # check simplification
+            p = pi.Function(np.sin, **{kwarg: {(0, 5), (3, 10)}})
+            self.assertEqual(getattr(p, kwarg), {(0, 10)})
 
             if kwarg == "domain":
                 # check domain check
                 self.assertRaises(ValueError, p, -3)
-                self.assertRaises(ValueError, p, 10)
+                self.assertRaises(ValueError, p, 13)
             else:
                 # TODO check if nonzero check generates warning
                 pass
@@ -349,6 +356,25 @@ class StackedBaseTestCase(unittest.TestCase):
         self.assertEqual(b.fractions.size, 6)
 
 
+class SimplificationTestCase(unittest.TestCase):
+
+    def test_easy_simplifications(self):
+        self.assertEqual(core.domain_simplification({(0, 2), (1, 3)}),
+                         {(0, 3)})
+        self.assertEqual(core.domain_simplification({(0, 2), (3, 1)}),
+                         {(0, 3)})
+        self.assertEqual(core.domain_simplification({(3, 1), (0, 2)}),
+                         {(0, 3)})
+        self.assertEqual(core.domain_simplification({(3, 1), (2, 0)}),
+                         {(0, 3)})
+
+    def test_sophisticated_simplifications(self):
+        self.assertEqual(core.domain_simplification({(0, 2), (1, 3), (1, 5)}),
+                         {(0, 5)})
+        self.assertEqual(core.domain_simplification({(0, 2), (1, 5), (4, 6)}),
+                         {(0, 6)})
+
+
 class IntersectionTestCase(unittest.TestCase):
     def test_wrong_arguments(self):
         # interval bounds not sorted
@@ -359,20 +385,26 @@ class IntersectionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, core.domain_intersection, [(4, 5), (5, 6)], (1, 3))
 
     def test_easy_intersections(self):
-        self.assertEqual(core.domain_intersection((0, 2), (1, 3)), [(1, 2)])
-        self.assertEqual(core.domain_intersection((0, 1), (1, 3)), [])
-        self.assertEqual(core.domain_intersection((3, 5), (1, 3)), [])
-        self.assertEqual(core.domain_intersection((3, 5), (1, 4)), [(3, 4)])
-        self.assertEqual(core.domain_intersection((3, 5), (1, 6)), [(3, 5)])
-        self.assertEqual(core.domain_intersection((3, 5), (6, 7)), [])
+        self.assertEqual(core.domain_intersection((0, 2), (1, 3)), {(1, 2)})
+        self.assertEqual(core.domain_intersection((0, 1), (1, 3)), set())
+        self.assertEqual(core.domain_intersection((3, 5), (1, 3)), set())
+        self.assertEqual(core.domain_intersection((3, 5), (1, 4)), {(3, 4)})
+        self.assertEqual(core.domain_intersection((3, 5), (1, 6)), {(3, 5)})
+        self.assertEqual(core.domain_intersection((3, 5), (6, 7)), set())
 
     def test_complex_intersections(self):
-        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (3, 4)), [(3, 4)])
-        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (1, 4)), [(1, 2), (3, 4)])
-        self.assertEqual(core.domain_intersection((1, 4), [(0, 2), (3, 5)]), [(1, 2), (3, 4)])
-        self.assertEqual(core.domain_intersection([(1, 3), (4, 6)], [(0, 2), (3, 5)]), [(1, 2), (4, 5)])
-        self.assertEqual(core.domain_intersection([(-10, -4), (2, 5), (10, 17)], [(-20, -5), (3, 5), (7, 23)]),
-                         [(-10, -5), (3, 5)], (10, 17))
+        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (3, 4)),
+                         {(3, 4)})
+        self.assertEqual(core.domain_intersection([(0, 2), (3, 5)], (1, 4)),
+                         {(1, 2), (3, 4)})
+        self.assertEqual(core.domain_intersection((1, 4), [(0, 2), (3, 5)]),
+                         {(1, 2), (3, 4)})
+        self.assertEqual(core.domain_intersection([(1, 3), (4, 6)],
+                                                  [(0, 2), (3, 5)]),
+                         {(1, 2), (4, 5)})
+        self.assertEqual(core.domain_intersection([(-10, -4), (2, 5), (10, 17)],
+                                                  [(-20, -5), (3, 5), (7, 23)]),
+                         {(-10, -5), (3, 5)}, (10, 17))
 
 
 class ScalarDotProductL2TestCase(unittest.TestCase):

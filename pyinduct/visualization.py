@@ -9,6 +9,7 @@ already provide the simulation result as EvalData object.
 """
 
 import numpy as np
+from collections import Callable
 import time
 import os
 import scipy.interpolate as si
@@ -21,10 +22,10 @@ import matplotlib.pyplot as plt
 from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
-from pyinduct.tests import show_plots
 
-from .core import complex_wrapper, EvalData, Domain
+from .core import complex_wrapper, EvalData, Domain, Function
 from .utils import create_animation, create_dir
+from .tests import show_plots
 
 __all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
            "MplSurfacePlot", "MplSlicePlot", "visualize_roots",
@@ -33,8 +34,8 @@ __all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
 
-# pg.setConfigOption('background', 'w')
-# pg.setConfigOption('foreground', 'k')
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 
 def show(show_pg=True, show_mpl=True, force=False):
@@ -71,7 +72,7 @@ def create_colormap(cnt):
     return col_map.map(indexes, mode="qcolor")
 
 
-def visualize_functions(functions, points=100):
+def visualize_functions(functions, points=100, return_window=False):
     """
     Visualizes a set of :py:class:`.Function` s on
     their domain.
@@ -81,17 +82,26 @@ def visualize_functions(functions, points=100):
             :py:class:`.Function` s to display.
         points (int): Points to use for sampling
             the domain.
+        return_window (bool): If True the graphics window is not shown directly.
+            In this case, a reference to the plot window is returned.
+
+    Returns: A PgPlotWindow if *delay_exec* is True.
     """
+    # convenience
+    if isinstance(functions, Function):
+        functions = [functions]
+
     # evaluate
     _data = []
     for idx, func in enumerate(functions):
-        if len(func.domain) > 1:
-            # TODO support funcs with multiple domains
-            raise NotImplementedError
-
-        dom = Domain(bounds=func.domain[0], num=points)
-        val = func(dom)
-        _data.append((dom, np.real(val), np.imag(val)))
+        x_vals = []
+        y_vals = []
+        for dom in func.domain:
+            x_vals.append(Domain(bounds=dom, num=points).points)
+            y_vals.append(func(x_vals[-1]))
+        x_values = np.array(x_vals)
+        y_values = np.array(y_vals)
+        _data.append((x_values, np.real(y_values), np.imag(y_values)))
 
     data = np.array(_data)
 
@@ -109,11 +119,12 @@ def visualize_functions(functions, points=100):
 
     p_real = pg.PlotItem()
     p_real.addLegend()
-    for idx, row in enumerate(data):
+    for idx, func_data in enumerate(data):
         c = cmap(idx/len(functions), bytes=True)
-        p_real.plot(row[0], row[1],
-                    name="vector {}".format(idx),
-                    pen=c)
+        for x_vals, y_vals in zip(func_data[0], func_data[1]):
+            p_real.plot(x_vals, y_vals,
+                        name="vector {}".format(idx),
+                        pen=c)
     pw.addItem(p_real)
 
     if not np.allclose(data[:, 2, :], 0):
@@ -127,15 +138,19 @@ def visualize_functions(functions, points=100):
 
         p_imag = pg.PlotItem()
         # p_imag.addLegend()
-        for idx, row in enumerate(data):
+        for idx, func_data in enumerate(data):
             c = cmap(idx/len(functions), bytes=True)
-            p_imag.plot(row[0], row[2],
-                        name="vector {}".format(idx),
-                        pen=c)
+            for x_vals, y_vals in zip(func_data[0], func_data[1]):
+                p_imag.plot(x_vals, y_vals,
+                            name="vector {}".format(idx),
+                            pen=c)
         pw.addItem(p_imag)
 
     pw.show()
-    pg.QAPP.exec_()
+    if not return_window:
+        pg.QAPP.exec_()
+    else:
+        return pw
 
 
 class DataPlot:
@@ -714,7 +729,7 @@ def save_2d_pg_plot(plot, filename):
     return path_filename, path
 
 
-def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
+def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
     """
     Visualize a given set of roots by examining the output
     of the generating function.
@@ -729,7 +744,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
             that will take input of of the shape ('len(grid)', ).
         cmplx (bool): If True, the complex valued *func* is
             handled as a vectorial function returning [Re(func), Im(func)].
-        delay_exec (bool): If True the graphics window is not shown directly.
+        return_window (bool): If True the graphics window is not shown directly.
             In this case, a reference to the plot window is returned.
 
     Returns: A PgPlotWindow if *delay_exec* is True.
@@ -825,7 +840,7 @@ def visualize_roots(roots, grid, func, cmplx=False, delay_exec=False):
                        pen=None, symbolPen=pg.mkPen("g"))
 
     pw.show()
-    if not delay_exec:
+    if not return_window:
         pg.QAPP.exec_()
     else:
         return pw
