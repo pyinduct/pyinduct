@@ -77,7 +77,7 @@ if __name__ == "__main__" or test_examples:
     A = np.diag(np.real_if_close(eig_values))
     B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
     B = np.reshape(B, (B.size, 1))
-    ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handle=control_law)
+    ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handles=control_law)
 
     # evaluate desired output data
     z_d = np.linspace(0, l, len(spatial_domain))
