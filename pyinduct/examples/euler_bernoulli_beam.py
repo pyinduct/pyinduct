@@ -1,9 +1,25 @@
+"""
+This example simulates an euler-bernoulli beam, please refer to the
+documentation for an exhaustive explanation.
+"""
+
 from pyinduct.tests import test_examples
 
 
-def calc_eigen(order, l_value, EI, mu, der_order=4):
-    import sympy as sp
+def calc_eigen(order, l_value, EI, mu, der_order=4, debug=False):
+    r"""
+    Solve the eigenvalue problem and return the eigenvectors
 
+    Args:
+        order: Approximation order.
+        l_value: Length of the spatial domain.
+        EI: Product of e-module and second moment of inertia.
+        mu: Specific density.
+        der_order: Required derivative order of the generated functions.
+
+    Returns:
+        pi.Base: Modal base.
+    """
     C, D, E, F = sp.symbols("C D E F")
     gamma, l = sp.symbols("gamma l")
     z = sp.symbols("z")
@@ -33,7 +49,7 @@ def calc_eigen(order, l_value, EI, mu, der_order=4):
 
     grid = np.linspace(-1, 30, num=1000)
     roots = pi.find_roots(char_wrapper, grid, n_roots=order)
-    if 0:
+    if debug:
         pi.visualize_roots(roots, grid, char_func)
 
     # build eigenvectors
@@ -42,6 +58,9 @@ def calc_eigen(order, l_value, EI, mu, der_order=4):
                              (D, d_sol),
                              (l, l_value),
                              (C, 1)])
+
+    print(sp.latex(eig_vec))
+
     # build derivatives
     eig_vec_derivatives = [eig_vec]
     for i in range(der_order):
@@ -63,7 +82,7 @@ def calc_eigen(order, l_value, EI, mu, der_order=4):
     eig_base = pi.Base(eig_fractions)
     normed_eig_base = pi.normalize_base(eig_base)
 
-    if 0:
+    if debug:
         pi.visualize_functions(eig_base.fractions)
         pi.visualize_functions(normed_eig_base.fractions)
 
@@ -73,41 +92,42 @@ def calc_eigen(order, l_value, EI, mu, der_order=4):
 if __name__ == "__main__" or test_examples:
     import pyinduct as pi
     import numpy as np
+    import sympy as sp
 
     sys_name = 'euler bernoulli beam'
 
     # domains
-    spat_domain = pi.Domain(bounds=(0, 1), num=49)
-    temp_domain = pi.Domain(bounds=(0, 10), num=1000)
+    spat_domain = pi.Domain(bounds=(0, 1), num=101)
+    temp_domain = pi.Domain(bounds=(0, 10), num=10000)
 
-    # physical properties
-    height = .1  # [m]
-    width = .1  # [m]
-    e_module = 210e9  # [Pa]
     if 0:
+        # physical properties
+        height = .1  # [m]
+        width = .1  # [m]
+        e_module = 210e9  # [Pa]
         EI = 210e9 * (width * height**3)/12
         mu = 1e6  # [kg/m]
     else:
+        # normed properties
         EI = 1e0
         mu = 1e0
 
     # define approximation bases
-    nodes, init_funcs = pi.cure_interval(pi.LagrangeNthOrder,
-                                         spat_domain.bounds,
-                                         order=3,
-                                         node_count=len(spat_domain))
-    pi.register_base("complete_base", init_funcs)
+    if 1:
+        approx_base = pi.LagrangeNthOrder.cure_interval(spat_domain,
+                                                        order=4)
+        approx_lbl = "complete_base"
+    else:
+        approx_base = calc_eigen(7, 1, EI, mu)
+        approx_lbl = "eig_base"
 
-    red_nodes = pi.Domain(points=nodes.points[1:])
-    red_init_funcs = pi.Base(init_funcs.fractions[1:])
-    pi.register_base("reduced_base", red_init_funcs)
+    pi.register_base(approx_lbl, approx_base)
 
-    eig_base = calc_eigen(7, 1, EI, mu)
-    pi.register_base("eig_base", eig_base)
-
-    approx_lbl = "eig_base"
 
     class ImpulseExcitation(pi.SimulationInput):
+        """
+        Simulate that the free end of the beam is hit by a hammer
+        """
 
         def _calc_output(self, **kwargs):
             t = kwargs["time"]
@@ -123,7 +143,6 @@ if __name__ == "__main__" or test_examples:
     u = ImpulseExcitation("Hammer")
     x = pi.FieldVariable(approx_lbl)
     phi = pi.TestFunction(approx_lbl)
-    phi_u = pi.TestFunction(input_lbl)
 
     weak_form = pi.WeakFormulation([
         pi.ScalarTerm(pi.Product(pi.Input(u),
@@ -137,16 +156,18 @@ if __name__ == "__main__" or test_examples:
         pi.ScalarTerm(pi.Product(x.derive(spat_order=1)(1),
                                  phi.derive(2)(1)), scale=EI),
 
-        pi.IntegralTerm(pi.Product(x.derive(spat_order=1),
-                                   phi.derive(3)),
+        pi.ScalarTerm(pi.Product(x(1),
+                                 phi.derive(3)(1)), scale=-EI),
+
+        pi.IntegralTerm(pi.Product(x,
+                                   phi.derive(4)),
                         spat_domain.bounds,
-                        scale=-EI),
+                        scale=EI),
         pi.IntegralTerm(pi.Product(x.derive(temp_order=2), phi),
                         spat_domain.bounds,
                         scale=mu),
     ], name=sys_name)
 
-    # init_form = eig_base.fractions[0]
     init_form = pi.Function.from_constant(0)
     init_form_dt = pi.Function.from_constant(0)
     initial_conditions = [init_form, init_form_dt]
@@ -158,19 +179,13 @@ if __name__ == "__main__" or test_examples:
                                    settings=dict(name="vode",
                                                  method="bdf",
                                                  order=5,
-                                                 nsteps=1e4,
+                                                 nsteps=1e8,
                                                  max_step=temp_domain.step))
 
-    # pyqtgraph visualization
-    # win0 = pg.plot(np.array(eval_data[0].input_data[0]).flatten(),
-    #                u.get_results(eval_data[0].input_data[0]).flatten(),
-    #                labels=dict(left='u(t)', bottom='t'), pen='b')
-    # win0.showGrid(x=False, y=True, alpha=0.5)
-    # vis.save_2d_pg_plot(win0, 'transport_system')
-
+    # visualization
     win1 = pi.PgAnimatedPlot(eval_data, labels=dict(left='x(z,t)', bottom='z'))
     pi.show()
 
-    # pi.tear_down((func_label,),
-    #              (win1))
+    pi.tear_down((approx_lbl,),
+                 (win1, ))
 
