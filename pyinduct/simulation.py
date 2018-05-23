@@ -318,7 +318,7 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         FieldVariable and demanded derivatives.
     """
     if derivative_orders is None:
-        derivative_orders = dict([(lbl, (0,0))for lbl in spatial_domains])
+        derivative_orders = dict([(lbl, (0, 0))for lbl in spatial_domains])
 
     weak_forms = sanitize_input(weak_forms, WeakFormulation)
     print("simulate systems: {}".format([f.name for f in weak_forms]))
