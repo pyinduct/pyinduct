@@ -3,7 +3,20 @@ This example simulates an euler-bernoulli beam, please refer to the
 documentation for an exhaustive explanation.
 """
 
+import pyinduct as pi
 from pyinduct.tests import test_examples
+
+
+class ImpulseExcitation(pi.SimulationInput):
+    """
+    Simulate that the free end of the beam is hit by a hammer
+    """
+
+    def _calc_output(self, **kwargs):
+        t = kwargs["time"]
+        a = 1/4
+        value = 100 / (a * np.sqrt(np.pi)) * np.exp(-((t-1)/a)**2)
+        return dict(output=value)
 
 
 def calc_eigen(order, l_value, EI, mu, der_order=4, debug=False):
@@ -59,7 +72,7 @@ def calc_eigen(order, l_value, EI, mu, der_order=4, debug=False):
                              (l, l_value),
                              (C, 1)])
 
-    print(sp.latex(eig_vec))
+    # print(sp.latex(eig_vec))
 
     # build derivatives
     eig_vec_derivatives = [eig_vec]
@@ -89,16 +102,12 @@ def calc_eigen(order, l_value, EI, mu, der_order=4, debug=False):
     return normed_eig_base
 
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import numpy as np
-    import sympy as sp
-
+def run():
     sys_name = 'euler bernoulli beam'
 
     # domains
     spat_domain = pi.Domain(bounds=(0, 1), num=101)
-    temp_domain = pi.Domain(bounds=(0, 10), num=10000)
+    temp_domain = pi.Domain(bounds=(0, 10), num=1000)
 
     if 0:
         # physical properties
@@ -113,7 +122,8 @@ if __name__ == "__main__" or test_examples:
         mu = 1e0
 
     # define approximation bases
-    if 1:
+    if 0:
+        # somehow, fem is still problematic
         approx_base = pi.LagrangeNthOrder.cure_interval(spat_domain,
                                                         order=4)
         approx_lbl = "complete_base"
@@ -123,22 +133,7 @@ if __name__ == "__main__" or test_examples:
 
     pi.register_base(approx_lbl, approx_base)
 
-
-    class ImpulseExcitation(pi.SimulationInput):
-        """
-        Simulate that the free end of the beam is hit by a hammer
-        """
-
-        def _calc_output(self, **kwargs):
-            t = kwargs["time"]
-            if t < 1:
-                value = 0
-            elif t < 1.1:
-                value = 1000
-            else:
-                value = 0
-            # value = 0
-            return dict(output=value)
+    # system definition
 
     u = ImpulseExcitation("Hammer")
     x = pi.FieldVariable(approx_lbl)
@@ -168,6 +163,8 @@ if __name__ == "__main__" or test_examples:
                         scale=mu),
     ], name=sys_name)
 
+    # simulation
+
     init_form = pi.Function.from_constant(0)
     init_form_dt = pi.Function.from_constant(0)
     initial_conditions = [init_form, init_form_dt]
@@ -183,9 +180,21 @@ if __name__ == "__main__" or test_examples:
                                                  max_step=temp_domain.step))
 
     # visualization
+
+    # input trajectory
+    u_data = u.get_results(eval_data[0].input_data[0], as_eval_data=True)
+    plt.plot(u_data.input_data[0], u_data.output_data)
+
     win1 = pi.PgAnimatedPlot(eval_data, labels=dict(left='x(z,t)', bottom='z'))
     pi.show()
 
     pi.tear_down((approx_lbl,),
                  (win1, ))
 
+
+if __name__ == "__main__" or test_examples:
+    import numpy as np
+    import sympy as sp
+    from matplotlib import pyplot as plt
+
+    run()

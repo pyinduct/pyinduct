@@ -106,7 +106,7 @@ for every :math:`k=1, \dotsc, N` . Substituting the approximation leads to
 
 where the application of :math:`D_z` and the inner product can be swapped since
 :math:`D_z` is a bounded operator.
-Finally, uing the solution of the eigen problem yields
+Finally, using the solution of the eigen problem yields
 
 .. math::
     \left<\partial^2_t x | \varphi_k \right>  =
@@ -144,7 +144,7 @@ the integrator chain :math:`\boldsymbol{A}` and eigenvalue matrix
 :math:`\boldsymbol{\Lambda} = \textup{diag}(\lambda_1, \dotsc, \lambda_N)` is
 derived.
 Since the resulting system is autonomous, apart from interesting simulations,
-not much can be done fro a control perepective.
+not much can be done fro a control perspective.
 
 Alternative Variant
 +++++++++++++++++++
