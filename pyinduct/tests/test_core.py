@@ -68,14 +68,6 @@ class FunctionTestCase(unittest.TestCase):
             p = pi.Function(np.sin, **{kwarg: {(0, 5), (3, 10)}})
             self.assertEqual(getattr(p, kwarg), {(0, 10)})
 
-            if kwarg == "domain":
-                # check domain check
-                self.assertRaises(ValueError, p, -3)
-                self.assertRaises(ValueError, p, 13)
-            else:
-                # TODO check if nonzero check generates warning
-                pass
-
         # test stupid handle
         def wrong_handle(x):
             return np.array([x, x])
@@ -146,7 +138,8 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(10 * np.sin(list(range(100))), g2(list(range(100)))))
+        self.assertTrue(np.array_equal(10 * np.sin(list(range(100))),
+                                       g2(list(range(100)))))
 
         # scale with function
         g3 = f.scale(lambda z: z)
@@ -156,8 +149,11 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g3(5), Number)
         self.assertNotIsInstance(g3(5), np.ndarray)
-        self.assertTrue(np.array_equal(g3(list(range(10))), check_handle(list(range(10)))))
-        self.assertRaises(ValueError, g3.derive, 1)  # derivatives should be removed when scaled by function
+        self.assertTrue(np.array_equal(g3(list(range(10))),
+                                       check_handle(list(range(10)))))
+
+        # derivatives should be removed when scaled by function
+        self.assertRaises(ValueError, g3.derive, 1)
 
     def test_raise(self):
         f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
@@ -171,8 +167,10 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertIsInstance(g2(5), Number)
         self.assertNotIsInstance(g2(5), np.ndarray)
-        self.assertTrue(np.array_equal(np.sin(np.array(range(100))) ** 2, g2(np.array(range(100)))))
-        self.assertRaises(ValueError, g2.derive, 1)  # derivatives should be removed when scaled by function
+        self.assertTrue(np.array_equal(np.sin(np.array(range(100))) ** 2,
+                                       g2(np.array(range(100)))))
+        # derivatives should be removed when scaled by function
+        self.assertRaises(ValueError, g2.derive, 1)
 
     def test_call(self):
 
@@ -182,16 +180,25 @@ class FunctionTestCase(unittest.TestCase):
             return 2 ** x
 
         f = pi.Function(func, domain=(0, 10))
-        self.assertEqual(f._vectorial, False)  # function handle should be recognized as non-vectorial
+        # function handle should be recognized as non-vectorial
+        self.assertEqual(f._vectorial, False)
+
+        # domain check must be checked
+        with self.assertRaises(ValueError):
+            f(-4)
+        with self.assertRaises(ValueError):
+            f(11)
 
         # call with scalar should return scalar with correct value
         self.assertIsInstance(f(10), Number)
         self.assertNotIsInstance(f(10), np.ndarray)
         self.assertEqual(f(10), func(10))
 
-        # vectorial arguments should be understood and an np.ndarray shall be returned
+        # vectorial arguments should be understood and an np.ndarray shall be
+        #  returned
         self.assertIsInstance(f(np.array(range(10))), np.ndarray)
-        self.assertTrue(np.array_equal(f(np.array(range(10))), [func(val) for val in range(10)]))
+        self.assertTrue(np.array_equal(f(np.array(range(10))),
+                                       [func(val) for val in range(10)]))
 
     def test_vector_call(self):
 
@@ -199,16 +206,19 @@ class FunctionTestCase(unittest.TestCase):
             return 2 * x
 
         f = pi.Function(vector_func, domain=(0, 10))
-        self.assertEqual(f._vectorial, True)  # function handle should be recognized as vectorial
+        # function handle should be recognized as vectorial
+        self.assertEqual(f._vectorial, True)
 
         # call with scalar should return scalar with correct value
         self.assertIsInstance(f(10), Number)
         self.assertNotIsInstance(f(10), np.ndarray)
         self.assertEqual(f(10), vector_func(10))
 
-        # vectorial arguments should be understood and an np.ndarray shall be returned
+        # vectorial arguments should be understood and an np.ndarray shall be
+        #  returned
         self.assertIsInstance(f(np.array(range(10))), np.ndarray)
-        self.assertTrue(np.array_equal(f(np.array(range(10))), [vector_func(val) for val in range(10)]))
+        self.assertTrue(np.array_equal(f(np.array(range(10))),
+                                       [vector_func(val) for val in range(10)]))
 
 
 class BaseTestCase(unittest.TestCase):

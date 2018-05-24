@@ -165,7 +165,8 @@ class Function(BaseFraction):
         self._function_handle = None
         self._derivative_handles = None
 
-        # domain and nonzero area
+        self.domain = set()
+        self.nonzero = set()
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
             if not isinstance(val, set):
                 if isinstance(val, tuple):
@@ -249,7 +250,8 @@ class Function(BaseFraction):
         values = np.atleast_1d(values)
         mask = np.full(len(values), False)
         for interval in self.domain:
-            d_mask = np.logical_and(values >= interval[0], values <= interval[1])
+            d_mask = np.logical_and(values >= interval[0],
+                                    values <= interval[1])
             np.logical_or(mask, d_mask, out=mask)
 
         if not all(mask):
