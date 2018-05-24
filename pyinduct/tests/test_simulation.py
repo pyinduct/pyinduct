@@ -10,6 +10,8 @@ import pyinduct.parabolic as parabolic
 import pyinduct.simulation as sim
 from pyinduct.tests import show_plots
 
+import pyqtgraph as pg
+
 
 class SimpleInput(sim.SimulationInput):
     """
@@ -30,7 +32,11 @@ class MonotonousInput(sim.SimulationInput):
         super().__init__("MonotonousInput")
 
     def _calc_output(self, **kwargs):
-        return dict(output=kwargs["time"])
+        t = kwargs["time"]
+        extra_data = np.sin(t)
+        if np.isclose(t % 2, 0):
+            extra_data = np.nan
+        return dict(output=kwargs["time"], extra_data=extra_data)
 
 
 class CorrectInput(sim.SimulationInput):
@@ -101,8 +107,8 @@ class SimulationInputTest(unittest.TestCase):
         ss = sim.StateSpace(a, b, input_handles=u)
 
         # run simulation to fill the internal storage
-        domain = pi.Domain((0, 10), step=.1)
-        bigger_domain = pi.Domain((-1, 11), step=.1)
+        domain = pi.Domain((0, 10), num=11)
+        bigger_domain = pi.Domain((-1, 11), num=13)
         res = sim.simulate_state_space(ss, ic, domain)
 
         # don't return any entries that aren't there
@@ -120,8 +126,13 @@ class SimulationInputTest(unittest.TestCase):
         self.assertIsInstance(u.get_results(domain, as_eval_data=True),
                               pi.EvalData)
 
-        # raise an error if extrapolation is performed
-        self.assertRaises(ValueError, u.get_results, bigger_domain)
+        # if data has to be extrapolated, just repeat the last values
+        res = u.get_results(bigger_domain)
+        self.assertEqual(res[0], res[1])
+        self.assertEqual(res[-2], res[-1])
+
+        # nan values in the data storage should be ignored
+        res = u.get_results(bigger_domain, result_key="extra_data")
 
         # storage contains values
         self.assertTrue(u._time_storage)
