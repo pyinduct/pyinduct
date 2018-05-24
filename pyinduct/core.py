@@ -633,7 +633,7 @@ class Base:
             attr(str): Attribute to query the fractions for.
 
         Returns:
-            :py:class:`np.ndarray`: Array of ``len(fractions)` holding the
+            :py:class:`np.ndarray`: Array of ``len(fractions)`` holding the
             attributes. With `None` entries if the attribute is missing.
 
         """
