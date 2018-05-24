@@ -610,7 +610,9 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
             :py:class:`.LagrangeFirstOrder`) shapefunctions.
     """
     warnings.warn("DeprecationWarning: Calling `cure_interval` is deprecated, "
-                  "use static class methods instead!")
+                  "use class method `cure_interval` of the shapefunctions "
+                  "instead!",
+                  DeprecationWarning)
 
     domain = Domain(bounds=interval, step=node_distance, num=node_count)
 
@@ -619,4 +621,4 @@ def cure_interval(shapefunction_class, interval, node_count=None, node_distance=
     else:
         raise TypeError("given function class {} offers no cure_hint!"
                         "".format(shapefunction_class))
-    return base
+    return base, domain

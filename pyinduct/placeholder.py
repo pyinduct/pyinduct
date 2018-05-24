@@ -7,6 +7,7 @@ import collections
 import copy
 from abc import ABCMeta
 from numbers import Number
+import warnings
 
 import numpy as np
 
@@ -294,9 +295,6 @@ class FieldVariable(Placeholder):
             raise TypeError("order mus be 2-tuple of int.")
         if any([True for n in order if n < 0]):
             raise ValueError("derivative orders must be positive")
-        # TODO: Is this restriction still needed?
-        if sum(order) > 2:
-            raise ValueError("only derivatives of order one and two supported")
 
         if location is not None:
             if location and not isinstance(location, Number):
@@ -328,9 +326,11 @@ class FieldVariable(Placeholder):
                          location=location)
 
 
-# TODO: remove
 class TemporalDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
+        warnings.warn("TemporalDerivedFieldVariable will deprecated in v0.6.0,"
+                      "use FieldVariable.derive(temp_order=order) instead",
+                      PendingDeprecationWarning)
         FieldVariable.__init__(self,
                                function_label,
                                (order, 0),
@@ -340,6 +340,9 @@ class TemporalDerivedFieldVariable(FieldVariable):
 
 class SpatialDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
+        warnings.warn("SpatialDerivedFieldVariable will deprecated in v0.6.0,"
+                      "use FieldVariable.derive(spat_order=order) instead",
+                      PendingDeprecationWarning)
         FieldVariable.__init__(self,
                                function_label,
                                (0, order),
