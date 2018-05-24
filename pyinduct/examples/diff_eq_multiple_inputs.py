@@ -16,13 +16,13 @@ def main():
 
     # create approximation basis
     nodes = pi.Domain(gamma, num=11)
-    if 1:
+    if 0:
         # old interface
         _, fem_funcs = pi.LagrangeSecondOrder.cure_hint(nodes)
         fem_base = pi.Base(fem_funcs)
     else:
         # new interface
-        fem_base = pi.LagrangeSecondOrder.cure_hint(nodes)
+        fem_base = pi.LagrangeSecondOrder.cure_interval(nodes)
     pi.register_base("fem_base", fem_base)
 
     # create equation objects
