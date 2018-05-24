@@ -53,7 +53,7 @@ class Placeholder(object):
                 raise TypeError("location must be a number")
         self.location = location
 
-    def derive(self, temp_order=0, spat_order=0):
+    def derivative(self, temp_order=0, spat_order=0):
         """
         Mimics a copy constructor and adds the given derivative orders.
 
@@ -102,7 +102,15 @@ class SpatialPlaceholder(Placeholder):
         Placeholder.__init__(self, data, order=(0, order), location=location)
 
     def derive(self, order=1):
-        return super().derive(spat_order=order)
+        """
+        Take the (spatial) derivative of this object.
+        Args:
+            order: Derivative order.
+
+        Returns:
+            :py:class:`.Placeholder`: The derived expression.
+        """
+        return self.derivative(spat_order=order)
 
 
 class Scalars(Placeholder):
@@ -329,6 +337,24 @@ class FieldVariable(Placeholder):
                           "exponent": exponent},
                          order=order,
                          location=location)
+
+    def derive(self, *, temp_order=0, spat_order=0):
+        """
+        Derive the expression to the specified order.
+
+        Args:
+            temp_order: Temporal derivative order.
+            spat_order: Spatial derivative order.
+
+        Returns:
+            :py:class:`.Placeholder`: The derived expression.
+
+        Note:
+            This method uses keyword only arguments, which means that a call
+            will fail if the arguments are passed by order.
+
+        """
+        return self.derivative(temp_order, spat_order)
 
 
 class TemporalDerivedFieldVariable(FieldVariable):

@@ -178,6 +178,12 @@ class FieldVariableTest(unittest.TestCase):
 
     def test_derive_factory(self):
         a = ph.FieldVariable("test_funcs")
+        # due to earlier problems, arguments are now kwonly
+        with self.assertRaises(TypeError):
+            a.derive(2)
+        with self.assertRaises(TypeError):
+            a.derive(2, 2)
+
         b = a(1).derive(spat_order=1)
         # default weight label is function label
         self.assertEqual("test_funcs", b.data["weight_lbl"])
