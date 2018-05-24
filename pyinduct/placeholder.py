@@ -225,6 +225,13 @@ class Input(Placeholder):
             raise TypeError("callable object has to be provided.")
         if not isinstance(index, int) or index < 0:
             raise TypeError("index must be a positive integer.")
+
+        if not isinstance(exponent, Number):
+            raise TypeError("exponent must be a number")
+        if exponent != 1:
+            raise ValueError("Providing exponents that differ from 1 is no "
+                             "longer supported.")
+
         super().__init__(dict(input=function_handle,
                               index=index,
                               exponent=exponent),
@@ -252,10 +259,6 @@ class TestFunction(SpatialPlaceholder):
 class FieldVariable(Placeholder):
     r"""
     Class that represents terms of the systems field variable :math:`x(z, t)`.
-
-    Note:
-        Use :py:class:`.TemporalDerivedFieldVariable` and
-        :py:class:`.SpatialDerivedFieldVariable` if no mixed derivatives occur.
 
     Args:
         function_label (str): Label of shapefunctions to use for approximation,
@@ -315,9 +318,11 @@ class FieldVariable(Placeholder):
 
         self.raised_spatially = raised_spatially
 
-        # exponent
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
+        if exponent != 1:
+            raise ValueError("Providing exponents that differ from 1 is no "
+                             "longer supported.")
 
         super().__init__({"func_lbl": function_label,
                           "weight_lbl": weight_label,

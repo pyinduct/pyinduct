@@ -110,6 +110,9 @@ class InputTestCase(unittest.TestCase):
         term = ph.Input(function_handle=self.handle, index=1, order=7)
         self.assertEqual(term.order, (7, 0))
 
+        with self.assertRaises(ValueError):
+            ph.Input(function_handle=self.handle, exponent=2)
+
 
 class ScalarsTest(unittest.TestCase):
     def setUp(self):
@@ -129,35 +132,44 @@ class ScalarsTest(unittest.TestCase):
 
 class FieldVariableTest(unittest.TestCase):
     def setUp(self):
-        nodes, ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes = pi.Domain(bounds=(0, 1), num=2)
+        ini_funcs = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_FieldVariable(self):
-        self.assertRaises(TypeError, ph.FieldVariable, "test_funcs", [0, 0])  # list instead of tuple
-        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (3, 0))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (0, 3))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (2, 2))  # order too high
-        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (-1, 3))  # order negative
+        # list instead of tuple
+        self.assertRaises(TypeError, ph.FieldVariable, "test_funcs", [0, 0])
+        # order negative
+        self.assertRaises(ValueError, ph.FieldVariable, "test_funcs", (-1, 3))
 
         # defaults
         a = ph.FieldVariable("test_funcs")
         self.assertEqual((0, 0), a.order)
-        self.assertEqual("test_funcs", a.data["weight_lbl"])  # default weight label is function label
+        # default weight label is function label
+        self.assertEqual("test_funcs", a.data["weight_lbl"])
         self.assertEqual(None, a.location)
         self.assertEqual(1, a.data["exponent"])  # default exponent is 1
         self.assertTrue(a.simulation_compliant)
 
-        b = ph.FieldVariable("test_funcs", order=(1, 1), location=7, weight_label="test_lbl", exponent=10)
+        b = ph.FieldVariable("test_funcs",
+                             order=(1, 1),
+                             location=7,
+                             weight_label="test_lbl")
         self.assertEqual((1, 1), b.order)
-        self.assertEqual("test_lbl", b.data["weight_lbl"])  # default weight label is function label
+        # default weight label is function label
+        self.assertEqual("test_lbl", b.data["weight_lbl"])
         self.assertEqual(7, b.location)
-        self.assertEqual(10, b.data["exponent"])
         self.assertFalse(b.simulation_compliant)
+
+        # exponents are no longer supported
+        with self.assertRaises(ValueError):
+            ph.FieldVariable("test_funcs", order=(1, 1), exponent=2)
 
     def test_call_factory(self):
         a = ph.FieldVariable("test_funcs")
         b = a(1)
-        self.assertEqual("test_funcs", b.data["weight_lbl"])  # default weight label is function label
+        # default weight label is function label
+        self.assertEqual("test_funcs", b.data["weight_lbl"])
         self.assertEqual(1, b.location)
         self.assertTrue(isinstance(b, ph.FieldVariable))
         self.assertTrue(a != b)
@@ -167,7 +179,8 @@ class FieldVariableTest(unittest.TestCase):
     def test_derive_factory(self):
         a = ph.FieldVariable("test_funcs")
         b = a(1).derive(spat_order=1)
-        self.assertEqual("test_funcs", b.data["weight_lbl"])  # default weight label is function label
+        # default weight label is function label
+        self.assertEqual("test_funcs", b.data["weight_lbl"])
         self.assertEqual(1, b.location)
         self.assertEqual(1, b.order[1])
         c = b.derive(spat_order=1)
@@ -183,7 +196,8 @@ class FieldVariableTest(unittest.TestCase):
 
 class TestFunctionTest(unittest.TestCase):
     def setUp(self):
-        nodes, ini_funcs = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=2)
+        nodes = pi.Domain(bounds=(0, 1), num=2)
+        ini_funcs = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_init(self):

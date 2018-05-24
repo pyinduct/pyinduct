@@ -221,8 +221,6 @@ class ParseTest(unittest.TestCase):
         # inputs
         self.input = pi.Input(self.u)
 
-        self.input_squared = pi.Input(self.u, exponent=2)
-
         self.vec_input_1 = pi.Input(self.u1, index=0)
         self.vec_input_2 = pi.Input(self.u2, index=1)
 
@@ -264,15 +262,7 @@ class ParseTest(unittest.TestCase):
 
         # Distributed / Field Variables
         self.field_var = pi.FieldVariable("distributed_base")
-        self.field_var_squared = pi.FieldVariable("distributed_base",
-                                                  exponent=2)
-        self.field_var_cubed = pi.FieldVariable("distributed_base",
-                                                exponent=3)
         self.field_var_at1 = self.field_var(1)
-        self.field_var_at1_squared = pi.FieldVariable("distributed_base",
-                                                      location=1,
-                                                      exponent=2)
-
         self.field_var_dz = self.field_var.derive(spat_order=1)
         self.field_var_dz_at1 = self.field_var_dz(1)
         self.field_var_ddt = self.field_var.derive(temp_order=2)
@@ -290,8 +280,6 @@ class ParseTest(unittest.TestCase):
         # input
         self.input_term1 = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
                                                     self.input))
-        self.input_term1_squared = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
-                                                            self.input_squared))
         self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input,
                                                             self.test_funcs_at1)
                                                  )
@@ -342,13 +330,11 @@ class ParseTest(unittest.TestCase):
 
         # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
-        self.field_term_at1_squared = pi.ScalarTerm(self.field_var_at1_squared)
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = pi.ScalarTerm(self.field_var_ddt_at1)
 
         self.field_int = pi.IntegralTerm(self.field_var, limits=(0, 1))
         self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
-        self.field_squared_int = pi.IntegralTerm(self.field_var_squared, (0, 1))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
 
@@ -361,27 +347,17 @@ class ParseTest(unittest.TestCase):
         self.prod_int_f_f = pi.IntegralTerm(pi.Product(self.field_var,
                                                        self.test_funcs),
                                             (0, 1))
-        self.prod_int_f_squared_f = pi.IntegralTerm(pi.Product(
-            self.field_var_squared,
-            self.test_funcs),
-            (0, 1))
         self.prod_int_f_f_swapped = pi.IntegralTerm(pi.Product(self.test_funcs,
                                                                self.field_var),
                                                     (0, 1))
         self.prod_int_f_at1_f = pi.IntegralTerm(
             pi.Product(self.field_var_at1, self.test_funcs), (0, 1))
-        self.prod_int_f_at1_squared_f = pi.IntegralTerm(
-            pi.Product(self.field_var_at1_squared, self.test_funcs), (0, 1))
 
         self.prod_int_f_f_at1 = pi.IntegralTerm(
             pi.Product(self.field_var, self.test_funcs_at1), (0, 1))
-        self.prod_int_f_squared_f_at1 = pi.IntegralTerm(
-            pi.Product(self.field_var_squared, self.test_funcs_at1), (0, 1))
 
         self.prod_term_f_at1_f_at1 = pi.ScalarTerm(
             pi.Product(self.field_var_at1, self.test_funcs_at1))
-        self.prod_term_f_at1_squared_f_at1 = pi.ScalarTerm(
-            pi.Product(self.field_var_at1_squared, self.test_funcs_at1))
 
         self.prod_int_fddt_f = pi.IntegralTerm(
             pi.Product(self.field_var_ddt, self.test_funcs), (0, 1))
@@ -424,13 +400,6 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["G"][0][1]))
         np.testing.assert_array_almost_equal(terms["G"][0][1],
                                              np.array([[0], [-2], [2]]))
-
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.input_term1_squared, name="test"),
-            finalize=False).get_static_terms()
-        self.assertFalse(np.iscomplexobj(terms["G"][0][2]))
-        np.testing.assert_array_almost_equal(terms["G"][0][2],
-                                             np.array([[0], [0], [1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.input_term3, name="test"),
@@ -524,13 +493,6 @@ class ParseTest(unittest.TestCase):
                                              np.array([[0, 0, 1]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_term_at1_squared, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                             np.array([[0, 0, 1]]))
-
-        terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_term_ddt_at1, name="test"),
             finalize=False).get_dynamic_terms()["distributed_base"]
         self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
@@ -557,13 +519,6 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
         np.testing.assert_array_almost_equal(terms["E"][0][1],
                                              np.array([[.25, .25, 0]]))
-
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.field_squared_int, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                             np.array([[1 / 6, 1 / 3, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.field_dz_int, name="test"),
@@ -611,15 +566,6 @@ class ParseTest(unittest.TestCase):
                                                        [0, 1 / 12, 1 / 6]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                             np.array([[1 / 8, 1 / 24, 0],
-                                                       [1 / 24, 1 / 4, 1 / 24],
-                                                       [0, 1 / 24, 1 / 8]]))
-
-        terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_f_swapped, name="test"),
             finalize=False).get_dynamic_terms()["distributed_base"]
         self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
@@ -638,15 +584,6 @@ class ParseTest(unittest.TestCase):
                                                        [0, 0, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_at1_squared_f, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                             np.array([[0, 0, 0.25],
-                                                       [0, 0, 0.5],
-                                                       [0, 0, .25]]))
-
-        terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_int_f_f_at1, name="test"),
             finalize=False).get_dynamic_terms()["distributed_base"]
         self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
@@ -656,28 +593,10 @@ class ParseTest(unittest.TestCase):
                                                        [0.25, 0.5, .25]]))
 
         terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_int_f_squared_f_at1, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
-                                             np.array([[0, 0, 0],
-                                                       [0, 0, 0],
-                                                       [1 / 6, 1 / 3, 1 / 6]]))
-
-        terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.prod_term_f_at1_f_at1, name="test"),
             finalize=False).get_dynamic_terms()["distributed_base"]
         self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
         np.testing.assert_array_almost_equal(terms["E"][0][1],
-                                             np.array([[0, 0, 0],
-                                                       [0, 0, 0],
-                                                       [0, 0, 1]]))
-
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.prod_term_f_at1_squared_f_at1, name="test"),
-            finalize=False).get_dynamic_terms()["distributed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][2]))
-        np.testing.assert_array_almost_equal(terms["E"][0][2],
                                              np.array([[0, 0, 0],
                                                        [0, 0, 0],
                                                        [0, 0, 1]]))
