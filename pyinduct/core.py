@@ -71,6 +71,7 @@ class BaseFraction:
     def derive(self, order):
         """
         Basic implementation of derive function.
+
         Empty implementation, overwrite to use this functionality.
         For an example implementation see :py:class:`.Function`
 
@@ -512,6 +513,7 @@ class ComposedFunctionVector(BaseFraction):
 class Base:
     """
     Base class for approximation bases.
+
     In general, a :py:class:`.Base` is formed by a certain amount of
     :py:class:`.BaseFractions` and therefore forms finite-dimensional subspace
     of the distributed problem's domain. Most of the time, the user does not
@@ -523,7 +525,14 @@ class Base:
     """
     def __init__(self, fractions):
         # TODO check if Fractions are consistent in Type and provided hints
-        self.fractions = sanitize_input(fractions, BaseFraction)
+        fractions = sanitize_input(fractions, BaseFraction)
+
+        # check type
+        for frac in fractions:
+            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
+                raise ValueError("Provided fractions must be compatible!")
+
+        self.fractions = fractions
 
     def __iter__(self):
         return iter(self.fractions)
@@ -536,7 +545,9 @@ class Base:
 
     @staticmethod
     def _transformation_factory(info):
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
+        mat = calculate_expanded_base_transformation_matrix(info.src_base,
+                                                            info.dst_base,
+                                                            info.src_order,
                                                             info.dst_order)
 
         def handle(weights):
@@ -683,8 +694,10 @@ class StackedBase(Base):
         start_idx = self._info[info.dst_lbl]["start"]
         sel_len = self._info[info.dst_lbl]["size"]
         src_ord = self._info[info.dst_lbl]["order"]
-        trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base, info.dst_base,
-                                                                  src_ord, info.dst_order,
+        trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base,
+                                                                  info.dst_base,
+                                                                  src_ord,
+                                                                  info.dst_order,
                                                                   use_eye=True)
 
         def selection_func(weights):

@@ -228,11 +228,26 @@ class BaseTestCase(unittest.TestCase):
                           pi.Function(lambda x: x ** 2),
                           pi.Function(lambda x: np.sin(x))
                           ]
+        self.other_fractions = [pi.ComposedFunctionVector(frac, 7)
+                                for frac in self.fractions]
+        self.completely_other_fractions = [
+            pi.ComposedFunctionVector(self.fractions, i)
+            for i in range(10)]
 
     def test_init(self):
         # single and iterable arguments should be taken
         b1 = pi.Base(self.fractions[0])
         b2 = pi.Base(self.fractions)
+        b3 = pi.Base(self.other_fractions)
+        b4 = pi.Base(self.completely_other_fractions)
+
+        # the provided scalar product hints should be compatible
+        with self.assertRaises(ValueError):
+            pi.Base([self.fractions[0], self.other_fractions[2]])
+
+        with self.assertRaises(ValueError):
+            pi.Base([self.other_fractions[0],
+                     self.completely_other_fractions[2]])
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
