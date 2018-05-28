@@ -524,7 +524,6 @@ class Base:
             dict of :py:class:`.BaseFraction`'s
     """
     def __init__(self, fractions):
-        # TODO check if Fractions are consistent in Type and provided hints
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -836,49 +835,6 @@ def domain_intersection(first, second):
     return intersection
 
 
-def _dot_product_l2(first, second):
-    """
-    Calculates the inner product of two functions.
-
-    Args:
-        first (:py:class:`.Function`): first function
-        second (:py:class:`.Function`): second function
-
-    Todo:
-        rename to scalar_dot_product and make therefore non private
-
-    Return:
-        inner product
-    """
-    if not isinstance(first, Function) or not isinstance(second, Function):
-        raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
-
-    limits = domain_intersection(first.domain, second.domain)
-    nonzero = domain_intersection(first.nonzero, second.nonzero)
-    areas = domain_intersection(limits, nonzero)
-
-    # try some shortcuts
-    if first == second:
-        if hasattr(first, "quad_int"):
-            return first.quad_int()
-
-    if 0:
-        # TODO let Function Class handle product to gain more speed
-        if type(first) is type(second):
-            pass
-
-    # standard case
-    def func(z):
-        """
-        Take the complex conjugate of the first element and multiply it
-        by the second.
-        """
-        return np.conj(first(z)) * second(z)
-
-    result, error = integrate_function(func, areas)
-    return result
-
-
 def integrate_function(func, interval):
     """
     Numerically integrate a function on a given interval using
@@ -932,7 +888,7 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def dot_product(first, second):
     """
-    Calculates the inner product of two vectors.
+    Calculate the inner product of two vectors.
 
     Args:
         first (:obj:`numpy.ndarray`): first vector
@@ -944,20 +900,98 @@ def dot_product(first, second):
     return np.inner(first, second)
 
 
-def dot_product_l2(first, second):
-    """
-    Vectorized version of dot_product.
+def _dot_product_l2(first, second):
+    r"""
+    Calculate the inner product on L2.
+
+    Given two functions :math:`\varphi(z)` and :math:`\psi(z)` this functions
+    calculates
+
+    .. math::
+        \left< \varphi(z) | \psi(z) \right|_{L2} =
+            \int\limits_{Gamma_0}^{Gamma_1}
+            \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
-        first (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
-        second (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
+        first (:py:class:`.Function`): first function
+        second (:py:class:`.Function`): second function
 
     Return:
-        numpy.ndarray:  array of inner products
+        inner product
+    """
+    if not isinstance(first, Function) or not isinstance(second, Function):
+        raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
+
+    limits = domain_intersection(first.domain, second.domain)
+    nonzero = domain_intersection(first.nonzero, second.nonzero)
+    areas = domain_intersection(limits, nonzero)
+
+    # try some shortcuts
+    if first == second:
+        if hasattr(first, "quad_int"):
+            return first.quad_int()
+
+    if 0:
+        # TODO let Function Class handle product to gain more speed
+        if type(first) is type(second):
+            pass
+
+    # standard case
+    def func(z):
+        """
+        Take the complex conjugate of the first element and multiply it
+        by the second.
+        """
+        return np.conj(first(z)) * second(z)
+
+    result, error = integrate_function(func, areas)
+    return result
+
+
+def dot_product_l2(first, second):
+    r"""
+    Vectorized version of the inner product on L2.
+
+    Given two vectors of functions
+
+    .. math::
+        \boldsymbol{\varphi}(z)
+        = \left(\varphi_0(z), \dotsc, \varphi_N(z)\right)^T
+
+    and
+
+    .. math::
+        \boldsymbol{\psi}(z) = \left(\psi_0(z), \dotsc, \psi_N(z)\right)^T` ,
+
+    this function computes
+    :math:`\left< \boldsymbol{\varphi}(z) | \boldsymbol{\psi}(z) \right>_{L2}`
+    where
+
+    .. math::
+        \left< \varphi_i(z) | \psi_j(z) \right>_{L2} =
+        \int\limits_{\Gamma_0}^{\Gamma_1}
+        \bar\varphi_i(\zeta) \psi_j(\zeta) \,\textup{d}\zeta \:.
+
+    Herein, :math:`\bar\varphi_i(\zeta)` denotes the complex conjugate and
+    :math:`\Gamma_0` as well as :math:`\Gamma_1` are derived by computing the
+    intersection of the nonzero areas of the involved functions.
+
+    Args:
+        first (callable or :obj:`numpy.ndarray`):  (1d array of n) callable(s)
+        second (callable or :obj:`numpy.ndarray`):  (1d array of n) callable(s)
+
+    Raises:
+        ValueError, if the provided arrays are not equally long.
+
+    Return:
+        numpy.ndarray:  Array of inner products
     """
     # sanitize input
     first = np.atleast_1d(first)
     second = np.atleast_1d(second)
+
+    if len(first) != len(second):
+        raise ValueError("Provided function vectors must be of same length.")
 
     # calculate output size and allocate output
     out = np.ones(first.shape, dtype=complex) * np.nan
@@ -988,7 +1022,7 @@ def calculate_scalar_matrix(values_a, values_b):
 
 
 def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
-                                    optimize=False):
+                                    optimize=True):
     r"""
     Calculates a matrix :math:`A` , whose elements are the scalar products of
     each element from *base_a* and *base_b*, so that
@@ -1013,73 +1047,22 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    if optimize:
-        raise NotImplementedError("this approach leads to wrong results atm.")
-        # There are certain conditions that have to be satisfied to make use of a symmetrical product matrix
-        # not all of these conditions are checked here and the implementation itself is not yet free from errors.
+    if optimize and base_a == base_b and scalar_product_handle == dot_product_l2:
+        # since the scalar_product commutes whe can save some operations
+        dim = fractions_a.shape[0]
+        output = np.zeros((dim, dim), dtype=np.complex)
+        i, j = np.mgrid[0:dim, 0:dim]
 
-        # if scalar_product handle commutes whe can save some operations
-        if base_a.size > base_b.size:
-            base_1 = base_a
-            base_2 = base_b
-            transposed = False
-        else:
-            base_1 = base_b
-            base_2 = base_a
-            transposed = True
+        # compute only upper half
+        upper_idxs = np.triu_indices(dim)
+        i_upper = i[upper_idxs]
+        j_upper = j[upper_idxs]
+        output[upper_idxs] = scalar_product_handle(fractions_a[i_upper],
+                                                   fractions_a[j_upper])
 
-        # if 0:
-        #     # one way
-        #     idx_1 = []
-        #     idx_2 = []
-        #     for n in range(base_1.shape[0]):
-        #         for m in range(min(n + 1, base_2.shape[0])):
-        #             idx_1.append(n)
-        #             idx_2.append(m)
-        #
-        #     fractions_1 = base_1[np.array(idx_1)]
-        #     fractions_2 = base_2[np.array(idx_2)]
-        # else:
-        #     # another way not really working yet
-
-        i, j = np.mgrid[0:base_1.shape[0], 0:base_2.shape[0]]
-
-        end_shape = (base_1.shape[0], base_2.shape[0])
-        lower_mask = np.tril(np.ones(end_shape))
-        lower_idx = np.flatnonzero(lower_mask)
-
-        i_lower = i.flatten()[lower_idx]
-        j_lower = j.flatten()[lower_idx]
-        fractions_1 = base_1[i_lower]
-        fractions_2 = base_2[j_lower]
-
-        # compute
-        res = scalar_product_handle(fractions_1, fractions_2)
-
-        # reconstruct
-        end_shape = (base_1.shape[0], base_2.shape[0])
-        lower_part = np.zeros(end_shape).flatten()
-
-        # reconstruct lower half
-        lower_part[lower_idx] = res
-        lower_part = lower_part.reshape(end_shape)
-        # print(lower_part)
-
-        # mirror symmetrical half
-        upper_part = np.zeros(end_shape).flatten()
-        temp_out = copy(lower_part[:base_2.shape[0], :].T)
-        upper_mask = np.triu(np.ones_like(temp_out), k=1)
-        upper_idx = np.flatnonzero(upper_mask)
-        # print(upper_mask)
-        # print(upper_idx)
-
-        upper_part[upper_idx] = temp_out.flatten()[upper_idx]
-        upper_part = upper_part.reshape(end_shape)
-        # print(upper_part)
-
-        out = lower_part + upper_part
-        return out if not transposed else out.T
-
+        # reconstruct using symmetry
+        output += np.conjugate(np.triu(output, 1)).T
+        return np.real_if_close(output)
     else:
         i, j = np.mgrid[0:fractions_a.shape[0],
                         0:fractions_b.shape[0]]

@@ -1,4 +1,5 @@
 import collections
+import time
 import unittest
 import warnings
 
@@ -432,31 +433,6 @@ class IntersectionTestCase(unittest.TestCase):
                          {(-10, -5), (3, 5)}, (10, 17))
 
 
-class ScalarDotProductL2TestCase(unittest.TestCase):
-    def setUp(self):
-        self.f1 = pi.Function(lambda x: 1, domain=(0, 10))
-        self.f2 = pi.Function(lambda x: 2, domain=(0, 5))
-        self.f3 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
-        self.f4 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2 + 1e-1))
-
-        self.f5 = pi.LagrangeFirstOrder(0, 1, 2)
-        self.f6 = pi.LagrangeFirstOrder(1, 2, 3)
-        self.f7 = pi.LagrangeFirstOrder(2, 3, 4)
-
-    def test_domain(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
-
-    def test_nonzero(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
-
-    def test_lagrange(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
-
-
 class IntegrateFunctionTestCase(unittest.TestCase):
     def setUp(self):
         self.int1 = [(0, 10)]
@@ -492,62 +468,199 @@ class IntegrateFunctionTestCase(unittest.TestCase):
         np.testing.assert_almost_equal(res, self.func2_int(10))
 
 
-# TODO tests for dot_product_l2 (vectorial case)
+class ScalarDotProductL2TestCase(unittest.TestCase):
+    def setUp(self):
+        self.f1 = pi.Function(lambda x: 1, domain=(0, 10))
+        self.f2 = pi.Function(lambda x: 2, domain=(0, 5))
+        self.f3 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
+        self.f4 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 2 + 1e-1))
+
+        self.f5 = pi.LagrangeFirstOrder(0, 1, 2)
+        self.f6 = pi.LagrangeFirstOrder(1, 2, 3)
+        self.f7 = pi.LagrangeFirstOrder(2, 3, 4)
+
+        self.g1 = pi.Function(lambda x: 2 + 2j, domain=(0, 5))
+        self.g2 = pi.Function(lambda x: 2 - 2j, domain=(0, 5))
+
+    def test_domain(self):
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
+        # swap arguments
+        self.assertAlmostEqual(core._dot_product_l2(self.f2, self.f1),
+                               np.conjugate(10))
+
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
+        # swap arguments
+        self.assertAlmostEqual(core._dot_product_l2(self.f3, self.f1),
+                               np.conjugate(2))
+
+    def test_nonzero(self):
+        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core._dot_product_l2(self.f4, self.f1),
+                               np.conjugate(2e-1))
+
+    def test_lagrange(self):
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
+        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
+
+    def test_complex(self):
+        self.assertAlmostEqual(core._dot_product_l2(self.g1, self.g2), -40j)
+        # swapping of args will return the conjugated expression
+        self.assertAlmostEqual(core._dot_product_l2(self.g2, self.g1),
+                               np.conj(-40j))
+
+    def test_linearity(self):
+        factor = 2+1j
+        s = self.g1.scale(factor)
+        res = core._dot_product_l2(s, self.g2)
+        part = core._dot_product_l2(self.g1, self.g2)
+        np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
+
+
+class DotProductL2TestCase(unittest.TestCase):
+    def setUp(self):
+        self.dom = pi.Domain((0, 10), num=11)
+        self.fem_base = pi.LagrangeFirstOrder.cure_interval(self.dom, num=10)
+
+    def test_length(self):
+        with self.assertRaises(ValueError):
+            pi.dot_product_l2(self.fem_base[2:4], self.fem_base[4:8])
+
+    def test_output(self):
+        res = pi.dot_product_l2(self.fem_base.fractions,
+                                self.fem_base.fractions)
+        np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
 
 
 class CalculateScalarProductMatrixTestCase(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, dim1=10, dim2=20):
         interval = (0, 10)
-        self.nodes1 = pi.Domain(interval, num=5)
-        self.nodes2 = pi.Domain(interval, num=9)
+        self.nodes1 = pi.Domain(interval, num=dim1)
+        self.nodes2 = pi.Domain(interval, num=dim2)
         self.initial_functions1 = pi.LagrangeFirstOrder.cure_interval(
             self.nodes1)
         self.initial_functions2 = pi.LagrangeFirstOrder.cure_interval(
             self.nodes2)
-        self.optimization = None
-        # print(np.array(self.nodes1), np.array(self.nodes2))
 
-    def run_benchmark(self):
-        """
-        # run the non optimized code
-        """
-        # symmetrical
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
-                                                 self.initial_functions1,
-                                                 optimize=self.optimization)
-        self.assertFalse(np.iscomplexobj(mat))
-        # print(mat)
-        # print()
-
-        # rect1
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2,
-                                                 self.initial_functions1,
-                                                 optimize=self.optimization)
-        self.assertFalse(np.iscomplexobj(mat))
-        # print(mat)
-        # print()
-
-        # rect2
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
-                                                 self.initial_functions2,
-                                                 optimize=self.optimization)
-        self.assertFalse(np.iscomplexobj(mat))
-        # print(mat)
-        # print()
-
-    @unittest.skip
-    def test_optimized(self):
-        # run the non optimized code
-        self.optimization = True
-        self.run_benchmark()
-
-    def test_unoptimized(self):
-        # run the non optimized code
         self.optimization = False
-        self.run_benchmark()
+
+    def test_quadratic(self):
+        res_quad1 = np.zeros([len(self.initial_functions1)]*2)
+        for idx1, frac1 in enumerate(self.initial_functions1):
+            for idx2, frac2 in enumerate(self.initial_functions1):
+                res_quad1[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+
+        r, t = self.quadratic_case1()
+        self.assertFalse(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.initial_functions1),
+                                   len(self.initial_functions1)))
+        np.testing.assert_almost_equal(r, res_quad1)
+
+        res_quad2 = np.zeros([len(self.initial_functions2)]*2)
+        for idx1, frac1 in enumerate(self.initial_functions2):
+            for idx2, frac2 in enumerate(self.initial_functions2):
+                res_quad2[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+
+        r, t = self.quadratic_case2()
+        self.assertFalse(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.initial_functions2),
+                                   len(self.initial_functions2)))
+        np.testing.assert_almost_equal(r, res_quad2)
+
+    def test_rectangular(self):
+        res = np.zeros((len(self.initial_functions1),
+                        len(self.initial_functions2)))
+        for idx1, frac1 in enumerate(self.initial_functions1):
+            for idx2, frac2 in enumerate(self.initial_functions2):
+                res[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+
+        res_rect1 = res.copy()
+        res_rect2 = np.conjugate(res).T
+
+        r, t = self.rectangular_case_1()
+        self.assertFalse(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.initial_functions1),
+                                   len(self.initial_functions2)))
+        np.testing.assert_almost_equal(r, res_rect1)
+
+        r, t = self.rectangular_case_2()
+        self.assertFalse(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.initial_functions2),
+                                   len(self.initial_functions1)))
+        np.testing.assert_almost_equal(r, res_rect2)
+
+    def quadratic_case1(self):
+        # result is quadratic
+        t0 = time.clock()
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions1,
+                                                 self.initial_functions1,
+                                                 optimize=self.optimization)
+        t_calc = time.clock() - t0
+        return mat, t_calc
+
+    def quadratic_case2(self):
+        # result is quadratic
+        t0 = time.clock()
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions2,
+                                                 self.initial_functions2,
+                                                 optimize=self.optimization)
+        t_calc = time.clock() - t0
+        return mat, t_calc
+
+    def rectangular_case_1(self):
+        # rect1
+        t0 = time.clock()
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions1,
+                                                 self.initial_functions2,
+                                                 optimize=self.optimization)
+        t_calc = time.clock() - t0
+        return mat, t_calc
+
+    def rectangular_case_2(self):
+        # rect2
+        t0 = time.clock()
+        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
+                                                 self.initial_functions2,
+                                                 self.initial_functions1,
+                                                 optimize=self.optimization)
+        t_calc = time.clock() - t0
+        return mat, t_calc
+
+    def compare_timings(self):
+        """
+        # run different versions of the code
+        """
+        test_cases = [
+            self.quadratic_case1,
+            self.quadratic_case2,
+            self.rectangular_case_1,
+            self.rectangular_case_2
+        ]
+        variants = [False, True]
+        run_cnt = 5
+
+        timings = np.zeros((len(test_cases), len(variants)))
+        for t_idx, test in enumerate(test_cases):
+            results = []
+            print(">>> Running: {}".format(test))
+            for o_idx, optimize in enumerate(variants):
+                t_sum = 0
+                self.optimization = optimize
+                for n in range(run_cnt):
+                    _m, _t = test()
+                    t_sum += _t
+                results.append(_m)
+                timings[t_idx, o_idx] = t_sum / run_cnt
+            # they should compute the same results
+            np.testing.assert_almost_equal(*results)
+
+        print("Improvements due to symmetry exploitation (in %):")
+        percentages = (100 * (1 - timings[:, 1] / timings[:, 0]))
+        print(percentages)
 
 
 class ProjectionTest(unittest.TestCase):

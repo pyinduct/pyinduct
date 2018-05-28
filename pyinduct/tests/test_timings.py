@@ -7,6 +7,8 @@ import unittest
 import numpy as np
 import pyinduct as pi
 
+from .test_core import CalculateScalarProductMatrixTestCase
+
 
 def simulation_benchmark(spat_domain, settings):
     """
@@ -142,6 +144,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
             *[candidate["shapefunction_class"]
               for candidate in self.candidates]))
 
+    @unittest.skip
     def test_simulation(self):
         print(">>> transport system example speed test: \n")
 
@@ -174,6 +177,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
         finally:
             self.print_time("absolute difference  (2-1) in [s]", diff)
 
+    @unittest.skip
     def test_evaluation(self):
         print(">>> evaluation speed test:")
 
@@ -209,3 +213,12 @@ class ShapeFunctionTestBench(unittest.TestCase):
                                 "\t initial weights:  {}\n"
                                 "\t process data:     {}\n"
                                 "".format(*times))
+
+
+class ScalarProductMatrixTextBench(unittest.TestCase):
+
+    @unittest.skip
+    def test_optimization(self):
+        c = CalculateScalarProductMatrixTestCase()
+        c.setUp(dim1=100, dim2=200)
+        c.compare_timings()
