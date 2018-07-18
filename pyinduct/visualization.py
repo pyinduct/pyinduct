@@ -443,26 +443,20 @@ class PgSurfacePlot(PgDataPlot):
                     self._data[idx].output_data,
                     animation_axis,
                     -1)
-                x_data = np.atleast_1d(self._data[idx].input_data[0])
-                y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
                 z_data = self._data[idx].output_data[..., 0]
-                mapped_colors = self.mapping.to_rgba(z_data)
-                plot_item = gl.GLSurfacePlotItem(x_data,
-                                                 y_data,
-                                                 z_data,
-                                                 computeNormals=False,
-                                                 colors=mapped_colors)
             else:
                 # 1d system over time -> static
-                x_data = np.atleast_1d(self._data[idx].input_data[0])
-                y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
                 z_data = self._data[idx].output_data
-                mapped_colors = self.mapping.to_rgba(z_data)
-                plot_item = gl.GLSurfacePlotItem(x_data,
-                                                 y_data,
-                                                 z_data,
-                                                 computeNormals=False,
-                                                 colors=mapped_colors)
+
+            x_data = np.atleast_1d(self._data[idx].input_data[0])
+            y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
+            masked_arr = np.ma.array(z_data, mask=np.isnan(z_data))
+            mapped_colors = self.mapping.to_rgba(masked_arr)
+            plot_item = gl.GLSurfacePlotItem(x_data,
+                                             y_data,
+                                             z_data,
+                                             computeNormals=False,
+                                             colors=mapped_colors)
 
             plot_item.scale(*self.scales)
             plot_item.translate(*[-self.extrema[0][i]*self.scales[i]
@@ -519,7 +513,7 @@ class PgSurfacePlot(PgDataPlot):
             self._timer.timeout.connect(self._update_plot)
             self._timer.start(100)
 
-        # self.gl_widget.show()
+        self.gl_widget.show()
 
     def _update_plot(self):
         """
@@ -527,7 +521,8 @@ class PgSurfacePlot(PgDataPlot):
         """
         for idx, item in enumerate(self.plot_items):
             z_data = self._data[idx].output_data[..., self.t_idx]
-            mapped_colors = self.mapping.to_rgba(z_data)
+            masked_arr = np.ma.array(z_data, mask=np.isnan(z_data))
+            mapped_colors = self.mapping.to_rgba(masked_arr)
             item.setData(z=z_data, colors=mapped_colors)
 
         self.t_idx += 1
