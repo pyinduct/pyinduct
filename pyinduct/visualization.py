@@ -470,12 +470,6 @@ class PgSurfacePlot(PgDataPlot):
             self.gl_widget.addItem(plot_item)
             self.plot_items.append(plot_item)
 
-        if animation_axis is not None:
-            self.t_idx = 0
-            self._timer = pg.QtCore.QTimer(self)
-            self._timer.timeout.connect(self._update_plot)
-            self._timer.start(100)
-
         # setup grids
         sc_deltas = self.deltas * self.scales
         self._xygrid = gl.GLGridItem(size=pg.QtGui.QVector3D(1, 1, 1))
@@ -518,7 +512,14 @@ class PgSurfacePlot(PgDataPlot):
                                          )
         # This fixes Issue #481 of pyqtgraph
         self.gl_widget.opts["center"] = center_point
-        self.gl_widget.show()
+
+        if animation_axis is not None:
+            self.t_idx = 0
+            self._timer = pg.QtCore.QTimer(self)
+            self._timer.timeout.connect(self._update_plot)
+            self._timer.start(100)
+
+        # self.gl_widget.show()
 
     def _update_plot(self):
         """
@@ -532,8 +533,9 @@ class PgSurfacePlot(PgDataPlot):
         self.t_idx += 1
 
         # TODO check if every array has enough timestamps in it
-        if self.t_idx >= len(self._data[0].input_data[0]):
+        if self.t_idx >= len(self._data[0].input_data[-1]):
             self.t_idx = 0
+
 
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
