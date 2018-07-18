@@ -2371,8 +2371,8 @@ class EvalData:
 
         self.input_data = input_data
         self.output_data = output_data
-        self.min = output_data.min()
-        self.max = output_data.max()
+        self.min = np.nanmin(output_data)
+        self.max = np.nanmax(output_data)
 
         if len(input_data) == 1:
             if enable_extrapolation:
