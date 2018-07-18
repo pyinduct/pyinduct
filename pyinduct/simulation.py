@@ -1401,8 +1401,8 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     Return:
         tuple: Time :py:class:`.Domain` object and weights matrix.
     """
-    if not isinstance(state_space, StateSpace):
-        raise TypeError
+    # if not isinstance(state_space, StateSpace):
+    #     raise TypeError
 
     q = [initial_state]
     t = [temp_domain[0]]
