@@ -156,6 +156,14 @@ class PlotTestCase(unittest.TestCase):
         if show_plots:
             pi.show(show_pg=False)
 
+    def test_mpl_surface_plot_nan(self):
+        nan_data = self.test_data[1].output_data.copy()
+        nan_data[100:200, :] = np.nan
+        tricky_data = pi.EvalData(self.test_data[1].input_data, nan_data)
+        vis.MplSurfacePlot(tricky_data, keep_aspect=False)
+        if show_plots:
+            pi.show(show_pg=False)
+
     def test_mpl_slice_plot(self):
         vis.MplSlicePlot(self.test_data + self.test_data + self.test_data,
                          spatial_point=0.5,

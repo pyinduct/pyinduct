@@ -451,7 +451,7 @@ class PgSurfacePlot(PgDataPlot):
 
             x_data = np.atleast_1d(self._data[idx].input_data[0])
             y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
-            masked_arr = np.ma.array(z_data, mask=np.isnan(z_data))
+            masked_arr = np.ma.masked_invalid(z_data)
             mapped_colors = self.mapping.to_rgba(masked_arr)
             plot_item = gl.GLSurfacePlotItem(x_data,
                                              y_data,
@@ -623,11 +623,10 @@ class MplSurfacePlot(DataPlot):
         DataPlot.__init__(self, data)
 
         for i in range(len(self._data)):
-
             # data
             x = self._data[i].input_data[1]
             y = self._data[i].input_data[0]
-            z = self._data[i].output_data
+            z = np.ma.fix_invalid(self._data[i].output_data, fill_value=0)
             xx, yy = np.meshgrid(x, y)
 
             # figure
@@ -645,7 +644,10 @@ class MplSurfacePlot(DataPlot):
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
 
-            ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
+            ax.plot_surface(xx, yy, z,
+                            rstride=2, cstride=2,
+                            cmap=mpl.cm.get_cmap("viridis"),
+                            antialiased=False)
 
 
 class MplSlicePlot(PgDataPlot):
