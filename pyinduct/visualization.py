@@ -446,6 +446,7 @@ class PgSurfacePlot(PgDataPlot):
                 z_data = self._data[idx].output_data[..., 0]
             else:
                 # 1d system over time -> static
+                animation_axis = None
                 z_data = self._data[idx].output_data
 
             x_data = np.atleast_1d(self._data[idx].input_data[0])
@@ -521,7 +522,7 @@ class PgSurfacePlot(PgDataPlot):
         """
         for idx, item in enumerate(self.plot_items):
             z_data = self._data[idx].output_data[..., self.t_idx]
-            masked_arr = np.ma.array(z_data, mask=np.isnan(z_data))
+            masked_arr = np.ma.masked_invalid(z_data)
             mapped_colors = self.mapping.to_rgba(masked_arr)
             item.setData(z=z_data, colors=mapped_colors)
 
