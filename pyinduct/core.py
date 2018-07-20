@@ -2394,8 +2394,10 @@ class EvalData:
             if len(input_data[0]) > 3 and len(input_data[1]) > 3:
                 # special treatment for very common case (faster than interp2d)
                 # boundary values are used as fill values
-                self._interpolator = RectBivariateSpline(*input_data,
-                                                         output_data)
+                self._interpolator = RectBivariateSpline(
+                    *input_data,
+                    np.ma.fix_invalid(output_data)
+                )
             else:
                 # this will trigger nearest neighbour interpolation
                 fill_val = None
