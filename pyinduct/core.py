@@ -2395,7 +2395,7 @@ class EvalData:
                 raise ValueError("Extrapolation not supported for 2d data. See "
                                  "https://github.com/scipy/scipy/issues/8099"
                                  "for details.")
-            if len(input_data[0]) > 3 and len(input_data[1]) > 3:
+            if len(input_data[0]) > 3 and len(input_data[1]) > 3 and False:
                 # special treatment for very common case (faster than interp2d)
                 # boundary values are used as fill values
                 self._interpolator = RectBivariateSpline(
@@ -2461,6 +2461,9 @@ class EvalData:
                 - (numpy.ndarray) - Interpolated other output_data array.
         """
         assert len(self.input_data) == len(other.input_data)
+
+        if self.input_data == other.input_data:
+            return self.input_data, self.output_data, other.output_data
 
         input_data = []
         for idx in range(len(self.input_data)):

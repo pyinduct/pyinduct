@@ -619,8 +619,10 @@ class MplSurfacePlot(DataPlot):
     Plot as 3d surface.
     """
 
-    def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
+    def __init__(self, data, keep_aspect=False, fig_size=(12, 8),
+                 zlabel='$\quad x(z,t)$', title=""):
         DataPlot.__init__(self, data)
+        name = time.strftime("%H:%M:%S") + ' - ' + title
 
         for i in range(len(self._data)):
             # data
@@ -631,6 +633,7 @@ class MplSurfacePlot(DataPlot):
 
             # figure
             fig = plt.figure(figsize=fig_size, facecolor='white')
+            fig.canvas.set_window_title(name)
             ax = fig.gca(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
@@ -644,10 +647,17 @@ class MplSurfacePlot(DataPlot):
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
 
-            ax.plot_surface(xx, yy, z,
-                            rstride=2, cstride=2,
-                            cmap=mpl.cm.get_cmap("viridis"),
-                            antialiased=False)
+            # ax.plot_wireframe(
+            ax.plot_surface(
+                xx,
+                yy,
+                z,
+                rcount=len(x), ccount=len(y),
+                # rstride=len(x), cstride=len(y),
+                # rstride=2, cstride=2,
+                cmap=mpl.cm.get_cmap("viridis"),
+                antialiased=False
+            )
 
 
 class MplSlicePlot(PgDataPlot):
