@@ -377,7 +377,8 @@ class PgSurfacePlot(PgDataPlot):
         """
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
-        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
+        self.title = time.strftime("%H:%M:%S") + ' - ' + title
+        self.gl_widget.setWindowTitle(self.title)
 
         self.grid_size = 20
 
@@ -520,6 +521,10 @@ class PgSurfacePlot(PgDataPlot):
         """
         Update the rendering
         """
+        self.gl_widget.setWindowTitle("{} t={}s".format(
+            self.title,
+            self._data[0].input_data[-1][self.t_idx]
+        ))
         for idx, item in enumerate(self.plot_items):
             z_data = self._data[idx].output_data[..., self.t_idx]
             masked_arr = np.ma.masked_invalid(z_data)
