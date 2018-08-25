@@ -1073,7 +1073,9 @@ def parse_weak_formulation(weak_form, finalize=False):
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(dot_product_l2,
+                # TODO: define interface for scalar product (see ComposedFunctionVector)
+                scalar_product = fractions[0].scalar_product_hint()[0]
+                result = calculate_scalar_product_matrix(scalar_product,
                                                          fractions,
                                                          shape_funcs)
             else:
@@ -1227,8 +1229,14 @@ def _compute_product_of_scalars(scalars):
         raise NotImplementedError
 
     if len(scalars) == 1:
-        # simple scaling of all terms
-        res = scalars[0].data
+        # distinguish between pi.Base and pi.ComposedFunctionVector
+        if sum(scalars[0].data.shape) > (max(scalars[0].data.shape) + 1):
+            res = np.transpose(
+                np.ones((1, scalars[0].data.shape[0])) @ scalars[0].data)
+        else:
+            # simple scaling of all terms
+            # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
+            res = scalars[0].data
     elif scalars[0].data.shape == scalars[1].data.shape:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
@@ -1240,8 +1248,11 @@ def _compute_product_of_scalars(scalars):
         try:
             if scalars[0].data.shape[1] == 1:
                 res = scalars[0].data @ scalars[1].data
-            else:
+            elif scalars[1].data.shape[1] == 1:
                 res = scalars[1].data @ scalars[0].data
+            # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
+            elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
+                res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
         except ValueError as e:
             raise ValueError("provided entries do not form a dyadic product")
 
