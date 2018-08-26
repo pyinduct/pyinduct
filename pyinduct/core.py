@@ -1089,12 +1089,12 @@ def project_on_base(state, base):
         raise TypeError("Only pyinduct.core.Base accepted as base")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2,
+    projections = calculate_scalar_product_matrix(base.scalar_product_hint()[0],
                                                   Base(state),
                                                   base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
+    scale_mat = calculate_scalar_product_matrix(base.scalar_product_hint()[0], base, base)
 
     return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
 
