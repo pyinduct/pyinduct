@@ -346,7 +346,7 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
     results = get_sim_results(sim_domain, spatial_domains, q, state_space_form, derivative_orders=derivative_orders)
 
     print(">>> finished simulation")
-    return results, q
+    return canonical_equations, state_space_form, q0, q, results
 
 
 def get_sim_result(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_order, name=""):
