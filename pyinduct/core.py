@@ -420,7 +420,10 @@ class Function(BaseFraction):
 
         Args:
             constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`.Function`
+
+        Keyword Args:
+            der_order (int): Derivative order, default 2.
+            **kwargs: All other kwargs get passed to :py:class:`.Function`.
 
         Returns:
             :py:class:`.Function`: A constant function
@@ -431,7 +434,15 @@ class Function(BaseFraction):
         def f_dz(z):
             return 0
 
-        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
+        if "der_order" in kwargs:
+            der_order = kwargs["der_order"]
+        else:
+            der_order = 2
+
+        func = Function(
+            eval_handle=f,
+            derivative_handles=[f_dz for _ in range(der_order)],
+            **kwargs)
         return func
 
     @staticmethod
