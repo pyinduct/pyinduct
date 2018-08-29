@@ -91,39 +91,15 @@ class Parameters:
 
 # parameters
 param = Parameters()
-param.D = 8e-3 # m
-param.L = 19.83 # m
-param.rho_0 = 1.21 # kg/m^3
-param.p_0 = 1.01 # bar
-param.T_0 = 293.15 # K
-param.R_s = 287.05 # J/kg K
-param.epsilon = 1.5e-6 # m
-param.gamma = 1.4
-param.V_vol = 6.46e-4 # m^3
-param.R_vol = 4e-3 # K/W
-param.eta_0 = 1.82e-5 # ???
-
-# condensed parameters
-param.A = np.pi * param.D ** 2 / 4
-param.a_iso = np.sqrt(param.gamma * param.R_s * param.T_0)
-param.a = param.L ** -1
-param.b = param.a_iso ** 2 / param.L
-param.c = 32 * param.eta_0 / param.D ** 2 / param.rho_0
-param.d = param.A / param.V_vol
+param.m = 1
 
 # symbols
 sym = Parameters()
-sym.a, sym.b, sym.c, sym.d, sym.theta,  sym.z, sym.t = [
-    sp.Symbol(sym, real=True) for sym in
-    (r"a", r"b", r"c", r"d", r"theta", r"z", r"t")]
+sym.m, = [sp.Symbol(sym, real=True) for sym in (r"m")]
 sym.lam = sp.symbols(r"lambda")
-subs_list = [(sym.a, param.a), (sym.b, param.b),
-             (sym.c, param.c), (sym.d, param.d)]
+subs_list = [(sym.m, param.m)]
 
 # print parameters
 pprint("Sytem parameters:")
-pprint(sp.Eq(sym.a, param.a))
-pprint(sp.Eq(sym.b, param.b))
-pprint(sp.Eq(sym.c, param.c))
-pprint(sp.Eq(sym.d, param.d))
+pprint(sp.Eq(sym.m, param.m))
 pprint()
