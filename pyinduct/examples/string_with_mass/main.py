@@ -7,6 +7,7 @@ import pyinduct as pi
 z_end = 1
 spatial_discretization = 100
 spatial_domain = pi.Domain((0, z_end), spatial_discretization)
+spat_domain_can = pi.Domain((-z_end, z_end), spatial_discretization)
 t_end = 10
 temporal_discretization = 300
 temporal_domain = pi.Domain((0, t_end), temporal_discretization)
@@ -16,10 +17,14 @@ input_ = pi.ConstantTrajectory(0)
 
 # system approximation
 sys_lbl = "string_with_mass"
+obs_lbl = "fem_observer"
 fem_funcs1_nodes = pi.Domain(spatial_domain.bounds, 4)
 fem_funcs2_nodes = pi.Domain(spatial_domain.bounds, 3)
 build_fem_bases(sys_lbl, fem_funcs1_nodes, fem_funcs2_nodes)
-sys_wf = build_weak_formulation(sys_lbl, spatial_domain, input_, sys_lbl)
+sys_wf = build_original_weak_formulation(
+    sys_lbl, spatial_domain, input_, sys_lbl)
+# obs_wf = build_canonical_weak_formulation(
+#     obs_lbl, spat_domain_can, input_, obs_lbl)
 
 # simulation
 init_cond = {sys_wf.name: [SwmBaseFraction(

@@ -3,7 +3,110 @@ import pyinduct as pi
 from tqdm import tqdm
 
 
-def build_weak_formulation(sys_lbl, spatial_domain, input_, name="system"):
+def build_canonical_weak_formulation(sys_lbl, spatial_domain, input_, name="system"):
+    r"""
+    The observer from [Woi2012] (equation 41)
+
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+            \dot{\hat{\eta}}_1(t) &= \frac{2}{m}u(t) - (1+\alpha)k_0\tilde{y}(t) \\
+            \dot{\hat{\eta}}_2(t) &= \hat{\eta}_1(t) + \frac{2}{m}u(t)-((1+\alpha)k_1+2k_0)\tilde{y}(t) \\
+            \dot{\hat{\eta}}_3(\theta,t) &= -\hat{\eta}_3'(\theta,t)-\frac{2}{m}(1-h(\theta))\theta u(t)
+                - m^{-1} \hat{y}(t) \\
+            &\qquad -(k_0(1-\theta)+k_1-m^{-1})\tilde{y}(t)
+        \end{align*}
+
+    .. math:: \hat{\eta}_3(-1,t) = \hat{\eta}_2(t) -\hat{y}(t)-(\alpha-1)\tilde{y}(t)
+
+    is considered through integration by parts of the term
+    :math:`-\langle\hat{\eta}_3'(\theta),\psi_j(\theta)\rangle` from the weak formulation of equation 41a:
+
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+            -\langle\hat{\eta}_3'(\theta),\psi_j(\theta)\rangle &=
+            -\hat{\eta}_3(1)\psi_j'(1) + \hat{\eta}_3(-1)\psi_j'(-1)
+            \langle\hat{\eta}_3(\theta),\psi_j'(\theta)\rangle.
+        \end{align*}
+
+    Args:
+        sys_approx_label (string): Shapefunction label for system approximation.
+        obs_approx_label (string): Shapefunction label for observer approximation.
+        input_vector (:py:class:`pyinduct.simulation.SimulationInputVector`): Holds the input variable.
+        params: Python class with the members:
+
+            - *m* (mass)
+            - *k1_ob*, *k2_ob*, *alpha_ob* (observer parameters)
+
+    Returns:
+        :py:class:`pyinduct.simulation.Observer`: Observer
+    """
+    pass
+    # obs_err = pi.Controller(pi.WeakFormulation(
+    #     [
+    #         pi.ScalarTerm(pi.FieldVariable(sys_approx_label, location=0), scale=-1),
+    #         pi.ScalarTerm(eta3(-1).derive(spat_order=1), scale=-params.m / 2),
+    #         pi.ScalarTerm(eta3(1).derive(spat_order=1), scale=-params.m / 2),
+    #         pi.ScalarTerm(eta1(0), scale=-params.m / 2),
+    #     ],
+    #     name="nf observer error"))
+    # input_vector.append([obs_err])
+    #
+    # d_eta1 = pi.WeakFormulation(
+    #     [
+    #         pi.ScalarTerm(eta1(0).derive(temp_order=1), scale=-1),
+    #         pi.ScalarTerm(pi.Input(input_vector, index=0), scale=2 / params.m),
+    #         pi.ScalarTerm(pi.Input(input_vector, index=1),
+    #                       scale=0 if approx_bounded_part else -(1 + params.alpha_ob) * params.k0_ob)
+    #     ],
+    #     name=obs_approx_label[0]
+    # )
+    # d_eta2 = pi.WeakFormulation(
+    #     [
+    #         pi.ScalarTerm(eta2(0).derive(temp_order=1), scale=-1),
+    #         # index error in paper
+    #         pi.ScalarTerm(eta1(0)),
+    #         pi.ScalarTerm(pi.Input(input_vector, index=0), scale=2 / params.m),
+    #         pi.ScalarTerm(pi.Input(input_vector, index=1),
+    #                       scale=0 if approx_bounded_part else -(1 + params.alpha_ob) * params.k1_ob - 2 * params.k0_ob)
+    #     ],
+    #     name=obs_approx_label[1]
+    # )
+    # d_eta3 = pi.WeakFormulation(
+    #     [
+    #         pi.IntegralTerm(pi.Product(eta3.derive(temp_order=1), psi), limits=limits, scale=-1),
+    #         # sign error in paper
+    #         pi.IntegralTerm(pi.Product(pi.Product(obs_scale1, psi), pi.Input(input_vector, index=0)), limits=limits,
+    #                         scale=-1),
+    #         pi.IntegralTerm(pi.Product(pi.Product(obs_scale2, psi), pi.Input(input_vector, index=1)), limits=limits,
+    #                         scale=0 if approx_bounded_part else 1),
+    #         # \hat y
+    #         pi.IntegralTerm(pi.Product(eta3(-1).derive(spat_order=1), psi), limits=limits, scale=1 / 2),
+    #         pi.IntegralTerm(pi.Product(eta3(1).derive(spat_order=1), psi), limits=limits, scale=1 / 2),
+    #         pi.IntegralTerm(pi.Product(eta1, psi), limits=limits, scale=1 / 2),
+    #         # shift
+    #         pi.IntegralTerm(pi.Product(eta3, psi.derive(1)), limits=limits),
+    #         pi.ScalarTerm(pi.Product(eta3(1), psi(1)), scale=-1),
+    #         # bc
+    #         pi.ScalarTerm(pi.Product(psi(-1), eta2(0))),
+    #         pi.ScalarTerm(pi.Product(pi.Input(input_vector, index=1), psi(-1)), scale=0 if approx_unbounded_part else 1 - params.alpha_ob),
+    #         # bc \hat y
+    #         pi.ScalarTerm(pi.Product(eta3(-1).derive(spat_order=1), psi(-1)), params.m / 2),
+    #         pi.ScalarTerm(pi.Product(eta3(1).derive(spat_order=1), psi(-1)), params.m / 2),
+    #         pi.ScalarTerm(pi.Product(psi(-1), eta1(1)), params.m / 2),
+    #         # approximate unbouned part
+    #         # pi.ScalarTerm(pi.Product(pi.Input(input_vector, index=1), psi(1)), scale=1-params.alpha_ob if approx_unbounded_part else 0),
+    #     ],
+    #     name=obs_approx_label[2]
+    # )
+    #
+    # return [d_eta1, d_eta2, d_eta3]
+
+
+def build_original_weak_formulation(sys_lbl, spatial_domain, input_, name="system"):
     r"""
     Projection (see :py:meth:`.SwmBaseFraction.scalar_product_hint`
 
@@ -122,63 +225,37 @@ def build_fem_bases(base_lbl, nodes1, nodes2):
     pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4))
 
 
-def build_primal_modal_bases(base_lbl, eigenvalues, domain=(0, 1), complex_=False):
-    if len(eigenvalues) % 2 == 0:
-        raise ValueError("Only odd number of eigenvalues supported.")
+def register_evp_base(base_lbl, eigenvectors, sp_var, domain):
+    if len(eigenvectors) % 2 == 1:
+        raise ValueError("Only even number of eigenvalues supported.")
 
-    phi_store_dict = dict()
     base = list()
-    eigenvector = get_primal_eigenvector(True).subs(subs_list)
-    for i, ev in tqdm(enumerate(eigenvalues),
-                      desc="build modal base",
-                      total=len(eigenvalues)):
-        phi = eigenvector
-
-        # if we have a second 0 eigenvalue: stop and think
-        if np.isclose(ev, 0) and sum([np.isclose(ev_, 0) for ev_ in eigenvalues[: i]]) == 1:
-            raise ValueError("Only one eigenvalue by 0 can be considered!")
-
-        # calculate the limit (instead substitution) if eigenvalue = 0
-        if np.isclose(ev, 0):
-            phi = sp.Matrix([[sp.limit(phi[0], sym.lam, ev)],
-                             [sp.limit(phi[1], sym.lam, ev)]])
-        else:
-            phi = phi.subs(sym.lam, ev)
-
-        # take the already calculated imaginary part of
-        # the eigenvector (see next comment)
-        if i in phi_store_dict:
-            phi = phi_store_dict[i]
-
-        # if complex functions are not desired and a eigenvalue
-        # with non vanishing imaginary part is considered then divide
-        # the corresponding complex function in real and imaginary
-        # part and store one part for the next conjugate
-        # complex eigenvalue / loop
-        elif not complex_:
-            phi_real, phi_imag = phi.expand(complex=True).as_real_imag()
-            phi = phi_real
-            if np.isclose(np.imag(ev), 0):
-                np.testing.assert_array_almost_equal(phi_imag, [[0], [0]])
-            else:
-                phi_store_dict.update({i + 1: phi_imag})
+    for i, ev in enumerate(eigenvectors):
 
         # append eigenvector as SwmBaseFraction
-        funcs1 = [phi[0], sp.diff(phi[0], sym.z)]
-        funcs2 = [phi[1], sp.diff(phi[1], sym.z)]
-        if complex_:
-            scalar = [complex(sp.limit(phi[0], sym.z, 0))]
+        if domain == (0, 1) and sp_var == sym.z:
+            base.append(SwmBaseFraction([
+                pi.LambdifiedSympyExpression([ev[0], sp.diff(ev[0], sp_var)],
+                                             sp_var, domain),
+                pi.LambdifiedSympyExpression([ev[1], sp.diff(ev[1], sp_var)],
+                                             sp_var, domain)],
+                [float(ev[2]), float(ev[3])]))
+
+        elif domain == (-1, 1) and sp_var == sym.theta:
+            base.append(SwmBaseCanonicalFraction([
+                pi.LambdifiedSympyExpression([ev[2], sp.diff(ev[2], sp_var)],
+                                             sp_var, domain)],
+                [float(ev[0]), float(ev[1])]))
+
         else:
-            scalar = [float(sp.limit(phi[0], sym.z, 0))]
-        base.append(SwmBaseFraction([
-            pi.LambdifiedSympyExpression(funcs1, sym.z, domain, complex_),
-            pi.LambdifiedSympyExpression(funcs2, sym.z, domain, complex_)],
-            scalar))
+            raise NotImplementedError
 
     pi.register_base(base_lbl, pi.Base(base))
 
 
 class SwmBaseFraction(pi.ComposedFunctionVector):
+    l2_scalar_product = True
+
     def __init__(self, functions, scalars=None):
         if scalars is None:
             functions, scalars = functions
@@ -186,13 +263,23 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
 
     @staticmethod
     def scalar_product(left, right):
-        def _scalar_product(left, right):
-            return (
-                pi.dot_product_l2(left.members["funcs"][0], right.members["funcs"][0]) +
-                pi.dot_product_l2(left.members["funcs"][1], right.members["funcs"][1]) +
-                left.members["scalars"][0] * right.members["scalars"][0] +
-                left.members["scalars"][1] * right.members["scalars"][1]
-            )
+        if SwmBaseFraction.l2_scalar_product:
+            def _scalar_product(left, right):
+                return (
+                    pi.dot_product_l2(left.members["funcs"][0], right.members["funcs"][0]) +
+                    pi.dot_product_l2(left.members["funcs"][1], right.members["funcs"][1]) +
+                    left.members["scalars"][0] * right.members["scalars"][0] +
+                    left.members["scalars"][1] * right.members["scalars"][1]
+                )
+
+        else:
+            def _scalar_product(left, right):
+                return (
+                    pi.dot_product_l2(left.members["funcs"][0].derive(1), right.members["funcs"][0].derive(1)) +
+                    pi.dot_product_l2(left.members["funcs"][1], right.members["funcs"][1]) +
+                    left.members["scalars"][0] * right.members["scalars"][0] +
+                    left.members["scalars"][1] * right.members["scalars"][1] * param.m
+                )
 
         if isinstance(left, np.ndarray):
             res = list()
@@ -234,4 +321,54 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
             return self
         else:
             return SwmBaseFraction(
+                [f.derive(order) for f in self.members["funcs"]], [0, 0])
+
+
+class SwmBaseCanonicalFraction(pi.ComposedFunctionVector):
+    def __init__(self, functions, scalars=None):
+        if scalars is None:
+            functions, scalars = functions
+        pi.ComposedFunctionVector.__init__(self, functions, scalars)
+
+    @staticmethod
+    def scalar_product(left, right):
+        def _scalar_product(left, right):
+            return (
+                pi.dot_product_l2(left.members["funcs"][0], right.members["funcs"][0]) +
+                left.members["scalars"][0] * right.members["scalars"][0] +
+                left.members["scalars"][1] * right.members["scalars"][1]
+            )
+
+        if isinstance(left, np.ndarray):
+            res = list()
+            for l, r in zip(left, right):
+                res.append(_scalar_product(l, r))
+
+            return np.array(res)
+
+        else:
+            return _scalar_product(left, right)
+
+    def scalar_product_hint(self):
+        r"""
+        Scalar product for the canonical form of the string with mass system:
+
+        Returns:
+            list(callable): Scalar product function handle wrapped inside a list.
+        """
+        return [self.scalar_product]
+
+    def __call__(self, z):
+        return np.array([self.members["scalars"][0]] +
+                        [self.members["scalars"][1]] +
+                        [f(z) for f in self.members["funcs"]])
+
+    def evaluation_hint(self, values):
+        return self(values)[0]
+
+    def derive(self, order):
+        if order == 0:
+            return self
+        else:
+            return SwmBaseCanonicalFraction(
                 [f.derive(order) for f in self.members["funcs"]], [0, 0])

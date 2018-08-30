@@ -5,5 +5,7 @@ Simulation with observer based state feedback of the string with mass model
     :show-inheritance:
     :members:
 
-.. autofunction:: pyinduct.examples.string_with_mass.system.build_weak_formulation
+.. autofunction:: pyinduct.examples.string_with_mass.system.build_original_weak_formulation
+
+.. autofunction:: pyinduct.examples.string_with_mass.system.build_canonical_weak_formulation
 
