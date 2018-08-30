@@ -29,7 +29,7 @@ def build_canonical_weak_formulation(sys_lbl, spatial_domain, input_, name="syst
         \begin{align*}
             -\langle\hat{\eta}_3'(\theta),\psi_j(\theta)\rangle &=
             -\hat{\eta}_3(1)\psi_j'(1) + \hat{\eta}_3(-1)\psi_j'(-1)
-            \langle\hat{\eta}_3(\theta),\psi_j'(\theta)\rangle.
+            +\langle\hat{\eta}_3(\theta),\psi_j'(\theta)\rangle.
         \end{align*}
 
     Args:
