@@ -85,6 +85,21 @@ def sort_eigenvalues(eigenvalues):
     return np.array(eig_vals)
 
 
+class SecondOrderFeedForward(pi.SimulationInput):
+    def __init__(self, desired_handle):
+        pi.SimulationInput.__init__(self)
+        self._y = desired_handle
+
+    def _calc_output(self, **kwargs):
+        y_p = self._y(kwargs["time"] + 1)
+        y_m = self._y(kwargs["time"] - 1)
+        f = (+ ctrl_gain.k0 * (y_p[0] + ctrl_gain.alpha * y_m[0])
+             + ctrl_gain.k1 * (y_p[1] + ctrl_gain.alpha * y_m[1])
+             + y_p[2] + ctrl_gain.alpha * y_m[2])
+
+        return dict(output=param.m / (1 + ctrl_gain.alpha) * f)
+
+
 class Parameters:
     def __init__(self):
         pass
@@ -93,14 +108,26 @@ class Parameters:
 # parameters
 param = Parameters()
 param.m = 1
+param.tau = 1
+param.sigma = 1
+obs_gain = Parameters()
+obs_gain.k0 = 9
+obs_gain.k1 = 10
+obs_gain.alpha = 0
+ctrl_gain = Parameters()
+ctrl_gain.k0 = 2
+ctrl_gain.k1 = 2
+ctrl_gain.alpha = 0
 
 # symbols
 sym = Parameters()
-sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt = [
-    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}")]
+sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt, sym.tau, sym.sigma = [
+    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}", r"\tau", r"\sigma")]
 subs_list = [(sym.m, param.m)]
 
 # print parameters
 pprint("Sytem parameters:")
 pprint(sp.Eq(sym.m, param.m))
+pprint(sp.Eq(sym.tau, param.tau))
+pprint(sp.Eq(sym.sigma, param.sigma))
 pprint()

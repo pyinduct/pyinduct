@@ -178,8 +178,8 @@ def build_original_weak_formulation(sys_lbl, spatial_domain, input_, name="syste
 
 def build_fem_bases(base_lbl, nodes1, nodes2):
     assert nodes1.bounds == nodes2.bounds
-    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=3)
-    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=2)
+    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=4)
+    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=4)
     zero_function = pi.Function.from_constant(0, domain=nodes1.bounds)
     one_function = pi.Function.from_constant(1, domain=nodes1.bounds)
 

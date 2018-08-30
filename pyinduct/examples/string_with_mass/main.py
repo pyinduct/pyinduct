@@ -1,5 +1,6 @@
 from pyinduct.examples.string_with_mass.utils import *
 from pyinduct.examples.string_with_mass.system import *
+from pyinduct.hyperbolic.feedforward import FlatString
 import pyinduct as pi
 
 
@@ -12,14 +13,23 @@ t_end = 10
 temporal_discretization = 300
 temporal_domain = pi.Domain((0, t_end), temporal_discretization)
 
+
+# planning input trajectories
+smooth_transition = pi.SmoothTransition(
+    (0, 1), (2, 4), method="poly", differential_order=2)
+closed_loop_traj = SecondOrderFeedForward(smooth_transition)
+open_loop_traj = FlatString(
+    y0=0, y1=1, z0=spatial_domain.bounds[0], z1=spatial_domain.bounds[1],
+    t0=1, dt=3, params=param)
+
 # controller
-input_ = pi.ConstantTrajectory(0)
+input_ = pi.SimulationInputSum([open_loop_traj])
 
 # system approximation
 sys_lbl = "string_with_mass"
 obs_lbl = "fem_observer"
-fem_funcs1_nodes = pi.Domain(spatial_domain.bounds, 4)
-fem_funcs2_nodes = pi.Domain(spatial_domain.bounds, 3)
+fem_funcs1_nodes = pi.Domain(spatial_domain.bounds, 5)
+fem_funcs2_nodes = pi.Domain(spatial_domain.bounds, 5)
 build_fem_bases(sys_lbl, fem_funcs1_nodes, fem_funcs2_nodes)
 sys_wf = build_original_weak_formulation(
     sys_lbl, spatial_domain, input_, sys_lbl)
@@ -28,7 +38,7 @@ sys_wf = build_original_weak_formulation(
 
 # simulation
 init_cond = {sys_wf.name: [SwmBaseFraction(
-    [pi.Function.from_constant(0), pi.Function.from_constant(0)], [0, 1])]}
+    [pi.Function.from_constant(0), pi.Function.from_constant(0)], [0, 0])]}
 spatial_domains = {sys_wf.name: spatial_domain}
 ceq, ss, init_weights, weights, evald = pi.simulate_systems(
     [sys_wf], init_cond, temporal_domain, spatial_domains,
