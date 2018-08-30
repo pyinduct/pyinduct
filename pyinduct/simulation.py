@@ -1138,8 +1138,18 @@ def parse_weak_formulation(weak_form, finalize=False):
 
             components = []
             for frac in fractions:
-                area = domain_intersection(term.limits, frac.nonzero)
-                res, err = integrate_function(frac, area)
+                from pyinduct.core import ComposedFunctionVector
+                if isinstance(frac, ComposedFunctionVector):
+                    res = 0
+                    for f in frac.members["funcs"]:
+                        area = domain_intersection(term.limits, f.nonzero)
+                        r, err = integrate_function(f, area)
+                        res += r
+                    for s in frac.members["scalars"]:
+                        res += s
+                else:
+                    area = domain_intersection(term.limits, frac.nonzero)
+                    res, err = integrate_function(frac, area)
                 components.append(res)
 
             if placeholders["scalars"]:
