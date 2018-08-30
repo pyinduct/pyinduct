@@ -211,6 +211,7 @@ def build_fem_bases(base_lbl, nodes1, nodes2):
     pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20 + base40))
     pi.register_base(base_lbl + "_4_x1", pi.Base(base10 + base20 + base4_x1))
 
+
     # bases for visualization
     fb1 = list(fem_funcs1.fractions)
     fb2 = list(fem_funcs2.fractions)
@@ -219,10 +220,10 @@ def build_fem_bases(base_lbl, nodes1, nodes2):
     zb1 = [zero_function for _ in range(len(nodes1))]
     zb2 = [zero_function for _ in range(len(nodes2))]
     zb4 = [zero_function]
-    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4))
-    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4))
+    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2 + zb4, matching_bases=[base_lbl]))
+    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4, matching_bases=[base_lbl]))
+    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4, matching_bases=[base_lbl]))
+    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4, matching_bases=[base_lbl]))
 
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain):

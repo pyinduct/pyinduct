@@ -1,5 +1,4 @@
-from pyinduct.examples.string_with_mass.utils import *
-from pyinduct.examples.string_with_mass.system import *
+from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
 import pyinduct as pi
 
@@ -13,7 +12,6 @@ t_end = 10
 temporal_discretization = 300
 temporal_domain = pi.Domain((0, t_end), temporal_discretization)
 
-
 # planning input trajectories
 smooth_transition = pi.SmoothTransition(
     (0, 1), (2, 4), method="poly", differential_order=2)
@@ -22,15 +20,18 @@ open_loop_traj = FlatString(
     y0=0, y1=1, z0=spatial_domain.bounds[0], z1=spatial_domain.bounds[1],
     t0=1, dt=3, params=param)
 
-# controller
-input_ = pi.SimulationInputSum([open_loop_traj])
-
-# system approximation
-sys_lbl = "string_with_mass"
+# set up bases
+sys_lbl = "fem_system"
 obs_lbl = "fem_observer"
 fem_funcs1_nodes = pi.Domain(spatial_domain.bounds, 5)
 fem_funcs2_nodes = pi.Domain(spatial_domain.bounds, 5)
 build_fem_bases(sys_lbl, fem_funcs1_nodes, fem_funcs2_nodes)
+
+# controller
+controller = build_controller(sys_lbl)
+input_ = pi.SimulationInputSum([closed_loop_traj, controller])
+
+# system approximation
 sys_wf = build_original_weak_formulation(
     sys_lbl, spatial_domain, input_, sys_lbl)
 # obs_wf = build_canonical_weak_formulation(
