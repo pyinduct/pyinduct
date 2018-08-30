@@ -1082,8 +1082,18 @@ def parse_weak_formulation(weak_form, finalize=False):
                 # extract constant term and compute integral
                 components = []
                 for func in shape_funcs.fractions:
-                    area = domain_intersection(term.limits, func.nonzero)
-                    res, err = integrate_function(func, area)
+                    from pyinduct.core import ComposedFunctionVector
+                    if isinstance(func, ComposedFunctionVector):
+                        res = 0
+                        for f in func.members["funcs"]:
+                            area = domain_intersection(term.limits, f.nonzero)
+                            r, err = integrate_function(f, area)
+                            res += r
+                        for s in func.members["scalars"]:
+                            res += s
+                    else:
+                        area = domain_intersection(term.limits, func.nonzero)
+                        res, err = integrate_function(func, area)
                     components.append(res)
 
                 a = Scalars(np.atleast_2d(components))

@@ -517,8 +517,27 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(np.array([func.scale(factor) for func in self.members["funcs"]]),
-                              np.array([scal * factor for scal in self.members["scalars"]]))
+        if isinstance(factor, ComposedFunctionVector):
+            if not len(self.members["funcs"]) == len(factor.members["funcs"]):
+                raise ValueError
+
+            if not len(self.members["scalars"]) == len(factor.members["scalars"]):
+                raise ValueError
+
+            return self.__class__(np.array(
+                [func.scale(scale) for func, scale in
+                 zip(self.members["funcs"], factor.members["funcs"])]),
+                [scalar * scale for scalar, scale in
+                 zip(self.members["scalars"], factor.members["scalars"])],
+            )
+
+        elif isinstance(factor, Number):
+            return self.__class__(np.array(
+                [func.scale(factor) for func in self.members["funcs"]]),
+                np.array([scal * factor for scal in self.members["scalars"]]))
+
+        else:
+            raise NotImplementedError
 
 
 class Base:
