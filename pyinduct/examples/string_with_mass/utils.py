@@ -49,15 +49,16 @@ def plot_eigenvalues(eigenvalues):
     ax.set_ylabel(r"$Im(\lambda)$")
     plt.show()
 
-def find_eigenvalues(characteristic_equation, n, grid):
-    num_char_eq = lambdify(sym.lam, characteristic_equation, modules="numpy")
-    eig_vals =  pi.find_roots(
-        num_char_eq, grid, n_roots=n, cmplx=True if len(grid) == 2 else False,
-    sort_mode="component")
-    # two eigenvalues by 0
-    eig_vals = np.array(list(eig_vals) + [0])
+def find_eigenvalues(n):
+    def characteristic_equation(om):
+        return om * (np.sin(om) + param.m * om * np.cos(om))
 
-    return sort_eigenvalues(eig_vals)
+    eig_om = pi.find_roots(
+        characteristic_equation, np.linspace(0, np.pi * n, 5 * n), n)
+
+    eig_vals = list(sum([(1j * ev, -1j * ev) for ev in eig_om], ()))
+
+    return eig_om, sort_eigenvalues(eig_vals)
 
 def sort_eigenvalues(eigenvalues):
     imag_ev = list()
@@ -95,8 +96,8 @@ param.m = 1
 
 # symbols
 sym = Parameters()
-sym.m, = [sp.Symbol(sym, real=True) for sym in (r"m")]
-sym.lam = sp.symbols(r"lambda")
+sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt = [
+    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}")]
 subs_list = [(sym.m, param.m)]
 
 # print parameters
