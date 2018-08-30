@@ -553,7 +553,7 @@ class Base:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
     """
-    def __init__(self, fractions):
+    def __init__(self, fractions, matching_bases=list()):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -562,6 +562,7 @@ class Base:
                 raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
+        self.matching_bases = matching_bases
 
     def __iter__(self):
         return iter(self.fractions)
@@ -612,8 +613,15 @@ class Base:
         Returns:
             Transformation handle
         """
-        if info.src_base.__class__ == info.dst_base.__class__:
+        if info.src_lbl in self.matching_bases:
+            def handle(weights):
+                return np.dot(np.eye(len(self.fractions)), weights)
+
+            return handle, None
+
+        elif info.src_base.__class__ == info.dst_base.__class__:
             return self._transformation_factory(info), None
+
         else:
             # No Idea what to do.
             return None, None
