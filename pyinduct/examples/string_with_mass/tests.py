@@ -44,3 +44,13 @@ class StringWithMassTest(unittest.TestCase):
                                return_window=True))
             pg.QAPP.exec_()
 
+    def test_modal_cf_wf(self):
+        n = 4
+        base_label = "base"
+        base_label_cf = "base_cf"
+        build_modal_bases(base_label, None, None, base_label_cf, n)
+        wf = build_canonical_weak_formulation(base_label_cf, pi.Domain((-1, 1), 2), pi.ConstantTrajectory(0), "")
+        ce = pi.parse_weak_formulation(wf)
+        pprint(ce.dynamic_forms[base_label_cf].matrices["E"][1][1])
+        pprint(ce.dynamic_forms[base_label_cf].matrices["E"][0][1])
+

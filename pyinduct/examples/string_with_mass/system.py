@@ -52,7 +52,7 @@ def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="syst
         :py:class:`pyinduct.simulation.Observer`: Observer
     """
     x = pi.FieldVariable(obs_lbl)
-    psi = pi.TestFunction(obs_lbl)
+    psi = pi.TestFunction(obs_lbl + "_test")
     psi1 = pi.TestFunction(obs_lbl + "_10")
     psi2 = pi.TestFunction(obs_lbl + "_20")
     psi3 = pi.TestFunction(obs_lbl + "_30")
@@ -69,12 +69,12 @@ def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="syst
             pi.IntegralTerm(pi.Product(x.derive(temp_order=1), psi), limits=bounds, scale=-1),
             pi.ScalarTerm(pi.Product(u, psi1(dummy)), scale=2 / param.m),
             pi.ScalarTerm(pi.Product(u, psi2(dummy)), scale=2 / param.m),
+            pi.ScalarTerm(pi.Product(u, psi_3_int_intup_scale_f(dummy)), scale=-1),
             pi.ScalarTerm(pi.Product(x(dummy), psi2_x1(dummy))),
             pi.ScalarTerm(pi.Product(x(1), psi3(1)), scale=-1),
             pi.ScalarTerm(pi.Product(x(dummy), psi3_x2_at_m1(dummy))),
             pi.ScalarTerm(pi.Product(x(1), psi3(-1)), scale=-1),
             pi.IntegralTerm(pi.Product(x, psi3.derive(1)), limits=bounds),
-            pi.ScalarTerm(pi.Product(u, psi_3_int_intup_scale_f(dummy)), scale=-1),
             pi.ScalarTerm(pi.Product(x(1), psi3_integrated(dummy)), scale=-param.m ** -1)
         ],
         name=name
@@ -213,10 +213,9 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
         return 0 if z < 0 else (0.5 if z == 0 else 1)
 
     # bases for the canonical form
-    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=1)
+    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=3)
     cf_zero_func = pi.Function.from_constant(0, domain=cf_nodes.bounds)
     cf_one_func = pi.Function.from_constant(1, domain=cf_nodes.bounds)
-    input_scale = lambda z: -2 / param.m * (heavi(z) - 1) * z
 
     cf_base1 = [SwmBaseCanonicalFraction([cf_zero_func], [1, 0])]
     cf_base10 = [SwmBaseCanonicalFraction([cf_zero_func], [0, 0])]
@@ -235,20 +234,78 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
         cf_base3_integrated.append(SwmBaseCanonicalFraction([pi.Function.from_constant(
             float(integrate_function(f, [(-1, 1)])[0]), domain=cf_nodes.bounds)], [0, 0]))
         cf_base3_int_ip_scale.append(SwmBaseCanonicalFraction([pi.Function.from_constant(
-            float(integrate_function(lambda z: f(z) * input_scale(z), [(-1, 1)])[0]),
+            float(integrate_function(lambda z: 2 / param.m * z * f(z), [(-1, 0)])[0]),
             domain=cf_nodes.bounds)], [0, 0]))
 
     # bases for the system / weak formulation
     pi.register_base(cf_base_lbl, pi.Base(cf_base1 + cf_base2 + cf_base3))
+    pi.register_base(cf_base_lbl + "_test", pi.Base(cf_base1 + cf_base2 + cf_base3))
     pi.register_base(cf_base_lbl + "_10", pi.Base(cf_base1 + cf_base20 + cf_base30))
     pi.register_base(cf_base_lbl + "_20", pi.Base(cf_base10 + cf_base2 + cf_base30))
     pi.register_base(cf_base_lbl + "_30", pi.Base(cf_base10 + cf_base20 + cf_base3))
-    pi.register_base(cf_base_lbl + "_21", pi.Base(cf_base10 + cf_base21 + cf_base3))
+    pi.register_base(cf_base_lbl + "_21", pi.Base(cf_base10 + cf_base21 + cf_base30))
     pi.register_base(cf_base_lbl + "_32_at_m1", pi.Base(cf_base10 + cf_base20 + cf_base32_at_m1))
     pi.register_base(cf_base_lbl + "_3_integrated",
                      pi.Base(cf_base10 + cf_base20 + cf_base3_integrated))
     pi.register_base(cf_base_lbl + "_3_integred_with_input_scale",
                      pi.Base(cf_base10 + cf_base20 + cf_base3_int_ip_scale))
+
+    # bases for visualization
+    ob1 = [cf_one_func]
+    ob2 = [cf_one_func]
+    fb3 = list(cf_fem_funcs.fractions)
+    zb1 = [cf_zero_func]
+    zb2 = [cf_zero_func]
+    zb3 = [cf_zero_func for _ in range(len(cf_nodes))]
+    pi.register_base(cf_base_lbl + "_1_visu", pi.Base(ob1 + zb2 + zb3, matching_bases=[base_lbl]))
+    pi.register_base(cf_base_lbl + "_2_visu", pi.Base(zb1 + ob2 + zb3, matching_bases=[base_lbl]))
+    pi.register_base(cf_base_lbl + "_3_visu", pi.Base(zb1 + zb2 + fb3, matching_bases=[base_lbl]))
+
+def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
+    # bases for the canonical form
+    input_scale = 2 / param.m * sym.theta
+
+    # get eigenvectors
+    from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation \
+        import build_bases_for_modal_observer_approximation
+    primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals = (
+        build_bases_for_modal_observer_approximation(ncf))
+
+    register_evp_base(cf_base_lbl, primal_base_nf, sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_test", dual_base_nf, sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_10",
+                      [[ev[0] * 1, ev[1] * 0, ev[2] * 0]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_20",
+                      [[ev[0] * 0, ev[1] * 1, ev[2] * 0]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_30",
+                      [[ev[0] * 0, ev[1] * 0, ev[2] * 1]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_21",
+                      [[ev[1] * 1, ev[0] * 0, ev[2] * 0]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_32_at_m1",
+                      [[ev[0] * 0, ev[2].subs(sym.theta, -1), ev[1] * 0]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_3_integrated",
+                      [[ev[0] * 0, ev[1] * 0, sp.integrate(ev[2], (sym.theta, -1, 1))]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+    register_evp_base(cf_base_lbl + "_3_integred_with_input_scale",
+                      [[ev[0] * 0, ev[1] * 0, sp.integrate(ev[2] * input_scale, (sym.theta, -1, 0))]
+                       for ev in dual_base_nf], sym.theta, (-1, 1))
+
+    pi.register_base(
+        cf_base_lbl + "_1_visu", pi.Base(
+            [pi.Function.from_constant(ev.members["scalars"][0], domain=(-1, 1))
+             for ev in pi.get_base(cf_base_lbl)]))
+    pi.register_base(
+        cf_base_lbl + "_2_visu", pi.Base(
+            [pi.Function.from_constant(ev.members["scalars"][1], domain=(-1, 1))
+             for ev in pi.get_base(cf_base_lbl)]))
+    pi.register_base(
+        cf_base_lbl + "_3_visu", pi.Base(
+            [ev.members["funcs"][0] for ev in pi.get_base(cf_base_lbl)]))
 
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain):

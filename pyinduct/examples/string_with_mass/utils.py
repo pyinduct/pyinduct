@@ -66,16 +66,12 @@ def sort_eigenvalues(eigenvalues):
     for ev in eigenvalues:
         if np.isclose(np.imag(ev), 0):
             real_ev.append(0 if np.isclose(ev, 0) else np.real(ev))
-        elif np.imag(ev) > 0:
+        else:
             imag_ev.append(ev)
-            # make sure that the conjugated complex eigenvalue to `ev` exists
-            if not sum([np.isclose(_ev, np.conj(ev)) for _ev in eigenvalues]) == 1:
-                raise ValueError("Complex conjugate to {} are not found.".format(ev))
 
     eig_vals = list(np.flipud(sorted(real_ev)))
-    for ev in np.array(imag_ev)[np.argsort(np.imag(imag_ev))]:
-        eig_vals.append(np.real(ev) + 1j * np.imag(ev))
-        eig_vals.append(np.real(ev) - 1j * np.imag(ev))
+    for ev in np.array(imag_ev)[np.argsort(np.abs(np.imag(imag_ev)))]:
+        eig_vals.append(ev)
 
     if len(eigenvalues) != len(eig_vals):
         raise ValueError(

@@ -28,11 +28,14 @@ def main():
 
     # set up bases
     sys_lbl = "fem_system"
-    obs_lbl = "fem_observer"
+    obs_fem_lbl = "fem_observer"
+    obs_modal_lbl = "modal_observer"
     n1 = 6
     n2 = 6
-    ncf = 8
-    build_fem_bases(sys_lbl, n1, n2, obs_lbl, ncf)
+    n_obs_fem = 7
+    n_obs_modal = 30
+    build_fem_bases(sys_lbl, n1, n2, obs_fem_lbl, n_obs_fem)
+    build_modal_bases(0, 0, obs_modal_lbl, n_obs_modal)
 
     # controller
     controller = build_controller(sys_lbl)
@@ -41,38 +44,68 @@ def main():
     # system approximation
     sys_wf = build_original_weak_formulation(
         sys_lbl, spatial_domain, input_, sys_lbl)
-    obs_wf = build_canonical_weak_formulation(
-        obs_lbl, spat_domain_cf, input_, obs_lbl)
+    obs_fem_wf = build_canonical_weak_formulation(
+        obs_fem_lbl, spat_domain_cf, input_, obs_fem_lbl)
+    obs_modal_wf = build_canonical_weak_formulation(
+        obs_modal_lbl, spat_domain_cf, input_, obs_modal_lbl)
 
     # simulation
     init_cond = {
         sys_wf.name: [SwmBaseFraction(
-        [pi.Function.from_constant(0), pi.Function.from_constant(0)], [0, 0])],
-        obs_wf.name: [SwmBaseCanonicalFraction(
-        [pi.Function.from_constant(0)], [0, 0])]}
-    spatial_domains = {sys_wf.name: spatial_domain, obs_wf.name: spat_domain_cf}
+            [pi.Function.from_constant(0), pi.Function.from_constant(0)], [0, 0])],
+        obs_fem_wf.name: [SwmBaseCanonicalFraction(
+            [pi.Function.from_constant(0)], [0, 0])],
+        obs_modal_wf.name: [SwmBaseCanonicalFraction(
+            [pi.Function.from_constant(0)], [0, 0])]}
+    spatial_domains = {sys_wf.name: spatial_domain,
+                       obs_fem_wf.name: spat_domain_cf,
+                       obs_modal_wf.name: spat_domain_cf}
     ceq, ss, init_weights, weights, evald = pi.simulate_systems(
-        [sys_wf, obs_wf], init_cond, temporal_domain, spatial_domains,
+        [sys_wf, obs_fem_wf, obs_modal_wf],
+        init_cond, temporal_domain, spatial_domains,
     )
 
     # check eigenvalues of the approximation
     pprint()
     pprint("Eigenvalues of the system:")
-    pprint(sort_eigenvalues(np.linalg.eigvals(ceq[0].dynamic_forms["fem_system"].e_n_pb_inv @
-                                              ceq[0].dynamic_forms["fem_system"].matrices["E"][0][1])))
-    pprint("Eigenvalues of the observer:")
-    pprint(sort_eigenvalues(np.linalg.eigvals(ceq[1].dynamic_forms["fem_observer"].e_n_pb_inv @
-                                              ceq[1].dynamic_forms["fem_observer"].matrices["E"][0][1])))
+    A_sys = (-ceq[0].dynamic_forms[sys_lbl].e_n_pb_inv @
+             ceq[0].dynamic_forms[sys_lbl].matrices["E"][0][1])
+    A_obs = (-ceq[1].dynamic_forms[obs_fem_lbl].e_n_pb_inv @
+             ceq[1].dynamic_forms[obs_fem_lbl].matrices["E"][0][1])
+    A_modal_obs = (-ceq[2].dynamic_forms[obs_modal_lbl].e_n_pb_inv @
+             ceq[2].dynamic_forms[obs_modal_lbl].matrices["E"][0][1])
+    pprint("Eigenvalues [{}, {}, {}]".format(sys_lbl, obs_fem_lbl, obs_modal_lbl))
+    pprint([np.linalg.eigvals(A_) for A_ in (A_sys, A_obs, A_modal_obs)])
 
+    # visualization data
+    split_indizes = [n1 + n2 + 1,
+                     n1 + n2 + 1 + n_obs_fem + 2,
+                     n1 + n2 + 1 + n_obs_fem + 2 + n_obs_modal]
+    ## system
+    weights_sys = weights[:, :split_indizes[0]]
+    eval_data1 = pi.get_sim_result(sys_lbl + "_1_visu", weights_sys, temporal_domain, spatial_domain, 0, 0, name="x1(z,t)")[0]
+    eval_data3 = pi.get_sim_result(sys_lbl + "_3_visu", weights_sys, temporal_domain, spatial_domain, 0, 0, name="xi1(t)")[0]
+    ## fem observer
+    weights_fem_obs = weights[:, split_indizes[0]: split_indizes[1]]
+    eta1_data = pi.get_sim_result(obs_fem_lbl + "_1_visu", weights_fem_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 0)[0]
+    dz_et3_m1_0 = pi.get_sim_result(obs_fem_lbl + "_3_visu", weights_fem_obs, temporal_domain, pi.Domain((-1, 0), num=spatial_discretization), 0, 1)[1]
+    dz_et3_0_p1 = pi.get_sim_result(obs_fem_lbl + "_3_visu", weights_fem_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 1)[1]
+    fem_obs_ed = pi.EvalData(eta1_data.input_data, -param.m / 2 * (
+        dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data),
+        name="\hat x1_fem(z,t)"
+    )
+    ## fem observer
+    weights_modal_obs = weights[:, split_indizes[1]: split_indizes[2]]
+    eta1_data_m = pi.get_sim_result(obs_modal_lbl + "_1_visu", weights_modal_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 0)[0]
+    dz_et3_m1_0_m = pi.get_sim_result(obs_modal_lbl + "_3_visu", weights_modal_obs, temporal_domain, pi.Domain((-1, 0), num=spatial_discretization), 0, 1)[1]
+    dz_et3_0_p1_m = pi.get_sim_result(obs_modal_lbl + "_3_visu", weights_modal_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 1)[1]
+    modal_obs_ed = pi.EvalData(eta1_data.input_data, -param.m / 2 * (
+        dz_et3_m1_0_m.output_data + np.fliplr(dz_et3_0_p1_m.output_data) + eta1_data_m.output_data),
+        name="\hat x1_modal(z,t)"
+    )
 
-    # visualization
-    eval_data1 = pi.get_sim_result(sys_lbl + "_1_visu", weights, temporal_domain, spatial_domain, 0, 0, name="x1(z,t)")
-    # eval_data2 = pi.get_sim_result(sys_lbl + "_2_visu", weights, temporal_domain, spatial_domain, 0, 0, name="x2(z,t)")
-    eval_data3 = pi.get_sim_result(sys_lbl + "_3_visu", weights, temporal_domain, spatial_domain, 0, 0, name="xi1(t)")
-    # eval_data4 = pi.get_sim_result(sys_lbl + "_4_visu", weights, temporal_domain, spatial_domain, 0, 0, name="xi2(t)")
     plots = list()
-    plots.append(pi.PgAnimatedPlot(eval_data1 + eval_data3))
-    # plots.append(pi.PgAnimatedPlot(eval_data2 + eval_data4))
+    plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed, modal_obs_ed]))
     pi.show()
 
 
