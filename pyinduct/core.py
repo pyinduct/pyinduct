@@ -556,10 +556,11 @@ class Base:
     def __init__(self, fractions, matching_bases=list(), associated_bases=list()):
         fractions = sanitize_input(fractions, BaseFraction)
 
-        # check type
-        for frac in fractions:
-            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
-                raise ValueError("Provided fractions must be compatible!")
+        # TODO: check if this is really neccassys for stacked bases
+        # # check type
+        # for frac in fractions:
+        #     if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
+        #         raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
         self.matching_bases = matching_bases
