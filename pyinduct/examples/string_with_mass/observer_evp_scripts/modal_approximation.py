@@ -1,3 +1,4 @@
+from pyinduct.examples.string_with_mass.utils import sym, param
 from sympy.utilities import lambdify
 from scipy.integrate import quad
 from tqdm import tqdm
@@ -5,79 +6,87 @@ import numpy as np
 import sympy as sp
 
 
+def _sum(iterable):
+    sum = iterable[0] * 0
+    for v in iterable:
+        sum += v
+    return sum
+
+
+def _discard_small_values(mat, eps=10 ** -6):
+    mat = np.array(mat).astype(complex)
+    rmat = np.real(mat)
+    rmat[np.abs(rmat) < eps] = 0
+    imat = np.imag(mat)
+    imat[np.abs(imat) < eps] = 0
+    return np.real_if_close(mat)
+
+
+def _pprint(item, discard_sv=True):
+    if discard_sv and isinstance(item, (np.ndarray, sp.Matrix)):
+        item = sp.Matrix(_discard_small_values(item))
+    elif discard_sv and isinstance(item, (list, tuple)):
+        item = [sp.Matrix(_discard_small_values(it)) for it in item]
+    else:
+        item = sp.Matrix(item)
+    sp.pprint(item, num_columns=200)
+
+
+def _numeric_integration(f1, f2, bounds, coef):
+    iv, lb, ub = bounds
+    f1 = sp.sympify(f1)
+    if any([c in f1.atoms(sp.Function) or sp.diff(c, sym.t) in f1.atoms(sp.Function)
+            for c in coef]):
+        vec, _ = _linear_eq_to_matrix([f1], coef)
+        if_ = [lambdify(iv, el * f2, modules="numpy") for el in vec]
+        res = np.sum(
+            [quad(f, lb, ub)[0] * c for c, f in zip(coef, if_)])
+        vec, _ = _linear_eq_to_matrix([f1],
+                                      [sp.diff(c, sym.t) for c in coef])
+        if_ = [lambdify(iv, el * f2, modules="numpy") for el in vec]
+        res += np.sum([quad(f, lb, ub)[0] * sp.diff(c, sym.t) for c, f in
+                       zip(coef, if_)])
+    else:
+        if_ = lambdify(iv, (f1 * f2).doit(), modules="numpy")
+        res = quad(if_, lb, ub)[0]
+    return res
+
+
+def _l2_ip(f1, f2, coef):
+    return _numeric_integration(f1, f2, (sym.z, 0, 1), coef)
+
+
+def _l2_ip_nf(f1, f2, coef, lb=-1, ub=1):
+    return _numeric_integration(f1, f2, (sym.theta, lb, ub), coef)
+
+
+def _inner_product(primal, dual, coef):
+    return (_l2_ip(sp.diff(primal[0], sym.z), sp.diff(dual[0], sym.z), coef)
+            + _l2_ip(primal[1], dual[1], coef)
+            + primal[2] * dual[2] +
+            + param.m * primal[3] * dual[3])
+
+
+def _inner_product_nf(primal, dual, coef):
+    return (primal[0] * dual[0] + primal[1] * dual[1]
+            + _l2_ip_nf(primal[2], dual[2], coef))
+
+
+def _linear_eq_to_matrix(leq, coef):
+    mat, _leq = sp.linear_eq_to_matrix(leq, coef)
+    return mat, -_leq
+
+
 def build_bases_for_modal_observer_approximation(m):
     if m % 2 == 1:
         raise ValueError("Only even number of eigenvalues supported.")
 
     n = int(m / 2)
+    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2))]
 
     # solve eigenvalue problems in  normal form coordinates by hand: manual = 1
     # or derive from the solutions in original coordinates: manual = 0
     manual = 1
-
-
-    # parameters
-    mass = 1
-    spring_damper = 0
-    if spring_damper:
-        kd0, ks0, kd1, ks1 = [1] * 4
-    else:
-        k0, k1, alpha = 9, 10, 0
-    from pyinduct.examples.string_with_mass.utils import sym
-    om, theta, z, t, u, yt, m = sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt, sym.m
-    coefficients = [c(t) for c in sp.symbols("c_:{}".format(n*2))]
-
-
-    # some helper
-    def sum_(iterable):
-        sum = iterable[0] * 0
-        for v in iterable:
-            sum += v
-        return sum
-    def discard_small_values(mat, eps=10 ** -6):
-        mat = np.array(mat).astype(complex)
-        rmat = np.real(mat)
-        rmat[np.abs(rmat) < eps] = 0
-        imat = np.imag(mat)
-        imat[np.abs(imat) < eps] = 0
-        return np.real_if_close(mat)
-    def pprint(item, discard_sv=True):
-        if discard_sv and isinstance(item, (np.ndarray, sp.Matrix)):
-            item = sp.Matrix(discard_small_values(item))
-        elif discard_sv and isinstance(item, (list, tuple)):
-            item = [sp.Matrix(discard_small_values(it)) for it in item]
-        else:
-            item = sp.Matrix(item)
-        sp.pprint(item, num_columns=200)
-    def numeric_integration(f1, f2, bounds):
-        iv, lb, ub = bounds
-        f1 = sp.sympify(f1)
-        if any([c in f1.atoms(sp.Function) or sp.diff(c, t) in f1.atoms(sp.Function) for c in coefficients]):
-            vec, _ = linear_eq_to_matrix([f1], coefficients)
-            if_ = [lambdify(iv, el * f2, modules="numpy") for el in vec]
-            res = np.sum([quad(f, lb, ub)[0] * c for c, f in zip(coefficients, if_)])
-            vec, _ = linear_eq_to_matrix([f1], [sp.diff(c, t) for c in coefficients])
-            if_ = [lambdify(iv, el * f2, modules="numpy") for el in vec]
-            res += np.sum([quad(f, lb, ub)[0] * sp.diff(c, t) for c, f in zip(coefficients, if_)])
-        else:
-            if_ = lambdify(iv, (f1 * f2).doit(), modules="numpy")
-            res = quad(if_, lb, ub)[0]
-        return res
-    def l2_ip(f1, f2):
-        return numeric_integration(f1, f2, (z, 0, 1))
-    def l2_ip_nf(f1, f2, lb=-1, ub=1):
-        return numeric_integration(f1, f2, (theta, lb, ub))
-    def inner_product(primal, dual):
-        return (l2_ip(sp.diff(primal[0], z), sp.diff(dual[0], z))
-                + l2_ip(primal[1], dual[1])
-                + primal[2] * dual[2] +
-                + mass * primal[3] * dual[3])
-    def inner_product_nf(primal, dual):
-        return (primal[0] * dual[0] + primal[1] * dual[1]
-                + l2_ip_nf(primal[2], dual[2]))
-    def linear_eq_to_matrix(leq, coef):
-        mat, _leq = sp.linear_eq_to_matrix(leq, coef)
-        return mat, -_leq
 
 
     # compute eigenvalues
@@ -88,25 +97,25 @@ def build_bases_for_modal_observer_approximation(m):
     # fill primal base list
     from pyinduct.examples.string_with_mass.observer_evp_scripts.evp_primal import phi0, phi00, real_phi, imag_phi
     real_phi, imag_phi, phi0, phi00 = [
-        it.subs(m, mass)
+        it.subs(sym.m, param.m)
         for it in (real_phi, imag_phi, phi0, phi00)]
     primal_base = [list(phi0), list(phi00)]
     for _om in eig_om[1:]:
-        primal_base.append(list(real_phi.subs(om, _om)))
-        primal_base.append(list(imag_phi.subs(om, _om)))
+        primal_base.append(list(real_phi.subs(sym.om, _om)))
+        primal_base.append(list(imag_phi.subs(sym.om, _om)))
     if 1: # manual:
         from pyinduct.examples.string_with_mass.observer_evp_scripts.evp_primal_nf import (
             real_eta as __real_eta, imag_eta as __imag_eta, eta0 as __eta0,
             eta00 as __eta00)
         __real_eta, __imag_eta, __eta0, __eta00 = [
-            it.subs(m, mass)
+            it.subs(sym.m, param.m)
             for it in (__real_eta, __imag_eta, __eta0, __eta00)]
         primal_base_nf = [list(__eta0), list(__eta00)]
         for _om in eig_om[1:]:
-            primal_base_nf.append(list(__real_eta.subs(om, _om)))
-            primal_base_nf.append(list(__imag_eta.subs(om, _om)))
+            primal_base_nf.append(list(__real_eta.subs(sym.om, _om)))
+            primal_base_nf.append(list(__imag_eta.subs(sym.om, _om)))
     else:
-        _theta = theta - 1
+        _theta = sym.theta - 1
         raise NotImplementedError(
             "Leads to a differential equation, which coincides with the"
             "eigenvalue problem. Hence, there is no alternetive 'easy way'.")
@@ -115,74 +124,84 @@ def build_bases_for_modal_observer_approximation(m):
     # fill dual base list
     from pyinduct.examples.string_with_mass.observer_evp_scripts.evp_dual import psi0, psi00, real_psi, imag_psi
     real_psi, imag_psi, psi0, psi00 = [
-        it.subs(m, mass)
+        it.subs(sym.m, param.m)
         for it in (real_psi, imag_psi, psi0, psi00)]
     dual_base = [list(psi00), list(psi0)]
     for _om in eig_om[1:]:
-        dual_base.append(list(real_psi.subs(om, _om)))
-        dual_base.append(list(imag_psi.subs(om, _om)))
+        dual_base.append(list(real_psi.subs(sym.om, _om)))
+        dual_base.append(list(imag_psi.subs(sym.om, _om)))
     if manual:
         from pyinduct.examples.string_with_mass.observer_evp_scripts.evp_dual_nf import (
             real_eta as _real_eta, imag_eta as _imag_eta, eta0 as _eta0,
             eta00 as _eta00)
         _real_eta, _imag_eta, _eta0, _eta00 = [
-            it.subs(m, mass)
+            it.subs(sym.m, param.m)
             for it in (_real_eta, _imag_eta, _eta0, _eta00)]
         dual_base_nf = [list(_eta00), list(_eta0)]
         for _om in eig_om[1:]:
-            dual_base_nf.append(list(_real_eta.subs(om, _om)))
-            dual_base_nf.append(list(_imag_eta.subs(om, _om)))
+            dual_base_nf.append(list(_real_eta.subs(sym.om, _om)))
+            dual_base_nf.append(list(_imag_eta.subs(sym.om, _om)))
     else:
-        _theta = theta + 1
+        _theta = sym.theta + 1
         dual_base_flat = [_theta - 1, sp.Integer(1)]
         for _om in eig_om[1:]:
             dual_base_flat.append(
-                (sp.cos(om * _theta)).subs(om, _om))
+                (sp.cos(sym.om * _theta)).subs(sym.om, _om))
             dual_base_flat.append(
-                (sp.sin(om * _theta)).subs(om, _om))
-        dual_base_nf = [[f.subs(theta, -1),
-                         sp.diff(f, theta).subs(theta, -1),
-                         sp.diff(f, theta, theta)]
+                (sp.sin(sym.om * _theta)).subs(sym.om, _om))
+        dual_base_nf = [[f.subs(sym.theta, -1),
+                         sp.diff(f, sym.theta).subs(sym.theta, -1),
+                         sp.diff(f, sym.theta, sym.theta)]
                         for f in dual_base_flat]
 
 
     # build bi-orthonormal base
     for i, (ef, d_ef, d_ef_nf) in enumerate(zip(primal_base, dual_base, dual_base_nf)):
-        c = inner_product(ef, d_ef)
+        c = _inner_product(ef, d_ef, coef)
         dual_base[i] = [it / c for it in d_ef]
-    b = np.array([1, 1, (sp.sign(theta) - 1) * .5 * theta]) * 2 / mass
+    b = np.array([1, 1, (sp.sign(sym.theta) - 1) * .5 * sym.theta]) * 2 / param.m
     for i, _ in enumerate(dual_base_nf):
         if i % 2 == 0:
-            scale = dual_base[i + 1][1].subs(z, 1) / inner_product_nf(
-                b, dual_base_nf[i + 1])
+            scale = dual_base[i + 1][1].subs(sym.z, 1) / _inner_product_nf(
+                b, dual_base_nf[i + 1], coef)
             dual_base_nf[i] = list(np.array(dual_base_nf[i]) * -scale * (-1 if i == 0 else 1))
             dual_base_nf[i + 1] = list(np.array(dual_base_nf[i + 1]) * scale)
 
 
     # print bases
     print("\n primal base")
-    pprint(primal_base, discard_sv=False)
+    _pprint(primal_base, discard_sv=False)
     print("\n dual base")
-    pprint(dual_base, discard_sv=False)
+    _pprint(dual_base, discard_sv=False)
     print("\n primal normal form base")
-    pprint(primal_base_nf, discard_sv=False)
+    _pprint(primal_base_nf, discard_sv=False)
     print("\n dual normal form base")
-    pprint(dual_base_nf, discard_sv=False)
+    _pprint(dual_base_nf, discard_sv=False)
 
+
+    return primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals
+
+
+def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals):
+    m = len(primal_base)
+    n = int(m / 2)
+    assert all([len(it_) == m for it_ in (primal_base_nf, dual_base, dual_base_nf, eig_vals)])
+
+    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2))]
 
     # approximate state
-    x = sum_([c * sp.Matrix(f) for c, f in zip(coefficients, primal_base)])
-    x1 = np.sum([c * f[0] for c, f in zip(coefficients, primal_base)])
-    x2 = np.sum([c * f[1] for c, f in zip(coefficients, primal_base)])
-    xi1 = np.sum([c * f[2] for c, f in zip(coefficients, primal_base)])
-    xi2 = np.sum([c * f[3] for c, f in zip(coefficients, primal_base)])
+    x = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base)])
+    x1 = np.sum([c * f[0] for c, f in zip(coef, primal_base)])
+    x2 = np.sum([c * f[1] for c, f in zip(coef, primal_base)])
+    xi1 = np.sum([c * f[2] for c, f in zip(coef, primal_base)])
+    xi2 = np.sum([c * f[3] for c, f in zip(coef, primal_base)])
 
 
     # approximate normal form state
-    eta = sum_([c * sp.Matrix(f) for c, f in zip(coefficients, primal_base_nf)])
-    eta1 = np.sum([c * f[0] for c, f in zip(coefficients, primal_base_nf)])
-    eta2 = np.sum([c * f[1] for c, f in zip(coefficients, primal_base_nf)])
-    eta3 = np.sum([c * f[2] for c, f in zip(coefficients, primal_base_nf)])
+    eta = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base_nf)])
+    eta1 = np.sum([c * f[0] for c, f in zip(coef, primal_base_nf)])
+    eta2 = np.sum([c * f[1] for c, f in zip(coef, primal_base_nf)])
+    eta3 = np.sum([c * f[2] for c, f in zip(coef, primal_base_nf)])
 
 
     # test functions
@@ -199,26 +218,32 @@ def build_bases_for_modal_observer_approximation(m):
     nu2 = [tf[1] for tf in dual_base_nf]
     nu3 = [tf[2] for tf in dual_base_nf]
 
+    # choose kind of desired dynamic
+    spring_damper = 0
+    if spring_damper:
+        kd0, ks0, kd1, ks1 = [1] * 4
+    else:
+        k0, k1, alpha = 9, 10, 0
 
     # observer gain
     a = np.array([0,
                   0,
-                  mass ** -1])
+                  param.m ** -1])
     a_bc = np.array([1])
     if spring_damper:
-        a0 = mass * (kd1 + 1) / 2
+        a0 = param.m * (kd1 + 1) / 2
         a1 = a0 ** -1 * (ks0)
         a2 = a0 ** -1 * (ks1 * (2 * kd0 + ks0 + 2) / 2 + kd1 * (kd0 + 1) + ks0 * (1 + kd1))
         a3 = (a0 ** -1 *
-              (ks1 * (mass / 2 * sp.sign(theta) + (kd0 + 1) / 2 *(1 - theta) + ks0 / 2 * (sp.sign(theta) * theta ** 2 / 2 - theta + .5)) +
-               (kd1 + 1) * (kd0 + 1) / 2 + ks0 * (1 + kd1) * (1 - theta) / 2)
+              (ks1 * (param.m / 2 * sp.sign(sym.theta) + (kd0 + 1) / 2 *(1 - sym.theta) + ks0 / 2 * (sp.sign(sym.theta) * sym.theta ** 2 / 2 - sym.theta + .5)) +
+               (kd1 + 1) * (kd0 + 1) / 2 + ks0 * (1 + kd1) * (1 - sym.theta) / 2)
         )
         a_desired = np.array([a1, a2, a3])
-        a_bc_desired = np.array([a0 ** -1 * (mass * (1 - kd1) / 2)])
+        a_bc_desired = np.array([a0 ** -1 * (param.m * (1 - kd1) / 2)])
     else:
         a_desired = np.array([(1+alpha) * k0,
                               (1+alpha) * k1 + 2 * k0,
-                              k0 * (1 - theta) + k1])
+                              k0 * (1 - sym.theta) + k1])
         a_bc_desired = np.array([alpha])
     l = a - a_desired
     l_bc = a_bc - a_bc_desired
@@ -227,45 +252,45 @@ def build_bases_for_modal_observer_approximation(m):
     # observer projections
     if 1:
         observer_projections = [
-            (inner_product_nf(l, ftf) + l_bc * ftf3.subs(theta, -1)) * yt(t)
+            (_inner_product_nf(l, ftf, coef) + l_bc * ftf3.subs(sym.theta, -1)) * sym.yt(sym.t)
             for ftf, ftf3 in tqdm(zip(nu, nu3), total=n * 2)]
     else:
         observer_projections = [
-            (-inner_product_nf(a_desired, ftf) - a_bc_desired * ftf3.subs(theta, -1) - ftf3.subs(theta, 1)) * yt(t)
+            (-_inner_product_nf(a_desired, ftf, coef) - a_bc_desired * ftf3.subs(sym.theta, -1) - ftf3.subs(sym.theta, 1)) * sym.yt(sym.t)
             for ftf, ftf3 in tqdm(zip(nu, nu3), total=n * 2)]
 
 
     # just the unbounded part
-    L_unbounded = sp.Matrix([[l_bc[0] * ftf3.subs(theta, -1)] for ftf3 in nu3])
+    L_unbounded = sp.Matrix([[l_bc[0] * ftf3.subs(sym.theta, -1)] for ftf3 in nu3])
 
 
     # project test functions on state space
     C = list()
     system_projections = [
-        -inner_product(sp.diff(x, t), tf)
-        + l2_ip(sp.diff(x2, z), sp.diff(tf1, z))
-        + (u(t) * tf2).subs(z, 1)
-        - (sp.diff(x1, z) * tf2).subs(z, 0)
-        - l2_ip(sp.diff(x1, z), sp.diff(tf2, z))
-        + xi2 * t1 + sp.diff(x1, z).subs(z, 0) * t2
+        -_inner_product(sp.diff(x, sym.t), tf, coef)
+        + _l2_ip(sp.diff(x2, sym.z), sp.diff(tf1, sym.z), coef)
+        + (sym.u(sym.t) * tf2).subs(sym.z, 1)
+        - (sp.diff(x1, sym.z) * tf2).subs(sym.z, 0)
+        - _l2_ip(sp.diff(x1, sym.z), sp.diff(tf2, sym.z), coef)
+        + xi2 * t1 + sp.diff(x1, sym.z).subs(sym.z, 0) * t2
         for tf, tf1, tf2, t1, t2
         in tqdm(zip(psi, psi1, psi2, tau1, tau2), total=n * 2)
     ]
-    C.append(sp.linear_eq_to_matrix([xi1], coefficients)[0])
+    C.append(sp.linear_eq_to_matrix([xi1], coef)[0])
     system_projections_nf = [
-        -inner_product_nf(sp.diff(eta, t), ftf)
+        -_inner_product_nf(sp.diff(eta, sym.t), ftf, coef)
         + eta1 * ftf2
-        + l2_ip_nf(eta3, sp.diff(ftf3, theta))
-        - eta3.subs(theta, 1) * ftf3.subs(theta, 1)
-        + (eta2 - eta3.subs(theta, 1)) * ftf3.subs(theta, -1)
-        - eta3.subs(theta, 1) * l2_ip_nf(mass ** -1, ftf3)
-        + (2 / mass * ftf1
-        + 2 / mass * ftf2
-        + l2_ip_nf(-2 / mass * theta, ftf3, lb=-1, ub=0)) * u(t)
+        + _l2_ip_nf(eta3, sp.diff(ftf3, sym.theta), coef)
+        - eta3.subs(sym.theta, 1) * ftf3.subs(sym.theta, 1)
+        + (eta2 - eta3.subs(sym.theta, 1)) * ftf3.subs(sym.theta, -1)
+        - eta3.subs(sym.theta, 1) * _l2_ip_nf(param.m ** -1, ftf3, coef)
+        + (2 / param.m * ftf1
+           + 2 / param.m * ftf2
+           + _l2_ip_nf(-2 / param.m * sym.theta, ftf3, coef, lb=-1, ub=0)) * sym.u(sym.t)
         for ftf, ftf1, ftf2, ftf3
         in tqdm(zip(nu, nu1, nu2, nu3), total=n * 2)
     ]
-    C.append(sp.linear_eq_to_matrix([eta3.subs(theta, 1)], coefficients)[0])
+    C.append(sp.linear_eq_to_matrix([eta3.subs(sym.theta, 1)], coef)[0])
 
 
     # add observer projections to the system projections
@@ -278,18 +303,18 @@ def build_bases_for_modal_observer_approximation(m):
     # parse matrices
     E1, E0, G, J, A, B, L = [[None, None] for _ in range(7)]
     for i, proj in enumerate([projections, projections_nf]):
-        E1[i], proj = linear_eq_to_matrix(proj, [sp.diff(c, t) for c in coefficients])
-        E0[i], proj = linear_eq_to_matrix(proj, coefficients)
-        G[i], proj = linear_eq_to_matrix(proj, [u(t)])
-        J[i], proj = linear_eq_to_matrix(proj, [yt(t)])
+        E1[i], proj = _linear_eq_to_matrix(proj, [sp.diff(c, sym.t) for c in coef])
+        E0[i], proj = _linear_eq_to_matrix(proj, coef)
+        G[i], proj = _linear_eq_to_matrix(proj, [sym.u(sym.t)])
+        J[i], proj = _linear_eq_to_matrix(proj, [sym.yt(sym.t)])
         if proj != proj * 0:
             print("\n Something went wrong! This is left:")
-            pprint(proj, discard_sv=False)
+            _pprint(proj, discard_sv=False)
             raise ValueError
         print("\n E1")
-        pprint(E1[i])
+        _pprint(E1[i])
         print("\n E0")
-        pprint(E0[i])
+        _pprint(E0[i])
 
         # compute state space
         np.testing.assert_array_almost_equal(np.eye(n * 2), -E1[i])
@@ -301,32 +326,32 @@ def build_bases_for_modal_observer_approximation(m):
     # display matrices
     print("\n A")
     np.testing.assert_array_almost_equal(A[0], A[1])
-    pprint(A[0])
-    pprint(A[1])
+    _pprint(A[0])
+    _pprint(A[1])
     print("\n B")
     np.testing.assert_array_almost_equal(B[0], B[1])
-    pprint((B[0], B[1]))
+    _pprint((B[0], B[1]))
     print("\n C")
     np.testing.assert_array_almost_equal(C[0], C[1])
-    pprint(C[0])
-    pprint(C[1])
+    _pprint(C[0])
+    _pprint(C[1])
     print("\n L")
     np.testing.assert_array_almost_equal(L[0], L[1])
-    pprint((L[0], L[1]))
+    _pprint((L[0], L[1]))
 
 
     # compare eigenvalue
     print("\n open loop eigenvalues")
-    pprint((np.linalg.eigvals(np.array(A[0]).astype(complex)),
-            np.linalg.eigvals(np.array(A[1]).astype(complex)),
-            eig_vals))
+    _pprint((np.linalg.eigvals(np.array(A[0]).astype(complex)),
+             np.linalg.eigvals(np.array(A[1]).astype(complex)),
+             eig_vals))
     if spring_damper:
         if __name__ == "__main__" and n <= 5:
             import pyinduct as pi
             def char_eq(lam):
                 return complex(
                     np.exp(lam * 2) * lam ** 2 + a_bc_desired[0] * lam ** 2 +
-                    inner_product_nf(sp.Matrix(a_desired), sp.Matrix([1, lam, sp.exp(lam * (theta + 1)) * lam ** 2]))
+                    _inner_product_nf(sp.Matrix(a_desired), sp.Matrix([1, lam, sp.exp(lam * (sym.theta + 1)) * lam ** 2]), coef)
                 )
             char_eq_vec = np.vectorize(char_eq)
             eig_vals_d = sp.Matrix(pi.find_roots(
@@ -349,6 +374,6 @@ def build_bases_for_modal_observer_approximation(m):
     print("\n closed loop eigenvalues")
     eig_vals_cl = [np.linalg.eigvals(np.array(A[0] + L[0] * C[0]).astype(complex)),
                    np.linalg.eigvals(np.array(A[1] + L[1] * C[1]).astype(complex))]
-    pprint((eig_vals_cl[0], eig_vals_cl[1], eig_vals_d))
+    _pprint((eig_vals_cl[0], eig_vals_cl[1], eig_vals_d))
 
-    return primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals
+    return A[0], B[0], C[0], L[0], L_unbounded

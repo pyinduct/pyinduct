@@ -1,7 +1,6 @@
 import pyinduct as pi
 import numpy as np
 import sympy as sp
-from sympy.utilities.lambdify import lambdify
 import matplotlib.pyplot as plt
 
 # matplotlib configuration
@@ -105,10 +104,3 @@ sym = Parameters()
 sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt, sym.tau, sym.sigma = [
     sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}", r"tau", r"sigma")]
 subs_list = [(sym.m, param.m)]
-
-# print parameters
-pprint("Sytem parameters:")
-pprint(sp.Eq(sym.m, param.m))
-pprint(sp.Eq(sym.tau, param.tau))
-pprint(sp.Eq(sym.sigma, param.sigma))
-pprint()

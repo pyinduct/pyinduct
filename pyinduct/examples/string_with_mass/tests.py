@@ -1,15 +1,27 @@
-from pyinduct.examples.string_with_mass.utils import *
-from pyinduct.examples.string_with_mass.system import *
+from pyinduct.examples.string_with_mass.control import *
 import pyqtgraph as pg
 import  unittest
 
 
 class StringWithMassTest(unittest.TestCase):
+    """
+    Its not a real test case class.
+    Just a few code snippets for tests during development of this example.
+    From the most python ide's each code snippet/test method
+    can easily executed via a keyboard shortcut .
+    """
 
     def test_find_eigenvalues(self):
         eig_om, eig_vals = find_eigenvalues(4)
         plot_eigenvalues(eig_vals)
         pprint(eig_vals)
+
+    def test_observer_evp_scripts(self):
+        from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation \
+            import build_bases_for_modal_observer_approximation, validate_modal_bases
+        pb, db, pbn, dbn, eig_vals = build_bases_for_modal_observer_approximation(10)
+        a, b, c, l, l_ub = validate_modal_bases(pb, db, pbn, dbn, eig_vals)
+
 
     def test_modal_base(self):
         from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation \
