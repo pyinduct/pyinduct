@@ -553,7 +553,7 @@ class Base:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
     """
-    def __init__(self, fractions, matching_bases=list()):
+    def __init__(self, fractions, matching_bases=list(), associated_bases=list()):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -563,6 +563,7 @@ class Base:
 
         self.fractions = fractions
         self.matching_bases = matching_bases
+        self.associated_bases = associated_bases
 
     def __iter__(self):
         return iter(self.fractions)
@@ -618,6 +619,9 @@ class Base:
                 return np.dot(np.eye(len(self.fractions)), weights)
 
             return handle, None
+
+        elif info.src_lbl in self.associated_bases:
+            return info.src_base.transformation_hint(info)
 
         elif info.src_base.__class__ == info.dst_base.__class__:
             return self._transformation_factory(info), None
@@ -723,6 +727,18 @@ class StackedBase(Base):
         Return:
             transformation handle
         """
+        # try to get help from kind bases
+        for base_label in self._info.keys():
+            kind_base = get_base(base_label)
+            if info.dst_lbl in kind_base.associated_bases:
+                dst_base = get_base(info.dst_lbl)
+                # stacked to intermediate hint
+                hint1 = get_transformation_info(info.src_lbl, base_label, 0, 0)
+                # intermediate to destination hint
+                hint2 = get_transformation_info(base_label, info.dst_lbl, 0, 0)
+                handel, _ = dst_base.transformation_hint(hint2)
+                return handel, hint1
+
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
             return None, None
