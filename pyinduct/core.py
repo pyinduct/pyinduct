@@ -551,6 +551,13 @@ class Base:
     Args:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
+        matching_bases (list of str): Labels from exactly matching bases,
+            for which no transformation is necessary.
+            Useful for transformations from bases which 'lives' in
+            different function spaces but evolve with the same time
+            dynamic/coefficients (for example modal bases).
+        associated_bases (list of str): Labels from bases which should be
+            used for controller or observer gain approximation.
     """
     def __init__(self, fractions, matching_bases=list(), associated_bases=list()):
         fractions = sanitize_input(fractions, BaseFraction)
@@ -616,7 +623,7 @@ class Base:
         """
         if info.src_lbl in self.matching_bases:
             def handle(weights):
-                return np.dot(np.eye(len(self.fractions)), weights)
+                return weights
 
             return handle, None
 
@@ -736,8 +743,12 @@ class StackedBase(Base):
                 hint1 = get_transformation_info(info.src_lbl, base_label, 0, 0)
                 # intermediate to destination hint
                 hint2 = get_transformation_info(base_label, info.dst_lbl, 0, 0)
-                handel, _ = dst_base.transformation_hint(hint2)
-                return handel, hint1
+                try:
+                    handel = get_weight_transformation(hint2)
+                    return handel, hint1
+                except TypeError as e:
+                    # if no transformation could be acquired dont stop searching
+                    pass
 
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
