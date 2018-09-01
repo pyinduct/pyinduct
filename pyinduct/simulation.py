@@ -307,8 +307,9 @@ def simulate_system(weak_form, initial_states,
     return res
 
 
-def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domains, derivative_orders=None,
-                     settings=None):
+def simulate_systems(weak_forms, initial_states, temporal_domain,
+                     spatial_domains, derivative_orders=None, settings=None,
+                     out=list()):
     """
     Convenience wrapper that encapsulates the whole simulation process.
 
@@ -324,6 +325,13 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         derivative_orders (dict): Dict, containing tuples of derivative orders
             (time, spat) that shall be evaluated additionally as values
         settings: Integrator settings, see :py:func:`.simulate_state_space`.
+        out (list): List from user namespace, where the following intermediate
+            results will be appended:
+
+            - canonical equations (list of types: :py:class:`.CanocialEquation`)
+            - state space object (type: :py:class:`.StateSpace`)
+            - initial weights (type: :py:class:`numpy.array`)
+            - simulation results/weights (type: :py:class:`numpy.array`)
 
     Note:
         The *name* attributes of the given weak forms must be unique!
@@ -340,23 +348,27 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
 
     print(">>> parse weak formulations")
     canonical_equations = parse_weak_formulations(weak_forms)
+    out.append(canonical_equations)
 
     print(">>> create state space system")
     state_space_form = create_state_space(canonical_equations)
+    out.append(state_space_form)
 
     print(">>> derive initial conditions")
     q0 = project_on_bases(initial_states, canonical_equations)
+    out.append(q0)
 
     print(">>> perform time step integration")
     sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain,
                                          settings=settings)
+    out.append(q)
 
     print(">>> perform postprocessing")
     results = get_sim_results(sim_domain, spatial_domains, q, state_space_form,
                               derivative_orders=derivative_orders)
 
     print(">>> finished simulation")
-    return canonical_equations, state_space_form, q0, q, results
+    return results
 
 
 def get_sim_result(weight_lbl, q, temp_domain, spat_domain, temp_order, spat_order, name=""):

@@ -33,7 +33,7 @@ def main():
     n1 = 6
     n2 = 6
     n_obs_fem = 7
-    n_obs_modal = 30
+    n_obs_modal = 10
     build_fem_bases(sys_lbl, n1, n2, obs_fem_lbl, n_obs_fem)
     build_modal_bases(0, 0, obs_modal_lbl, n_obs_modal)
 
@@ -60,10 +60,12 @@ def main():
     spatial_domains = {sys_wf.name: spatial_domain,
                        obs_fem_wf.name: spat_domain_cf,
                        obs_modal_wf.name: spat_domain_cf}
-    ceq, ss, init_weights, weights, evald = pi.simulate_systems(
+    intermediate_results = list()
+    _ = pi.simulate_systems(
         [sys_wf, obs_fem_wf, obs_modal_wf],
-        init_cond, temporal_domain, spatial_domains,
+        init_cond, temporal_domain, spatial_domains, out=intermediate_results
     )
+    ceq, ss, init_weights, weights = intermediate_results
 
     # check eigenvalues of the approximation
     pprint()

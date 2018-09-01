@@ -26,8 +26,8 @@ State feedback control
     :show-inheritance:
 
 
-Definition of the system parameters and some system related useful tools
-------------------------------------------------------------------------
+Definition of the system parameters and some example related useful tools
+-------------------------------------------------------------------------
 
 .. automodule:: pyinduct.examples.string_with_mass.utils
     :members:
