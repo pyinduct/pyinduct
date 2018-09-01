@@ -21,7 +21,8 @@ from .core import (Domain, Parameters, Function, integrate_function,
                    get_transformation_info,
                    EvalData, project_on_bases)
 from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
-                          EquationTerm, get_common_target, get_common_form)
+                          EquationTerm, get_common_target, get_common_form,
+                          ObserverGain)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
@@ -182,7 +183,8 @@ class StateSpace(object):
 
     .. math::
         \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
-        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t) \\
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
+        + \boldsymbol{L}\tilde{\boldsymbol{y}}(t)\\
         \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
 
     which has been approximated by projection on a base given by weight_label.
@@ -198,10 +200,12 @@ class StateSpace(object):
     """
 
     def __init__(self, a_matrices, b_matrices, base_lbl=None,
-                 input_handle=None, c_matrix=None, d_matrix=None):
+                 input_handle=None, c_matrix=None, d_matrix=None,
+                 obs_fb_handle=None):
         self.C = c_matrix
         self.D = d_matrix
         self.base_lbl = base_lbl
+        self.observer_fb = obs_fb_handle
 
         # mandatory
         if isinstance(a_matrices, np.ndarray):
@@ -257,6 +261,10 @@ class StateSpace(object):
             for p, b_mat in p_mats.items():
                 # q_t = q_t + (b_mat @ np.power(u, p)).flatten()
                 q_t = q_t + b_mat @ np.power(u, p)
+
+        if self.observer_fb is not None:
+            q_t = q_t + self.observer_fb(
+                time=_t, weights=_q, weight_lbl=self.base_lbl)
 
         return q_t
 
@@ -451,6 +459,7 @@ class CanonicalForm(object):
         # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
         self._input_function = None
+        self._observer_feedback = list()
         self._finalized = False
         self.powers = None
         self.max_power = None
@@ -512,6 +521,11 @@ class CanonicalForm(object):
         """
         if self._finalized:
             raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
+
+        if term["name"] == "L":
+            self._observer_feedback.append(value)
+            return
+
         if not isinstance(value, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
         if column and not isinstance(column, int):
@@ -727,7 +741,7 @@ class CanonicalEquation(object):
         if self._finalized:
             raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
 
-        if term["name"] in "fG":
+        if term["name"] in "fGL":
             # hold f and g vector separately
             self._static_form.add_to(term, val, column)
             return
@@ -971,12 +985,33 @@ def create_state_space(canonical_equations):
                 b_order_mats.update({p: b_power_mat})
             b_matrices.update({order: b_order_mats})
 
+    # build observer feedback handle
+    def observer_feedback(**kwargs):
+        res = np.zeros(state_space_props.size)
+        for ce in canonical_equations:
+            idx_a = (state_space_props.parts[ce.dominant_lbl]["start"] +
+                     state_space_props.parts[ce.dominant_lbl]["orig_size"] *
+                     state_space_props.parts[ce.dominant_lbl]["order"])
+            idx_b = (idx_a +
+                     state_space_props.parts[ce.dominant_lbl]["orig_size"])
+
+            for fb in ce._static_form._observer_feedback:
+                kwargs.update(obs_weight_lbl=ce.dominant_lbl)
+                res[idx_a: idx_b] += np.squeeze(
+                    fb._calc_output(**kwargs)["output"], 1)
+
+            if "obs_weight_lbl" in kwargs:
+                kwargs.pop("obs_weight_lbl")
+
+        return res
+
     dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
-                        input_handle=state_space_props.input)
+                        input_handle=state_space_props.input,
+                        obs_fb_handle=observer_feedback)
     return dom_ss
 
 
-def parse_weak_formulation(weak_form, finalize=False):
+def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
     r"""
     Parses a :py:class:`.WeakFormulation` that has been derived by projecting a
     partial differential equation an a set of test-functions. Within this
@@ -1005,10 +1040,28 @@ def parse_weak_formulation(weak_form, finalize=False):
     # handle each term
     for term in weak_form.terms:
         # extract Placeholders
-        placeholders = dict(scalars=term.arg.get_arg_by_class(Scalars),
-                            functions=term.arg.get_arg_by_class(TestFunction),
-                            field_variables=term.arg.get_arg_by_class(FieldVariable),
-                            inputs=term.arg.get_arg_by_class(Input))
+        placeholders = dict(
+            scalars=term.arg.get_arg_by_class(Scalars),
+            functions=term.arg.get_arg_by_class(TestFunction),
+            field_variables=term.arg.get_arg_by_class(FieldVariable),
+            observer_fb=term.arg.get_arg_by_class(ObserverGain),
+            inputs=term.arg.get_arg_by_class(Input))
+
+        if is_observer:
+            if placeholders["observer_fb"]:
+                raise ValueError(
+                    "The weak formulation for an observer gain can not hold \n"
+                    "the 'Placeholder' ObserverGain.")
+            if placeholders["field_variables"]:
+                raise ValueError(
+                    "The weak formulation for an observer gain can not hold \n"
+                    "the 'Placeholder' FieldVariable.")
+            if placeholders["scalars"]:
+                if any([plh.target_term["name"] == 'E'
+                        for plh in placeholders["scalars"]]):
+                    raise ValueError(
+                        "The weak formulation for an observer gain can not \n"
+                        "hold a 'Placeholder' Scalars with target_term == 'E'.")
 
         # field variable terms: sort into E_np, E_n-1p, ..., E_0p
         if placeholders["field_variables"]:
@@ -1080,9 +1133,14 @@ def parse_weak_formulation(weak_form, finalize=False):
                 b = Scalars(np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs]))
                 result = _compute_product_of_scalars([a, b])
 
-                ce.add_to(weight_label=a.target_form,
-                          term=get_common_target(placeholders["scalars"]),
-                          val=result * term.scale)
+                if is_observer:
+                    ce.add_to(weight_label=func.data["appr_lbl"],
+                              term=dict(name="E", order=0, exponent=1),
+                              val=result * term.scale)
+                else:
+                    ce.add_to(weight_label=a.target_form,
+                              term=get_common_target(placeholders["scalars"]),
+                              val=result * term.scale)
                 continue
 
             if placeholders["inputs"]:
@@ -1100,6 +1158,14 @@ def parse_weak_formulation(weak_form, finalize=False):
                 ce.add_to(weight_label=None, term=term_info, val=result * term.scale, column=input_index)
                 ce.input_function = input_func
                 continue
+
+            if is_observer:
+                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs])
+                ce.add_to(weight_label=func.data["appr_lbl"],
+                          term=dict(name="E", order=0, exponent=1),
+                          val=result * term.scale)
+                continue
+
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
@@ -1128,7 +1194,19 @@ def parse_weak_formulation(weak_form, finalize=False):
                 ce.input_function = input_func
                 continue
 
-            ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
+            if is_observer:
+                ce.add_to(
+                    weight_label=placeholders["scalars"][0].target_term["test_appr_lbl"],
+                    term=dict(name="E", order=0, exponent=1),
+                    val=result * term.scale)
+            else:
+                ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
+            continue
+
+        if placeholders["observer_fb"]:
+            ce.add_to(weight_label=None,
+                      term=dict(name="L"),
+                      val=placeholders["observer_fb"][0].data["obs_fb"])
             continue
 
     # inform object that the parsing process is complete

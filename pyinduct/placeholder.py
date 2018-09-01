@@ -14,7 +14,7 @@ from .core import sanitize_input, Base, Function
 from .registry import register_base, get_base, is_registered
 
 __all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
-           "Input",
+           "Input", "ObserverGain",
            "Product", "ScalarTerm", "IntegralTerm",
            "Placeholder"]
 
@@ -119,7 +119,8 @@ class Scalars(Placeholder):
         target_form: Desired weight set.
     """
 
-    def __init__(self, values, target_term=None, target_form=None):
+    def __init__(self, values, target_term=None, target_form=None,
+                 test_func_lbl=None):
         if target_term is None:
             target_term = dict(name="f")
         values = np.atleast_2d(values)
@@ -229,6 +230,18 @@ class Input(Placeholder):
                          order=(order, 0))
 
 
+class ObserverGain(Placeholder):
+    """
+    Class that works as a placeholder for the observer error gain.
+
+    Args:
+        observer_feedback (:py:class:`.ObserverFeedback`): Handle that will be
+            called by the simulation unit.
+    """
+    def __init__(self, observer_feedback):
+        super().__init__(dict(obs_fb=observer_feedback))
+
+
 class TestFunction(SpatialPlaceholder):
     """
     Class that works as a placeholder for test-functions in an equation.
@@ -237,14 +250,22 @@ class TestFunction(SpatialPlaceholder):
         function_label (str):
         order (int):
         location:
+        approx_label (str):
     """
 
-    def __init__(self, function_label, order=0, location=None):
+    def __init__(self, function_label, order=0, location=None,
+                 approx_label=None):
         if not is_registered(function_label):
             raise ValueError("Unknown function label "
                              "'{0}'!".format(function_label))
 
-        super().__init__({"func_lbl": function_label}, order, location=location)
+        if approx_label is None:
+            approx_label = function_label
+        elif not isinstance(approx_label, str):
+            raise TypeError("only strings allowed as 'approx_label'")
+
+        super().__init__({"func_lbl": function_label, "appr_lbl": approx_label},
+                         order, location=location)
 
 
 class FieldVariable(Placeholder):
@@ -411,7 +432,8 @@ class Product(object):
         for obj1, obj2 in [(a, b), (b, a)]:
             if isinstance(obj1, ScalarFunction):
                 scalar_func = obj1
-                if isinstance(obj2, (FieldVariable, TestFunction, ScalarFunction)):
+                if isinstance(obj2,
+                              (FieldVariable, TestFunction, ScalarFunction)):
                     other_func = obj2
                     break
 
@@ -430,18 +452,33 @@ class Product(object):
                                      "mismatch!")
 
             exp = other_func.data.get("exponent", 1)
-            new_base = Base(np.asarray(
-                [func.raise_to(exp).scale(scale_func)
-                 for func, scale_func in zip(o_func, s_func)]))
+
+            if scalar_func.location is None:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func)
+                     for func, scale_func in zip(o_func, s_func)]))
+            else:
+                new_base = Base(np.asarray(
+                    [func.raise_to(exp).scale(scale_func(scalar_func.location))
+                     for func, scale_func in zip(o_func, s_func)]))
+
             # TODO change name generation to more sane behaviour
             new_name = new_base.fractions.tobytes()
             register_base(new_name, new_base)
 
             # overwrite spatial derivative order since derivation took place
-            if isinstance(other_func, (ScalarFunction, TestFunction)):
-                a = other_func.__class__(function_label=new_name,
-                                         order=0,
-                                         location=other_func.location)
+            if isinstance(other_func, TestFunction):
+                a = other_func.__class__(
+                    function_label=new_name,
+                    order=0,
+                    location=other_func.location,
+                    approx_label=other_func.data["appr_lbl"])
+
+            elif isinstance(other_func, ScalarFunction):
+                    a = other_func.__class__(
+                        function_label=new_name,
+                        order=0,
+                        location=other_func.location)
 
             elif isinstance(other_func, FieldVariable):
                 a = copy.deepcopy(other_func)
@@ -562,7 +599,10 @@ def _evaluate_placeholder(placeholder):
                        target_form=placeholder.data["weight_lbl"])
     elif isinstance(placeholder, TestFunction):
         # target form doesn't matter, since the f vector is added independently
-        return Scalars(values.T, target_term=dict(name="f"))
+        return Scalars(values.T, target_term=dict(
+            name="f",
+            test_func_lbl=placeholder.data["func_lbl"],
+            test_appr_lbl=placeholder.data["appr_lbl"]))
     else:
         raise NotImplementedError
 
