@@ -242,13 +242,13 @@ class BaseTestCase(unittest.TestCase):
         b3 = pi.Base(self.other_fractions)
         b4 = pi.Base(self.completely_other_fractions)
 
-        # the provided scalar product hints should be compatible
-        with self.assertRaises(ValueError):
-            pi.Base([self.fractions[0], self.other_fractions[2]])
+        # # the provided scalar product hints should be compatible
+        # with self.assertRaises(ValueError):
+        #     pi.Base([self.fractions[0], self.other_fractions[2]])
 
-        with self.assertRaises(ValueError):
-            pi.Base([self.other_fractions[0],
-                     self.completely_other_fractions[2]])
+        # with self.assertRaises(ValueError):
+        #     pi.Base([self.other_fractions[0],
+        #              self.completely_other_fractions[2]])
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
