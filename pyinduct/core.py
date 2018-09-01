@@ -419,7 +419,10 @@ class Function(BaseFraction):
 
         Args:
             constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`.Function`
+
+        Keyword Args:
+            der_order (int): Derivative order, default 2.
+            **kwargs: All other kwargs get passed to :py:class:`.Function`.
 
         Returns:
             :py:class:`.Function`: A constant function
@@ -430,7 +433,15 @@ class Function(BaseFraction):
         def f_dz(z):
             return 0
 
-        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
+        if "der_order" in kwargs:
+            der_order = kwargs["der_order"]
+        else:
+            der_order = 2
+
+        func = Function(
+            eval_handle=f,
+            derivative_handles=[f_dz for _ in range(der_order)],
+            **kwargs)
         return func
 
     @staticmethod
@@ -505,8 +516,27 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(np.array([func.scale(factor) for func in self.members["funcs"]]),
-                              np.array([scal * factor for scal in self.members["scalars"]]))
+        if isinstance(factor, ComposedFunctionVector):
+            if not len(self.members["funcs"]) == len(factor.members["funcs"]):
+                raise ValueError
+
+            if not len(self.members["scalars"]) == len(factor.members["scalars"]):
+                raise ValueError
+
+            return self.__class__(np.array(
+                [func.scale(scale) for func, scale in
+                 zip(self.members["funcs"], factor.members["funcs"])]),
+                [scalar * scale for scalar, scale in
+                 zip(self.members["scalars"], factor.members["scalars"])],
+            )
+
+        elif isinstance(factor, Number):
+            return self.__class__(np.array(
+                [func.scale(factor) for func in self.members["funcs"]]),
+                np.array([scal * factor for scal in self.members["scalars"]]))
+
+        else:
+            raise NotImplementedError
 
 
 class Base:
@@ -522,15 +552,18 @@ class Base:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
     """
-    def __init__(self, fractions):
+    def __init__(self, fractions, matching_bases=list(), associated_bases=list()):
         fractions = sanitize_input(fractions, BaseFraction)
 
-        # check type
-        for frac in fractions:
-            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
-                raise ValueError("Provided fractions must be compatible!")
+        # TODO: check if this is really neccassys for stacked bases
+        # # check type
+        # for frac in fractions:
+        #     if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
+        #         raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
+        self.matching_bases = matching_bases
+        self.associated_bases = associated_bases
 
     def __iter__(self):
         return iter(self.fractions)
@@ -581,8 +614,18 @@ class Base:
         Returns:
             Transformation handle
         """
-        if info.src_base.__class__ == info.dst_base.__class__:
+        if info.src_lbl in self.matching_bases:
+            def handle(weights):
+                return np.dot(np.eye(len(self.fractions)), weights)
+
+            return handle, None
+
+        elif info.src_lbl in self.associated_bases:
+            return info.src_base.transformation_hint(info)
+
+        elif info.src_base.__class__ == info.dst_base.__class__:
             return self._transformation_factory(info), None
+
         else:
             # No Idea what to do.
             return None, None
@@ -684,6 +727,18 @@ class StackedBase(Base):
         Return:
             transformation handle
         """
+        # try to get help from kind bases
+        for base_label in self._info.keys():
+            kind_base = get_base(base_label)
+            if info.dst_lbl in kind_base.associated_bases:
+                dst_base = get_base(info.dst_lbl)
+                # stacked to intermediate hint
+                hint1 = get_transformation_info(info.src_lbl, base_label, 0, 0)
+                # intermediate to destination hint
+                hint2 = get_transformation_info(base_label, info.dst_lbl, 0, 0)
+                handel, _ = dst_base.transformation_hint(hint2)
+                return handel, hint1
+
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
             return None, None
@@ -1088,12 +1143,12 @@ def project_on_base(state, base):
         raise TypeError("Only pyinduct.core.Base accepted as base")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2,
+    projections = calculate_scalar_product_matrix(base.scalar_product_hint()[0],
                                                   Base(state),
                                                   base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
+    scale_mat = calculate_scalar_product_matrix(base.scalar_product_hint()[0], base, base)
 
     return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
 

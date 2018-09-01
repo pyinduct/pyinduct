@@ -555,9 +555,12 @@ class LambdifiedSympyExpression(Function):
         spat_symbol: Sympy symbol for the spatial variable :math:`z`.
         spatial_domain (tuple): Domain on which :math:`\varphi(z)` is defined
             (e.g.: :code:`spatial_domain=(0, 1)`).
+        complex_ (bool): If False the Function raises an Error if it returns
+            complex values. Default: False.
     """
 
-    def __init__(self, sympy_funcs, spat_symbol, spatial_domain):
+    def __init__(self, sympy_funcs, spat_symbol, spatial_domain, complex_=False):
+        self.complex_ = complex_
         self._funcs = [lambdify(spat_symbol, sp_func, 'numpy')
                        for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord)
@@ -570,8 +573,12 @@ class LambdifiedSympyExpression(Function):
     def _func_factory(self, der_order):
         func = self._funcs[der_order]
 
-        def function(z):
-            return real(func(z))
+        if self.complex_:
+            def function(z):
+                return func(z)
+        else:
+            def function(z):
+                return real(func(z))
 
         return function
 
