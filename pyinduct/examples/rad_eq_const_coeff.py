@@ -123,32 +123,29 @@ if __name__ == "__main__" or test_examples:
     param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
     # create eigenfunctions (arbitrary f(0))
-    eig_val, eig_funcs_init = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param, l, n=n)
+    eig_val, eig_funcs_init = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param, n=n)
 
     # create adjoint eigenfunctions ("_a") (arbitrary f(l))
     scale_a = [func(l) for func in eig_funcs_init]
-    _, eig_funcs_a_init = ReversedRobinEigenfunction.solve_evp_hint(
-        param_a, l, eig_val=eig_val, scale=scale_a)
+    _, eig_funcs_a_init = ReversedRobinEigenfunction.cure_interval(
+        spatial_domain, param_a, eig_val=eig_val, scale=scale_a)
 
     # normalize eigenfunctions
     eig_funcs, eig_funcs_a = pi.normalize_base(eig_funcs_init, eig_funcs_a_init)
 
     # eigenfunctions from controller target system ("_t") (arbitrary f(0))
     scale_t = [func(0) for func in eig_funcs]
-    _, eig_funcs_t = pi.SecondOrderRobinEigenfunction.solve_evp_hint(
-        param_t_c, l, eig_val=eig_val, scale=scale_t)
+    _, eig_funcs_t = pi.SecondOrderRobinEigenfunction.cure_interval(
+        spatial_domain, param_t_c, eig_val=eig_val, scale=scale_t)
 
     # adjoint eigenfunctions from observer target system ("_a_t") (arbitrary f(l))
     scale_a_t = [func(l) for func in eig_funcs_a]
-    _, eig_funcs_a_t = ReversedRobinEigenfunction.solve_evp_hint(
-        param_a_t_o, l, eig_val=eig_val, scale=scale_a_t)
+    _, eig_funcs_a_t = ReversedRobinEigenfunction.cure_interval(
+        spatial_domain, param_a_t_o, eig_val=eig_val, scale=scale_a_t)
 
     # create fem test functions
-    nodes, fem_funcs = pi.cure_interval(pi.LagrangeNthOrder,
-                                        spatial_domain.bounds,
-                                        node_count=len(spatial_domain),
-                                        order=1)
+    fem_funcs = pi.LagrangeFirstOrder.cure_interval(spatial_domain)
 
     # register eigenfunctions
     sys_lbl = "sys_base"
@@ -160,7 +157,8 @@ if __name__ == "__main__" or test_examples:
     pi.register_base(obs_tar_sys_lbl, eig_funcs_a_t)
     ctrl_lbl = "ctrl_appr_base"
     ctrl_target_lbl = "ctrl_appr_target_base"
-    pi.register_base(ctrl_lbl, eig_funcs.set_sb_source(sys_lbl))
+    pi.register_base(ctrl_lbl, pi.Base(eig_funcs.fractions))
+                                       # associated_bases=[sys_lbl]))
     pi.register_base(ctrl_target_lbl, eig_funcs_t)
     obs_lbl = "obs_appr_base"
     obs_target_lbl = "obs_appr_target_base"
@@ -246,10 +244,9 @@ if __name__ == "__main__" or test_examples:
                        obs_rad_pde.name: spatial_domain}
 
     # simulation
-    weights = dict()
     sys_ed, obs_ed = pi.simulate_systems(
         [rad_pde, obs_rad_pde], ics, temporal_domain,
-        spatial_domains, out=weights)
+        spatial_domains)
 
     # evaluate desired output data
     y_d, t_d = pi.gevrey_tanh(T, 40, length_t=len(temporal_domain))

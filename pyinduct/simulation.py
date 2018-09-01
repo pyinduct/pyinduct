@@ -353,7 +353,7 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
 
     print(">>> perform postprocessing")
     results = get_sim_results(sim_domain, spatial_domains, q, state_space_form,
-                              derivative_orders=derivative_orders, out=out)
+                              derivative_orders=derivative_orders)
 
     print(">>> finished simulation")
     return results
@@ -1218,7 +1218,7 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 continue
 
             if is_observer:
-                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in test_funcs])
+                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in fractions])
                 ce.add_to(weight_label=func.data["appr_lbl"],
                           term=dict(name="E", order=0, exponent=1),
                           val=result * term.scale)
