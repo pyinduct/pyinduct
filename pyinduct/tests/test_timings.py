@@ -7,6 +7,8 @@ import unittest
 import numpy as np
 import pyinduct as pi
 
+from .test_core import CalculateScalarProductMatrixTestCase
+
 
 def simulation_benchmark(spat_domain, settings):
     """
@@ -27,18 +29,17 @@ def simulation_benchmark(spat_domain, settings):
     init_x = pi.Function(lambda z: 0)
 
     _a = time.clock()
-    nodes, base = pi.cure_interval(**settings)
+    nodes = pi.Domain(settings["bounds"], settings["num"])
+    cls = settings.get("shapefunction_class")
+    base = cls.cure_interval(nodes, **settings)
     _b = time.clock()
 
     func_label = 'base'
     pi.register_base(func_label, base)
 
     u = pi.SimulationInputSum([
-        pi.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2, offset=4, phase_shift=1),
-        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[15]),
-        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[25], scale=-4),
-        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[35]),
-        # pi.SignalGenerator('gausspulse', temp_domain.points, phase_shift=temp_domain[60], scale=-2),
+        pi.SignalGenerator('square', temp_domain.points, frequency=0.3, scale=2,
+                           offset=4, phase_shift=1),
     ])
 
     _c = time.clock()
@@ -123,26 +124,27 @@ class ShapeFunctionTestBench(unittest.TestCase):
         if True:
             self.candidates = [
                 dict(shapefunction_class=pi.LagrangeFirstOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt),
+                     bounds=self.domain.bounds,
+                     num=self.node_cnt),
                 dict(shapefunction_class=pi.LagrangeNthOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt,
+                     bounds=self.domain.bounds,
+                     num=self.node_cnt,
                      order=1), ]
         else:
             self.candidates = [
                 dict(shapefunction_class=pi.LagrangeSecondOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt),
+                     bounds=self.domain.bounds,
+                     num=self.node_cnt),
                 dict(shapefunction_class=pi.LagrangeNthOrder,
-                     interval=self.domain.bounds,
-                     node_count=self.node_cnt,
+                     bounds=self.domain.bounds,
+                     num=self.node_cnt,
                      order=2),
             ]
         print("comparing {} (1) against {} (2)".format(
             *[candidate["shapefunction_class"]
               for candidate in self.candidates]))
 
+    @unittest.skip
     def test_simulation(self):
         print(">>> transport system example speed test: \n")
 
@@ -175,6 +177,7 @@ class ShapeFunctionTestBench(unittest.TestCase):
         finally:
             self.print_time("absolute difference  (2-1) in [s]", diff)
 
+    @unittest.skip
     def test_evaluation(self):
         print(">>> evaluation speed test:")
 
@@ -184,7 +187,9 @@ class ShapeFunctionTestBench(unittest.TestCase):
             print("running round {} of {}".format(i, n_iteration))
             results = []
             for candidate in self.candidates:
-                n, base = pi.cure_interval(**candidate)
+                nodes = pi.Domain(candidate["bounds"], candidate["num"])
+                cls = candidate.get("shapefunction_class")
+                base = cls.cure_interval(nodes, **candidate)
                 results.append(product_benchmark(base))
 
             timings.append(results)
@@ -208,3 +213,12 @@ class ShapeFunctionTestBench(unittest.TestCase):
                                 "\t initial weights:  {}\n"
                                 "\t process data:     {}\n"
                                 "".format(*times))
+
+
+class ScalarProductMatrixTextBench(unittest.TestCase):
+
+    @unittest.skip
+    def test_optimization(self):
+        c = CalculateScalarProductMatrixTestCase()
+        c.setUp(dim1=100, dim2=200)
+        c.compare_timings()

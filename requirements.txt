@@ -5,4 +5,4 @@ wheel>=0.23.0
 pyqtgraph>=pyqtgraph-0.9.10
 PyOpenGL>=3.1.0
 matplotlib>=1.5.0
-# PyQt5>=5.4.1
+PyQt5>=5.7.0

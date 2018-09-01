@@ -2,6 +2,7 @@
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
 import warnings
+import numbers
 
 import numpy as np
 import collections
@@ -11,7 +12,7 @@ from numbers import Number
 from scipy import integrate
 from scipy.linalg import block_diag
 from scipy.optimize import root
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, RegularGridInterpolator
 
 from .registry import get_base
 
@@ -69,6 +70,7 @@ class BaseFraction:
     def derive(self, order):
         """
         Basic implementation of derive function.
+
         Empty implementation, overwrite to use this functionality.
         For an example implementation see :py:class:`.Function`
 
@@ -152,7 +154,7 @@ class Function(BaseFraction):
         """
         Args:
             eval_handle (callable): Callable object that can be evaluated.
-            domain((list of) tuples: Domain on which the eval_handle is defined.
+            domain((list of) tuples): Domain on which the eval_handle is defined.
             nonzero(tuple): Region in which the eval_handle will return
                 nonzero output. Must be a subset of *domain*
             derivative_handles (list): List of callable(s) that contain
@@ -163,15 +165,17 @@ class Function(BaseFraction):
         self._function_handle = None
         self._derivative_handles = None
 
-        # domain and nonzero area
+        self.domain = set()
+        self.nonzero = set()
         for kw, val in zip(["domain", "nonzero"], [domain, nonzero]):
-            if not isinstance(val, list):
+            if not isinstance(val, set):
                 if isinstance(val, tuple):
-                    val = [val]
+                    val = {val}
                 else:
-                    print(domain)
-                    raise TypeError("List or tuple has to be provided for {0}".format(kw))
-            setattr(self, kw, sorted([(min(interval), max(interval)) for interval in val], key=lambda x: x[0]))
+                    raise TypeError("(Set of) or tuple(s) has to be provided "
+                                    "for {0}".format(kw))
+
+            setattr(self, kw, domain_simplification(val))
 
         self.function_handle = eval_handle
         self.derivative_handles = derivative_handles
@@ -202,7 +206,7 @@ class Function(BaseFraction):
             raise TypeError("callable has to be provided as function_handle")
 
         # handle must return scalar when called with scalar
-        test_value = self.domain[0][1]
+        test_value = next(iter(self.domain))[1]
         if test_value is np.inf:
             test_value = 1
         if not isinstance(eval_handle(test_value), Number):
@@ -244,18 +248,16 @@ class Function(BaseFraction):
         """
         # in_domain = False
         values = np.atleast_1d(values)
+        mask = np.full(len(values), False)
         for interval in self.domain:
-            if any(values < interval[0]) or any(values > interval[1]):
-                raise ValueError("Function evaluated outside it's "
-                                 "domain {} with {}".format(self.domain,
-                                                            values))
+            d_mask = np.logical_and(values >= interval[0],
+                                    values <= interval[1])
+            np.logical_or(mask, d_mask, out=mask)
 
-                # if all(value >= interval[0]) and all(value <= interval[1]):
-                #     in_domain = True
-                #     break
-
-                # if not in_domain:
-                #     raise ValueError("Function evaluated outside its domain!")
+        if not all(mask):
+            raise ValueError("Function evaluated outside it's domain {} with {}"
+                             "".format(self.domain,
+                                       values[np.logical_not(mask)]))
 
     def __call__(self, argument):
         """
@@ -373,7 +375,6 @@ class Function(BaseFraction):
 
         Returns:
             :py:class:`.Function` the derived function.
-
         """
         if not isinstance(order, int):
             raise TypeError("only integer allowed as derivation order")
@@ -511,6 +512,7 @@ class ComposedFunctionVector(BaseFraction):
 class Base:
     """
     Base class for approximation bases.
+
     In general, a :py:class:`.Base` is formed by a certain amount of
     :py:class:`.BaseFractions` and therefore forms finite-dimensional subspace
     of the distributed problem's domain. Most of the time, the user does not
@@ -521,8 +523,14 @@ class Base:
             dict of :py:class:`.BaseFraction`'s
     """
     def __init__(self, fractions):
-        # TODO check if Fractions are consistent in Type and provided hints
-        self.fractions = sanitize_input(fractions, BaseFraction)
+        fractions = sanitize_input(fractions, BaseFraction)
+
+        # check type
+        for frac in fractions:
+            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
+                raise ValueError("Provided fractions must be compatible!")
+
+        self.fractions = fractions
 
     def __iter__(self):
         return iter(self.fractions)
@@ -535,7 +543,9 @@ class Base:
 
     @staticmethod
     def _transformation_factory(info):
-        mat = calculate_expanded_base_transformation_matrix(info.src_base, info.dst_base, info.src_order,
+        mat = calculate_expanded_base_transformation_matrix(info.src_base,
+                                                            info.dst_base,
+                                                            info.src_order,
                                                             info.dst_order)
 
         def handle(weights):
@@ -584,7 +594,6 @@ class Base:
 
         Note:
             Overwrite to implement custom functionality.
-            For an example implementation see :py:class:`.Function`
         """
         return self.fractions[0].scalar_product_hint()
 
@@ -592,7 +601,6 @@ class Base:
         """
         Basic implementation of derive function.
         Empty implementation, overwrite to use this functionality.
-        For an example implementation see :py:class:`.Function`
 
         Args:
             order (:class:`numbers.Number`): derivative order
@@ -628,6 +636,20 @@ class Base:
         else:
             return self.__class__([f.raise_to(power) for f in self.fractions])
 
+    def get_attribute(self, attr):
+        """
+        Retrieve an attribute from the fractions of the base.
+
+        Args:
+            attr(str): Attribute to query the fractions for.
+
+        Returns:
+            :py:class:`np.ndarray`: Array of ``len(fractions)`` holding the
+            attributes. With `None` entries if the attribute is missing.
+
+        """
+        return np.array([getattr(frac, attr, None) for frac in self.fractions])
+
 
 class StackedBase(Base):
     """
@@ -661,7 +683,6 @@ class StackedBase(Base):
                 requested transformation.
         Return:
             transformation handle
-
         """
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
@@ -671,8 +692,10 @@ class StackedBase(Base):
         start_idx = self._info[info.dst_lbl]["start"]
         sel_len = self._info[info.dst_lbl]["size"]
         src_ord = self._info[info.dst_lbl]["order"]
-        trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base, info.dst_base,
-                                                                  src_ord, info.dst_order,
+        trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base,
+                                                                  info.dst_base,
+                                                                  src_ord,
+                                                                  info.dst_order,
                                                                   use_eye=True)
 
         def selection_func(weights):
@@ -681,23 +704,82 @@ class StackedBase(Base):
         return selection_func, None
 
 
+def domain_simplification(domain):
+    """
+    Simplify a domain, given by possibly overlapping subdomains.
+
+    Args:
+        domain (set): Set of tuples, defining the (start, end) points of the
+            subdomains.
+
+    Returns:
+        list: Simplified domain.
+    """
+    new_dom = set()
+    temp_dom = list()
+
+    # sort sub domains
+    for idx, sub_dom in enumerate(domain):
+        if sub_dom[0] > sub_dom[1]:
+            temp_dom.append(sub_dom[::-1])
+        else:
+            temp_dom.append(sub_dom)
+
+    # look for overlapping sub domains
+    for s_idx, start_dom in enumerate(temp_dom):
+        candidates = []
+        for e_idx, end_dom in enumerate(temp_dom):
+            if s_idx == e_idx:
+                continue
+
+            if start_dom[0] > end_dom[0]:
+                # second one starts earlier, postpone
+                continue
+
+            if start_dom[1] > end_dom[0]:
+                # two domains overlap
+                candidates.append(e_idx)
+
+        if not candidates:
+            continue
+
+        greatest_idx = candidates[np.argmax([temp_dom[idx][1]
+                                             for idx in candidates])]
+        if start_dom[1] >= temp_dom[greatest_idx][1]:
+            # the second domain is a real sub set of the first one
+            # save only the first
+            new_dom.add(start_dom)
+        else:
+            # second one goes further -> join them
+            new_dom.add((start_dom[0], temp_dom[greatest_idx][1]))
+
+    if new_dom and new_dom != domain:
+        return domain_simplification(new_dom)
+    else:
+        return set(temp_dom)
+
+
 def domain_intersection(first, second):
     """
     Calculate intersection(s) of two domains.
 
     Args:
-        first (:py:class:`.Domain`): first domain
-        second (:py:class:`.Domain`): second domain
+        first (set): (Set of) tuples defining the first domain.
+        second (set): (Set of) tuples defining the second domain.
 
     Return:
-        list: intersection(s) given by (start, end) tuples.
+        set: Intersection given by (start, end) tuples.
     """
     if isinstance(first, tuple):
         first = [first]
+    if isinstance(first, set):
+        first = list(first)
     if isinstance(second, tuple):
         second = [second]
+    if isinstance(second, set):
+        second = list(second)
 
-    intersection = []
+    intersection = set()
     first_idx = 0
     second_idx = 0
     last_first_idx = 0
@@ -747,78 +829,33 @@ def domain_intersection(first, second):
 
         # complete domain found
         if not np.isclose(start, end):
-            intersection.append((start, end))
+            intersection.add((start, end))
 
     return intersection
 
 
-def _dot_product_l2(first, second):
+def integrate_function(func, interval):
     """
-    Calculates the inner product of two functions.
-
-    Args:
-        first (:py:class:`.Function`): first function
-        second (:py:class:`.Function`): second function
-
-    Todo:
-        rename to scalar_dot_product and make therefore non private
-
-    Return:
-        inner product
-
-    """
-    if not isinstance(first, Function) or not isinstance(second, Function):
-        raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
-
-    limits = domain_intersection(first.domain, second.domain)
-    nonzero = domain_intersection(first.nonzero, second.nonzero)
-    areas = domain_intersection(limits, nonzero)
-
-    # try some shortcuts
-    if first == second:
-        if hasattr(first, "quad_int"):
-            return first.quad_int()
-
-    if 0:
-        # TODO let Function Class handle product to gain more speed
-        if type(first) is type(second):
-            pass
-
-    # standard case
-    def function(z):
-        """
-        Take the complex conjugate of the first element and multiply it
-        by the second.
-        """
-        return np.conj(first(z)) * second(z)
-
-    result, error = integrate_function(function, areas)
-    return np.real_if_close(result)
-
-
-def integrate_function(function, interval):
-    """
-    Integrates the given *function* over the *interval* using
+    Numerically integrate a function on a given interval using
     :func:`.complex_quadrature`.
 
     Args:
-        function(callable): Function to integrate.
+        func(callable): Function to integrate.
         interval(list of tuples): List of (start, end) values of the intervals
             to integrate on.
 
     Return:
         tuple: (Result of the Integration, errors that occurred during the
-            integration).
-
+        integration).
     """
     result = 0
     err = 0
     for area in interval:
-        res = complex_quadrature(function, area[0], area[1])
+        res = complex_quadrature(func, area[0], area[1])
         result += res[0]
         err += res[1]
 
-    return result, err
+    return np.real_if_close(result), err
 
 
 def complex_quadrature(func, a, b, **kwargs):
@@ -850,7 +887,7 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def dot_product(first, second):
     """
-    Calculates the inner product of two vectors.
+    Calculate the inner product of two vectors.
 
     Args:
         first (:obj:`numpy.ndarray`): first vector
@@ -862,20 +899,98 @@ def dot_product(first, second):
     return np.inner(first, second)
 
 
-def dot_product_l2(first, second):
-    """
-    Vectorized version of dot_product.
+def _dot_product_l2(first, second):
+    r"""
+    Calculate the inner product on L2.
+
+    Given two functions :math:`\varphi(z)` and :math:`\psi(z)` this functions
+    calculates
+
+    .. math::
+        \left< \varphi(z) | \psi(z) \right|_{L2} =
+            \int\limits_{Gamma_0}^{Gamma_1}
+            \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
-        first (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
-        second (callable or :obj:`numpy.ndarray`):  (1d array of) callable(s)
+        first (:py:class:`.Function`): first function
+        second (:py:class:`.Function`): second function
 
     Return:
-        numpy.ndarray:  array of inner products
+        inner product
+    """
+    if not isinstance(first, Function) or not isinstance(second, Function):
+        raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
+
+    limits = domain_intersection(first.domain, second.domain)
+    nonzero = domain_intersection(first.nonzero, second.nonzero)
+    areas = domain_intersection(limits, nonzero)
+
+    # try some shortcuts
+    if first == second:
+        if hasattr(first, "quad_int"):
+            return first.quad_int()
+
+    if 0:
+        # TODO let Function Class handle product to gain more speed
+        if type(first) is type(second):
+            pass
+
+    # standard case
+    def func(z):
+        """
+        Take the complex conjugate of the first element and multiply it
+        by the second.
+        """
+        return np.conj(first(z)) * second(z)
+
+    result, error = integrate_function(func, areas)
+    return result
+
+
+def dot_product_l2(first, second):
+    r"""
+    Vectorized version of the inner product on L2.
+
+    Given two vectors of functions
+
+    .. math::
+        \boldsymbol{\varphi}(z)
+        = \left(\varphi_0(z), \dotsc, \varphi_N(z)\right)^T
+
+    and
+
+    .. math::
+        \boldsymbol{\psi}(z) = \left(\psi_0(z), \dotsc, \psi_N(z)\right)^T` ,
+
+    this function computes
+    :math:`\left< \boldsymbol{\varphi}(z) | \boldsymbol{\psi}(z) \right>_{L2}`
+    where
+
+    .. math::
+        \left< \varphi_i(z) | \psi_j(z) \right>_{L2} =
+        \int\limits_{\Gamma_0}^{\Gamma_1}
+        \bar\varphi_i(\zeta) \psi_j(\zeta) \,\textup{d}\zeta \:.
+
+    Herein, :math:`\bar\varphi_i(\zeta)` denotes the complex conjugate and
+    :math:`\Gamma_0` as well as :math:`\Gamma_1` are derived by computing the
+    intersection of the nonzero areas of the involved functions.
+
+    Args:
+        first (callable or :obj:`numpy.ndarray`):  (1d array of n) callable(s)
+        second (callable or :obj:`numpy.ndarray`):  (1d array of n) callable(s)
+
+    Raises:
+        ValueError, if the provided arrays are not equally long.
+
+    Return:
+        numpy.ndarray:  Array of inner products
     """
     # sanitize input
     first = np.atleast_1d(first)
     second = np.atleast_1d(second)
+
+    if len(first) != len(second):
+        raise ValueError("Provided function vectors must be of same length.")
 
     # calculate output size and allocate output
     out = np.ones(first.shape, dtype=complex) * np.nan
@@ -906,7 +1021,7 @@ def calculate_scalar_matrix(values_a, values_b):
 
 
 def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
-                                    optimize=False):
+                                    optimize=True):
     r"""
     Calculates a matrix :math:`A` , whose elements are the scalar products of
     each element from *base_a* and *base_b*, so that
@@ -931,73 +1046,22 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    if optimize:
-        raise NotImplementedError("this approach leads to wrong results atm.")
-        # There are certain conditions that have to be satisfied to make use of a symmetrical product matrix
-        # not all of these conditions are checked here and the implementation itself is not yet free from errors.
+    if optimize and base_a == base_b and scalar_product_handle == dot_product_l2:
+        # since the scalar_product commutes whe can save some operations
+        dim = fractions_a.shape[0]
+        output = np.zeros((dim, dim), dtype=np.complex)
+        i, j = np.mgrid[0:dim, 0:dim]
 
-        # if scalar_product handle commutes whe can save some operations
-        if base_a.size > base_b.size:
-            base_1 = base_a
-            base_2 = base_b
-            transposed = False
-        else:
-            base_1 = base_b
-            base_2 = base_a
-            transposed = True
+        # compute only upper half
+        upper_idxs = np.triu_indices(dim)
+        i_upper = i[upper_idxs]
+        j_upper = j[upper_idxs]
+        output[upper_idxs] = scalar_product_handle(fractions_a[i_upper],
+                                                   fractions_a[j_upper])
 
-        # if 0:
-        #     # one way
-        #     idx_1 = []
-        #     idx_2 = []
-        #     for n in range(base_1.shape[0]):
-        #         for m in range(min(n + 1, base_2.shape[0])):
-        #             idx_1.append(n)
-        #             idx_2.append(m)
-        #
-        #     fractions_1 = base_1[np.array(idx_1)]
-        #     fractions_2 = base_2[np.array(idx_2)]
-        # else:
-        #     # another way not really working yet
-
-        i, j = np.mgrid[0:base_1.shape[0], 0:base_2.shape[0]]
-
-        end_shape = (base_1.shape[0], base_2.shape[0])
-        lower_mask = np.tril(np.ones(end_shape))
-        lower_idx = np.flatnonzero(lower_mask)
-
-        i_lower = i.flatten()[lower_idx]
-        j_lower = j.flatten()[lower_idx]
-        fractions_1 = base_1[i_lower]
-        fractions_2 = base_2[j_lower]
-
-        # compute
-        res = scalar_product_handle(fractions_1, fractions_2)
-
-        # reconstruct
-        end_shape = (base_1.shape[0], base_2.shape[0])
-        lower_part = np.zeros(end_shape).flatten()
-
-        # reconstruct lower half
-        lower_part[lower_idx] = res
-        lower_part = lower_part.reshape(end_shape)
-        # print(lower_part)
-
-        # mirror symmetrical half
-        upper_part = np.zeros(end_shape).flatten()
-        temp_out = copy(lower_part[:base_2.shape[0], :].T)
-        upper_mask = np.triu(np.ones_like(temp_out), k=1)
-        upper_idx = np.flatnonzero(upper_mask)
-        # print(upper_mask)
-        # print(upper_idx)
-
-        upper_part[upper_idx] = temp_out.flatten()[upper_idx]
-        upper_part = upper_part.reshape(end_shape)
-        # print(upper_part)
-
-        out = lower_part + upper_part
-        return out if not transposed else out.T
-
+        # reconstruct using symmetry
+        output += np.conjugate(np.triu(output, 1)).T
+        return np.real_if_close(output)
     else:
         i, j = np.mgrid[0:fractions_a.shape[0],
                         0:fractions_b.shape[0]]
@@ -1046,8 +1110,8 @@ def project_on_bases(states, canonical_equations):
         canonical_equations: List of :py:class:`.CanonicalEquation` instances.
 
     Returns:
-        numpy.array: Finit dimensional state as 1d-array corresponding to the
-            concatenated dominant bases from *canonical_equations*.
+        numpy.array: Finite dimensional state as 1d-array corresponding to the
+        concatenated dominant bases from *canonical_equations*.
     """
     q0 = np.array([])
     for ce in canonical_equations:
@@ -1114,7 +1178,7 @@ def project_weights(projection_matrix, src_weights):
 
     Return:
         :py:class:`numpy.ndarray`: weights in the target basis;
-            dimension (1, n)
+        dimension (1, n)
     """
     src_weights = sanitize_input(src_weights, Number)
     return np.dot(projection_matrix, src_weights)
@@ -1270,7 +1334,6 @@ def get_transformation_info(source_label, destination_label,
 
     Returns:
         :py:class:`.TransformationInfo`: Transformation info object.
-
     """
     info = TransformationInfo()
     info.src_lbl = source_label
@@ -1400,7 +1463,7 @@ def normalize_base(b1, b2=None):
 
     Return:
         :py:class:`.Base` : if *b2* is None,
-           otherwise: Tuple of 2 :py:class:`.Base`'s.
+        otherwise: Tuple of 2 :py:class:`.Base`'s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1558,9 +1621,14 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
     if n_roots is None:
         n_roots = len(roots)
 
+    if n_roots == 0:
+        # Either no roots have been found or zero roots have been requested
+        return np.array([])
+
     if len(roots) < n_roots:
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
-                         "Try to increase the area to search in.".format(
+                         "Check provided function (see `visualize_roots`) or "
+                         "try to increase the search area.".format(
                             len(roots), n_roots))
 
     valid_roots = np.array(roots)
@@ -1609,12 +1677,13 @@ def complex_wrapper(func):
 
     Return:
         two-dimensional, callable: function handle,
-            taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
+        taking x = (re(x), im(x) and returning [re(func(x), im(func(x)].
     """
 
     def wrapper(x):
-        return np.array([np.real(func(np.complex(x[0], x[1]))),
-                         np.imag(func(np.complex(x[0], x[1])))])
+        val = func(np.complex(x[0], x[1]))
+        return np.array([np.real(val),
+                         np.imag(val)])
 
     return wrapper
 
@@ -1651,12 +1720,32 @@ class Domain(object):
 
     def __init__(self, bounds=None, num=None, step=None, points=None):
         if points is not None:
+            # check for correct boundaries
+            if bounds and not all(bounds == points[[0, -1]]):
+                raise ValueError("Given 'bounds' don't fit the provided data.")
+
+            # check for correct length
+            if num is not None and len(points) != num:
+                raise ValueError("Given 'num' doesn't fit the provided data.")
+
             # points are given, easy one
             self._values = np.atleast_1d(points)
-            self._limits = (points.min(), points.max())
-            self._num = points.size
-            # TODO check for evenly spaced entries
-            # for now just use provided information
+            self._limits = (self._values.min(), self._values.max())
+            self._num = self._values.size
+
+            # check for evenly spaced entries
+            if self._num > 1:
+                steps = np.diff(self._values)
+                equal_steps = np.allclose(steps, steps[0])
+                if step:
+                    if not equal_steps or step != steps[0]:
+                        raise ValueError("Given 'step' doesn't fit the provided "
+                                         "data.")
+                else:
+                    if equal_steps:
+                        step = steps[0]
+            else:
+                step = np.nan
             self._step = step
         elif bounds and num:
             self._limits = bounds
@@ -1676,12 +1765,21 @@ class Domain(object):
                                                    bounds[1],
                                                    self._num,
                                                    retstep=True)
-            if np.abs(step - self._step) > 1e-1:
+            if np.abs(step - self._step)/self._step > 1e-1:
                 warnings.warn("desired step-size {} doesn't fit to given "
                               "interval, changing to {}".format(step,
                                                                 self._step))
         else:
             raise ValueError("not enough arguments provided!")
+
+        # mimic some ndarray properties
+        self.shape = self._values.shape
+        self.view = self._values.view
+
+    def __repr__(self):
+        return "Domain(bounds={}, step={}, num={})".format(self.bounds,
+                                                           self._step,
+                                                           self._num)
 
     def __len__(self):
         return len(self._values)
@@ -1700,6 +1798,10 @@ class Domain(object):
     @property
     def points(self):
         return self._values
+
+    @property
+    def ndim(self):
+        return self._values.ndim
 
 
 def real(data):
@@ -1732,25 +1834,599 @@ def real(data):
 
 class EvalData:
     """
-    Convenience wrapper for function evaluation.
-    Contains the input data that was used for evaluation and the results.
+    This class helps managing any kind of result data.
+
+    The data gained by evaluation of a function is stored together with the
+    corresponding points of its evaluation. This way all data needed for
+    plotting or other postprocessing is stored in one place.
+    Next to the points of the evaluation the names and units of the included
+    axes can be stored.
+    After initialization an interpolator is set up, so that one can interpolate
+    in the result data by using the overloaded :py:meth:`__call__` method.
+
+    Args:
+        input_data: (List of) array(s) holding the axes of a regular grid on
+            which the evaluation took place.
+        output_data: The result of the evaluation.
+
+    Keyword Args:
+        input_labels: (List of) labels for the input axes.
+        input_units: (List of) units for the input axes.
+        name: Name of the generated data set.
+        fill_axes: If the dimension of `output_data` is higher than the
+            length of the given `input_data` list, dummy entries will be
+            appended until the required dimension is reached.
+        enable_extrapolation (bool): If True, internal interpolators will allow
+            extrapolation. Otherwise, the last giben value will be repeated for
+            1D cases and the result will be padded with zeros for cases > 1D.
+
+    Examples:
+        When instantiating 1d EvalData objects, the list can be omitted
+
+        >>> axis = Domain((0, 10), 5)
+        >>> data = np.random.rand(5,)
+        >>> e_1d = EvalData(axis, data)
+
+        For other cases, input_data has to be a list
+
+        >>> axis1 = Domain((0, 0.5), 5)
+        >>> axis2 = Domain((0, 1), 11)
+        >>> data = np.random.rand(5, 11)
+        >>> e_2d = EvalData([axis1, axis2], data)
+
+        Adding two Instances (if the boundaries fit, the data will be
+        interpolated on the more coarse grid.) Same goes for subtraction and
+        multiplication.
+
+        >>> e_1 = EvalData(Domain((0, 10), 5), np.random.rand(5,))
+        >>> e_2 = EvalData(Domain((0, 10), 10), 100*np.random.rand(5,))
+        >>> e_3 = e_1 + e_2
+        >>> e_3.output_data.shape
+        (5,)
+
+        Interpolate in the output data by calling the object
+
+        >>> e_4 = EvalData(np.array(range(5)), 2*np.array(range(5))))
+        >>> e_4.output_data
+        array([0, 2, 4, 6, 8])
+        >>> e_5 = e_4([2, 5])
+        >>> e_5.output_data
+        array([4, 8])
+        >>> e_5.output_data.size
+        2
+
+        one may also give a slice
+
+        >>> e_6 = e_4(slice(1, 5, 2))
+        >>> e_6.output_data
+        array([2., 6.])
+        >>> e_5.output_data.size
+        2
+
+        For multi-dimensional interpolation a list has to be provided
+
+        >>> e_7 = e_2d([[.1, .5], [.3, .4, .7)])
+        >>> e_7.output_data.shape
+        (2, 3)
+
     """
-
-    def __init__(self, input_data, output_data, name=""):
+    def __init__(self, input_data, output_data,
+                 input_labels=None, input_units=None,
+                 enable_extrapolation=False,
+                 fill_axes=False, name=None):
         # check type and dimensions
-        assert isinstance(input_data, list)
-        assert isinstance(output_data, np.ndarray)
+        if isinstance(input_data, np.ndarray) and input_data.ndim == 1:
+            # accept single array for single dimensional input
+            input_data = [input_data]
+        elif isinstance(input_data, Domain) and input_data.points.ndim == 1:
+            # some goes for domains
+            input_data = [input_data]
+        else:
+            assert isinstance(input_data, list)
 
-        # output_data has to contain at least len(input_data) dimensions
-        assert len(input_data) <= len(output_data.shape)
+        # convert numpy arrays to domains
+        input_data = [Domain(points=entry)
+                      if isinstance(entry, np.ndarray) else entry
+                      for entry in input_data]
+
+        # if a list with names is provided, the dimension must fit
+        if input_labels is None:
+            input_labels = ["" for i in range(len(input_data))]
+        if not isinstance(input_labels, list):
+            input_labels = [input_labels]
+        assert len(input_labels) == len(input_data)
+
+        # if a list with units is provided, the dimension must fit
+        if input_units is None:
+            input_units = ["" for i in range(len(input_data))]
+        if not isinstance(input_units, list):
+            input_units = [input_units]
+        assert len(input_units) == len(input_data)
+
+        assert isinstance(output_data, np.ndarray)
+        if output_data.size == 0:
+            raise ValueError("No initialisation possible with an empty array!")
+
+        if fill_axes:
+            # add dummy axes to input_data for missing output dimensions
+            dim_diff = output_data.ndim - len(input_data)
+            for dim in range(dim_diff):
+                input_data.append(Domain(points=np.array(
+                    range(output_data.shape[-(dim_diff - dim)]))))
+                input_labels.append("")
+                input_units.append("")
+
+        # output_data has to contain len(input_data) dimensions
+        assert len(input_data) == output_data.ndim
 
         for dim in range(len(input_data)):
             assert len(input_data[dim]) == output_data.shape[dim]
 
         self.input_data = input_data
-        if output_data.size == 0:
-            raise ValueError("No initialisation possible with an empty array!")
         self.output_data = output_data
         self.min = output_data.min()
         self.max = output_data.max()
+
+        if len(input_data) == 1:
+            if enable_extrapolation:
+                fill_val = "extrapolate"
+            else:
+                fill_val = (output_data[0], output_data[-1])
+
+            self._interpolator = interp1d(input_data[0],
+                                          output_data,
+                                          axis=-1,
+                                          bounds_error=False,
+                                          fill_value=fill_val)
+        elif len(input_data) == 2 and output_data.ndim == 2:
+            # pure 2d case
+            if enable_extrapolation:
+                raise ValueError("Extrapolation not supported for 2d data. See "
+                                 "https://github.com/scipy/scipy/issues/8099"
+                                 "for details.")
+            if len(input_data[0]) > 3 and len(input_data[1]) > 3:
+                # special treatment for very common case (faster than interp2d)
+                # boundary values are used as fill values
+                self._interpolator = RectBivariateSpline(*input_data,
+                                                         output_data)
+            else:
+                # this will trigger nearest neighbour interpolation
+                fill_val = None
+
+                # if enable_extrapolation:
+                #     fill_val = None
+                # else:
+                #     Since the value has to be the same at every border
+                    # fill_val = 0
+
+                self._interpolator = interp2d(input_data[0],
+                                              input_data[1],
+                                              output_data.T,
+                                              bounds_error=False,
+                                              fill_value=fill_val)
+        else:
+            if enable_extrapolation:
+                fill_val = None
+            else:
+                # Since the value has to be the same at every border
+                fill_val = 0
+
+            self._interpolator = RegularGridInterpolator(input_data,
+                                                         output_data,
+                                                         bounds_error=False,
+                                                         fill_value=fill_val)
+
+        # handle names and units
+        self.input_labels = input_labels
+        self.input_units = input_units
         self.name = name
+        if self.name is None:
+            self.name = ""
+
+    def adjust_input_vectors(self, other):
+        """
+        Check the the inputs vectors of `self` and `other` for compatibility
+        (equivalence) and harmonize them if they are compatible.
+
+        The compatibility check is performed for every input_vector in
+        particular and examines whether they share the same boundaries.
+        and equalize to the minimal discretized axis.
+        If the amount of discretization steps between the two instances differs,
+        the more precise discretization is interpolated down onto the less
+        precise one.
+
+        Args:
+            other (:py:class:`.EvalData`): Other EvalData class.
+
+        Returns:
+            tuple:
+
+                - (list) - New common input vectors.
+                - (numpy.ndarray) - Interpolated self output_data array.
+                - (numpy.ndarray) - Interpolated other output_data array.
+        """
+        assert len(self.input_data) == len(other.input_data)
+
+        input_data = []
+        for idx in range(len(self.input_data)):
+            # check if axis have the same length
+            if self.input_data[idx].bounds != other.input_data[idx].bounds:
+                raise ValueError("Boundaries of input vector {0} don't match."
+                                 " {1} (self) != {2} (other)".format(
+                    idx,
+                    self.input_data[idx].bounds,
+                    other.input_data[idx].bounds
+                ))
+
+            # check which axis has the worst discretization
+            if len(self.input_data[idx]) <= len(other.input_data[idx]):
+                input_data.append(self.input_data[idx])
+            else:
+                input_data.append(other.input_data[idx])
+
+        # interpolate data
+        interpolated_self = self.interpolate(input_data)
+        interpolated_other = other.interpolate(input_data)
+
+        return (input_data,
+                interpolated_self.output_data,
+                interpolated_other.output_data)
+
+    def add(self, other, from_left=True):
+        """
+        Perform the element-wise addition of the output_data arrays from `self`
+        and `other`
+
+        This method is used to support addition by implementing
+        __add__ (fromLeft=True) and __radd__(fromLeft=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`
+        The summation operation is performed on the interpolated output_data.
+        If `other` is a :class:`numbers.Number` it is added according to
+        numpy's broadcasting rules.
+
+        Args:
+            other (:py:class:`numbers.Number` or :py:class:`.EvalData`): Number
+                or EvalData object to add to self.
+            from_left (bool): Perform the addition from left if True or from
+                right if False.
+
+        Returns:
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of the addition.
+        """
+        if isinstance(other, numbers.Number):
+            if from_left:
+                output_data = self.output_data + other
+            else:
+                output_data = other + self.output_data
+            return EvalData(input_data=deepcopy(self.input_data),
+                            output_data=output_data,
+                            name="{} + {}".format(self.name, other))
+
+        elif isinstance(other, EvalData):
+            (input_data, self_output_data, other_output_data
+             ) = self.adjust_input_vectors(other)
+
+            # add the output arrays
+            if from_left:
+                output_data = self_output_data + other_output_data
+                _name = self.name + " + " + other.name
+            else:
+                output_data = other_output_data + self_output_data
+                _name = other.name + " + " + self.name
+
+            return EvalData(input_data=deepcopy(input_data),
+                            output_data=output_data,
+                            name=_name)
+        else:
+            return NotImplemented
+
+    def __radd__(self, other):
+        return self.add(other, from_left=False)
+
+    def __add__(self, other):
+        return self.add(other)
+
+    def sub(self, other, from_left=True):
+        """
+        Perform the element-wise subtraction of the output_data arrays from
+        `self` and `other` .
+
+        This method is used to support subtraction by implementing
+        __sub__ (from_left=True) and __rsub__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The subtraction operation is performed on the interpolated output_data.
+        If `other` is a :class:`numbers.Number` it is handled according to
+        numpy's broadcasting rules.
+
+        Args:
+            other (:py:class:`numbers.Number` or :py:class:`.EvalData`): Number
+                or EvalData object to subtract.
+            from_left (boolean): Perform subtraction from left if True or from
+                right if False.
+
+        Returns:
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of subtraction.
+        """
+        if isinstance(other, numbers.Number):
+            if from_left:
+                output_data = self.output_data - other
+            else:
+                output_data = other - self.output_data
+            return EvalData(input_data=deepcopy(self.input_data),
+                            output_data=output_data,
+                            name="{} - {}".format(self.name, other))
+
+        elif isinstance(other, EvalData):
+            (input_data, self_output_data, other_output_data
+             ) = self.adjust_input_vectors(other)
+
+            # subtract the output arrays
+            if from_left:
+                output_data = self_output_data - other_output_data
+                _name = self.name + " - " + other.name
+            else:
+                output_data = other_output_data - self_output_data
+                _name = other.name + " - " + self.name
+
+            return EvalData(input_data=deepcopy(input_data),
+                            output_data=output_data,
+                            name=_name)
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        return self.sub(other, from_left=False)
+
+    def __sub__(self, other):
+        return self.sub(other)
+
+    def mul(self, other, from_left=True):
+        """
+        Perform the element-wise multiplication of the output_data arrays from
+        `self` and `other` .
+
+        This method is used to support multiplication by implementing
+        __mul__ (from_left=True) and __rmul__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The multiplication operation is performed on the interpolated
+        output_data. If `other` is a :class:`numbers.Number` it is handled
+        according to numpy's broadcasting rules.
+
+        Args:
+            other (:class:`numbers.Number` or :py:class:`.EvalData`): Factor
+                to multiply with.
+            from_left boolean: Multiplication from left if True or from right
+                if False.
+
+        Returns:
+            :py:class:`.EvalData` with adapted input_data and output_data as
+            result of multiplication.
+        """
+        if isinstance(other, numbers.Number):
+            if from_left:
+                output_data = self.output_data * other
+            else:
+                output_data = other * self.output_data
+            return EvalData(input_data=deepcopy(self.input_data),
+                            output_data=output_data,
+                            name="{} - {}".format(self.name, other))
+
+        elif isinstance(other, EvalData):
+            (input_data, self_output_data, other_output_data
+             ) = self.adjust_input_vectors(other)
+
+            # addition der output array
+            output_data = other_output_data * self_output_data
+            if from_left:
+                _name = self.name + " * " + other.name
+            else:
+                _name = other.name + " * " + self.name
+
+            return EvalData(input_data=deepcopy(input_data),
+                            output_data=output_data,
+                            name=_name)
+        else:
+            return NotImplemented
+
+    def __rmul__(self, other):
+        return self.mul(other, from_left=False)
+
+    def __mul__(self, other):
+        return self.mul(other)
+
+    def matmul(self, other, from_left=True):
+        """
+        Perform the matrix multiplication of the output_data arrays from
+        `self` and `other` .
+
+        This method is used to support matrix multiplication (@) by implementing
+        __matmul__ (from_left=True) and __rmatmul__(from_left=False)).
+        If `other**` is a :py:class:`.EvalData`, the `input_data` lists of
+        `self` and `other` are adjusted using :py:meth:`.adjust_input_vectors`.
+        The matrix multiplication operation is performed on the interpolated
+        output_data.
+        If `other` is a :class:`numbers.Number` it is handled according to
+        numpy's broadcasting rules.
+
+        Args:
+            other (:py:class:`EvalData`): Object to multiply with.
+            from_left (boolean): Matrix multiplication from left if True or
+                from right if False.
+
+        Returns:
+            :py:class:`EvalData` with adapted input_data and output_data as
+            result of matrix multiplication.
+        """
+        if isinstance(other, EvalData):
+            (input_data, self_output_data, other_output_data
+             ) = self.adjust_input_vectors(other)
+            if self.output_data.shape != other.output_data.shape:
+                raise ValueError("Dimension mismatch")
+
+            if from_left:
+                output_data = self_output_data @ other_output_data
+                _name = self.name + " @ " + other.name
+            else:
+                output_data = other_output_data @ self_output_data
+                _name = other.name + " @ " + self.name
+
+            return EvalData(input_data=deepcopy(input_data),
+                            output_data=output_data,
+                            name=_name)
+        else:
+            return NotImplemented
+
+    def __rmatmul__(self, other):
+        return self.matmul(other, from_left=False)
+
+    def __matmul__(self, other):
+        return self.matmul(other)
+
+    def __pow__(self, power):
+        """
+        Raise the elements form `self.output_data` element-wise to `power`.
+
+        Args:
+            power (:class:`numbers.Number`): Power to raise to.
+
+        Returns:
+            :py:class:`EvalData` with self.input_data and output_data as results
+            of the raise operation.
+        """
+        if isinstance(power, numbers.Number):
+            output_data = self.output_data ** power
+            return EvalData(input_data=deepcopy(self.input_data),
+                            output_data=output_data,
+                            name="{} ** {}".format(self.name, power))
+        else:
+            return NotImplemented
+
+    def sqrt(self):
+        """
+        Radicate the elements form `self.output_data` element-wise.
+
+        Return:
+             :py:class:`EvalData` with self.input_data and output_data as result
+             of root calculation.
+        """
+        output_data = np.sqrt(self.output_data)
+
+        ed = EvalData(input_data=deepcopy(self.input_data),
+                      output_data=output_data,
+                      name="sqrt({})".format(self.name))
+        return ed
+
+    def abs(self):
+        """
+        Get the absolute value of the elements form `self.output_data` .
+
+        Return:
+            :py:class:`EvalData` with self.input_data and output_data as result
+            of absolute value calculation.
+        """
+        output_data = np.abs(self.output_data)
+
+        ed = EvalData(input_data=deepcopy(self.input_data),
+                      output_data=output_data,
+                      name="abs({})".format(self.name))
+        return ed
+
+    def __call__(self, interp_axes, as_eval_data=True):
+        """
+        Interpolation method for output_data.
+
+        Determines, if a one, two or three dimensional interpolation is used.
+        Method can handle slice objects in the pos lists.
+        One slice object is allowed per axis list.
+
+        Args:
+            interp_axes (list(list)): Axis positions in the form
+
+            - 1D: [axis] with axis=[1,2,3]
+            - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+            as_eval_data (bool): Return the interpolation result as EvalData
+                object. If `False`, the output_data array of the results is
+                returned.
+
+        Returns:
+            :py:class:`EvalData` with pos as input_data and to pos interpolated
+            output_data.
+        """
+        if len(self.input_data) == 1:
+            # special case for 1d data where the outermost list can be omitted
+            if isinstance(interp_axes, slice):
+                interp_axes = [interp_axes]
+            if isinstance(interp_axes, list) and \
+                    all([isinstance(e, Number) for e in interp_axes]):
+                interp_axes = [interp_axes]
+
+        assert isinstance(interp_axes, list)
+        dim_err = len(self.input_data) - len(interp_axes)
+        assert dim_err >= 0
+        interp_axes += [slice(None) for x in range(dim_err)]
+        assert len(interp_axes) == len(self.input_data)
+
+        _list = []
+        for i, interp_points in enumerate(interp_axes):
+            if isinstance(interp_points, slice):
+                _entry = self.input_data[i][interp_points]
+                if _entry is None:
+                    raise ValueError("Quantity resulting from slice is empty!")
+            else:
+                try:
+                    _entry = list(interp_points)
+                except TypeError as e:
+                    raise ValueError("Coordinates must be given as iterable!")
+            _list.append(_entry)
+
+        res = self.interpolate(_list)
+
+        if as_eval_data:
+            return res
+        else:
+            return res.output_data
+
+    def interpolate(self, interp_axis):
+        """
+        Main interpolation method for output_data.
+
+        If one of the output dimensions is to be interpolated at one single
+        point, the dimension of the output will decrease by one.
+
+        Args:
+            interp_axis (list(list)): axis positions in the form
+
+            - 1D: axis with axis=[1,2,3]
+            - 2D: [axis1, axis2] with axis1=[1,2,3] and axis2=[0,1,2,3,4]
+
+        Returns:
+            :py:class:`EvalData` with `interp_axis` as new input_data and
+            interpolated output_data.
+        """
+        assert isinstance(interp_axis, list)
+        assert len(interp_axis) == len(self.input_data)
+
+        # check if an axis has been degenerated
+        domains = [Domain(points=axis) for axis in interp_axis if len(axis) > 1]
+
+        if len(self.input_data) == 1:
+            interpolated_output = self._interpolator(interp_axis[0])
+        elif len(self.input_data) == 2:
+            interpolated_output = self._interpolator(*interp_axis)
+            if isinstance(self._interpolator, interp2d):
+                interpolated_output = interpolated_output.T
+        else:
+            dims = tuple(len(a) for a in interp_axis)
+            coords = np.array(
+                [a.flatten() for a in np.meshgrid(*interp_axis, indexing="ij")])
+            interpolated_output = self._interpolator(coords.T).reshape(dims)
+
+        return EvalData(input_data=domains,
+                        output_data=np.squeeze(interpolated_output),
+                        name=self.name)

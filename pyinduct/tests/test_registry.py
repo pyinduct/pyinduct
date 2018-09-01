@@ -18,8 +18,12 @@ Tests for `registry` module.
 # TODO add TestCases
 class RegistryTests(unittest.TestCase):
     def setUp(self):
-        self.nodes, self.base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 1), node_count=10)
-        self.double_nodes, self.double_base = pi.cure_interval(pi.LagrangeFirstOrder, (0, 2), node_count=20)
+        self.nodes = pi.Domain((0, 1), num=10)
+        self.base = pi.LagrangeFirstOrder.cure_interval(self.nodes)
+
+        self.double_nodes = pi.Domain((0, 1), num=10)
+        self.double_base = pi.LagrangeFirstOrder.cure_interval(
+            self.double_nodes)
 
     def test_registration(self):
         # base should not be registered

@@ -7,6 +7,7 @@ import collections
 import copy
 from abc import ABCMeta
 from numbers import Number
+import warnings
 
 import numpy as np
 
@@ -52,7 +53,7 @@ class Placeholder(object):
                 raise TypeError("location must be a number")
         self.location = location
 
-    def derive(self, temp_order=0, spat_order=0):
+    def derivative(self, temp_order=0, spat_order=0):
         """
         Mimics a copy constructor and adds the given derivative orders.
 
@@ -100,8 +101,16 @@ class SpatialPlaceholder(Placeholder):
     def __init__(self, data, order=0, location=None):
         Placeholder.__init__(self, data, order=(0, order), location=location)
 
-    def derive(self, order=0):
-        return super().derive(spat_order=order)
+    def derive(self, order=1):
+        """
+        Take the (spatial) derivative of this object.
+        Args:
+            order: Derivative order.
+
+        Returns:
+            :py:class:`.Placeholder`: The derived expression.
+        """
+        return self.derivative(spat_order=order)
 
 
 class Scalars(Placeholder):
@@ -215,8 +224,9 @@ class Input(Placeholder):
         exponent (numbers.Number): See :py:class:`.FieldVariable`.
 
     Note:
-        if *order* is nonzero, the callable has to provide the temporal
-        derivatives.
+        if *order* is nonzero, the callable is expected to return the temporal
+        derivatives of the input signal by returning an array of
+        ``len(order)+1``.
     """
 
     def __init__(self, function_handle, index=0, order=0, exponent=1):
@@ -224,6 +234,13 @@ class Input(Placeholder):
             raise TypeError("callable object has to be provided.")
         if not isinstance(index, int) or index < 0:
             raise TypeError("index must be a positive integer.")
+
+        if not isinstance(exponent, Number):
+            raise TypeError("exponent must be a number")
+        if exponent != 1:
+            raise ValueError("Providing exponents that differ from 1 is no "
+                             "longer supported.")
+
         super().__init__(dict(input=function_handle,
                               index=index,
                               exponent=exponent),
@@ -272,10 +289,6 @@ class FieldVariable(Placeholder):
     r"""
     Class that represents terms of the systems field variable :math:`x(z, t)`.
 
-    Note:
-        Use :py:class:`.TemporalDerivedFieldVariable` and
-        :py:class:`.SpatialDerivedFieldVariable` if no mixed derivatives occur.
-
     Args:
         function_label (str): Label of shapefunctions to use for approximation,
             see :py:func:`.register_base` for more information about how to
@@ -314,9 +327,6 @@ class FieldVariable(Placeholder):
             raise TypeError("order mus be 2-tuple of int.")
         if any([True for n in order if n < 0]):
             raise ValueError("derivative orders must be positive")
-        # TODO: Is this restriction still needed?
-        if sum(order) > 2:
-            raise ValueError("only derivatives of order one and two supported")
 
         if location is not None:
             if location and not isinstance(location, Number):
@@ -337,9 +347,11 @@ class FieldVariable(Placeholder):
 
         self.raised_spatially = raised_spatially
 
-        # exponent
         if not isinstance(exponent, Number):
             raise TypeError("exponent must be a number")
+        if exponent != 1:
+            raise ValueError("Providing exponents that differ from 1 is no "
+                             "longer supported.")
 
         super().__init__({"func_lbl": function_label,
                           "weight_lbl": weight_label,
@@ -347,10 +359,30 @@ class FieldVariable(Placeholder):
                          order=order,
                          location=location)
 
+    def derive(self, *, temp_order=0, spat_order=0):
+        """
+        Derive the expression to the specified order.
 
-# TODO: remove
+        Args:
+            temp_order: Temporal derivative order.
+            spat_order: Spatial derivative order.
+
+        Returns:
+            :py:class:`.Placeholder`: The derived expression.
+
+        Note:
+            This method uses keyword only arguments, which means that a call
+            will fail if the arguments are passed by order.
+
+        """
+        return self.derivative(temp_order, spat_order)
+
+
 class TemporalDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
+        warnings.warn("TemporalDerivedFieldVariable will deprecated in v0.6.0,"
+                      "use FieldVariable.derive(temp_order=order) instead",
+                      PendingDeprecationWarning)
         FieldVariable.__init__(self,
                                function_label,
                                (order, 0),
@@ -360,6 +392,9 @@ class TemporalDerivedFieldVariable(FieldVariable):
 
 class SpatialDerivedFieldVariable(FieldVariable):
     def __init__(self, function_label, order, weight_label=None, location=None):
+        warnings.warn("SpatialDerivedFieldVariable will deprecated in v0.6.0,"
+                      "use FieldVariable.derive(spat_order=order) instead",
+                      PendingDeprecationWarning)
         FieldVariable.__init__(self,
                                function_label,
                                (0, order),
@@ -446,7 +481,7 @@ class Product(object):
             if s_func.shape != o_func.shape:
                 if s_func.shape[0] == 1:
                     # only one function provided, use it for all others
-                    s_func = s_func[[0 for i in range(o_func.shape[0])]]
+                    s_func = s_func[[0] * o_func.shape[0]]
                 else:
                     raise ValueError("Cannot simplify Product due to dimension "
                                      "mismatch!")

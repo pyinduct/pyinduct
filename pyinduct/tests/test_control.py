@@ -7,9 +7,9 @@ import pyinduct as pi
 class ControllerObserverTestCase(unittest.TestCase):
     def setUp(self):
         self.interval = (0, 1)
-        nodes, base = pi.cure_interval(pi.LagrangeFirstOrder,
-                                       self.interval,
-                                       3)
+        spat_dom = pi.Domain(self.interval, 10)
+        nodes = pi.Domain(spat_dom.bounds, num=3)
+        base = pi.LagrangeFirstOrder.cure_interval(nodes)
         self.weight_label = "base"
         pi.register_base(self.weight_label, base)
 

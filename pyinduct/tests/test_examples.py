@@ -33,3 +33,11 @@ class TestAllExamples(unittest.TestCase):
     def test_transport_system(self):
         import pyinduct.examples.transport_system
 
+    @unittest.skipIf(not test_all_examples, skip_msg)
+    def test_diff_eq_multiple_inputs(self):
+        import pyinduct.examples.diff_eq_multiple_inputs
+
+    @unittest.skipIf(not test_all_examples, skip_msg)
+    def test_euler_bernoulli_beam(self):
+        import pyinduct.examples.euler_bernoulli_beam
+
