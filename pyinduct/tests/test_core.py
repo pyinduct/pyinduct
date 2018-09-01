@@ -236,9 +236,11 @@ class BaseTestCase(unittest.TestCase):
         f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
                      pi.Function(np.cos, domain=(0, np.pi))])
 
+        pi.register_base("me", f)
+
         info = core.TransformationInfo()
         info.src_lbl = "me"
-        info.dst_lbl = "me again"
+        info.dst_lbl = "me"
         info.src_base = f
         info.dst_base = f
         info.src_order = 1
@@ -256,6 +258,8 @@ class BaseTestCase(unittest.TestCase):
         func, extra = f.transformation_hint(info)
         self.assertIsNone(func)
         self.assertIsNone(extra)
+
+        pi.deregister_base("me")
 
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
