@@ -153,7 +153,7 @@ def build_original_weak_formulation(sys_lbl, spatial_domain, input_, name="syste
     return wf
 
 
-def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
+def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     nodes1 = pi.Domain((0, 1), n1)
     nodes2 = pi.Domain((0, 1), n2)
     cf_nodes = pi.Domain((-1, 1), ncf)
@@ -187,9 +187,7 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
 
     # bases for the system / weak formulation
     pi.register_base(base_lbl, pi.Base(
-        base1 + base2 + base4, associated_bases=[
-            base_lbl + st for st in ("_1_visu", "_2_visu", "_3_visu", "_4_visu")
-        ]))
+        base1 + base2 + base4, intermediate_base=modal_base_lbl))
     pi.register_base(base_lbl + "_12", pi.Base(base12 + base20 + base40))
     pi.register_base(base_lbl + "_21", pi.Base(base10 + base21 + base40))
     pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20 + base40))
@@ -204,10 +202,10 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
     zb1 = [zero_function for _ in range(len(nodes1))]
     zb2 = [zero_function for _ in range(len(nodes2))]
     zb4 = [zero_function]
-    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2 + zb4, matching_bases=[base_lbl]))
-    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4, matching_bases=[base_lbl]))
-    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4, matching_bases=[base_lbl]))
-    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4, matching_bases=[base_lbl]))
+    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2 + zb4, matching_bases=[base_lbl], intermediate_base=base_lbl))
+    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4, matching_bases=[base_lbl], intermediate_base=base_lbl))
+    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4, matching_bases=[base_lbl], intermediate_base=base_lbl))
+    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4, matching_bases=[base_lbl], intermediate_base=base_lbl))
 
     def heavi(z):
         return 0 if z < 0 else (0.5 if z == 0 else 1)
@@ -262,16 +260,26 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf):
     pi.register_base(cf_base_lbl + "_3_visu", pi.Base(zb1 + zb2 + fb3, matching_bases=[base_lbl]))
 
 def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
-    # bases for the canonical form
-    input_scale = 2 / param.m * sym.theta
-
     # get eigenvectors
+    m = max((n, ncf))
     from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation \
         import build_bases_for_modal_observer_approximation
     primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals = (
-        build_bases_for_modal_observer_approximation(ncf))
+        build_bases_for_modal_observer_approximation(m))
+    primal_base, dual_base = primal_base[:n], dual_base[:n]
+    primal_base_nf, dual_base_nf = primal_base_nf[:ncf], dual_base_nf[:ncf]
 
-    register_evp_base(cf_base_lbl, primal_base_nf, sym.theta, (-1, 1))
+    # bases for the original form
+    register_evp_base(base_lbl, primal_base, sym.z, (0, 1),
+                      matching_bases=[cf_base_lbl],
+                      intermediate_base=cf_base_lbl)
+    register_evp_base(base_lbl + "test", dual_base, sym.z, (0, 1))
+
+    # bases for the canonical form
+    input_scale = 2 / param.m * sym.theta
+
+    register_evp_base(cf_base_lbl, primal_base_nf, sym.theta, (-1, 1),
+                      matching_bases=base_lbl)
     register_evp_base(cf_base_lbl + "_test", dual_base_nf, sym.theta, (-1, 1))
     register_evp_base(cf_base_lbl + "_10",
                       [[ev[0] * 1, ev[1] * 0, ev[2] * 0]
@@ -308,7 +316,8 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
             [ev.members["funcs"][0] for ev in pi.get_base(cf_base_lbl)]))
 
 
-def register_evp_base(base_lbl, eigenvectors, sp_var, domain):
+def register_evp_base(base_lbl, eigenvectors, sp_var, domain,
+                      intermediate_base=None, matching_bases=list()):
     if len(eigenvectors) % 2 == 1:
         raise ValueError("Only even number of eigenvalues supported.")
 
@@ -333,7 +342,9 @@ def register_evp_base(base_lbl, eigenvectors, sp_var, domain):
         else:
             raise NotImplementedError
 
-    pi.register_base(base_lbl, pi.Base(base))
+    pi.register_base(base_lbl, pi.Base(base,
+                                       intermediate_base=intermediate_base,
+                                       matching_bases=matching_bases))
 
 
 class SwmBaseFraction(pi.ComposedFunctionVector):
@@ -406,6 +417,9 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
             return SwmBaseFraction(
                 [f.derive(order) for f in self.members["funcs"]], [0, 0])
 
+    def get_member(self, idx):
+        return self
+
 
 class SwmBaseCanonicalFraction(pi.ComposedFunctionVector):
     def __init__(self, functions, scalars=None):
@@ -462,3 +476,7 @@ class SwmBaseCanonicalFraction(pi.ComposedFunctionVector):
         else:
             return SwmBaseCanonicalFraction(
                 [f.derive(order) for f in self.members["funcs"]], [0, 0])
+
+    def get_member(self, idx):
+        return self
+
