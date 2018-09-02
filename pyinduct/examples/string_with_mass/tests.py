@@ -21,6 +21,7 @@ class StringWithMassTest(unittest.TestCase):
             import build_bases_for_modal_observer_approximation, validate_modal_bases
         pb, db, pbn, dbn, eig_vals = build_bases_for_modal_observer_approximation(10)
         a, b, c, l, l_ub = validate_modal_bases(pb, db, pbn, dbn, eig_vals)
+        pprint(l)
 
 
     def test_modal_base(self):

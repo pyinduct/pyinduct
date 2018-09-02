@@ -66,9 +66,9 @@ def main():
             [pi.Function.from_constant(0), pi.Function.from_constant(0)],
             [0, 0])],
         obs_fem_wf.name: [SwmBaseCanonicalFraction(
-            [pi.Function.from_constant(0)], [0, 0])],
+            [pi.Function.from_constant(0)], [1, 0])],
         obs_modal_wf.name: [SwmBaseCanonicalFraction(
-            [pi.Function.from_constant(0)], [0, 0])]
+            [pi.Function.from_constant(0)], [1, 0])]
     }
     spatial_domains = {sys_wf.name: spatial_domain,
                        obs_fem_wf.name: spat_domain_cf,
@@ -90,6 +90,8 @@ def main():
     pprint()
     pprint("Eigenvalues [{}, {}, {}]".format(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl))
     pprint([np.linalg.eigvals(A_) for A_ in (A_sys, A_obs, A_modal_obs)])
+    pprint("Input operator")
+    pprint(ss.B[0][1])
 
     # visualization data
     split_indizes = [n1 + n2 + 1,

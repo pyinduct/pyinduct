@@ -190,7 +190,9 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
     # bases for the system / weak formulation
     pi.register_base(base_lbl, pi.Base(
-        base1 + base2 + base4, intermediate_base=modal_base_lbl))
+        # to control the modal system
+        # base1 + base2 + base4, intermediate_base=modal_base_lbl))
+        base1 + base2 + base4))
     pi.register_base(base_lbl + "_12", pi.Base(base12 + base20 + base40))
     pi.register_base(base_lbl + "_21", pi.Base(base10 + base21 + base40))
     pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20 + base40))
