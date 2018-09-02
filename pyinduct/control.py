@@ -12,7 +12,7 @@ from .core import (get_weight_transformation, get_transformation_info,
                    calculate_scalar_product_matrix)
 from .simulation import SimulationInput, parse_weak_formulation
 
-__all__ = ["Controller", "ObserverFeedback"]
+__all__ = ["Controller", "ObserverFeedback", "evaluate_trafos"]
 
 class Controller(SimulationInput):
     """
@@ -106,9 +106,77 @@ class ObserverFeedback:
 
 
 def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
-    """
+    r"""
     Transform the different feedback/observer gains in `ce` to the basis
     `weight_label` and accumulate them to one gain vector.
+
+    For weight transformations the procedure is straight forward.
+    If the feedback gain :math:`u(t) = k^Tc(t)` was approximated with respect
+    to the weights from the state
+    :math:`x(z,t) = \sum_{i=1}^{n}c_i(t)\varphi_i(z)`
+    but during the simulation only the weights from base
+    :math:`\bar{x}(z,t) = \sum_{i=1}^{m} \bar{c}_i(t)\varphi_i(z)`
+    are available a weights transformation
+
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+          c(t) = N^{-1}M\bar{c}(t), \qquad
+          N_{(i,j)} = \langle \varphi_i(z), \varphi_j(z) \rangle, \qquad
+          M_{(i,j)} = \langle \varphi_i(z), \bar{\varphi}_j(z) \rangle
+        \end{align*}
+
+    will be computed.
+
+    The transformation of a approximated observer gain is a little bit more
+    involved. Since, if one want to know the transformation from the gain vector
+    :math:`l_i = \langle l(z), \psi_i(z) \rangle, i=1,...,n`
+    to the approximation with respect to another test base
+    :math:`\bar{l}_j = \langle l(z), \bar{\psi}_j(z), j=1,...,m \rangle`
+    one have a additional degree of freedom with the ansatz
+    :math:`l(z) = \sum_{i=1}^{k} c_i \varphi_i(z)`.
+
+    In the most cases there is a natural choice for
+    :math:`\varphi_i(z), \,\, i=1,...,k` and :math:`k`, such that the
+    the transformation to the desired projections :math:`\bar{l}`
+    can be aquired with little computational effort. For now these
+    elegant techniques are not covered from these toolbox.
+
+    Here only one method is implemented:
+
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+          \langle l(z), \psi_j(z)\rangle =
+          \langle \sum_{i=1}^{n} c_i \psi_i(z), \psi_j(z)\rangle
+          \quad \Rightarrow c = N^{-1} l,
+          \quad N_{(i,j)} = \langle \varphi_i(z), \varphi_j(z) \rangle\\
+          \langle l(z), \bar{\psi}_j(z)\rangle =
+          \langle \sum_{i=1}^{m} \bar{c}_i \bar{\psi}_i(z), \bar{\psi}_j(z)
+          \quad \Rightarrow \bar{l} = M \bar{c},
+          \quad M_{(i,j)} =
+          \langle \bar{\varphi}_i(z), \bar{\varphi}_j(z) \rangle\\
+        \end{align*}
+
+    Finally the transformation between the weights
+    :math:`c` and :math:`\bar{c}` will be computed with
+    :py:class:`.get_weights_transformation`.
+
+    For more advanced built-in observer approximation and transformation
+    features, take a look at upcoming tools in the symbolic simulation
+    branch of pyinduct (comment from 2018/09/02).
+
+    Note:
+        Since neither :py:class:`.CanonicalEquation` nor
+        :py:class:`.StateSpace` know the target test base
+        :math:`\bar{\psi}_j, j=1,...m`, which was used in the
+        :py:class:`.WeakFormulation`, at the moment, the observer gain
+        transformation works only if the state approximation base
+        and the test base coincides. Which holds for example, for standard
+        fem approximations methods and modal approximations of self
+        adjoint operators.
 
     Args:
         ce (:py:class:`.CanonicalEquation`): Feedback/observer gain.
@@ -133,20 +201,20 @@ def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
             # collect information
             org_base = get_base(lbl)
             tar_base = get_base(weight_label)
+            org_order = int(next(iter(vectors.values())).size / org_base.fractions.size) - 1
+            tar_order = int(max(vect_shape) / len(tar_base)) - 1
             if is_observer:
                 info = get_transformation_info(
                     lbl,
                     weight_label,
-                    int(next(iter(vectors.values())).size
-                        / org_base.fractions.size) - 1,
-                    int(max(vect_shape) / len(tar_base)) - 1)
+                    org_order,
+                    tar_order)
             else:
                 info = get_transformation_info(
                     weight_label,
                     lbl,
-                    int(max(vect_shape) / len(tar_base)) - 1,
-                    int(next(iter(vectors.values())).size
-                        / org_base.fractions.size) - 1)
+                    tar_order,
+                    org_order)
 
             # fetch handle
             transformation = get_weight_transformation(info)
