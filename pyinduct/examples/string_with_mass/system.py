@@ -1,10 +1,12 @@
 from pyinduct.examples.string_with_mass.utils import *
+from pyinduct.core import integrate_function
 import collections
 import pyinduct as pi
 from tqdm import tqdm
 
 
-def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="system"):
+def build_canonical_weak_formulation(obs_lbl, spatial_domain, u,
+                                     obs_err, name="system"):
     r"""
     Observer canonical form of the string with mass example
 
@@ -60,9 +62,9 @@ def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="syst
     psi3_x2_at_m1 = pi.TestFunction(obs_lbl + "_32_at_m1")
     psi3_integrated = pi.TestFunction(obs_lbl + "_3_integrated")
     psi_3_int_intup_scale_f = pi.TestFunction(obs_lbl + "_3_integred_with_input_scale")
+    psi_3_obs_gain = pi.TestFunction(obs_lbl + "observer_gain")
 
     dummy = 0
-    u = pi.Input(input_)
     bounds = spatial_domain.bounds
     wf = pi.WeakFormulation(
         [
@@ -75,7 +77,9 @@ def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="syst
             pi.ScalarTerm(pi.Product(x(dummy), psi3_x2_at_m1(dummy))),
             pi.ScalarTerm(pi.Product(x(1), psi3(-1)), scale=-1),
             pi.IntegralTerm(pi.Product(x, psi3.derive(1)), limits=bounds),
-            pi.ScalarTerm(pi.Product(x(1), psi3_integrated(dummy)), scale=-param.m ** -1)
+            pi.ScalarTerm(pi.Product(x(1), psi3_integrated(dummy)), scale=-param.m ** -1),
+            pi.ScalarTerm(pi.Product(obs_err, psi_3_obs_gain(dummy))),
+            pi.ScalarTerm(pi.Product(obs_err, psi3(-1)), scale=-obs_gain.alpha + 1),
         ],
         name=name
     )
@@ -83,7 +87,7 @@ def build_canonical_weak_formulation(obs_lbl, spatial_domain, input_, name="syst
     return wf
 
 
-def build_original_weak_formulation(sys_lbl, spatial_domain, input_, name="system"):
+def build_original_weak_formulation(sys_lbl, spatial_domain, u, name="system"):
     r"""
     Projection (see :py:meth:`.SwmBaseFraction.scalar_product_hint`
 
@@ -132,7 +136,6 @@ def build_original_weak_formulation(sys_lbl, spatial_domain, input_, name="syste
     psi1_x2 = pi.TestFunction(sys_lbl + "_12")
     psi2_x1 = pi.TestFunction(sys_lbl + "_21")
     psi4_x1 = pi.TestFunction(sys_lbl + "_4_x1")
-    u = pi.Input(input_)
 
     bounds = spatial_domain.bounds
     dummy_location = 0
@@ -222,7 +225,6 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     cf_base20 = [SwmBaseCanonicalFraction([cf_zero_func], [0, 0])]
     cf_base21 = [SwmBaseCanonicalFraction([cf_zero_func], [1, 0])]
 
-    from pyinduct.core import integrate_function
     cf_base3, cf_base30, cf_base32_at_m1, cf_base3_integrated, cf_base3_int_ip_scale = [
         list() for _ in range(5)]
     for f in cf_fem_funcs:
@@ -236,7 +238,10 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
             domain=cf_nodes.bounds)], [0, 0]))
 
     # bases for the system / weak formulation
-    pi.register_base(cf_base_lbl, pi.Base(cf_base1 + cf_base2 + cf_base3))
+    pi.register_base(cf_base_lbl, pi.Base(cf_base1 + cf_base2 + cf_base3,
+                                          # for explicit fem observer
+                                          matching_bases=[cf_base_lbl + "_gain",
+                                                          cf_base_lbl + "30"]))
     pi.register_base(cf_base_lbl + "_test", pi.Base(cf_base1 + cf_base2 + cf_base3))
     pi.register_base(cf_base_lbl + "_10", pi.Base(cf_base1 + cf_base20 + cf_base30))
     pi.register_base(cf_base_lbl + "_20", pi.Base(cf_base10 + cf_base2 + cf_base30))
@@ -255,9 +260,10 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     zb1 = [cf_zero_func]
     zb2 = [cf_zero_func]
     zb3 = [cf_zero_func for _ in range(len(cf_nodes))]
-    pi.register_base(cf_base_lbl + "_1_visu", pi.Base(ob1 + zb2 + zb3, matching_bases=[base_lbl]))
-    pi.register_base(cf_base_lbl + "_2_visu", pi.Base(zb1 + ob2 + zb3, matching_bases=[base_lbl]))
-    pi.register_base(cf_base_lbl + "_3_visu", pi.Base(zb1 + zb2 + fb3, matching_bases=[base_lbl]))
+    pi.register_base(cf_base_lbl + "_1_visu", pi.Base(ob1 + zb2 + zb3, matching_bases=[cf_base_lbl]))
+    pi.register_base(cf_base_lbl + "_2_visu", pi.Base(zb1 + ob2 + zb3, matching_bases=[cf_base_lbl]))
+    pi.register_base(cf_base_lbl + "_3_visu", pi.Base(zb1 + zb2 + fb3, matching_bases=[cf_base_lbl],
+                                                      intermediate_base=cf_base_lbl))
 
 def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
     # get eigenvectors
@@ -313,7 +319,8 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
              for ev in pi.get_base(cf_base_lbl)]))
     pi.register_base(
         cf_base_lbl + "_3_visu", pi.Base(
-            [ev.members["funcs"][0] for ev in pi.get_base(cf_base_lbl)]))
+            [ev.members["funcs"][0] for ev in pi.get_base(cf_base_lbl)],
+        matching_bases=[cf_base_lbl], intermediate_base=cf_base_lbl))
 
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain,
@@ -350,7 +357,9 @@ def register_evp_base(base_lbl, eigenvectors, sp_var, domain,
 class SwmBaseFraction(pi.ComposedFunctionVector):
     l2_scalar_product = True
 
-    def __init__(self, functions, scalars=None):
+    def __init__(self, functions, scalars):
+        assert len(functions) == 2
+        assert len(scalars) == 2
         if scalars is None:
             functions, scalars = functions
         pi.ComposedFunctionVector.__init__(self, functions, scalars)
@@ -422,7 +431,9 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
 
 
 class SwmBaseCanonicalFraction(pi.ComposedFunctionVector):
-    def __init__(self, functions, scalars=None):
+    def __init__(self, functions, scalars):
+        assert len(functions) == 1
+        assert len(scalars) == 2
         if scalars is None:
             functions, scalars = functions
         pi.ComposedFunctionVector.__init__(self, functions, scalars)

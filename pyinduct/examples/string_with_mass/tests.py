@@ -65,4 +65,3 @@ class StringWithMassTest(unittest.TestCase):
         ce = pi.parse_weak_formulation(wf)
         pprint(ce.dynamic_forms[base_label_cf].matrices["E"][1][1])
         pprint(ce.dynamic_forms[base_label_cf].matrices["E"][0][1])
-

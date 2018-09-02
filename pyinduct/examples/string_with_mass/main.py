@@ -42,13 +42,23 @@ def main():
     controller = build_controller(sys_fem_lbl)
     input_ = pi.SimulationInputSum([closed_loop_traj, controller])
 
+    # observer error
+    obs_fem_error, obs_modal_error = init_observer_gain(
+        sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl)
+
+    # input / observer error vector
+    input_vector = pi.SimulationInputVector([input_, obs_fem_error, obs_modal_error])
+    control = pi.Input(input_vector, index=0)
+    yt_fem = pi.Input(input_vector, index=1)
+    yt_modal = pi.Input(input_vector, index=2)
+
     # system approximation
     sys_wf = build_original_weak_formulation(
-        sys_fem_lbl, spatial_domain, input_, sys_fem_lbl)
+        sys_fem_lbl, spatial_domain, control, sys_fem_lbl)
     obs_fem_wf = build_canonical_weak_formulation(
-        obs_fem_lbl, spat_domain_cf, input_, obs_fem_lbl)
+        obs_fem_lbl, spat_domain_cf, control, yt_fem, obs_fem_lbl)
     obs_modal_wf = build_canonical_weak_formulation(
-        obs_modal_lbl, spat_domain_cf, input_, obs_modal_lbl)
+        obs_modal_lbl, spat_domain_cf, control, yt_modal, obs_modal_lbl)
 
     # simulation
     init_cond = {

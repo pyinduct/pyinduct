@@ -1,4 +1,4 @@
-from pyinduct.examples.string_with_mass.utils import sym, param
+from pyinduct.examples.string_with_mass.utils import sym, param, obs_gain
 from sympy.utilities import lambdify
 from scipy.integrate import quad
 from tqdm import tqdm
@@ -182,7 +182,38 @@ def build_bases_for_modal_observer_approximation(m):
     return primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals
 
 
-def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals):
+def get_observer_gain(spring_damper_params=list()):
+
+    # observer gain
+    a = np.array([0,
+                  0,
+                  param.m ** -1])
+    a_bc = np.array([1])
+    if len(spring_damper_params) > 0:
+        kd0, ks0, kd1, ks1 = spring_damper_params
+
+        a0 = param.m * (kd1 + 1) / 2
+        a1 = a0 ** -1 * (ks0)
+        a2 = a0 ** -1 * (ks1 * (2 * kd0 + ks0 + 2) / 2 + kd1 * (kd0 + 1) + ks0 * (1 + kd1))
+        a3 = (a0 ** -1 *
+              (ks1 * (param.m / 2 * sp.sign(sym.theta) + (kd0 + 1) / 2 *(1 - sym.theta) + ks0 / 2 * (sp.sign(sym.theta) * sym.theta ** 2 / 2 - sym.theta + .5)) +
+               (kd1 + 1) * (kd0 + 1) / 2 + ks0 * (1 + kd1) * (1 - sym.theta) / 2)
+              )
+        a_desired = np.array([a1, a2, a3])
+        a_bc_desired = np.array([a0 ** -1 * (param.m * (1 - kd1) / 2)])
+    else:
+        a_desired = np.array([(1+obs_gain.alpha) * obs_gain.k0,
+                              (1+obs_gain.alpha) * obs_gain.k1 + 2 * obs_gain.k0,
+                              obs_gain.k0 * (1 - sym.theta) + obs_gain.k1])
+        a_bc_desired = np.array([obs_gain.alpha])
+    l = a - a_desired
+    l_bc = a_bc - a_bc_desired
+
+    return l, l_bc
+
+
+def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
+                         eig_vals):
     m = len(primal_base)
     n = int(m / 2)
     assert all([len(it_) == m for it_ in (primal_base_nf, dual_base, dual_base_nf, eig_vals)])
@@ -218,36 +249,16 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf, e
     nu2 = [tf[1] for tf in dual_base_nf]
     nu3 = [tf[2] for tf in dual_base_nf]
 
+
     # choose kind of desired dynamic
     spring_damper = 0
     if spring_damper:
         kd0, ks0, kd1, ks1 = [1] * 4
+        spring_damper_params = kd0, ks0, kd1, ks1
     else:
         k0, k1, alpha = 9, 10, 0
-
-    # observer gain
-    a = np.array([0,
-                  0,
-                  param.m ** -1])
-    a_bc = np.array([1])
-    if spring_damper:
-        a0 = param.m * (kd1 + 1) / 2
-        a1 = a0 ** -1 * (ks0)
-        a2 = a0 ** -1 * (ks1 * (2 * kd0 + ks0 + 2) / 2 + kd1 * (kd0 + 1) + ks0 * (1 + kd1))
-        a3 = (a0 ** -1 *
-              (ks1 * (param.m / 2 * sp.sign(sym.theta) + (kd0 + 1) / 2 *(1 - sym.theta) + ks0 / 2 * (sp.sign(sym.theta) * sym.theta ** 2 / 2 - sym.theta + .5)) +
-               (kd1 + 1) * (kd0 + 1) / 2 + ks0 * (1 + kd1) * (1 - sym.theta) / 2)
-        )
-        a_desired = np.array([a1, a2, a3])
-        a_bc_desired = np.array([a0 ** -1 * (param.m * (1 - kd1) / 2)])
-    else:
-        a_desired = np.array([(1+alpha) * k0,
-                              (1+alpha) * k1 + 2 * k0,
-                              k0 * (1 - sym.theta) + k1])
-        a_bc_desired = np.array([alpha])
-    l = a - a_desired
-    l_bc = a_bc - a_bc_desired
-
+        spring_damper_params = list()
+    l, l_bc = get_observer_gain(spring_damper_params)
 
     # observer projections
     if 1:

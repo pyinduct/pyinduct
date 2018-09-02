@@ -111,3 +111,63 @@ def flatness_based_controller(x2_plus1, y_bar_plus1, y_bar_minus1,
         ,factor=(1 + ctrl_gain.alpha) ** -1
     ), name=name))
     return k
+
+def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
+    from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation import get_observer_gain
+    x1_sys_fem = pi.FieldVariable(sys_fem_lbl + "_1_visu")
+    x3_obs_fem = pi.FieldVariable(obs_fem_lbl + "_3_visu")
+    x3_obs_modal = pi.FieldVariable(obs_modal_lbl + "_3_visu")
+
+    # define observer error
+    fem_observer_error = pi.Controller(pi.WeakFormulation([
+        pi.ScalarTerm(x3_obs_fem(1)),
+        pi.ScalarTerm(x1_sys_fem(0), scale=-1),
+    ], "fem_observer_error"))
+    modal_observer_error = pi.Controller(pi.WeakFormulation([
+        pi.ScalarTerm(x3_obs_modal(1)),
+        pi.ScalarTerm(x1_sys_fem(0), scale=-1),
+    ], "modal_observer_error"))
+
+    # symbolic observer gain
+    l, l_bc = get_observer_gain()
+    L = SwmBaseCanonicalFraction(
+        [pi.LambdifiedSympyExpression([l[2]], sym.theta, (-1, 1))],
+        [l[0], l[1]])
+
+    # register bases with precomputed observer gain approximations
+    pi.register_base(obs_fem_lbl + "observer_gain", pi.Base([SwmBaseCanonicalFraction(
+        [pi.Function.from_constant(float(integrate_function(
+            lambda th: L.members["funcs"][0](th) * f.members["funcs"][0](th),
+            [(-1, 1)])[0]), domain=(-1, 1))],
+        [L.members["scalars"][0] * f.members["scalars"][0],
+         L.members["scalars"][1] * f.members["scalars"][1]])
+         for f in pi.get_base(obs_fem_lbl + "_test")]))
+    pi.register_base(obs_modal_lbl + "observer_gain", pi.Base([SwmBaseCanonicalFraction(
+        [pi.Function.from_constant(float(integrate_function(
+            lambda th: L.members["funcs"][0](th) * f.members["funcs"][0](th),
+            [(-1, 1)])[0]), domain=(-1, 1))],
+        [L.members["scalars"][0] * f.members["scalars"][0],
+         L.members["scalars"][1] * f.members["scalars"][1]])
+        for f in pi.get_base(obs_modal_lbl + "_test")]))
+
+    return fem_observer_error, modal_observer_error
+
+    # # build observer gain instances
+    # dummy = 0
+    # psi3_fem = pi.TestFunction(obs_fem_lbl + "_30",
+    #                            approx_label=obs_fem_lbl + "_test")
+    # fem_observer_gain = pi.ObserverFeedback(pi.WeakFormulation([
+    #     pi.ScalarTerm(pi.TestFunction(
+    #         "fem_observer_gain", approx_label=obs_fem_lbl + "_test")(dummy)),
+    #     pi.ScalarTerm(psi3_fem(-1), scale=l_bc[0])
+    # ], "fem_observer_gain"), fem_observer_error)
+    # psi3_modal = pi.TestFunction(obs_modal_lbl + "_30",
+    #                              approx_label=obs_modal_lbl + "_test")
+    # modal_observer_gain = pi.ObserverFeedback(pi.WeakFormulation([
+    #     pi.ScalarTerm(pi.TestFunction(
+    #         "modal_observer_gain", approx_label=obs_modal_lbl + "_test")(dummy)),
+    #     pi.ScalarTerm(psi3_modal(-1), scale=l_bc[0])
+    # ], "modal_observer_gain"), modal_observer_error)
+
+
+    return fem_observer_gain, modal_observer_gain
