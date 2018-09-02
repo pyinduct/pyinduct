@@ -522,15 +522,23 @@ class Base:
     Args:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
-        matching_bases (list of str): Labels from exactly matching bases,
-            for which no transformation is necessary.
+        matching_bases (list of str): List of labels from exactly matching
+            bases, for which no transformation is necessary.
             Useful for transformations from bases which 'lives' in
             different function spaces but evolve with the same time
             dynamic/coefficients (for example modal bases).
-        associated_bases (list of str): Labels from bases which should be
-            used for controller or observer gain approximation.
+        intermediate_base (str): If you know that this base instance will be
+            asks (as destination base) according a transformation
+            to a source base, which you dont bother to implement on your own,
+            than provide here the label of another base, for which the
+            transformation can acquired with buil-in feautures. The algorithm,
+            implemented in :py:class:`.get_weights_transformation`
+            is then called again with the intermediate base as destination
+            base and the 'old' source base. With this technique arbitrary
+            long transformation chains are possible, when the provided
+            intermediate base also defines an intermediate base and this ...
     """
-    def __init__(self, fractions, matching_bases=list(), associated_bases=list()):
+    def __init__(self, fractions, matching_bases=list(), intermediate_base=None):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -540,7 +548,7 @@ class Base:
 
         self.fractions = fractions
         self.matching_bases = matching_bases
-        self.associated_bases = associated_bases
+        self.intermediate_base = intermediate_base
 
     def __iter__(self):
         return iter(self.fractions)
@@ -591,17 +599,26 @@ class Base:
         Returns:
             Transformation handle
         """
-        if info.src_lbl in self.matching_bases:
+        if (info.dst_base is self) and (info.src_lbl in self.matching_bases):
             def handle(weights):
                 return weights
 
             return handle, None
 
-        elif info.src_lbl in self.associated_bases:
-            return info.src_base.transformation_hint(info)
-
         elif info.src_base.__class__ == info.dst_base.__class__:
             return self._transformation_factory(info), None
+
+        elif self.intermediate_base is not None:
+            intermediate_hint = get_transformation_info(
+                self.intermediate_base, info.dst_lbl,
+                info.dst_order, info.dst_order
+            )
+            handle = get_weight_transformation(intermediate_hint)
+            hint = get_transformation_info(
+                info.src_lbl, self.intermediate_base,
+                info.src_order, info.dst_order
+            )
+            return handle, hint
 
         else:
             # No Idea what to do.
@@ -704,21 +721,6 @@ class StackedBase(Base):
         Return:
             transformation handle
         """
-        # try to get help from kind bases
-        for base_label in self._info.keys():
-            kind_base = get_base(base_label)
-            if info.dst_lbl in kind_base.associated_bases:
-                dst_base = get_base(info.dst_lbl)
-                # stacked to intermediate hint
-                hint1 = get_transformation_info(info.src_lbl, base_label, 0, 0)
-                # intermediate to destination hint
-                hint2 = get_transformation_info(base_label, info.dst_lbl, 0, 0)
-                try:
-                    handel = get_weight_transformation(hint2)
-                    return handel, hint1
-                except TypeError as e:
-                    # if no transformation could be acquired dont stop searching
-                    pass
 
         # we only know how to get from a stacked base to one of our parts
         if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
