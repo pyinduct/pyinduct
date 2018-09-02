@@ -265,7 +265,7 @@ class StateSpace(object):
 
         input_part = np.zeros_like(state_part)
         inputs = np.atleast_2d([u(time=_t, weights=_q, weight_lbl=self.base_lbl)
-                                for u in self.input])
+                                for u in self.input[0]])
         for der_order, power_dict in self.B.items():
             for power, b_mat in power_dict.items():
                 for idx, col in enumerate(b_mat.T):
@@ -968,7 +968,7 @@ def create_state_space(canonical_equations):
         if state_space_props.input is None:
             state_space_props.input = eq.input_functions
         else:
-            if eq.input_functions is not None and state_space_props.input != eq.input_functions:
+            if eq.input_functions is not None and state_space_props.input not in eq.input_functions:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
@@ -1548,6 +1548,12 @@ class SimulationInputVector(SimulationInput):
         SimulationInput.__init__(self)
         self._input_vector = list(input_vector)
 
+    def __iter__(self):
+        return iter(self._input_vector)
+
+    def __getitem__(self, item):
+        return self._input_vector[item]
+
     def append(self, input_vector):
         [self._input_vector.append(input) for input in input_vector]
 
@@ -1556,4 +1562,4 @@ class SimulationInputVector(SimulationInput):
         for input in self._input_vector:
             output.append(input(**kwargs))
 
-        return dict(output=np.hstack(tuple(output)))
+        return dict(output=np.vstack(output))
