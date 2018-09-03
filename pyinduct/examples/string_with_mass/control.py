@@ -120,14 +120,15 @@ def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
     x3_obs_modal = pi.FieldVariable(obs_modal_lbl + "_3_visu")
 
     # define observer error
+    smooth = [(0, 1), (0, 1), "poly", 2]
     fem_observer_error = pi.Controller(pi.WeakFormulation([
         pi.ScalarTerm(x3_obs_fem(1)),
         pi.ScalarTerm(x1_sys_fem(0), scale=-1),
-    ], "fem_observer_error"))
+    ], "fem_observer_error"), smooth=smooth)
     modal_observer_error = pi.Controller(pi.WeakFormulation([
         pi.ScalarTerm(x3_obs_modal(1)),
         pi.ScalarTerm(x1_sys_fem(0), scale=-1),
-    ], "modal_observer_error"))
+    ], "modal_observer_error"), smooth=smooth)
 
     # symbolic observer gain
     l, l_bc = get_observer_gain()
@@ -152,26 +153,6 @@ def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
         for f in pi.get_base(obs_modal_lbl + "_test")]))
 
     return fem_observer_error, modal_observer_error
-
-    # # build observer gain instances
-    # dummy = 0
-    # psi3_fem = pi.TestFunction(obs_fem_lbl + "_30",
-    #                            approx_label=obs_fem_lbl + "_test")
-    # fem_observer_gain = pi.ObserverFeedback(pi.WeakFormulation([
-    #     pi.ScalarTerm(pi.TestFunction(
-    #         "fem_observer_gain", approx_label=obs_fem_lbl + "_test")(dummy)),
-    #     pi.ScalarTerm(psi3_fem(-1), scale=l_bc[0])
-    # ], "fem_observer_gain"), fem_observer_error)
-    # psi3_modal = pi.TestFunction(obs_modal_lbl + "_30",
-    #                              approx_label=obs_modal_lbl + "_test")
-    # modal_observer_gain = pi.ObserverFeedback(pi.WeakFormulation([
-    #     pi.ScalarTerm(pi.TestFunction(
-    #         "modal_observer_gain", approx_label=obs_modal_lbl + "_test")(dummy)),
-    #     pi.ScalarTerm(psi3_modal(-1), scale=l_bc[0])
-    # ], "modal_observer_gain"), modal_observer_error)
-
-
-    return fem_observer_gain, modal_observer_gain
 
 
 def ocf_inverse_state_transform(org_state):
@@ -226,23 +207,32 @@ def ocf_inverse_state_transform(org_state):
 
 
 def set_control_mode(sys_fem_lbl, sys_modal_lbl,
-                     obs_fem_lbl, obs_modal_lbl, mode="default"):
+                     obs_fem_lbl, obs_modal_lbl, mode):
 
-    if mode == "default":
+    # obligatory
+    for ending in ("_3_visu",):
+        ## that the observer errors can pick the correct bases from stacked base
+        pi.get_base(obs_modal_lbl + ending).matching_bases = [obs_modal_lbl]
+        pi.get_base(obs_modal_lbl + ending).intermediate_base = obs_modal_lbl
+        pi.get_base(obs_fem_lbl + ending).matching_bases = [obs_fem_lbl]
+        pi.get_base(obs_fem_lbl + ending).intermediate_base = obs_fem_lbl
+
+    # default: explicit controller
+    if mode == "sys_ctrl":
         for ending in ("_1_visu", "_2_visu", "_3_visu", "_4_visu"):
             pi.get_base(sys_fem_lbl + ending).intermediate_base = sys_fem_lbl
             pi.get_base(sys_fem_lbl + ending).matching_bases = [sys_fem_lbl]
-            if not ending.startswith("_4"):
-                pi.get_base(obs_fem_lbl + ending).matching_bases = [obs_fem_lbl]
-            if ending.startswith("_3"):
-                pi.get_base(obs_fem_lbl + ending).intermediate_base = obs_fem_lbl
 
-        pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
-        pi.get_base(sys_modal_lbl).intermediate_base = [obs_modal_lbl]
-        pi.get_base(obs_modal_lbl).matching_bases = [sys_modal_lbl]
-        pi.get_base(obs_modal_lbl + "_3_visu").matching_bases = [obs_modal_lbl]
-        pi.get_base(obs_modal_lbl + "_3_visu").intermediate_base = obs_modal_lbl
-
+    # control the modal observer system
     elif mode == "control_modal_observer":
+        # compute transformation to the modal base
         pi.get_base(sys_fem_lbl).intermediate_base = sys_modal_lbl
+        # route to the modal observer
+        pi.get_base(sys_modal_lbl).intermediate_base = [obs_modal_lbl]
+        # hint that the modal observer evolve with the same weights
+        pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
+
+    # control the fem observer system
+    elif mode == "control_fem_observer":
+        pass
 

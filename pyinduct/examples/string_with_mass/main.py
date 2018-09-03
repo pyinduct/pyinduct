@@ -14,6 +14,9 @@ def main():
     # constant observer initial error
     ie = 0.1
 
+    # control mode
+    control_mode = "sys_ctrl"
+
     # domains
     z_end = 1
     spatial_discretization = 100
@@ -66,7 +69,8 @@ def main():
         obs_modal_lbl, spat_domain_cf, control, yt_modal, obs_modal_lbl)
 
     # set control mode
-    set_control_mode(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl)
+    set_control_mode(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl,
+                     control_mode)
 
     # define initial conditions
     if ie == 0:
@@ -153,9 +157,10 @@ def main():
 
     # save results
     path = "results/"
-    timestamp = time.strftime("%Y-%m-%d - %H-%M-%S - ")
-    description = input("result description:")
-    file = open(path + timestamp + description + ".pkl", "wb")
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S_")
+    conf = "({}-{}-{}-{})_".format(control_mode, n1+n2, n_obs_fem, n_obs_modal)
+    description = input("result description:").replace(" ", "-")
+    file = open(path + timestamp + conf + description + ".pkl", "wb")
     pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
     file.close()
 
