@@ -223,3 +223,26 @@ def ocf_inverse_state_transform(org_state):
             return .5 * (w[1](1 + theta) - dz_w[0](1 + theta)) + dz_w[0](1) - theta * dz_w[1](1)
 
     return SwmBaseCanonicalFraction([pi.Function(y3, (-1, 1))], [y1, y2])
+
+
+def set_control_mode(sys_fem_lbl, sys_modal_lbl,
+                     obs_fem_lbl, obs_modal_lbl, mode="default"):
+
+    if mode == "default":
+        for ending in ("_1_visu", "_2_visu", "_3_visu", "_4_visu"):
+            pi.get_base(sys_fem_lbl + ending).intermediate_base = sys_fem_lbl
+            pi.get_base(sys_fem_lbl + ending).matching_bases = [sys_fem_lbl]
+            if not ending.startswith("_4"):
+                pi.get_base(obs_fem_lbl + ending).matching_bases = [obs_fem_lbl]
+            if ending.startswith("_3"):
+                pi.get_base(obs_fem_lbl + ending).intermediate_base = obs_fem_lbl
+
+        pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
+        pi.get_base(sys_modal_lbl).intermediate_base = [obs_modal_lbl]
+        pi.get_base(obs_modal_lbl).matching_bases = [sys_modal_lbl]
+        pi.get_base(obs_modal_lbl + "_3_visu").matching_bases = [obs_modal_lbl]
+        pi.get_base(obs_modal_lbl + "_3_visu").intermediate_base = obs_modal_lbl
+
+    elif mode == "control_modal_observer":
+        pi.get_base(sys_fem_lbl).intermediate_base = sys_modal_lbl
+

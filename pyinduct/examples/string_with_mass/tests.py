@@ -105,7 +105,7 @@ class StringWithMassTest(unittest.TestCase):
             data.append(item)
         file.close()
 
-        plot = pi.PgAnimatedPlot(data)
+        _ = pi.PgAnimatedPlot(data)
 
         pi.show()
 

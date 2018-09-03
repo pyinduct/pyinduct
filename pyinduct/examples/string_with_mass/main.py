@@ -65,6 +65,9 @@ def main():
     obs_modal_wf = build_canonical_weak_formulation(
         obs_modal_lbl, spat_domain_cf, control, yt_modal, obs_modal_lbl)
 
+    # set control mode
+    set_control_mode(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl)
+
     # define initial conditions
     if ie == 0:
         # speed up the calculation of the initial weights
@@ -150,7 +153,7 @@ def main():
 
     # save results
     path = "results/"
-    timestamp = time.strftime("%Y-%m-%d - ")
+    timestamp = time.strftime("%Y-%m-%d - %H-%M-%S - ")
     description = input("result description:")
     file = open(path + timestamp + description + ".pkl", "wb")
     pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
