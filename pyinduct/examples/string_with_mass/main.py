@@ -5,6 +5,8 @@ from pyinduct.tests import test_examples
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
 import pyinduct as pi
+import pickle
+import time
 
 
 def main():
@@ -141,9 +143,18 @@ def main():
         name="\hat x1_modal(z,t)"
     )
 
+    # create plots
     plots = list()
     plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed]))
     pi.show()
+
+    # save results
+    path = "results/"
+    timestamp = time.strftime("%Y-%m-%d - ")
+    description = input("result description:")
+    file = open(path + timestamp + description + ".pkl", "wb")
+    pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
+    file.close()
 
 
 if __name__ == "__main__" or test_examples:

@@ -1,6 +1,11 @@
 from pyinduct.examples.string_with_mass.control import *
 import pyqtgraph as pg
-import  unittest
+import unittest
+import os
+import time
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
+import pickle
 
 
 class StringWithMassTest(unittest.TestCase):
@@ -76,3 +81,35 @@ class StringWithMassTest(unittest.TestCase):
 
         pi.visualize_functions(ocf_state.members["funcs"])
         pprint(ocf_state.members["scalars"])
+
+    def test_save_results(self):
+        path = "results/"
+        timestamp = time.strftime("%Y-%m-%d - ")
+        description = input("result description:")
+        file = open(path + timestamp + description + ".pkl", "wb")
+        data = pi.EvalData([[0, 1], [0, 1]], np.eye(2))
+        pickle.dump([data], file)
+        file.close()
+
+    def test_plot_results(self):
+        Tk().withdraw()
+
+        os.chdir("results")
+        filename = askopenfilename()
+        if len(filename) == 0:
+            return
+
+        data = list()
+        file = open(filename, "rb")
+        for item in pickle.load(file):
+            data.append(item)
+        file.close()
+
+        plot = pi.PgAnimatedPlot(data)
+
+        pi.show()
+
+
+if __name__ == "__main__":
+    test = StringWithMassTest
+    test.test_save_results(test)
