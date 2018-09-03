@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pyinduct.examples.string_with_mass.system import *
 from pyinduct.parabolic.control import scale_equation_term_list
 
@@ -171,3 +172,54 @@ def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
 
 
     return fem_observer_gain, modal_observer_gain
+
+
+def ocf_inverse_state_transform(org_state):
+    r"""
+    Transformation of the the state
+    :math:`x(z,t) = (x(z,t), \dot x(z,t), x(0,t), \dot x(0,t))^T
+    = (x_1(z,t), x_2(z,t), \xi_1(t), \xi_2(t))^T`
+    into the coordinates of the observer canonical form
+
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+            \bar x_1(t) &= w_2'(1) \\
+            \bar x_2(t) &= w_1'(1) + w_2'(1) \\
+            \bar x_3(\theta, t) &= \frac{1}{2}(w_2(1-\theta) + w_1'(1-\theta)),
+            \quad \forall \theta > 0 \\
+            \bar x_3(\theta, t) &= \frac{1}{2}(w_2(1+\theta) - w_1'(1+\theta)) +
+            w_1'(1) - \theta w_2'(1),
+            \quad \forall \theta \le 0 \\
+            w_i(z) &= 2\int_0^z \left( \xi_i + \frac{1}{m}\int_0^\zeta
+            x_i(\bar\zeta) \,d\bar\zeta \right) \,d\zeta,\quad i=1,2.
+        \end{align*}
+
+    Args:
+        org_state (:py:class:`.SwmBaseFraction`): State
+
+    Returns:
+        :py:class:`.SwmBaseCanonicalFraction`: Transformation
+    """
+    w = list()
+    dz_w = list()
+    for x, xi in zip(org_state.members["funcs"], org_state.members["scalars"]):
+        def int_handle1(zeta, xi=xi, x=x):
+            return 2 * (xi +
+                        param.m ** -1 * integrate_function(x, [(0, zeta)])[0])
+        def int_handle2(z):
+            return integrate_function(int_handle1, [(0, z)])[0]
+        w.append(deepcopy(int_handle2))
+        dz_w.append(int_handle1)
+
+    y1 = dz_w[1](1)
+    y2 = dz_w[0](1) + dz_w[1](1)
+
+    def y3(theta):
+        if theta > 0:
+            return .5 * (w[1](1 - theta) + dz_w[0](1 - theta))
+        else:
+            return .5 * (w[1](1 + theta) - dz_w[0](1 + theta)) + dz_w[0](1) - theta * dz_w[1](1)
+
+    return SwmBaseCanonicalFraction([pi.Function(y3, (-1, 1))], [y1, y2])

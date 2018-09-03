@@ -157,13 +157,14 @@ def build_original_weak_formulation(sys_lbl, spatial_domain, u, name="system"):
 
 
 def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
+    assert ncf % 2 == 1
     nodes1 = pi.Domain((0, 1), n1)
     nodes2 = pi.Domain((0, 1), n2)
     cf_nodes = pi.Domain((-1, 1), ncf)
     assert nodes1.bounds == nodes2.bounds
 
-    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=1)
-    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=1)
+    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=5)
+    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=5)
     zero_function = pi.Function.from_constant(0, domain=nodes1.bounds)
     one_function = pi.Function.from_constant(1, domain=nodes1.bounds)
 
@@ -211,9 +212,6 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4, matching_bases=[base_lbl], intermediate_base=base_lbl))
     pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4, matching_bases=[base_lbl], intermediate_base=base_lbl))
     pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4, matching_bases=[base_lbl], intermediate_base=base_lbl))
-
-    def heavi(z):
-        return 0 if z < 0 else (0.5 if z == 0 else 1)
 
     # bases for the canonical form
     cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=3)

@@ -66,3 +66,13 @@ class StringWithMassTest(unittest.TestCase):
         ce = pi.parse_weak_formulation(wf)
         pprint(ce.dynamic_forms[base_label_cf].matrices["E"][1][1])
         pprint(ce.dynamic_forms[base_label_cf].matrices["E"][0][1])
+
+    def test_state_transform(self):
+        org_state = SwmBaseFraction(
+            [pi.Function.from_constant(1, domain=(0, 1)),
+             pi.Function.from_constant(0, domain=(0, 1))],
+            [1, 0])
+        ocf_state = ocf_inverse_state_transform(org_state)
+
+        pi.visualize_functions(ocf_state.members["funcs"])
+        pprint(ocf_state.members["scalars"])
