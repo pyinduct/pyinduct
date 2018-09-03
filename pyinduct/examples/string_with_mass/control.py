@@ -59,10 +59,10 @@ def build_controller(base_lbl):
     Returns:
         :py:class:`pyinduct.simulation.Controller`: Control law
     """
-    x1 = pi.FieldVariable(base_lbl + "_1_visu")
-    x2 = pi.FieldVariable(base_lbl + "_2_visu")
-    xi1 = pi.FieldVariable(base_lbl + "_3_visu")(0)
-    xi2 = pi.FieldVariable(base_lbl + "_4_visu")(0)
+    x1 = pi.FieldVariable(base_lbl + "_1_ctrl")
+    x2 = pi.FieldVariable(base_lbl + "_2_ctrl")
+    xi1 = pi.FieldVariable(base_lbl + "_3_ctrl")(0)
+    xi2 = pi.FieldVariable(base_lbl + "_4_ctrl")(0)
     dz_x1 = x1.derive(spat_order=1)
 
     scalar_scale_funcs = [pi.Function(lambda theta: param.m * (1 - np.exp(-theta / param.m))),
@@ -210,29 +210,41 @@ def set_control_mode(sys_fem_lbl, sys_modal_lbl,
                      obs_fem_lbl, obs_modal_lbl, mode):
 
     # obligatory
-    for ending in ("_3_visu",):
-        ## that the observer errors can pick the correct bases from stacked base
-        pi.get_base(obs_modal_lbl + ending).matching_bases = [obs_modal_lbl]
-        pi.get_base(obs_modal_lbl + ending).intermediate_base = obs_modal_lbl
-        pi.get_base(obs_fem_lbl + ending).matching_bases = [obs_fem_lbl]
-        pi.get_base(obs_fem_lbl + ending).intermediate_base = obs_fem_lbl
+    for postfix in ("_1_visu", "_2_visu", "_3_visu"):
+        pi.get_base(obs_modal_lbl + postfix).matching_bases = [obs_modal_lbl]
+        pi.get_base(obs_modal_lbl + postfix).intermediate_base = obs_modal_lbl
+        pi.get_base(obs_fem_lbl + postfix).matching_bases = [obs_fem_lbl]
+        pi.get_base(obs_fem_lbl + postfix).intermediate_base = obs_fem_lbl
+    for postfix in ("_1_visu", "_2_visu", "_3_visu", "_4_visu"):
+        pi.get_base(sys_fem_lbl + postfix).intermediate_base = sys_fem_lbl
+        pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl]
+    for postfix in ("_1_ctrl", "_2_ctrl", "_3_ctrl", "_4_ctrl"):
+            pi.get_base(sys_fem_lbl + postfix).intermediate_base = sys_fem_lbl + "_ctrl"
+            pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl + "_ctrl"]
 
-    # default: explicit controller
+    # controller gets the weights from the system
     if mode == "sys_ctrl":
-        for ending in ("_1_visu", "_2_visu", "_3_visu", "_4_visu"):
-            pi.get_base(sys_fem_lbl + ending).intermediate_base = sys_fem_lbl
-            pi.get_base(sys_fem_lbl + ending).matching_bases = [sys_fem_lbl]
+        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl
+        pi.get_base(sys_fem_lbl + "_ctrl").matching_bases = [sys_fem_lbl]
 
-    # control the modal observer system
+    # controller gets the weights from the modal observer
     elif mode == "control_modal_observer":
         # compute transformation to the modal base
-        pi.get_base(sys_fem_lbl).intermediate_base = sys_modal_lbl
+        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_modal_lbl
         # route to the modal observer
-        pi.get_base(sys_modal_lbl).intermediate_base = [obs_modal_lbl]
+        pi.get_base(sys_modal_lbl).intermediate_base = obs_modal_lbl
         # hint that the modal observer evolve with the same weights
         pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
 
-    # control the fem observer system
+    # controller gets the weights from the fem observer
     elif mode == "control_fem_observer":
-        pass
+            # compute transformation
+            pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl + "_trafo"
+            # route to the fem observer
+            pi.get_base(sys_fem_lbl + "_trafo").intermediate_base = obs_fem_lbl
+            # hint that the fem observer base evolve with the same weights
+            pi.get_base(sys_fem_lbl + "_trafo").matching_bases = [obs_fem_lbl]
+
+    else:
+        raise NotImplementedError
 

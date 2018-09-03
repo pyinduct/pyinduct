@@ -4,6 +4,7 @@ Main script file for the simulation of the string with mass example.
 from pyinduct.tests import test_examples
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
+from pyinduct.core import get_transformation_info, get_weight_transformation
 import pyinduct as pi
 import pickle
 import time
@@ -12,24 +13,30 @@ import time
 def main():
 
     # constant observer initial error
-    ie = 0.1
+    ie = 0.0
 
     # control mode
-    control_mode = "sys_ctrl"
+    traj_mode = ["open_loop", "closed_loop"][1]
+    control_mode = ["sys_ctrl",
+                    "control_fem_observer",
+                    "control_modal_observer"][0]
 
     # domains
     z_end = 1
     spatial_discretization = 100
     spatial_domain = pi.Domain((0, z_end), spatial_discretization)
     spat_domain_cf = pi.Domain((-z_end, z_end), spatial_discretization)
-    t_end = 10
-    temporal_discretization = 300
+    t_end = 30
+    temporal_discretization = int(30 * t_end)
     temporal_domain = pi.Domain((0, t_end), temporal_discretization)
 
     # planning input trajectories
     smooth_transition = pi.SmoothTransition(
         (0, 1), (2, 4), method="poly", differential_order=2)
+    not_too_smooth_transition = pi.SmoothTransition(
+        (0, -.5), (14, 14.5), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition)
+    disturbance = SecondOrderFeedForward(not_too_smooth_transition)
     open_loop_traj = FlatString(
         y0=0, y1=1, z0=spatial_domain.bounds[0], z1=spatial_domain.bounds[1],
         t0=1, dt=3, params=param)
@@ -41,14 +48,20 @@ def main():
     obs_modal_lbl = "modal_observer"
     n1 = 11
     n2 = 11
-    n_obs_fem = 25
+    n_obs_fem = 21
     n_obs_modal = 10
     build_fem_bases(sys_fem_lbl, n1, n2, obs_fem_lbl, n_obs_fem, sys_modal_lbl)
     build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl, n_obs_modal)
 
     # controller
     controller = build_controller(sys_fem_lbl)
-    input_ = pi.SimulationInputSum([open_loop_traj])
+    if traj_mode == "open_loop":
+        input_ = pi.SimulationInputSum([open_loop_traj])
+    elif traj_mode == "closed_loop":
+        input_ = pi.SimulationInputSum(
+            [closed_loop_traj, controller, disturbance])
+    else:
+        raise NotImplementedError
 
     # observer error
     obs_fem_error, obs_modal_error = init_observer_gain(
@@ -73,29 +86,15 @@ def main():
                      control_mode)
 
     # define initial conditions
-    if ie == 0:
-        # speed up the calculation of the initial weights
-        init_cond = {
-            sys_wf.name: [SwmBaseFraction(
-                [pi.Function.from_constant(0), pi.Function.from_constant(0)],
-                [0, 0])],
-            obs_fem_wf.name: [SwmBaseCanonicalFraction(
-                [pi.Function.from_constant(0)], [0, 0])],
-            obs_modal_wf.name: [SwmBaseCanonicalFraction(
-                [pi.Function.from_constant(0)], [0, 0])]
-        }
-    else:
-        init_cond = {
-            sys_wf.name: [SwmBaseFraction(
-                [pi.Function.from_constant(0), pi.Function.from_constant(0)],
-                [0, 0])],
-            obs_fem_wf.name: [ocf_inverse_state_transform(SwmBaseFraction(
-                [pi.Function.from_constant(ie), pi.Function.from_constant(0)],
-                [ie, 0]))],
-            obs_modal_wf.name: [ocf_inverse_state_transform(SwmBaseFraction(
-                [pi.Function.from_constant(ie), pi.Function.from_constant(0)],
-                [ie, 0]))],
-        }
+    init_cond = {
+        sys_wf.name: [SwmBaseFraction(
+            [pi.Function.from_constant(0), pi.Function.from_constant(0)],
+            [0, 0])],
+        obs_fem_wf.name: [SwmBaseCanonicalFraction(
+            [pi.Function(lambda th: ie * (2 - th), (-1, 1))], [0, ie * 4])],
+        obs_modal_wf.name: [SwmBaseCanonicalFraction(
+            [pi.Function(lambda th: ie * (2 - th), (-1, 1))], [0, ie * 4])]
+    }
 
     # simulation
     spatial_domains = {sys_wf.name: spatial_domain,
@@ -125,40 +124,32 @@ def main():
 
     # visualization data
     split_indizes = [n1 + n2 + 1,
-                     n1 + n2 + 1 + n_obs_fem + 2,
-                     n1 + n2 + 1 + n_obs_fem + 2 + n_obs_modal]
+                     n1 + n2 + 1 + n_obs_fem,
+                     n1 + n2 + 1 + n_obs_fem + n_obs_modal]
     ## system
     weights_sys = weights[:, :split_indizes[0]]
     eval_data1 = pi.get_sim_result(sys_fem_lbl + "_1_visu", weights_sys, temporal_domain, spatial_domain, 0, 0, name="x1(z,t)")[0]
     ## fem observer
-    points = int(n_obs_fem / 2) + 1
     weights_fem_obs = weights[:, split_indizes[0]: split_indizes[1]]
-    eta1_data = pi.get_sim_result(obs_fem_lbl + "_1_visu", weights_fem_obs, temporal_domain, pi.Domain((0, 1), num=points), 0, 0)[0]
-    dz_et3_m1_0 = pi.get_sim_result(obs_fem_lbl + "_3_visu", weights_fem_obs, temporal_domain, pi.Domain((-1, 0), num=points), 0, 1)[1]
-    dz_et3_0_p1 = pi.get_sim_result(obs_fem_lbl + "_3_visu", weights_fem_obs, temporal_domain, pi.Domain((0, 1), num=points), 0, 1)[1]
-    fem_obs_ed = pi.EvalData(eta1_data.input_data, -param.m / 2 * (
-        dz_et3_m1_0.output_data + np.fliplr(dz_et3_0_p1.output_data) + eta1_data.output_data),
-        name="\hat x1_fem(z,t)"
-    )
+    fem_obs_ed = pi.get_sim_result(sys_fem_lbl + "_1_trafo_visu", weights_fem_obs,
+                                     temporal_domain, spatial_domain, 0, 0,
+                                     name="\hat x1_fem(z,t)")[0]
     ## modal observer
     weights_modal_obs = weights[:, split_indizes[1]: split_indizes[2]]
-    eta1_data_m = pi.get_sim_result(obs_modal_lbl + "_1_visu", weights_modal_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 0)[0]
-    dz_et3_m1_0_m = pi.get_sim_result(obs_modal_lbl + "_3_visu", weights_modal_obs, temporal_domain, pi.Domain((-1, 0), num=spatial_discretization), 0, 1)[1]
-    dz_et3_0_p1_m = pi.get_sim_result(obs_modal_lbl + "_3_visu", weights_modal_obs, temporal_domain, pi.Domain((0, 1), num=spatial_discretization), 0, 1)[1]
-    modal_obs_ed = pi.EvalData(eta1_data_m.input_data, -param.m / 2 * (
-        dz_et3_m1_0_m.output_data + np.fliplr(dz_et3_0_p1_m.output_data) + eta1_data_m.output_data),
-        name="\hat x1_modal(z,t)"
-    )
+    modal_obs_ed = pi.get_sim_result(sys_modal_lbl + "_1_trafo_visu", weights_modal_obs,
+                                     temporal_domain, spatial_domain, 0, 0,
+                                     name="\hat x1_modal(z,t)")[0]
 
     # create plots
     plots = list()
-    plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed]))
+    plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed, modal_obs_ed]))
     pi.show()
 
     # save results
     path = "results/"
-    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S_")
-    conf = "({}-{}-{}-{})_".format(control_mode, n1+n2, n_obs_fem, n_obs_modal)
+    timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
+    conf = "{}__{}__({}-{}-{})__".format(
+        traj_mode, control_mode, n1+n2,n_obs_fem, n_obs_modal)
     description = input("result description:").replace(" ", "-")
     file = open(path + timestamp + conf + description + ".pkl", "wb")
     pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)

@@ -1,11 +1,9 @@
 from pyinduct.examples.string_with_mass.control import *
 import pyqtgraph as pg
-import unittest
 import os
 import time
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
 import pickle
+import unittest
 
 
 class StringWithMassTest(unittest.TestCase):
@@ -73,13 +71,14 @@ class StringWithMassTest(unittest.TestCase):
         pprint(ce.dynamic_forms[base_label_cf].matrices["E"][0][1])
 
     def test_state_transform(self):
+        ie = 1
         org_state = SwmBaseFraction(
-            [pi.Function.from_constant(1, domain=(0, 1)),
+            [pi.Function.from_constant(ie, domain=(0, 1)),
              pi.Function.from_constant(0, domain=(0, 1))],
-            [1, 0])
+            [ie, 0])
         ocf_state = ocf_inverse_state_transform(org_state)
 
-        pi.visualize_functions(ocf_state.members["funcs"])
+        _ = pi.visualize_functions(ocf_state.members["funcs"])
         pprint(ocf_state.members["scalars"])
 
     def test_save_results(self):
@@ -92,6 +91,8 @@ class StringWithMassTest(unittest.TestCase):
         file.close()
 
     def test_plot_results(self):
+        from tkinter import Tk
+        from tkinter.filedialog import askopenfilename
         Tk().withdraw()
 
         os.chdir("results")
@@ -108,8 +109,3 @@ class StringWithMassTest(unittest.TestCase):
         _ = pi.PgAnimatedPlot(data)
 
         pi.show()
-
-
-if __name__ == "__main__":
-    test = StringWithMassTest
-    test.test_save_results(test)

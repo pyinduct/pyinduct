@@ -210,22 +210,27 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4))
     pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4))
 
+    # bases for the controller
+    pi.register_base(base_lbl + "_ctrl", pi.Base(base1 + base2 + base4))
+    pi.register_base(base_lbl + "_1_ctrl", pi.Base(fb1 + zb2 + zb4))
+    pi.register_base(base_lbl + "_2_ctrl", pi.Base(zb1 + fb2 + zb4))
+    pi.register_base(base_lbl + "_3_ctrl", pi.Base(ob1 + zb2 + zb4))
+    pi.register_base(base_lbl + "_4_ctrl", pi.Base(zb1 + zb2 + ob4))
+
     # bases for the canonical form
-    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=3)
+    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=10)
     cf_zero_func = pi.Function.from_constant(0, domain=cf_nodes.bounds)
-    cf_one_func = pi.Function.from_constant(1, domain=cf_nodes.bounds)
 
-    cf_base1 = [SwmBaseCanonicalFraction([cf_zero_func], [1, 0])]
-    cf_base10 = [SwmBaseCanonicalFraction([cf_zero_func], [0, 0])]
-
-    cf_base2 = [SwmBaseCanonicalFraction([cf_zero_func], [0, 1])]
-    cf_base20 = [SwmBaseCanonicalFraction([cf_zero_func], [0, 0])]
-    cf_base21 = [SwmBaseCanonicalFraction([cf_zero_func], [1, 0])]
-
-    cf_base3, cf_base30, cf_base32_at_m1, cf_base3_integrated, cf_base3_int_ip_scale = [
-        list() for _ in range(5)]
+    cf_base1, cf_base22, cf_base33, cf_base21, cf_base3, cf_base30, cf_base32_at_m1, cf_base3_integrated, cf_base3_int_ip_scale = [
+        list() for _ in range(9)]
     for f in cf_fem_funcs:
-        cf_base3.append(SwmBaseCanonicalFraction([f], [0, 0]))
+        _x1 = -(f.derive(1)(-1) + f.derive(1)(1) + 2/param.m * f(1))
+        _x2 = f(-1) + f(1)
+        cf_base1.append(SwmBaseCanonicalFraction([cf_zero_func], [_x1, 0]))
+        cf_base22.append(SwmBaseCanonicalFraction([cf_zero_func], [0, _x2]))
+        cf_base21.append(SwmBaseCanonicalFraction([cf_zero_func], [_x2, 0]))
+        cf_base3.append(SwmBaseCanonicalFraction([f], [_x1, _x2]))
+        cf_base33.append(SwmBaseCanonicalFraction([f], [0, 0]))
         cf_base30.append(SwmBaseCanonicalFraction([cf_zero_func], [0, 0]))
         cf_base32_at_m1.append(SwmBaseCanonicalFraction([cf_zero_func], [0, f(-1)]))
         cf_base3_integrated.append(SwmBaseCanonicalFraction([pi.Function.from_constant(
@@ -235,28 +240,51 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
             domain=cf_nodes.bounds)], [0, 0]))
 
     # bases for the system / weak formulation
-    pi.register_base(cf_base_lbl, pi.Base(cf_base1 + cf_base2 + cf_base3))
-    pi.register_base(cf_base_lbl + "_test", pi.Base(cf_base1 + cf_base2 + cf_base3))
-    pi.register_base(cf_base_lbl + "_10", pi.Base(cf_base1 + cf_base20 + cf_base30))
-    pi.register_base(cf_base_lbl + "_20", pi.Base(cf_base10 + cf_base2 + cf_base30))
-    pi.register_base(cf_base_lbl + "_30", pi.Base(cf_base10 + cf_base20 + cf_base3))
-    pi.register_base(cf_base_lbl + "_21", pi.Base(cf_base10 + cf_base21 + cf_base30))
-    pi.register_base(cf_base_lbl + "_32_at_m1", pi.Base(cf_base10 + cf_base20 + cf_base32_at_m1))
+    pi.register_base(cf_base_lbl, pi.Base(cf_base3))
+    pi.register_base(cf_base_lbl + "_test", pi.Base(cf_base3))
+    pi.register_base(cf_base_lbl + "_10", pi.Base(cf_base1))
+    pi.register_base(cf_base_lbl + "_20", pi.Base(cf_base22))
+    pi.register_base(cf_base_lbl + "_30", pi.Base(cf_base33))
+    pi.register_base(cf_base_lbl + "_21", pi.Base(cf_base21))
+    pi.register_base(cf_base_lbl + "_32_at_m1", pi.Base(cf_base32_at_m1))
     pi.register_base(cf_base_lbl + "_3_integrated",
-                     pi.Base(cf_base10 + cf_base20 + cf_base3_integrated))
+                     pi.Base(cf_base3_integrated))
     pi.register_base(cf_base_lbl + "_3_integred_with_input_scale",
-                     pi.Base(cf_base10 + cf_base20 + cf_base3_int_ip_scale))
+                     pi.Base(cf_base3_int_ip_scale))
 
     # bases for visualization
-    ob1 = [cf_one_func]
-    ob2 = [cf_one_func]
-    fb3 = list(cf_fem_funcs.fractions)
-    zb1 = [cf_zero_func]
-    zb2 = [cf_zero_func]
-    zb3 = [cf_zero_func for _ in range(len(cf_nodes))]
-    pi.register_base(cf_base_lbl + "_1_visu", pi.Base(ob1 + zb2 + zb3))
-    pi.register_base(cf_base_lbl + "_2_visu", pi.Base(zb1 + ob2 + zb3))
-    pi.register_base(cf_base_lbl + "_3_visu", pi.Base(zb1 + zb2 + fb3))
+    cf_base = pi.get_base(cf_base_lbl)
+    vis_1_base = [pi.Function.from_constant(f.members["scalars"][0], domain=(-1, 1))
+                  for f in cf_base]
+    vis_2_base = [pi.Function.from_constant(f.members["scalars"][1], domain=(-1, 1))
+                  for f in cf_base]
+    vis_3_base = [f.members["funcs"][0] for f in cf_base]
+    pi.register_base(cf_base_lbl + "_1_visu", pi.Base(vis_1_base))
+    pi.register_base(cf_base_lbl + "_2_visu", pi.Base(vis_2_base))
+    pi.register_base(cf_base_lbl + "_3_visu", pi.Base(vis_3_base))
+
+    # transformation base
+    org_base = list()
+    org_base_visu = list()
+    for frac in cf_base3:
+        f = frac.members["funcs"][0]
+        s1, s2 = frac.members["scalars"]
+
+        def x1_handle(z, f=f, s1=s1):
+            return -param.m / 2 * (f.derive(1)(z-1) + f.derive(1)(1-z) + s1)
+        def x2_handle(z, f=f):
+            return param.m / 2 * (f.derive(2)(z-1) + f.derive(2)(1-z))
+
+        xi1 = float((f(1) - f(-1) + s2) / 2)
+        xi2 = float((f.derive(1)(-1) - f.derive(1)(1) + s1) / 2)
+
+        org_base.append(SwmBaseFraction(
+            [pi.Function(x1_handle, (0, 1)), pi.Function(x2_handle, (0, 1))],
+            [xi1, xi2]))
+        org_base_visu.append(pi.Function(x1_handle, (0, 1)))
+
+    pi.register_base(base_lbl + "_trafo", pi.Base(org_base))
+    pi.register_base(base_lbl + "_1_trafo_visu", pi.Base(org_base_visu))
 
 def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
     # get eigenvectors
@@ -311,6 +339,30 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
         cf_base_lbl + "_3_visu", pi.Base(
             [ev.members["funcs"][0] for ev in pi.get_base(cf_base_lbl)]))
 
+    # transformation base
+    modal_base = pi.get_base(cf_base_lbl)
+    org_base = list()
+    org_base_visu = list()
+    for frac in modal_base:
+        f = frac.members["funcs"][0]
+        s1, s2 = frac.members["scalars"]
+
+        def x1_handle(z, f=f, s1=s1):
+            return -param.m / 2 * (f.derive(1)(z-1) + f.derive(1)(1-z) + s1)
+        def x2_handle(z, f=f):
+            return param.m / 2 * (f.derive(2)(z-1) + f.derive(2)(1-z))
+
+        xi1 = float((f(1) - f(-1) + s2) / 2)
+        xi2 = float((f.derive(1)(-1) - f.derive(1)(1) + s1) / 2)
+
+        org_base.append(SwmBaseFraction(
+            [pi.Function(x1_handle, (0, 1)), pi.Function(x2_handle, (0, 1))],
+            [xi1, xi2]))
+        org_base_visu.append(pi.Function(x1_handle, (0, 1)))
+
+    pi.register_base(base_lbl + "_trafo", pi.Base(org_base))
+    pi.register_base(base_lbl + "_1_trafo_visu", pi.Base(org_base_visu))
+
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain):
     if len(eigenvectors) % 2 == 1:
@@ -322,16 +374,19 @@ def register_evp_base(base_lbl, eigenvectors, sp_var, domain):
         # append eigenvector as SwmBaseFraction
         if domain == (0, 1) and sp_var == sym.z:
             base.append(SwmBaseFraction([
-                pi.LambdifiedSympyExpression([ev[0], sp.diff(ev[0], sp_var)],
-                                             sp_var, domain),
-                pi.LambdifiedSympyExpression([ev[1], sp.diff(ev[1], sp_var)],
-                                             sp_var, domain)],
+                pi.LambdifiedSympyExpression(
+                    [ev[0], sp.diff(ev[0], sp_var), sp.diff(ev[0], sp_var, sp_var)],
+                    sp_var, domain),
+                pi.LambdifiedSympyExpression(
+                    [ev[1], sp.diff(ev[1], sp_var), sp.diff(ev[1], sp_var, sp_var)],
+                    sp_var, domain)],
                 [float(ev[2]), float(ev[3])]))
 
         elif domain == (-1, 1) and sp_var == sym.theta:
             base.append(SwmBaseCanonicalFraction([
-                pi.LambdifiedSympyExpression([ev[2], sp.diff(ev[2], sp_var)],
-                                             sp_var, domain)],
+                pi.LambdifiedSympyExpression(
+                    [ev[2], sp.diff(ev[2], sp_var), sp.diff(ev[2], sp_var, sp_var)],
+                    sp_var, domain)],
                 [float(ev[0]), float(ev[1])]))
 
         else:
