@@ -15,7 +15,7 @@ def main():
     control_mode = ["open_loop",
                     "closed_loop",
                     "modal_observer",
-                    "fem_observer"][1]
+                    "fem_observer"][2]
 
     # constant observer initial error
     ie = 0.5
@@ -33,7 +33,7 @@ def main():
     smooth_transition = pi.SmoothTransition(
         (0, 1), (2, 4), method="poly", differential_order=2)
     not_too_smooth_transition = pi.SmoothTransition(
-        (0, -.5), (14, 14.5), method="poly", differential_order=2)
+        (0, -.5), (14, 14.2), method="poly", differential_order=2)
     closed_loop_traj = SecondOrderFeedForward(smooth_transition)
     disturbance = SecondOrderFeedForward(not_too_smooth_transition)
     open_loop_traj = FlatString(
@@ -104,20 +104,8 @@ def main():
     )
     ceq, ss, init_weights, weights = intermediate_results
 
-    # check eigenvalues of the approximation
-    A_sys = (-ceq[0].dynamic_forms[sys_fem_lbl].e_n_pb_inv @
-             ceq[0].dynamic_forms[sys_fem_lbl].matrices["E"][0][1])
-    A_obs = (-ceq[1].dynamic_forms[obs_fem_lbl].e_n_pb_inv @
-             ceq[1].dynamic_forms[obs_fem_lbl].matrices["E"][0][1])
-    A_modal_obs = (-ceq[2].dynamic_forms[obs_modal_lbl].e_n_pb_inv @
-             ceq[2].dynamic_forms[obs_modal_lbl].matrices["E"][0][1])
-    pprint()
-    pprint("Eigenvalues [{}, {}, {}]".format(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl))
-    pprint([np.linalg.eigvals(A_) for A_ in (A_sys, A_obs, A_modal_obs)])
-    pprint("Input operator")
-    pprint(ss.B[0][1])
-    pprint("Initial weights")
-    pprint(init_weights)
+    # print some stuff for debugging
+    check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss)
 
     # visualization data
     split_indizes = [n1 + n2 ,

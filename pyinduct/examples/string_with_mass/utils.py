@@ -12,6 +12,7 @@ def pprint(expression="\n\n\n"):
         expression = sp.Matrix(expression)
     sp.pprint(expression, num_columns=180)
 
+
 def get_primal_eigenvector(according_paper=False):
     if according_paper:
         # some condensed parameters
@@ -40,6 +41,7 @@ def get_primal_eigenvector(according_paper=False):
 
     return phi
 
+
 def plot_eigenvalues(eigenvalues):
     plt.figure(facecolor="white")
     plt.scatter(np.real(eigenvalues), np.imag(eigenvalues))
@@ -47,6 +49,20 @@ def plot_eigenvalues(eigenvalues):
     ax.set_xlabel(r"$Re(\lambda)$")
     ax.set_ylabel(r"$Im(\lambda)$")
     plt.show()
+
+
+def check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss, ):
+    # check eigenvalues of the approximation
+    A_sys = (-ceq[0].dynamic_forms[sys_fem_lbl].e_n_pb_inv @
+             ceq[0].dynamic_forms[sys_fem_lbl].matrices["E"][0][1])
+    A_obs = (-ceq[1].dynamic_forms[obs_fem_lbl].e_n_pb_inv @
+             ceq[1].dynamic_forms[obs_fem_lbl].matrices["E"][0][1])
+    A_modal_obs = (-ceq[2].dynamic_forms[obs_modal_lbl].e_n_pb_inv @
+                   ceq[2].dynamic_forms[obs_modal_lbl].matrices["E"][0][1])
+    pprint()
+    pprint("Eigenvalues [{}, {}, {}]".format(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl))
+    pprint([np.linalg.eigvals(A_) for A_ in (A_sys, A_obs, A_modal_obs)])
+
 
 def find_eigenvalues(n):
     def characteristic_equation(om):
@@ -58,6 +74,7 @@ def find_eigenvalues(n):
     eig_vals = list(sum([(1j * ev, -1j * ev) for ev in eig_om], ()))
 
     return eig_om, sort_eigenvalues(eig_vals)
+
 
 def sort_eigenvalues(eigenvalues):
     imag_ev = list()
