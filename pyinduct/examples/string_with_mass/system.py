@@ -179,43 +179,43 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
         base10.append(SwmBaseFraction([zero_function, zero_function], [0, 0]))
         base12.append(SwmBaseFraction([zero_function, f], [0, 0]))
 
-    base2, base20, base21 = [list() for _ in range(3)]
+    base2, base22, base20, base21, base44, base4_x1 = [list() for _ in range(6)]
     for f in fem_funcs2:
-        base2.append(SwmBaseFraction([zero_function, f], [0, 0]))
+        base2.append(SwmBaseFraction([zero_function, f], [0, f(0)]))
+        base22.append(SwmBaseFraction([zero_function, f], [0, 0]))
         base20.append(SwmBaseFraction([zero_function, zero_function], [0, 0]))
         base21.append(SwmBaseFraction([f, zero_function], [0, 0]))
+        base44.append(SwmBaseFraction([zero_function, zero_function], [0, f(0)]))
+        base4_x1.append(SwmBaseFraction([pi.Function.from_constant(f(0), domain=(0, 1)),
+                                         zero_function], [0, f(0)]))
 
-    base4 = [SwmBaseFraction([zero_function, zero_function], [0, 1])]
-    base40 = [SwmBaseFraction([zero_function, zero_function], [0, 0])]
-    base4_x1 = [SwmBaseFraction([one_function, zero_function], [0, 0])]
 
     # bases for the system / weak formulation
-    pi.register_base(base_lbl, pi.Base(base1 + base2 + base4))
-    pi.register_base(base_lbl + "_12", pi.Base(base12 + base20 + base40))
-    pi.register_base(base_lbl + "_21", pi.Base(base10 + base21 + base40))
-    pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20 + base40))
-    pi.register_base(base_lbl + "_4_x1", pi.Base(base10 + base20 + base4_x1))
+    pi.register_base(base_lbl, pi.Base(base1 + base2))
+    pi.register_base(base_lbl + "_12", pi.Base(base12 + base20))
+    pi.register_base(base_lbl + "_21", pi.Base(base10 + base21))
+    pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20))
+    pi.register_base(base_lbl + "_4_x1", pi.Base(base10 + base4_x1))
 
 
     # bases for visualization
     fb1 = list(fem_funcs1.fractions)
     fb2 = list(fem_funcs2.fractions)
     ob1 = [one_function] + [zero_function for _ in range(len(nodes1) - 1)]
-    ob4 = [one_function]
+    ob4 = [one_function] + [zero_function for _ in range(len(nodes2) - 1)]
     zb1 = [zero_function for _ in range(len(nodes1))]
     zb2 = [zero_function for _ in range(len(nodes2))]
-    zb4 = [zero_function]
-    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2 + zb4))
-    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + zb2 + ob4))
+    pi.register_base(base_lbl + "_1_visu", pi.Base(fb1 + zb2))
+    pi.register_base(base_lbl + "_2_visu", pi.Base(zb1 + fb2))
+    pi.register_base(base_lbl + "_3_visu", pi.Base(ob1 + zb2))
+    pi.register_base(base_lbl + "_4_visu", pi.Base(zb1 + ob4))
 
     # bases for the controller
-    pi.register_base(base_lbl + "_ctrl", pi.Base(base1 + base2 + base4))
-    pi.register_base(base_lbl + "_1_ctrl", pi.Base(fb1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_2_ctrl", pi.Base(zb1 + fb2 + zb4))
-    pi.register_base(base_lbl + "_3_ctrl", pi.Base(ob1 + zb2 + zb4))
-    pi.register_base(base_lbl + "_4_ctrl", pi.Base(zb1 + zb2 + ob4))
+    pi.register_base(base_lbl + "_ctrl", pi.Base(base1 + base2))
+    pi.register_base(base_lbl + "_1_ctrl", pi.Base(fb1 + zb2))
+    pi.register_base(base_lbl + "_2_ctrl", pi.Base(zb1 + fb2))
+    pi.register_base(base_lbl + "_3_ctrl", pi.Base(ob1 + zb2))
+    pi.register_base(base_lbl + "_4_ctrl", pi.Base(zb1 + ob4))
 
     # bases for the canonical form
     cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=10)

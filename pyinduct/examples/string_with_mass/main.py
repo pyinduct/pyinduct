@@ -120,9 +120,9 @@ def main():
     pprint(init_weights)
 
     # visualization data
-    split_indizes = [n1 + n2 + 1,
-                     n1 + n2 + 1 + n_obs_fem,
-                     n1 + n2 + 1 + n_obs_fem + n_obs_modal]
+    split_indizes = [n1 + n2 ,
+                     n1 + n2 + n_obs_fem,
+                     n1 + n2 + n_obs_fem + n_obs_modal]
     ## system
     weights_sys = weights[:, :split_indizes[0]]
     eval_data1 = pi.get_sim_result(sys_fem_lbl + "_1_visu", weights_sys, temporal_domain, spatial_domain, 0, 0, name="x1(z,t)")[0]
