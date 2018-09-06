@@ -4,7 +4,6 @@ Main script file for the simulation of the string with mass example.
 from pyinduct.tests import test_examples
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
-from pyinduct.core import get_transformation_info, get_weight_transformation
 import pyinduct as pi
 import pickle
 import time
@@ -12,14 +11,14 @@ import time
 
 def main():
 
-    # constant observer initial error
-    ie = 0.0
-
     # control mode
-    traj_mode = ["open_loop", "closed_loop"][1]
-    control_mode = ["sys_ctrl",
-                    "control_fem_observer",
-                    "control_modal_observer"][0]
+    control_mode = ["open_loop",
+                    "closed_loop",
+                    "modal_observer",
+                    "fem_observer"][1]
+
+    # constant observer initial error
+    ie = 0.5
 
     # domains
     z_end = 1
@@ -55,13 +54,11 @@ def main():
 
     # controller
     controller = build_controller(sys_fem_lbl)
-    if traj_mode == "open_loop":
+    if control_mode == "open_loop":
         input_ = pi.SimulationInputSum([open_loop_traj])
-    elif traj_mode == "closed_loop":
+    else:
         input_ = pi.SimulationInputSum(
             [closed_loop_traj, controller, disturbance])
-    else:
-        raise NotImplementedError
 
     # observer error
     obs_fem_error, obs_modal_error = init_observer_gain(
@@ -82,8 +79,8 @@ def main():
         obs_modal_lbl, spat_domain_cf, control, yt_modal, obs_modal_lbl)
 
     # set control mode
-    set_control_mode(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl,
-                     control_mode)
+    apply_control_mode(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl,
+                       control_mode)
 
     # define initial conditions
     init_cond = {
@@ -142,14 +139,14 @@ def main():
 
     # create plots
     plots = list()
+    timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
     plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed, modal_obs_ed]))
     pi.show()
 
     # save results
     path = "results/"
-    timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
-    conf = "{}__{}__({}-{}-{})__".format(
-        traj_mode, control_mode, n1+n2,n_obs_fem, n_obs_modal)
+    conf = "{}__({}-{}-{})__".format(
+        control_mode, n1 + n2, n_obs_fem, n_obs_modal)
     description = input("result description:").replace(" ", "-")
     file = open(path + timestamp + conf + description + ".pkl", "wb")
     pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)

@@ -102,8 +102,9 @@ class StringWithMassTest(unittest.TestCase):
 
         data = list()
         file = open(filename, "rb")
-        for item in pickle.load(file):
-            data.append(item)
+        for i, item in enumerate(pickle.load(file)):
+            if i != 1:
+                data.append(item)
         file.close()
 
         _ = pi.PgAnimatedPlot(data)

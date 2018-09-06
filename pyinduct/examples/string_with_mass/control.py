@@ -61,6 +61,7 @@ def build_controller(base_lbl):
     """
     x1 = pi.FieldVariable(base_lbl + "_1_ctrl")
     x2 = pi.FieldVariable(base_lbl + "_2_ctrl")
+    x2_sys = pi.FieldVariable(base_lbl + "_2_visu")
     xi1 = pi.FieldVariable(base_lbl + "_3_ctrl")(0)
     xi2 = pi.FieldVariable(base_lbl + "_4_ctrl")(0)
     dz_x1 = x1.derive(spat_order=1)
@@ -95,7 +96,7 @@ def build_controller(base_lbl):
                        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale4"), x2), limits=limits)
                        ]
 
-    k = flatness_based_controller(x2(1), y_bar_plus1, y_bar_minus1,
+    k = flatness_based_controller(x2_sys(1), y_bar_plus1, y_bar_minus1,
                                   dz_y_bar_plus1, dz_y_bar_minus1,
                                   "explicit_controller")
     return k
@@ -206,8 +207,8 @@ def ocf_inverse_state_transform(org_state):
     return SwmBaseCanonicalFraction([pi.Function(y3, (-1, 1))], [y1, y2])
 
 
-def set_control_mode(sys_fem_lbl, sys_modal_lbl,
-                     obs_fem_lbl, obs_modal_lbl, mode):
+def apply_control_mode(sys_fem_lbl, sys_modal_lbl,
+                       obs_fem_lbl, obs_modal_lbl, mode):
 
     # obligatory
     for postfix in ("_1_visu", "_2_visu", "_3_visu"):
@@ -223,12 +224,12 @@ def set_control_mode(sys_fem_lbl, sys_modal_lbl,
             pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl + "_ctrl"]
 
     # controller gets the weights from the system
-    if mode == "sys_ctrl":
+    if mode == "closed_loop":
         pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl
         pi.get_base(sys_fem_lbl + "_ctrl").matching_bases = [sys_fem_lbl]
 
     # controller gets the weights from the modal observer
-    elif mode == "control_modal_observer":
+    elif mode == "modal_observer":
         # compute transformation to the modal base
         pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_modal_lbl
         # route to the modal observer
@@ -237,13 +238,16 @@ def set_control_mode(sys_fem_lbl, sys_modal_lbl,
         pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
 
     # controller gets the weights from the fem observer
-    elif mode == "control_fem_observer":
+    elif mode == "fem_observer":
             # compute transformation
             pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl + "_trafo"
             # route to the fem observer
             pi.get_base(sys_fem_lbl + "_trafo").intermediate_base = obs_fem_lbl
             # hint that the fem observer base evolve with the same weights
             pi.get_base(sys_fem_lbl + "_trafo").matching_bases = [obs_fem_lbl]
+
+    elif mode == "open_loop":
+        pass
 
     else:
         raise NotImplementedError
