@@ -110,3 +110,16 @@ class StringWithMassTest(unittest.TestCase):
         _ = pi.PgAnimatedPlot(data)
 
         pi.show()
+
+    def test_modal_ctrl_bases(self):
+        sys_modal_lbl = "modal_system"
+        obs_modal_lbl = "modal_observer"
+        n_obs_modal = 10
+        build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl, n_obs_modal)
+        get_modal_base_for_ctrl_approximation()
+
+        # controller
+        controller = build_controller(sys_modal_lbl, sys_modal_lbl)
+        approx_ctrl = approximate_controller(sys_modal_lbl, sys_modal_lbl)
+
+

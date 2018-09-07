@@ -53,7 +53,7 @@ def main():
     build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl, n_obs_modal)
 
     # controller
-    controller = build_controller(sys_fem_lbl)
+    controller = build_controller(sys_fem_lbl, sys_modal_lbl)
     if control_mode == "open_loop":
         input_ = pi.SimulationInputSum([open_loop_traj])
     else:

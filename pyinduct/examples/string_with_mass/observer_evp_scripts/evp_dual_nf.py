@@ -38,9 +38,9 @@ if __name__ == "__main__":
     sp.pprint(eta)
     sp.pprint((real_eta, imag_eta))
 
-    from pyinduct.examples.swm_utils import get_eigenvalues
+    from pyinduct.examples.string_with_mass.utils import find_eigenvalues
     mass = 1
-    _, eig_vals = get_eigenvalues(3, mass)
+    _, eig_vals = find_eigenvalues(3)
 
     ef = eta
     evp = sp.Matrix([

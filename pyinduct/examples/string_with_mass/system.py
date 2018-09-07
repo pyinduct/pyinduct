@@ -299,6 +299,26 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
     # bases for the original form
     register_evp_base(base_lbl, primal_base, sym.z, (0, 1))
     register_evp_base(base_lbl + "test", dual_base, sym.z, (0, 1))
+    register_evp_base(base_lbl + "_ctrl", primal_base, sym.z, (0, 1))
+    pi.register_base(
+        base_lbl + "_1_ctrl", pi.Base(
+            [ev.members["funcs"][0] for ev in pi.get_base(base_lbl)]))
+    pi.register_base(
+        base_lbl + "_2_ctrl", pi.Base(
+            [ev.members["funcs"][1] for ev in pi.get_base(base_lbl)]))
+    pi.register_base(
+        base_lbl + "_3_ctrl", pi.Base(
+            [pi.Function.from_constant(ev.members["scalars"][0], domain=(0, 1))
+             for ev in pi.get_base(base_lbl)]))
+    pi.register_base(
+        base_lbl + "_4_ctrl", pi.Base(
+            [pi.Function.from_constant(ev.members["scalars"][1], domain=(0, 1))
+             for ev in pi.get_base(base_lbl)]))
+
+    # this base is just for the test case of the approximated controller
+    pi.register_base(
+        base_lbl + "_2_visu", pi.Base(
+            [ev.members["funcs"][1] for ev in pi.get_base(base_lbl)]))
 
     # bases for the canonical form
     input_scale = 2 / param.m * sym.theta
@@ -362,6 +382,14 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
 
     pi.register_base(base_lbl + "_trafo", pi.Base(org_base))
     pi.register_base(base_lbl + "_1_trafo_visu", pi.Base(org_base_visu))
+
+    # modal bases for controller approximation
+
+
+def get_modal_base_for_ctrl_approximation():
+    # TODO
+    pass
+
 
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain):

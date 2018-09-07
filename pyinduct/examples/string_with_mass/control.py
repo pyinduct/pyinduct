@@ -2,6 +2,7 @@ from copy import deepcopy
 from pyinduct.examples.string_with_mass.system import *
 from pyinduct.parabolic.control import scale_equation_term_list
 
+
 class SecondOrderFeedForward(pi.SimulationInput):
     def __init__(self, desired_handle):
         pi.SimulationInput.__init__(self)
@@ -16,7 +17,8 @@ class SecondOrderFeedForward(pi.SimulationInput):
 
         return dict(output=param.m / (1 + ctrl_gain.alpha) * f)
 
-def build_controller(base_lbl):
+
+def build_controller(sys_lbl, ctrl_lbl):
     r"""
     The control law from [Woi2012] (equation 29)
 
@@ -59,11 +61,11 @@ def build_controller(base_lbl):
     Returns:
         :py:class:`pyinduct.simulation.Controller`: Control law
     """
-    x1 = pi.FieldVariable(base_lbl + "_1_ctrl")
-    x2 = pi.FieldVariable(base_lbl + "_2_ctrl")
-    x2_sys = pi.FieldVariable(base_lbl + "_2_visu")
-    xi1 = pi.FieldVariable(base_lbl + "_3_ctrl")(0)
-    xi2 = pi.FieldVariable(base_lbl + "_4_ctrl")(0)
+    x1 = pi.FieldVariable(ctrl_lbl + "_1_ctrl")
+    x2 = pi.FieldVariable(ctrl_lbl + "_2_ctrl")
+    x2_sys = pi.FieldVariable(sys_lbl + "_2_visu")
+    xi1 = pi.FieldVariable(ctrl_lbl + "_3_ctrl")(0)
+    xi2 = pi.FieldVariable(ctrl_lbl + "_4_ctrl")(0)
     dz_x1 = x1.derive(spat_order=1)
 
     scalar_scale_funcs = [pi.Function(lambda theta: param.m * (1 - np.exp(-theta / param.m))),
@@ -101,6 +103,10 @@ def build_controller(base_lbl):
                                   "explicit_controller")
     return k
 
+def approximate_controller(sys_lbl, modal_lbl):
+    # TODO
+    pass
+
 
 def flatness_based_controller(x2_plus1, y_bar_plus1, y_bar_minus1,
                               dz_y_bar_plus1, dz_y_bar_minus1, name):
@@ -113,6 +119,7 @@ def flatness_based_controller(x2_plus1, y_bar_plus1, y_bar_minus1,
         ,factor=(1 + ctrl_gain.alpha) ** -1
     ), name=name))
     return k
+
 
 def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
     from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation import get_observer_gain
@@ -222,15 +229,23 @@ def apply_control_mode(sys_fem_lbl, sys_modal_lbl,
     for postfix in ("_1_ctrl", "_2_ctrl", "_3_ctrl", "_4_ctrl"):
             pi.get_base(sys_fem_lbl + postfix).intermediate_base = sys_fem_lbl + "_ctrl"
             pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl + "_ctrl"]
+            pi.get_base(sys_modal_lbl + postfix).intermediate_base = sys_modal_lbl + "_ctrl"
+            pi.get_base(sys_modal_lbl + postfix).matching_bases = [sys_modal_lbl + "_ctrl"]
 
     # controller gets the weights from the system
     if mode == "closed_loop":
+        # for the fem control case
         pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl
         pi.get_base(sys_fem_lbl + "_ctrl").matching_bases = [sys_fem_lbl]
+        # for the modal control case
+        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base = sys_fem_lbl
 
     # controller gets the weights from the modal observer
     elif mode == "modal_observer":
-        # compute transformation to the modal base
+        # for the modal control case
+        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base = sys_modal_lbl
+        pi.get_base(sys_modal_lbl + "_ctrl").matching_bases = [sys_modal_lbl]
+        # for the fem control case
         pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_modal_lbl
         # route to the modal observer
         pi.get_base(sys_modal_lbl).intermediate_base = obs_modal_lbl
