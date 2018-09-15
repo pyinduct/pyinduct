@@ -104,10 +104,16 @@ class StringWithMassTest(unittest.TestCase):
         file = open(filename, "rb")
         for i, item in enumerate(pickle.load(file)):
             if i != 1:
+                if i == 2:
+                    # item.name = item.name[:7] + item.name[13:]
+                    item.name = "Beobachter"
+                elif i == 0:
+                    item.name = "System"
                 data.append(item)
         file.close()
 
-        _ = pi.PgAnimatedPlot(data)
+        # _ = SwmPgAnimatedPlot(data, save_pics=True, create_video=True, labels={'bottom': ("z")})
+        _ = SwmPgAnimatedPlot(data, labels={'bottom': ("z")})
 
         pi.show()
 
@@ -121,5 +127,3 @@ class StringWithMassTest(unittest.TestCase):
         # controller
         controller = build_controller(sys_modal_lbl, sys_modal_lbl)
         approx_ctrl = approximate_controller(sys_modal_lbl, sys_modal_lbl)
-
-

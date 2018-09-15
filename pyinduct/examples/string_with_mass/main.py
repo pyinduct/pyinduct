@@ -18,7 +18,7 @@ def main():
                     "fem_observer"][2]
 
     # constant observer initial error
-    ie = 0.5
+    ie = 0.2
 
     # domains
     z_end = 1
@@ -30,11 +30,14 @@ def main():
     temporal_domain = pi.Domain((0, t_end), temporal_discretization)
 
     # planning input trajectories
-    smooth_transition = pi.SmoothTransition(
+    smooth_transition1 = pi.SmoothTransition(
         (0, 1), (2, 4), method="poly", differential_order=2)
+    smooth_transition2 = pi.SmoothTransition(
+        (0, -1.5), (23, 25), method="poly", differential_order=2)
     not_too_smooth_transition = pi.SmoothTransition(
         (0, -.5), (14, 14.2), method="poly", differential_order=2)
-    closed_loop_traj = SecondOrderFeedForward(smooth_transition)
+    closed_loop_traj1 = SecondOrderFeedForward(smooth_transition1)
+    closed_loop_traj2 = SecondOrderFeedForward(smooth_transition2)
     disturbance = SecondOrderFeedForward(not_too_smooth_transition)
     open_loop_traj = FlatString(
         y0=0, y1=1, z0=spatial_domain.bounds[0], z1=spatial_domain.bounds[1],
@@ -45,10 +48,10 @@ def main():
     sys_modal_lbl = "modal_system"
     obs_fem_lbl = "fem_observer"
     obs_modal_lbl = "modal_observer"
-    n1 = 11
-    n2 = 11
+    n1 = 31
+    n2 = 31
     n_obs_fem = 21
-    n_obs_modal = 10
+    n_obs_modal = 16
     build_fem_bases(sys_fem_lbl, n1, n2, obs_fem_lbl, n_obs_fem, sys_modal_lbl)
     build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl, n_obs_modal)
 
@@ -58,7 +61,7 @@ def main():
         input_ = pi.SimulationInputSum([open_loop_traj])
     else:
         input_ = pi.SimulationInputSum(
-            [closed_loop_traj, controller, disturbance])
+            [closed_loop_traj1, controller, disturbance, closed_loop_traj2])
 
     # observer error
     obs_fem_error, obs_modal_error = init_observer_gain(
@@ -128,7 +131,7 @@ def main():
     # create plots
     plots = list()
     timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
-    plots.append(pi.PgAnimatedPlot([eval_data1, fem_obs_ed, modal_obs_ed]))
+    plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
     pi.show()
 
     # save results

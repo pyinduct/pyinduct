@@ -82,7 +82,7 @@ def build_bases_for_modal_observer_approximation(m):
         raise ValueError("Only even number of eigenvalues supported.")
 
     n = int(m / 2)
-    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2))]
+    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2), cls=sp.Function)]
 
     # solve eigenvalue problems in  normal form coordinates by hand: manual = 1
     # or derive from the solutions in original coordinates: manual = 0
