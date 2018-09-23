@@ -3,6 +3,33 @@ from pyinduct.examples.string_with_mass.system import *
 from pyinduct.parabolic.control import scale_equation_term_list
 
 
+
+class SwmObserverError(pi.Controller):
+    """
+    For a smooth fade-in of the observer error.
+
+    Args:
+        control_law (:py:class:`.WeakFormulation`): Function handle that
+            calculates the control output if provided with correct weights.
+        smooth (array-like): Arguments for :py:class:`.SmoothTransition`
+    """
+
+    def __init__(self, control_law, smooth=None):
+        pi.Controller.__init__(self, control_law)
+
+        self.smooth = smooth
+        if smooth is not None:
+            self.smooth_transition = pi.SmoothTransition(
+                smooth[0], smooth[1], smooth[2], smooth[3])
+        else:
+            self.smooth_transition = lambda t: [1]
+
+    def _calc_output(self, **kwargs):
+        res = super(SwmObserverError, self)._calc_output(**kwargs)
+
+        return dict(output=res["output"] * self.smooth_transition(kwargs["time"])[0])
+
+
 class SecondOrderFeedForward(pi.SimulationInput):
     def __init__(self, desired_handle):
         pi.SimulationInput.__init__(self)
@@ -129,11 +156,11 @@ def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
 
     # define observer error
     smooth = [(0, 1), (0, 1), "poly", 2]
-    fem_observer_error = pi.Controller(pi.WeakFormulation([
+    fem_observer_error = SwmObserverError(pi.WeakFormulation([
         pi.ScalarTerm(x3_obs_fem(1)),
         pi.ScalarTerm(x1_sys_fem(0), scale=-1),
     ], "fem_observer_error"), smooth=smooth)
-    modal_observer_error = pi.Controller(pi.WeakFormulation([
+    modal_observer_error = SwmObserverError(pi.WeakFormulation([
         pi.ScalarTerm(x3_obs_modal(1)),
         pi.ScalarTerm(x1_sys_fem(0), scale=-1),
     ], "modal_observer_error"), smooth=smooth)
