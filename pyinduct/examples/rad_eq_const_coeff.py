@@ -1,3 +1,46 @@
+r"""
+Implementation of the approximation scheme presented in [RW2018]_.
+The system
+
+.. math::
+    :nowrap:
+
+    \begin{align*}
+        \dot x(z,t) &= a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t) \\
+        x'(0,t) &= \alpha x(0,t) \\
+        x'(1,t) &= -\beta x(1,t) + u(t) \\
+    \end{align*}
+
+and the observer
+
+.. math::
+    :nowrap:
+
+    \begin{align*}
+        \dot{\hat{x}}(z,t) &= a_2 \hat x''(z,t) + a_1 \hat x'(z,t)
+                        + a_0 \hat x(z,t) + l(z) \tilde y(t)\\
+        \hat x'(0,t) &= \alpha \hat x(0,t) + l_0 \tilde y(t) \\
+        \hat x'(1,t) &= -\beta \hat x(1,t) + u(t) \\
+    \end{align*}
+
+are approximated with :py:class:`.LagrangeFirstOrder` (FEM) shapefunctions
+and the backstepping controller and observer are approximated with
+the eigenfunctions respectively the adjoint eigenfunction of the system
+operator, see [RW2018]_.
+
+Note:
+    For now, only :code:`a0 = 0` and :code:`a0_t_o = 0` are supported, because
+    of some limitations of the automatic observer gain transformation,
+    see :py:func:`.evaluate_trafos` docstring.
+
+References:
+
+    .. [RW2018] Marcus Riesmeier and Frank Woittennek;
+          On approximation of backstepping observers for parabolic systems with
+          robin boundary conditions; In: Proceedings of the 57th IEEE,
+          International Conference on Decision and Control (CDC), Miami,
+          Florida, USA, December 17-19, 2018.
+"""
 from pyinduct.tests import test_examples
 
 if __name__ == "__main__" or test_examples:
@@ -7,7 +50,7 @@ if __name__ == "__main__" or test_examples:
     from pyinduct.simulation import get_sim_result
 
 
-    def approximate_observer(sys_lbl, obs_sys_lbl, test_lbl, tar_test_lbl):
+    def approximate_observer(sys_lbl, obs_sys_lbl, test_lbl, tar_test_lbl, system_input):
         a1_t, a0_t, alpha_t, beta_t = a1_t_o, a0_t_o, alpha_t_o, beta_t_o
         int_kernel_00 = beta_t - beta - (a0_t - a0) / 2 / a2 * l
         l0 = alpha_t - alpha + int_kernel_00
@@ -84,12 +127,13 @@ if __name__ == "__main__" or test_examples:
     actuation_type = 'robin'
     bound_cond_type = 'robin'
     spatial_domain = pi.Domain(bounds=(0, l), num=n_fem)
-    temporal_domain = pi.Domain(bounds=(0, 1), num=2e3)
+    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
     n = n_modal
 
     # original system parameter
     a2 = 1
     a1 = 0
+    assert a1 == 0
     a0 = 6
     alpha = -1
     beta = -1
@@ -98,17 +142,18 @@ if __name__ == "__main__" or test_examples:
 
     # controller target system parameters (controller parameters)
     a1_t_c = 0
-    a0_t_c = -4
-    alpha_t_c = 1
-    beta_t_c = 1
+    a0_t_c = -8
+    alpha_t_c = 2
+    beta_t_c = 2
     # a1_t = a1 a0_t = a0 alpha_t = alpha beta_t = beta
     param_t_c = [a2, a1_t_c, a0_t_c, alpha_t_c, beta_t_c]
 
     # observer target system parameters (controller parameters)
     a1_t_o = 0
-    a0_t_o = -6
-    alpha_t_o = 1
-    beta_t_o = 1
+    assert a1_t_o == 0
+    a0_t_o = -16
+    alpha_t_o = 3
+    beta_t_o = 3
     # a1_t = a1 a0_t = a0 alpha_t = alpha beta_t = beta
     param_t_o = [a2, a1_t_o, a0_t_o, alpha_t_o, beta_t_o]
     param_a_t_o = pi.SecondOrderEigenfunction.get_adjoint_problem(param_t_o)
@@ -157,8 +202,9 @@ if __name__ == "__main__" or test_examples:
     pi.register_base(obs_tar_sys_lbl, eig_funcs_a_t)
     ctrl_lbl = "ctrl_appr_base"
     ctrl_target_lbl = "ctrl_appr_target_base"
-    pi.register_base(ctrl_lbl, pi.Base(eig_funcs.fractions))
-                                       # associated_bases=[sys_lbl]))
+    ctrl_base = pi.Base(eig_funcs.fractions)
+    ctrl_base.intermediate_base = obs_sys_lbl
+    pi.register_base(ctrl_lbl, ctrl_base)
     pi.register_base(ctrl_target_lbl, eig_funcs_t)
     obs_lbl = "obs_appr_base"
     obs_target_lbl = "obs_appr_target_base"
@@ -221,7 +267,7 @@ if __name__ == "__main__" or test_examples:
 
     # observer
     obs_rad_pde, obs_base_labels = approximate_observer(
-        sys_lbl, obs_sys_lbl, obs_lbl, obs_target_lbl)
+        sys_lbl, obs_sys_lbl, obs_lbl, obs_target_lbl, system_input)
 
     # desired observer error system
     obs_err_rad_pde, tar_obs_base_labels = parabolic.get_parabolic_robin_weak_form(
@@ -255,32 +301,10 @@ if __name__ == "__main__" or test_examples:
     evald_traj = pi.EvalData([t_d, np.array(spatial_domain)], x_l,
                              name="x(z,t) desired")
 
-    # error system
-    err_ed = pi.EvalData(sys_ed.input_data,
-                         obs_ed.output_data - sys_ed.output_data)
-
-    # simulate coefficients of the target (error) system
-    def obs_err_ic(z): return obs_ic(z) - sys_ic(z)
-    obs_err_ic_weights = pi.project_on_base(
-        [pi.Function(obs_err_ic)], eig_funcs_a)
-    l = np.matrix([[f.derive(1)(0) - alpha_t_o * f(0)] for f in eig_funcs_a_t])
-    c = np.matrix([[f(0) for f in eig_funcs_a]])
-    lam = np.matrix(np.diag(np.real_if_close(eig_val)))
-    A = np.asarray(lam + l @ c)
-    err_t_ss = pi.create_state_space(pi.parse_weak_formulation(obs_err_rad_pde))
-    err_t_ss.A[1] = A
-    _, err_t_weights = pi.simulate_state_space(
-        err_t_ss, obs_err_ic_weights, temporal_domain)
-    err_t_ed = get_sim_result(
-        obs_lbl, err_t_weights, temporal_domain, spatial_domain,
-        0, 0, name="error target system")[0]
-
     plots = list()
     # pyqtgraph visualization
     plots.append(pi.PgAnimatedPlot(
         [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
-    plots.append(pi.PgAnimatedPlot(
-        [err_ed, err_t_ed], title="animation", replay_gain=.05))
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
                                  legend_label=["$x(0,t)$",

@@ -11,4 +11,5 @@ For more examples, which might not be part of the documentation, have a look at 
     rad_dirichlet_fem
     multiple_pde_example
     euler_bernoulli_beam
+    rad_eq_const_coef
     string_with_mass
