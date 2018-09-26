@@ -22,8 +22,8 @@ from .core import (Domain, Parameters, Function,
                    get_transformation_info,
                    EvalData, project_on_bases)
 from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
-                          EquationTerm, ScalarTerm, IntegralTerm,
-                          get_common_target, get_common_form)
+                          EquationTerm, get_common_target, get_common_form,
+                          ObserverGain, ScalarTerm, IntegralTerm)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
@@ -33,7 +33,7 @@ __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
            "get_sim_result", "evaluate_approximation",
            "parse_weak_formulations",
            "get_sim_results", "set_dominant_labels", "CanonicalEquation",
-           "CanonicalForm"]
+           "CanonicalForm", "SimulationInputVector"]
 
 
 class SimulationInput(object, metaclass=ABCMeta):
@@ -192,7 +192,8 @@ class StateSpace(object):
 
     .. math::
         \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
-        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t) \\
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
+        + \boldsymbol{L}\tilde{\boldsymbol{y}}(t)\\
         \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
 
     which has been approximated by projection on a base given by weight_label.
@@ -209,10 +210,12 @@ class StateSpace(object):
     """
 
     def __init__(self, a_matrices, b_matrices, base_lbl=None,
-                 input_handles=None, c_matrix=None, d_matrix=None):
+                 input_handles=None, c_matrix=None, d_matrix=None,
+                 obs_fb_handle=None):
         self.C = c_matrix
         self.D = d_matrix
         self.base_lbl = base_lbl
+        self.observer_fb = obs_fb_handle
 
         # mandatory
         if isinstance(a_matrices, np.ndarray):
@@ -269,6 +272,11 @@ class StateSpace(object):
                     input_part = input_part + col * inputs[idx, der_order]
 
         q_t = state_part + input_part
+
+        if self.observer_fb is not None:
+            q_t = q_t + self.observer_fb(
+                time=_t, weights=_q, weight_lbl=self.base_lbl)
+
         return q_t
 
 
@@ -299,8 +307,9 @@ def simulate_system(weak_form, initial_states,
     return res
 
 
-def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domains, derivative_orders=None,
-                     settings=None):
+def simulate_systems(weak_forms, initial_states, temporal_domain,
+                     spatial_domains, derivative_orders=None, settings=None,
+                     out=list()):
     """
     Convenience wrapper that encapsulates the whole simulation process.
 
@@ -316,6 +325,13 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
         derivative_orders (dict): Dict, containing tuples of derivative orders
             (time, spat) that shall be evaluated additionally as values
         settings: Integrator settings, see :py:func:`.simulate_state_space`.
+        out (list): List from user namespace, where the following intermediate
+            results will be appended:
+
+            - canonical equations (list of types: :py:class:`.CanocialEquation`)
+            - state space object (type: :py:class:`.StateSpace`)
+            - initial weights (type: :py:class:`numpy.array`)
+            - simulation results/weights (type: :py:class:`numpy.array`)
 
     Note:
         The *name* attributes of the given weak forms must be unique!
@@ -332,18 +348,24 @@ def simulate_systems(weak_forms, initial_states, temporal_domain, spatial_domain
 
     print(">>> parse weak formulations")
     canonical_equations = parse_weak_formulations(weak_forms)
+    out.append(canonical_equations)
 
     print(">>> create state space system")
     state_space_form = create_state_space(canonical_equations)
+    out.append(state_space_form)
 
     print(">>> derive initial conditions")
     q0 = project_on_bases(initial_states, canonical_equations)
+    out.append(q0)
 
     print(">>> perform time step integration")
-    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain, settings=settings)
+    sim_domain, q = simulate_state_space(state_space_form, q0, temporal_domain,
+                                         settings=settings)
+    out.append(q)
 
     print(">>> perform postprocessing")
-    results = get_sim_results(sim_domain, spatial_domains, q, state_space_form, derivative_orders=derivative_orders)
+    results = get_sim_results(sim_domain, spatial_domains, q, state_space_form,
+                              derivative_orders=derivative_orders)
 
     print(">>> finished simulation")
     return results
@@ -462,6 +484,7 @@ class CanonicalForm(object):
         # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
         self._input_functions = None
+        self._observer_feedback = list()
         self._finalized = False
         self.powers = None
         self.max_power = None
@@ -534,6 +557,11 @@ class CanonicalForm(object):
         """
         if self._finalized:
             raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
+
+        if term["name"] == "L":
+            self._observer_feedback.append(value)
+            return
+
         if not isinstance(value, np.ndarray):
             raise TypeError("val must be numpy.ndarray")
         if column and not isinstance(column, int):
@@ -569,8 +597,8 @@ class CanonicalForm(object):
                 new_target_matrix = np.zeros((target_matrix.shape[0],
                                               column + 1))
                 new_target_matrix[
-                    :target_matrix.shape[0],
-                    :target_matrix.shape[1]
+                :target_matrix.shape[0],
+                :target_matrix.shape[1]
                 ] = target_matrix
                 target_matrix = new_target_matrix
 
@@ -760,7 +788,7 @@ class CanonicalEquation(object):
         if self._finalized:
             raise RuntimeError("Object has already been finalized, you are trying some nasty stuff there.")
 
-        if term["name"] in "fG":
+        if term["name"] in "fGL":
             # hold f and g vector separately
             self._static_form.add_to(term, val, column)
             return
@@ -940,7 +968,7 @@ def create_state_space(canonical_equations):
         if state_space_props.input is None:
             state_space_props.input = eq.input_functions
         else:
-            if eq.input_functions is not None and state_space_props.input != eq.input_functions:
+            if eq.input_functions is not None and state_space_props.input not in eq.input_functions:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
@@ -1003,12 +1031,32 @@ def create_state_space(canonical_equations):
                 b_order_mats.update({p: b_power_mat})
             b_matrices.update({order: b_order_mats})
 
+    # build observer feedback handle
+    def observer_feedback(**kwargs):
+        res = np.zeros(state_space_props.size)
+        for ce in canonical_equations:
+            for fb in ce._static_form._observer_feedback:
+                idx_a = (state_space_props.parts[ce.dominant_lbl]["start"] +
+                         state_space_props.parts[ce.dominant_lbl]["orig_size"] *
+                         state_space_props.parts[ce.dominant_lbl]["order"])
+                idx_b = (idx_a +
+                         state_space_props.parts[ce.dominant_lbl]["orig_size"])
+
+                kwargs.update(obs_weight_lbl=ce.dominant_lbl)
+                res[idx_a: idx_b] += ce.dominant_form.e_n_pb_inv @ np.squeeze(
+                    fb._calc_output(**kwargs)["output"], 1)
+
+                kwargs.pop("obs_weight_lbl")
+
+        return res
+
     dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
-                        input_handles=state_space_props.input)
+                        input_handles=state_space_props.input,
+                        obs_fb_handle=observer_feedback)
     return dom_ss
 
 
-def parse_weak_formulation(weak_form, finalize=False):
+def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
     r"""
     Parses a :py:class:`.WeakFormulation` that has been derived by projecting a
     partial differential equation an a set of test-functions. Within this
@@ -1041,7 +1089,24 @@ def parse_weak_formulation(weak_form, finalize=False):
             scalars=term.arg.get_arg_by_class(Scalars),
             functions=term.arg.get_arg_by_class(TestFunction),
             field_variables=term.arg.get_arg_by_class(FieldVariable),
+            observer_fb=term.arg.get_arg_by_class(ObserverGain),
             inputs=term.arg.get_arg_by_class(Input))
+
+        if is_observer:
+            if placeholders["observer_fb"]:
+                raise ValueError(
+                    "The weak formulation for an observer gain can not hold \n"
+                    "the 'Placeholder' ObserverGain.")
+            if placeholders["field_variables"]:
+                raise ValueError(
+                    "The weak formulation for an observer gain can not hold \n"
+                    "the 'Placeholder' FieldVariable.")
+            if placeholders["scalars"]:
+                if any([plh.target_term["name"] == 'E'
+                        for plh in placeholders["scalars"]]):
+                    raise ValueError(
+                        "The weak formulation for an observer gain can not \n"
+                        "hold a 'Placeholder' Scalars with target_term == 'E'.")
 
         # field variable terms: sort into E_np, E_n-1p, ..., E_0p
         if placeholders["field_variables"]:
@@ -1159,6 +1224,14 @@ def parse_weak_formulation(weak_form, finalize=False):
                 ce.set_input_function(input_func, input_index)
                 continue
 
+            if is_observer:
+                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in fractions])
+                ce.add_to(weight_label=func.data["appr_lbl"],
+                          term=dict(name="E", order=0, exponent=1),
+                          val=result * term.scale)
+                continue
+
+
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
             assert isinstance(term, ScalarTerm)
@@ -1189,8 +1262,19 @@ def parse_weak_formulation(weak_form, finalize=False):
                 ce.set_input_function(input_func, input_index)
                 continue
 
-            ce.add_to(weight_label=target_form, term=target,
-                      val=result * term.scale)
+            if is_observer:
+                ce.add_to(
+                    weight_label=placeholders["scalars"][0].target_term["test_appr_lbl"],
+                    term=dict(name="E", order=0, exponent=1),
+                    val=result * term.scale)
+            else:
+                ce.add_to(weight_label=target_form, term=target, val=result * term.scale)
+            continue
+
+        if placeholders["observer_fb"]:
+            ce.add_to(weight_label=None,
+                      term=dict(name="L"),
+                      val=placeholders["observer_fb"][0].data["obs_fb"])
             continue
 
     # inform object that the parsing process is complete
@@ -1372,7 +1456,7 @@ def set_dominant_labels(canonical_equations, finalize=True):
                 (("max_order", ce.dynamic_forms[lbl].max_temp_order),
                  ("can_eqs", [ce])))
             if lbl not in max_orders or \
-                    max_orders[lbl]["max_order"] < max_order["max_order"]:
+                max_orders[lbl]["max_order"] < max_order["max_order"]:
                 max_orders[lbl] = max_order
             elif max_orders[lbl]["max_order"] == max_order["max_order"]:
                 max_orders[lbl]["can_eqs"].append(
@@ -1414,3 +1498,33 @@ def set_dominant_labels(canonical_equations, finalize=True):
     if finalize:
         for ce in canonical_equations:
             ce.finalize()
+
+
+class SimulationInputVector(SimulationInput):
+    """
+    A simulation input which return a column vector as output.
+    The vector elements are :py:class:`SimulationInput`s.
+
+    input_vector (array-like): List of simulation inputs.
+    """
+
+    def __init__(self, input_vector):
+        SimulationInput.__init__(self)
+        self._input_vector = list(input_vector)
+
+    def __iter__(self):
+        return iter(self._input_vector)
+
+    def __getitem__(self, item):
+        return self._input_vector[item]
+
+    def append(self, input_vector):
+        [self._input_vector.append(input) for input in input_vector]
+
+    def _calc_output(self, **kwargs):
+        output = list()
+        for input in self._input_vector:
+            output.append(input(**kwargs))
+
+        return dict(output=np.vstack(output))
+

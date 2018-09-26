@@ -242,13 +242,13 @@ class BaseTestCase(unittest.TestCase):
         b3 = pi.Base(self.other_fractions)
         b4 = pi.Base(self.completely_other_fractions)
 
-        # the provided scalar product hints should be compatible
-        with self.assertRaises(ValueError):
-            pi.Base([self.fractions[0], self.other_fractions[2]])
+        # # the provided scalar product hints should be compatible
+        # with self.assertRaises(ValueError):
+        #     pi.Base([self.fractions[0], self.other_fractions[2]])
 
-        with self.assertRaises(ValueError):
-            pi.Base([self.other_fractions[0],
-                     self.completely_other_fractions[2]])
+        # with self.assertRaises(ValueError):
+        #     pi.Base([self.other_fractions[0],
+        #              self.completely_other_fractions[2]])
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
@@ -270,9 +270,11 @@ class BaseTestCase(unittest.TestCase):
         f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
                      pi.Function(np.cos, domain=(0, np.pi))])
 
+        pi.register_base("me", f)
+
         info = core.TransformationInfo()
         info.src_lbl = "me"
-        info.dst_lbl = "me again"
+        info.dst_lbl = "me"
         info.src_base = f
         info.dst_base = f
         info.src_order = 1
@@ -290,6 +292,8 @@ class BaseTestCase(unittest.TestCase):
         func, extra = f.transformation_hint(info)
         self.assertIsNone(func)
         self.assertIsNone(extra)
+
+        pi.deregister_base("me")
 
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
@@ -1562,3 +1566,4 @@ class EvalDataTestCase(unittest.TestCase):
         data.input_data[0].points[0] = 999
         np.testing.assert_array_equal(self.data5.input_data[0],
                                       self.data5.input_data[0])
+

@@ -522,16 +522,34 @@ class Base:
     Args:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
+        matching_bases (list of str): List of labels from exactly matching
+            bases, for which no transformation is necessary.
+            Useful for transformations from bases which 'lives' in
+            different function spaces but evolve with the same time
+            dynamic/coefficients (for example modal bases).
+        intermediate_base (str): If you know that this base instance will be
+            asks (as destination base) according a transformation
+            to a source base, which you dont bother to implement on your own,
+            than provide here the label of another base, for which the
+            transformation can acquired with buil-in feautures. The algorithm,
+            implemented in :py:class:`.get_weights_transformation`
+            is then called again with the intermediate base as destination
+            base and the 'old' source base. With this technique arbitrary
+            long transformation chains are possible, when the provided
+            intermediate base also defines an intermediate base and this ...
     """
-    def __init__(self, fractions):
+    def __init__(self, fractions, matching_bases=list(), intermediate_base=None):
         fractions = sanitize_input(fractions, BaseFraction)
 
-        # check type
-        for frac in fractions:
-            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
-                raise ValueError("Provided fractions must be compatible!")
+        # TODO: check if this is really neccassys for stacked bases
+        # # check type
+        # for frac in fractions:
+        #     if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
+        #         raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
+        self.matching_bases = matching_bases
+        self.intermediate_base = intermediate_base
 
     def __iter__(self):
         return iter(self.fractions)
@@ -582,8 +600,27 @@ class Base:
         Returns:
             Transformation handle
         """
-        if info.src_base.__class__ == info.dst_base.__class__:
+        if (info.dst_base is self) and (info.src_lbl in self.matching_bases):
+            def handle(weights):
+                return weights
+
+            return handle, None
+
+        elif info.src_base.__class__ == info.dst_base.__class__:
             return self._transformation_factory(info), None
+
+        elif self.intermediate_base is not None:
+            intermediate_hint = get_transformation_info(
+                self.intermediate_base, info.dst_lbl,
+                info.dst_order, info.dst_order
+            )
+            handle = get_weight_transformation(intermediate_hint)
+            hint = get_transformation_info(
+                info.src_lbl, self.intermediate_base,
+                info.src_order, info.dst_order
+            )
+            return handle, hint
+
         else:
             # No Idea what to do.
             return None, None
@@ -650,7 +687,6 @@ class Base:
 
         """
         return np.array([getattr(frac, attr, None) for frac in self.fractions])
-
 
 class StackedBase(Base):
     """
@@ -1315,7 +1351,6 @@ def get_weight_transformation(info):
             return handle(weights, **kwargs)
 
     return last_handle
-
 
 def get_transformation_info(source_label, destination_label,
                             source_order, destination_order):
