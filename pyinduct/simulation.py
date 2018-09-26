@@ -266,6 +266,8 @@ class StateSpace(object):
         input_part = np.zeros_like(state_part)
         inputs = np.atleast_2d([u(time=_t, weights=_q, weight_lbl=self.base_lbl)
                                 for u in self.input])
+        # TODO create a commit
+                              # for u in self.input[0]])
         for der_order, power_dict in self.B.items():
             for power, b_mat in power_dict.items():
                 for idx, col in enumerate(b_mat.T):
@@ -1143,8 +1145,18 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 # extract constant term and compute integral
                 components = []
                 for func in shape_funcs.fractions:
-                    area = domain_intersection(term.limits, func.nonzero)
-                    res, err = integrate_function(func, area)
+                    from pyinduct.core import ComposedFunctionVector
+                    if isinstance(func, ComposedFunctionVector):
+                        res = 0
+                        for f in func.members["funcs"]:
+                            area = domain_intersection(term.limits, f.nonzero)
+                            r, err = integrate_function(f, area)
+                            res += r
+                        for s in func.members["scalars"]:
+                            res += s
+                    else:
+                        area = domain_intersection(term.limits, func.nonzero)
+                        res, err = integrate_function(func, area)
                     components.append(res)
 
                 a = Scalars(np.atleast_2d(components))
@@ -1189,8 +1201,18 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
             components = []
             for frac in fractions:
-                area = domain_intersection(term.limits, frac.nonzero)
-                res, err = integrate_function(frac, area)
+                from pyinduct.core import ComposedFunctionVector
+                if isinstance(frac, ComposedFunctionVector):
+                    res = 0
+                    for f in frac.members["funcs"]:
+                        area = domain_intersection(term.limits, f.nonzero)
+                        r, err = integrate_function(f, area)
+                        res += r
+                    for s in frac.members["scalars"]:
+                        res += s
+                else:
+                    area = domain_intersection(term.limits, frac.nonzero)
+                    res, err = integrate_function(frac, area)
                 components.append(res)
 
             if placeholders["scalars"]:
@@ -1309,8 +1331,14 @@ def _compute_product_of_scalars(scalars):
         raise NotImplementedError
 
     if len(scalars) == 1:
-        # simple scaling of all terms
-        res = scalars[0].data
+        # distinguish between pi.Base and pi.ComposedFunctionVector
+        if sum(scalars[0].data.shape) > (max(scalars[0].data.shape) + 1):
+            res = np.transpose(
+                np.ones((1, scalars[0].data.shape[0])) @ scalars[0].data)
+        else:
+            # simple scaling of all terms
+            # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
+            res = scalars[0].data
     elif scalars[0].data.shape == scalars[1].data.shape:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
@@ -1322,8 +1350,11 @@ def _compute_product_of_scalars(scalars):
         try:
             if scalars[0].data.shape[1] == 1:
                 res = scalars[0].data @ scalars[1].data
-            else:
+            elif scalars[1].data.shape[1] == 1:
                 res = scalars[1].data @ scalars[0].data
+            # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
+            elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
+                res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
         except ValueError as e:
             raise ValueError("provided entries do not form a dyadic product")
 

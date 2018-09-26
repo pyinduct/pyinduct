@@ -16,16 +16,14 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, RegularGr
 
 from .registry import get_base
 
-__all__ = ["Domain", "EvalData", "Parameters",
-           "find_roots", "sanitize_input", "real",
-           "Base", "BaseFraction", "StackedBase",
-           "Function", "ComposedFunctionVector",
-           "normalize_base",
-           "project_on_base", "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
+__all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
+           "real", "Base", "BaseFraction", "StackedBase", "Function",
+           "ComposedFunctionVector", "normalize_base", "project_on_base",
+           "change_projection_base", "back_project_from_base",
+           "calculate_scalar_product_matrix",
+           "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
-           "vectorize_scalar_product",
-           "generic_scalar_product"]
+           "vectorize_scalar_product", "generic_scalar_product"]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -442,7 +440,10 @@ class Function(BaseFraction):
 
         Args:
             constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`.Function`
+
+        Keyword Args:
+            der_order (int): Derivative order, default 2.
+            **kwargs: All other kwargs get passed to :py:class:`.Function`.
 
         Returns:
             :py:class:`.Function`: A constant function
@@ -458,7 +459,14 @@ class Function(BaseFraction):
         if "derivative_handles" in kwargs:
             raise ValueError("'derivative_handles' must not be provided")
 
-        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
+        if "der_order" in kwargs:
+            der_order = kwargs["der_order"]
+        else:
+            der_order = 2
+
+        func = Function(eval_handle=f,
+                        derivative_handles=[f_dz] * der_order,
+                        **kwargs)
         return func
 
     @staticmethod
@@ -547,10 +555,28 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(
-            np.array([func.scale(factor) for func in self.members["funcs"]]),
-            np.array([scal * factor for scal in self.members["scalars"]])
-        )
+        if isinstance(factor, ComposedFunctionVector):
+            if not len(self.members["funcs"]) == len(factor.members["funcs"]):
+                raise ValueError
+
+            if not len(self.members["scalars"]) == len(factor.members["scalars"]):
+                raise ValueError
+
+            return self.__class__(np.array(
+                [func.scale(scale) for func, scale in
+                 zip(self.members["funcs"], factor.members["funcs"])]),
+                [scalar * scale for scalar, scale in
+                 zip(self.members["scalars"], factor.members["scalars"])],
+            )
+
+        elif isinstance(factor, Number):
+            return self.__class__(
+                np.array([func.scale(factor) for func in self.members["funcs"]]),
+                np.array([scal * factor for scal in self.members["scalars"]])
+            )
+
+        else:
+            raise NotImplementedError
 
 
 class Base:
@@ -1854,9 +1880,13 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Check provided function (see `visualize_roots`) or "
                          "try to increase the search area.".format(
-                            len(roots), n_roots))
+            len(roots), n_roots))
 
     valid_roots = np.array(roots)
+
+    # TODO: create a commit
+    if len(valid_roots) == 0:
+        return list()
 
     # sort roots
     if sort_mode == "norm":
@@ -2219,7 +2249,7 @@ class EvalData:
                 #     fill_val = None
                 # else:
                 #     Since the value has to be the same at every border
-                    # fill_val = 0
+                # fill_val = 0
 
                 self._interpolator = interp2d(input_data[0],
                                               input_data[1],
