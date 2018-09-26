@@ -275,7 +275,7 @@ class SecondOrderEigenVector(ShapeFunction):
             if *extended_output* is True.
         """
         if (params.alpha0 == 0 and params.alpha1 == 0
-                or params.beta0 == 0 and params.beta1 == 0):
+            or params.beta0 == 0 and params.beta1 == 0):
             raise ValueError("Provided boundary conditions are useless.")
 
         bounds = domain.bounds
@@ -289,7 +289,7 @@ class SecondOrderEigenVector(ShapeFunction):
 
         # check special case of a dirichlet boundary defined at zero
         if (params.alpha1 == 0 and params.alpha0 != 0 and bounds[0] == 0
-                or params.beta1 == 0 and params.beta0 != 0 and bounds[1] == 0):
+            or params.beta1 == 0 and params.beta0 != 0 and bounds[1] == 0):
             # since c1 + c2 is equal to sol evaluated at z=0 (c1 + c2 = 0)
             gen_sol = gen_sol.subs(c2, -c1)
             # choose arbitrary scaling to be one
@@ -555,23 +555,30 @@ class LambdifiedSympyExpression(Function):
         spat_symbol: Sympy symbol for the spatial variable :math:`z`.
         spatial_domain (tuple): Domain on which :math:`\varphi(z)` is defined
             (e.g.: :code:`spatial_domain=(0, 1)`).
+        complex_ (bool): If False the Function raises an Error if it returns
+            complex values. Default: False.
     """
 
-    def __init__(self, sympy_funcs, spat_symbol, spatial_domain):
+    def __init__(self, sympy_funcs, spat_symbol, spatial_domain, complex_=False):
+        self.complex_ = complex_
         self._funcs = [lambdify(spat_symbol, sp_func, 'numpy')
                        for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord)
                  for der_ord in range(len(sympy_funcs))]
         Function.__init__(self, funcs[0],
-                         domain=spatial_domain,
-                         nonzero=spatial_domain,
-                         derivative_handles=funcs[1:])
+                          domain=spatial_domain,
+                          nonzero=spatial_domain,
+                          derivative_handles=funcs[1:])
 
     def _func_factory(self, der_order):
         func = self._funcs[der_order]
 
-        def function(z):
-            return real(func(z))
+        if self.complex_:
+            def function(z):
+                return func(z)
+        else:
+            def function(z):
+                return real(func(z))
 
         return function
 
@@ -753,14 +760,14 @@ class SecondOrderEigenfunction(ShapeFunction, metaclass=ABCMeta):
                              "has to be provided.")
         if (np.sum([1 for arg in [n,eig_val,eig_freq] if arg is not None]) != 1
             and (scale is None)):
-                raise ValueError("You must pass one and only one of the "
-                                 "kwargs:\n"
-                                 "\t - n (Number of"
-                                 "eigenvalues/eigenfunctions to be compute)\n"
-                                 "\t - eig_val (Eigenvalues)\n"
-                                 "\t - eig_freq (Eigenfrequencies),\n"
-                                 "or (and) pass the kwarg scale "
-                                 "(then n is set to len(scale)).")
+            raise ValueError("You must pass one and only one of the "
+                             "kwargs:\n"
+                             "\t - n (Number of"
+                             "eigenvalues/eigenfunctions to be compute)\n"
+                             "\t - eig_val (Eigenvalues)\n"
+                             "\t - eig_freq (Eigenfrequencies),\n"
+                             "or (and) pass the kwarg scale "
+                             "(then n is set to len(scale)).")
         elif eig_val is not None:
             eig_freq = cls.eigval_tf_eigfreq(param, eig_val=eig_val)
             _n = len(eig_val)
@@ -1017,13 +1024,21 @@ class SecondOrderRobinEigenfunction(SecondOrderEigenfunction):
                      np.imag(vec_function(start_values_imag * 1j)))
             plt.show()
 
-        # search imaginary roots
+        # search around 0+0j
         try:
             om = list(find_roots(characteristic_equation,
-                                 [np.array([0]), start_values_imag],
+                                 [np.zeros(1), start_values_imag[0]],
                                  rtol=1e-3 / l, cmplx=True))
-        except ValueError:
+        except FloatingPointError:
             om = list()
+
+        # search imaginary roots
+        try:
+            om += list(find_roots(characteristic_equation,
+                                  [np.zeros(1), start_values_imag[1:]],
+                                  rtol=1e-3 / l, cmplx=True))
+        except ValueError:
+            pass
 
         # search real roots
         om += find_roots(characteristic_equation, [start_values_real],
@@ -1055,7 +1070,7 @@ class SecondOrderRobinEigenfunction(SecondOrderEigenfunction):
         # if om = 0 is a root and the corresponding characteristic equation
         # is satisfied then add 0 to the list
         if (np.isclose(np.abs(characteristic_equation(0)), 0)
-                and any(np.isclose(char_eq.roots(), 0))):
+            and any(np.isclose(char_eq.roots(), 0))):
             om.insert(0, 0)
 
         # add complex root
@@ -1099,8 +1114,8 @@ class TransformedSecondOrderEigenfunction(Function):
 
         if (not all([isinstance(state, (int, float))
                      for state in init_state_vector])
-                and len(init_state_vector) == 4
-                and isinstance(init_state_vector, (list, tuple))):
+            and len(init_state_vector) == 4
+            and isinstance(init_state_vector, (list, tuple))):
             print(init_state_vector)
             raise TypeError
 
@@ -1245,7 +1260,7 @@ class FiniteTransformFunction(Function):
         if not isinstance(function, collections.Callable):
             raise TypeError
         if (not isinstance(M, np.ndarray) or len(M.shape) != 2
-                or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0):
+            or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0):
             raise TypeError
         if not all([isinstance(num, (int, float)) for num in [l, ]]):
             raise TypeError
@@ -1309,3 +1324,4 @@ class FiniteTransformFunction(Function):
                 elif j < 0 or j > 2 * self.n - 1:
                     raise ValueError
         return to_return
+
