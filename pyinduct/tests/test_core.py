@@ -382,6 +382,46 @@ class StackedBaseTestCase(unittest.TestCase):
         self.assertEqual(b.fractions.size, 6)
 
 
+class TransformationTestCase(unittest.TestCase):
+
+    def setUp(self):
+        dom1 = pi.Domain((0, 1), num=11)
+        dom2 = pi.Domain((0, 1), num=21)
+        self.base1 = pi.LagrangeFirstOrder.cure_interval(dom1)
+        pi.register_base("fem1", self.base1)
+        self.base2 = pi.LagrangeSecondOrder.cure_interval(dom2)
+        pi.register_base("fem2", self.base2)
+
+    def test_transformation_info(self):
+        info = core.get_transformation_info("fem1", "fem2", 1, 7)
+        self.assertEqual(info.src_lbl, "fem1")
+        self.assertEqual(info.src_base, self.base1)
+        self.assertEqual(info.src_order, 1)
+        self.assertEqual(info.dst_lbl, "fem2")
+        self.assertEqual(info.dst_base, self.base2)
+        self.assertEqual(info.dst_order, 7)
+
+    def test_get_trafo_simple(self):
+        """ Transformation between to standard bases"""
+        info = core.get_transformation_info("fem1", "fem2", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        trafo_mat = trafo(np.eye(11))
+        src_weights = np.random.rand(11)
+        dst_weights = trafo(src_weights)
+        self.assertEqual(dst_weights.shape, (21,))
+
+        # now with different orders
+        info = core.get_transformation_info("fem1", "fem2", 1, 1)
+        trafo = core.get_weight_transformation(info)
+        src_weights = np.random.rand(22)
+        dst_weights = trafo(src_weights)
+        self.assertEqual(dst_weights.shape, (42,))
+
+    def tearDown(self):
+        pi.deregister_base("fem1")
+        pi.deregister_base("fem2")
+
+
 class SimplificationTestCase(unittest.TestCase):
 
     def test_easy_simplifications(self):
