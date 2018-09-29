@@ -524,19 +524,19 @@ class Base:
             dict of :py:class:`.BaseFraction`'s
         matching_bases (list of str): List of labels from exactly matching
             bases, for which no transformation is necessary.
-            Useful for transformations from bases which 'lives' in
+            Useful for transformations from bases the 'live' in
             different function spaces but evolve with the same time
-            dynamic/coefficients (for example modal bases).
-        intermediate_base (str): If you know that this base instance will be
-            asks (as destination base) according a transformation
-            to a source base, which you dont bother to implement on your own,
-            than provide here the label of another base, for which the
-            transformation can acquired with buil-in feautures. The algorithm,
-            implemented in :py:class:`.get_weights_transformation`
+            dynamic/coefficients (e.g. modal bases).
+        intermediate_base (str): If it is ceratain that this base instance will
+            be asked (as destination base) to return a transformation
+            to a source base, whose implementation is cumbersome,
+            its label can be provided here. This will trigger the generation
+            of the transformation using build-in features.
+            The algorithm, implemented in :py:class:`.get_weights_transformation`
             is then called again with the intermediate base as destination
             base and the 'old' source base. With this technique arbitrary
-            long transformation chains are possible, when the provided
-            intermediate base also defines an intermediate base and this ...
+            long transformation chains are possible, if the provided
+            intermediate bases again define intermediate bases.
     """
     def __init__(self, fractions, matching_bases=list(), intermediate_base=None):
         fractions = sanitize_input(fractions, BaseFraction)
