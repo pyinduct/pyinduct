@@ -81,3 +81,10 @@ def get_base(label):
         raise ValueError("No base registered under label '{0}'!".format(label))
     else:
         return base
+
+
+def clear_registry():
+    """
+    Deregister all bases.
+    """
+    _registry.clear()
