@@ -6,12 +6,14 @@ __all__ = ["VariablePool"]
 
 
 class VariablePool:
-    variable_pool_count = 0
+    variable_pool_registry = dict()
 
     def __init__(self, description):
-        assert description != "GLOBAL"
+        if description in self.variable_pool_registry:
+            raise ValueError("Variable pool '{}' already exists.".format(description))
+
+        self.variable_pool_registry.update({description: self})
         self.description = description
-        self.variable_pool_count += 1
         self.variables = dict()
         self.categories = dict()
         self.categories.update({None: list()})
@@ -80,8 +82,9 @@ class VariablePool:
         return self._new_variables(names, dependencies, implementations, category, **kwargs)
 
 
+global_variable_pool = VariablePool("GLOBAL")
+
+
 def pprint(expr):
     sp.pprint(expr, num_columns=180)
 
-global_variable_pool = VariablePool(None)
-global_variable_pool.description = "GLOBAL"

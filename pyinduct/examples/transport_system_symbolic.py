@@ -55,7 +55,7 @@ for psi_j in test_funcs:
         + v * x_approx.subs(z, l) * psi_j.subs(z, l)
         - v * u * psi_j.subs(z, 0)
     )
-ss.pprint(projections[0])
+ss.pprint(sp.Matrix(projections))
 
 # evaluate projections
 projections = evaluate_implemented_functions(projections)
