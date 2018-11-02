@@ -1356,14 +1356,14 @@ def _compute_product_of_scalars(scalars):
     return res
 
 
-def simulate_state_space(state_space, initial_state, temp_domain, settings=None):
+def simulate_state_space(rhs, initial_state, temp_domain, settings=None):
     r"""
     Wrapper to simulate a system given in state space form:
 
     .. math:: \dot{q} = A_pq^p + A_{p-1}q^{p-1} + \dotsb + A_0q + Bu.
 
     Args:
-        state_space (:py:class:`.StateSpace`): State space formulation of the
+        rhs (:py:class:`.StateSpace`): State space formulation of the
             system.
         initial_state: Initial state vector of the system.
         temp_domain (:py:class:`.Domain`): Temporal domain object.
@@ -1374,13 +1374,13 @@ def simulate_state_space(state_space, initial_state, temp_domain, settings=None)
     Return:
         tuple: Time :py:class:`.Domain` object and weights matrix.
     """
-    if not isinstance(state_space, StateSpace):
-        raise TypeError
+    if isinstance(rhs, StateSpace):
+        rhs = rhs.rhs
 
     q = [initial_state]
     t = [temp_domain[0]]
 
-    r = ode(state_space.rhs)
+    r = ode(rhs)
 
     # TODO check for complex-valued matrices and use 'zvode'
     if settings:
