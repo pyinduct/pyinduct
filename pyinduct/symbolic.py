@@ -1,6 +1,12 @@
 import sympy as sp
 import numpy as np
+import mpmath
+import sys
+from tqdm import tqdm
 import collections
+import pyinduct as pi
+from pyinduct.core import domain_intersection, integrate_function
+from pyinduct.simulation import simulate_state_space
 from sympy.utilities.lambdify import implemented_function
 
 __all__ = ["VariablePool"]
@@ -150,7 +156,7 @@ class SimulationInputWrapper:
 
 
 def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
-                    time_sym, temp_domain, **settings):
+                    time_sym, temp_domain, settings=None):
     """
     Simulate finite dimensional ode according to the provided
     right hand side (:code:`rhs`)
@@ -182,14 +188,16 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     assert all([input_var == sym.args[0] for sym in input_syms])
 
     # check length of args
-    n = len(init_conds)
-    assert all([n == len(it) for it in [rhs, funcs]])
+    n = len(pi.get_base(base_label))
+    assert all([n == len(it) for it in [init_conds, rhs, funcs]])
 
     # dictionary / kwargs for the pyinuct simulation input call
     _input_var = dict(time=float(0), weights=np.zeros(n), weight_lbl=base_label)
 
     # derive callable from the symbolic expression of the right hand side
-    rhs_lam = sp.lambdify((funcs, time_sym, input_var), rhs)
+    print(">>> lambdify right hand side")
+    rhs_lam = sp.lambdify((funcs, time_sym, input_var), rhs, modules="numpy")
+    print("done!")
 
     def _rhs(_t, _q):
         _input_var["time"] = _t
@@ -197,11 +205,149 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
 
         return rhs_lam(_q, _t, _input_var)
 
-    from pyinduct.simulation import simulate_state_space
-
-    return simulate_state_space(_rhs, init_conds, temp_domain, **settings)
+    return simulate_state_space(_rhs, init_conds, temp_domain, settings)
 
 
+def evaluate_integrals(expression, presc=mpmath.mp.dps):
+    expr_expand = sp.N(expression.expand(), presc)
+
+    replace_dict = dict()
+    for integral in tqdm(expr_expand.atoms(sp.Integral), file=sys.stdout,
+                         desc=">>> evaluate integrals (dps={})".format(presc)):
+
+        if not len(integral.args[1]) == 3:
+            raise ValueError(
+                "Only the evaluation of definite integrals is implemented.")
+
+        integrand = integral.args[0]
+        dependent_var, limit_a, limit_b = integral.args[1]
+        all_funcs = integrand.atoms(sp.Function)
+        impl_funcs = {func for func in all_funcs if hasattr(func, "_imp_")}
+
+        if len(impl_funcs) == 0:
+            replace_dict.update({integrand: integrand.doit()})
+
+        elif isinstance(integrand, (sp.Mul, sp.Function)):
+
+            constants = list()
+            dependents = list()
+            if isinstance(integrand, sp.Mul):
+                for arg in integrand.args:
+                    if dependent_var in arg.free_symbols:
+                        dependents.append(arg)
+
+                    else:
+                        constants.append(arg)
+
+            elif isinstance(integrand, sp.Function):
+                dependents.append(integrand)
+
+            else:
+                raise NotImplementedError
+
+            assert len(dependents) != 0
+            assert np.prod([sym for sym in constants + dependents]) == integrand
+
+            # collect numeric implementation of all
+            # python and pyinduct functions
+            py_funcs = list()
+            pi_funcs = list()
+            prove_integrand = np.prod(constants)
+            domain = (float(limit_a), float(limit_b))
+            for func in dependents:
+
+                # check: only one sympy function in expression
+                _func = func.atoms(sp.Function)
+                assert len(_func) == 1
+
+                # check: only one dependent variable
+                __func = _func.pop()
+                assert len(__func.args) == 1
+
+                # check: correct dependent variable
+                assert __func.args[0] == dependent_var
+
+                # determine derivative order
+                if isinstance(func, sp.Derivative):
+                    der_order = func.args[1][1]
+
+                else:
+                    der_order = 0
+
+                # check if we understand things right
+                prove_integrand *= sp.diff(__func, dependent_var, der_order)
+
+                # categorize _imp_ in python and pyinduct functions
+                implementation = func.atoms(sp.Function).pop()._imp_
+                if isinstance(implementation, pi.Function):
+                    domain = domain_intersection(domain, implementation.nonzero)
+                    pi_funcs.append((implementation, int(der_order)))
+
+                else:
+                    if der_order != 0:
+                        raise NotImplementedError(
+                            "Only derivatives of a pyinduct.Function"
+                            "can be aquired.")
+
+                    py_funcs.append(implementation)
+
+            # check if things will be processed correctly
+            assert sp.Integral(
+                prove_integrand, (dependent_var, limit_a, limit_b)) == integral
+
+            # function to integrate
+            def _integrand(z, py_funcs=py_funcs, pi_funcs=pi_funcs):
+                mul = ([f(z) for f in py_funcs] +
+                       [f.derive(ord)(z) for f, ord in pi_funcs])
+
+                return np.prod(mul)
+
+            _integral = integrate_function(_integrand, domain)[0]
+            result = np.prod([sym for sym in constants + [_integral]])
+
+            replace_dict.update({integral: sp.N(result, presc)})
+
+        else:
+            raise NotImplementedError
+
+    print("done!")
+
+    return expr_expand.xreplace(replace_dict)
 
 
+def derive_first_order_representation(expression, funcs, input_,
+                                      mode="sympy.solve"):
 
+    # make sure funcs depends on one varialble only
+    assert len(funcs.free_symbols) == 1
+    depvar = funcs.free_symbols.pop()
+
+    if mode == "sympy.solve":
+        # use sympy solve for rewriting
+        print(">>> rewrite  as c' = f(c,u)")
+        sol = sp.solve(expression, sp.diff(funcs, depvar))
+        rhs = sp.Matrix([sol[it] for it in sp.diff(funcs, depvar)])
+        print("done!")
+
+        return rhs
+
+    elif mode == "sympy.linear_eq_to_matrix":
+        # rewrite expression as E1 * c' + E0 * c + G * u = 0
+        print(">>> rewrite as E1 c' + E0 c + G u = 0")
+        E1, _expression = sp.linear_eq_to_matrix(expression,
+                                                 list(sp.diff(funcs, depvar)))
+        expression = (-1) * _expression
+        E0, _expression = sp.linear_eq_to_matrix(expression, list(funcs))
+        expression = (-1) * _expression
+        G, _expression = sp.linear_eq_to_matrix(expression, list(input_))
+        assert _expression == _expression * 0
+        print("done!")
+
+        # rewrite expression as c' = A c + B * u
+        print(">>> rewrite as c' = A c + B u")
+        E1_inv = E1.inv()
+        A = -E1_inv * E0
+        B = -E1_inv * G
+        print("done!")
+
+        return A * funcs + B * input_

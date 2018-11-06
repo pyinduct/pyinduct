@@ -1,7 +1,7 @@
 import sympy as sp
 import numpy as np
 import pyinduct as pi
-import pyinduct.symbolic as ss
+import pyinduct.symbolic as sy
 
 # spatial approximation order
 N = 40
@@ -16,14 +16,14 @@ spat_bounds = (0, l)
 spat_dom = pi.Domain(spat_bounds, num=100)
 
 # system input implementation
-input_ = ss.SimulationInputWrapper(pi.InterpolationTrajectory(
+input_ = sy.SimulationInputWrapper(pi.InterpolationTrajectory(
     temp_dom.points, (np.heaviside(temp_dom.points - 1, .5) +
                       np.heaviside(temp_dom.points - 5, .5) * 5 +
                       np.heaviside(temp_dom.points - 10, .5) * (-8))
 ))
 
 # variables
-var_pool = ss.VariablePool("transport system")
+var_pool = sy.VariablePool("transport system")
 t = var_pool.new_symbol("t", "time")
 z = var_pool.new_symbol("z", "location")
 
@@ -45,7 +45,7 @@ fdm_base = pi.LagrangeFirstOrder.cure_interval(nodes)
 pi.register_base("fdm_base", fdm_base)
 samples = sp.Matrix(var_pool.new_functions(
     ["x{}".format(i) for i in range(1, N)], [(t,)] * (N - 1), "sample points"))
-ss.pprint(samples, "samples", N)
+sy.pprint(samples, "samples", N)
 
 # initial conditions
 init_samples = np.zeros(len(samples))
@@ -57,13 +57,13 @@ for i in range(1, N - 1):
         sp.diff(samples[i], t) + v / step_size * (samples[i] - samples[i - 1])
     )
 discretisation = sp.Matrix(discretisation)
-ss.pprint(discretisation, "discretization", N)
+sy.pprint(discretisation, "discretization", N)
 
 # derive rhs and simulate
 sol = sp.solve(discretisation, sp.diff(samples, t))
 rhs = sp.Matrix([sol[sample] for sample in sp.diff(samples, t)])
-ss.pprint(rhs, "right hand side of the discretization", N)
-_, q = ss.simulate_system(rhs, samples, init_samples, "fdm_base", [u], t, temp_dom)
+sy.pprint(rhs, "right hand side of the discretization", N)
+_, q = sy.simulate_system(rhs, samples, init_samples, "fdm_base", [u], t, temp_dom)
 
 # visualization
 u_data = np.reshape(input_._sim_input.get_results(temp_dom.points), (len(temp_dom), 1))
