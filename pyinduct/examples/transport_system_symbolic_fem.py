@@ -1,13 +1,11 @@
+import sys
 import sympy as sp
 import numpy as np
 import pyinduct as pi
-import mpmath
-mpmath.mp.dps = 30
-# order matters
 import pyinduct.symbolic as sy
 
 # spatial approximation order
-N = 30
+N = 51
 
 # temporal domain
 T = 5
@@ -94,7 +92,7 @@ rhs = sy.derive_first_order_representation(projections, weights, input_vector,
                                            mode="sympy.linear_eq_to_matrix")
 sy.pprint(rhs, "right hand side of the discretization", N)
 
-# use numpy.dot to speed up the simulation (compare and run without this line)
+# use numpy.dot to speed up the simulation (compare / run without this line)
 rhs = sy.implement_as_linear_ode(rhs, weights, input_vector)
 
 # simulate

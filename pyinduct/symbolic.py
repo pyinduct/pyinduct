@@ -1,3 +1,4 @@
+import warnings
 import sympy as sp
 import numpy as np
 import mpmath
@@ -192,11 +193,12 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     assert all([n == len(it) for it in [init_conds, funcs]])
 
     # dictionary / kwargs for the pyinuct simulation input call
-    _input_var = dict(time=float(0), weights=np.zeros(n), weight_lbl=base_label)
+    _input_var = dict(time=0, weights=init_conds, weight_lbl=base_label)
 
     # derive callable from the symbolic expression of the right hand side
     print(">>> lambdify right hand side")
     rhs_lam = sp.lambdify((funcs, time_sym, input_var), rhs, modules="numpy")
+    assert len(rhs_lam(init_conds, 0, _input_var)) == n
     print("done!")
 
     def _rhs(_t, _q):
@@ -209,11 +211,11 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
 
 
 def evaluate_integrals(expression, presc=mpmath.mp.dps):
-    expr_expand = sp.N(expression.expand(), presc)
+    expr_expand = expression.expand()
 
     replace_dict = dict()
     for integral in tqdm(expr_expand.atoms(sp.Integral), file=sys.stdout,
-                         desc=">>> evaluate integrals (dps={})".format(presc)):
+                         desc=">>> evaluate integrals"):
 
         if not len(integral.args[1]) == 3:
             raise ValueError(
@@ -227,7 +229,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
         if len(impl_funcs) == 0:
             replace_dict.update({integrand: integrand.doit()})
 
-        elif isinstance(integrand, (sp.Mul, sp.Function)):
+        elif isinstance(integrand, (sp.Mul, sp.Function, sp.Derivative)):
 
             constants = list()
             dependents = list()
@@ -239,7 +241,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                     else:
                         constants.append(arg)
 
-            elif isinstance(integrand, sp.Function):
+            elif isinstance(integrand, (sp.Function, sp.Derivative)):
                 dependents.append(integrand)
 
             else:
@@ -252,8 +254,8 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
             # python and pyinduct functions
             py_funcs = list()
             pi_funcs = list()
-            prove_integrand = np.prod(constants)
-            domain = (float(limit_a), float(limit_b))
+            prove_integrand = sp.Integer(1)
+            domain = {(float(limit_a), float(limit_b))}
             for func in dependents:
 
                 # check: only one sympy function in expression
@@ -274,7 +276,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                 else:
                     der_order = 0
 
-                # check if we understand things right
+                # for a semantic check
                 prove_integrand *= sp.diff(__func, dependent_var, der_order)
 
                 # categorize _imp_ in python and pyinduct functions
@@ -283,7 +285,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                     domain = domain_intersection(domain, implementation.nonzero)
                     pi_funcs.append((implementation, int(der_order)))
 
-                else:
+                elif callable(implementation):
                     if der_order != 0:
                         raise NotImplementedError(
                             "Only derivatives of a pyinduct.Function"
@@ -292,6 +294,8 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                     py_funcs.append(implementation)
 
             # check if things will be processed correctly
+            prove_integrand = np.prod(
+                [sym for sym in constants + [prove_integrand]])
             assert sp.Integral(
                 prove_integrand, (dependent_var, limit_a, limit_b)) == integral
 
@@ -305,7 +309,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
             _integral = integrate_function(_integrand, domain)[0]
             result = np.prod([sym for sym in constants + [_integral]])
 
-            replace_dict.update({integral: sp.N(result, presc)})
+            replace_dict.update({integral: result})
 
         else:
             raise NotImplementedError
@@ -355,10 +359,6 @@ def derive_first_order_representation(expression, funcs, input_,
 
 def implement_as_linear_ode(rhs, funcs, input_):
 
-    # make sure funcs depends on one varialble only
-    assert len(funcs.free_symbols) == 1
-    depvar = funcs.free_symbols.pop()
-
     A, _rhs = sp.linear_eq_to_matrix(rhs, list(funcs))
     _rhs *= -1
     B, _rhs = sp.linear_eq_to_matrix(_rhs, list(input_))
@@ -370,6 +370,7 @@ def implement_as_linear_ode(rhs, funcs, input_):
     B_num = np.array(B).astype(float)
 
     def __rhs(c, u):
-        return A_num @ c + B_num @ u
+        # since u.dim = 3
+        return A_num @ c + B_num @ u[0]
 
     return new_dummy_variable((funcs, input_), __rhs)
