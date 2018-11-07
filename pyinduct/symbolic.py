@@ -189,7 +189,7 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
 
     # check length of args
     n = len(pi.get_base(base_label))
-    assert all([n == len(it) for it in [init_conds, rhs, funcs]])
+    assert all([n == len(it) for it in [init_conds, funcs]])
 
     # dictionary / kwargs for the pyinuct simulation input call
     _input_var = dict(time=float(0), weights=np.zeros(n), weight_lbl=base_label)
@@ -351,3 +351,25 @@ def derive_first_order_representation(expression, funcs, input_,
         print("done!")
 
         return A * funcs + B * input_
+
+
+def implement_as_linear_ode(rhs, funcs, input_):
+
+    # make sure funcs depends on one varialble only
+    assert len(funcs.free_symbols) == 1
+    depvar = funcs.free_symbols.pop()
+
+    A, _rhs = sp.linear_eq_to_matrix(rhs, list(funcs))
+    _rhs *= -1
+    B, _rhs = sp.linear_eq_to_matrix(_rhs, list(input_))
+    assert _rhs == _rhs * 0
+    assert len(A.atoms(sp.Symbol, sp.Function)) == 0
+    assert len(B.atoms(sp.Symbol, sp.Function)) == 0
+
+    A_num = np.array(A).astype(float)
+    B_num = np.array(B).astype(float)
+
+    def __rhs(c, u):
+        return A_num @ c + B_num @ u
+
+    return new_dummy_variable((funcs, input_), __rhs)

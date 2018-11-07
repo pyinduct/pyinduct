@@ -7,7 +7,7 @@ mpmath.mp.dps = 30
 import pyinduct.symbolic as sy
 
 # spatial approximation order
-N = 10
+N = 30
 
 # temporal domain
 T = 5
@@ -46,8 +46,6 @@ u = var_pool.new_implemented_function("u", (input_var,), input_, "input")
 input_vector = sp.Matrix([u])
 
 # system parameters
-velocity = lambda t: 0 if np.sin(4 * t) > 0 else 10
-v = var_pool.new_implemented_function("v", (t,), velocity, "system parameters")
 v = 10
 
 # define approximation base and symbols
@@ -95,6 +93,11 @@ rhs = sy.derive_first_order_representation(projections, weights, input_vector,
                                            # mode="sympy.solve")
                                            mode="sympy.linear_eq_to_matrix")
 sy.pprint(rhs, "right hand side of the discretization", N)
+
+# use numpy.dot to speed up the simulation (compare and run without this line)
+rhs = sy.implement_as_linear_ode(rhs, weights, input_vector)
+
+# simulate
 _, q = sy.simulate_system(
     rhs, weights, init_samples, "fem_base", input_vector, t, temp_dom)
 
