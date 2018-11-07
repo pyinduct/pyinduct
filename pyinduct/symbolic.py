@@ -349,7 +349,17 @@ def derive_first_order_representation(expression, funcs, input_,
 
         # rewrite expression as c' = A c + B * u
         print(">>> rewrite as c' = A c + B u")
-        E1_inv = E1.inv()
+        if len(E1.atoms(sp.Symbol, sp.Function)) == 0:
+            E1_num = np.array(E1).astype(float)
+            E1_inv = sp.Matrix(np.linalg.inv(E1_num))
+
+        else:
+            warnings.warn("Since the matrix E1 depends on symbol(s) and/or \n"
+                          "function(s) the method sympy.Matrix.inv() was \n"
+                          "used. Check result! (numpy.linalg.inv() is more \n"
+                          "reliable)")
+            E1_inv = E1.inv()
+
         A = -E1_inv * E0
         B = -E1_inv * G
         print("done!")
