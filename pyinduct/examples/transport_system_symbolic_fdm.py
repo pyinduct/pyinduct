@@ -33,6 +33,7 @@ z = var_pool.new_symbol("z", "location")
 # arguments during simulation
 input_var = var_pool.new_symbol("inputvar", "simulation input variable")
 u = var_pool.new_implemented_function("u", (input_var,), input_, "input")
+u_vect = sp.Matrix([u])
 
 # system parameters
 velocity = lambda t: 0 if np.sin(4 * t) > 0 else 5
@@ -41,8 +42,9 @@ v = var_pool.new_implemented_function("v", (t,), velocity, "system parameters")
 # approximation base and symbols
 nodes = pi.Domain(spat_bounds, num=N)
 step_size = l / N
-fdm_base = pi.LagrangeFirstOrder.cure_interval(nodes)
-pi.register_base("fdm_base", fdm_base)
+fem_base = pi.LagrangeFirstOrder.cure_interval(nodes)
+pi.register_base("fem_base", fem_base)
+pi.register_base("fdm_base", fem_base[1:])
 samples = sp.Matrix(var_pool.new_functions(
     ["x{}".format(i) for i in range(1, N)], [(t,)] * (N - 1), "sample points"))
 sy.pprint(samples, "samples", N)
@@ -60,14 +62,14 @@ discretisation = sp.Matrix(discretisation)
 sy.pprint(discretisation, "discretization", N)
 
 # derive rhs and simulate
-sol = sp.solve(discretisation, sp.diff(samples, t))
-rhs = sp.Matrix([sol[sample] for sample in sp.diff(samples, t)])
+rhs = sy.derive_first_order_representation(discretisation, samples, u_vect)
 sy.pprint(rhs, "right hand side of the discretization", N)
-_, q = sy.simulate_system(rhs, samples, init_samples, "fdm_base", [u], t, temp_dom)
+_, q = sy.simulate_system(
+    rhs, samples, init_samples, "fdm_base", u_vect, t, temp_dom)
 
 # visualization
 u_data = np.reshape(input_._sim_input.get_results(temp_dom.points), (len(temp_dom), 1))
 q_full = np.hstack((u_data, q))
-data = pi.get_sim_result("fdm_base", q_full, temp_dom, spat_dom, 0, 0)
+data = pi.get_sim_result("fem_base", q_full, temp_dom, spat_dom, 0, 0)
 win = pi.PgAnimatedPlot(data)
 pi.show()
