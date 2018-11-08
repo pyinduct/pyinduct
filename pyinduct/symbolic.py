@@ -227,7 +227,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
         impl_funcs = {func for func in all_funcs if hasattr(func, "_imp_")}
 
         if len(impl_funcs) == 0:
-            replace_dict.update({integrand: integrand.doit()})
+            replace_dict.update({integral: integral.doit()})
 
         elif isinstance(integrand, (sp.Mul, sp.Function, sp.Derivative)):
 
@@ -256,18 +256,35 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
             pi_funcs = list()
             prove_integrand = sp.Integer(1)
             domain = {(float(limit_a), float(limit_b))}
+            prove_replace = dict()
             for func in dependents:
 
+                # check: maximal one free symbol
+                free_symbol = func.free_symbols
+                assert len(free_symbol) <= 1
+
+                # check: free symbol is the integration variable
+                if len(free_symbol) == 1:
+                    assert free_symbol.pop() == dependent_var
+
+                # if this term is not a function try to lambdify the function
+                # and implement the lambdified function
+                if len(func.atoms(sp.Function)) == 0:
+                    lam_func = sp.lambdify(dependent_var, func)
+                    orig_func = func
+                    func = new_dummy_variable((dependent_var,), lam_func)
+                    prove_replace.update({func: orig_func})
+
                 # check: only one sympy function in expression
-                _func = func.atoms(sp.Function)
-                assert len(_func) == 1
+                _funcs = func.atoms(sp.Function)
+                assert len(_funcs) == 1
 
                 # check: only one dependent variable
-                __func = _func.pop()
-                assert len(__func.args) == 1
+                _func = _funcs.pop()
+                assert len(_func.args) == 1
 
                 # check: correct dependent variable
-                assert __func.args[0] == dependent_var
+                assert _func.args[0] == dependent_var
 
                 # determine derivative order
                 if isinstance(func, sp.Derivative):
@@ -277,10 +294,10 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                     der_order = 0
 
                 # for a semantic check
-                prove_integrand *= sp.diff(__func, dependent_var, der_order)
+                prove_integrand *= sp.diff(_func, dependent_var, der_order)
 
                 # categorize _imp_ in python and pyinduct functions
-                implementation = func.atoms(sp.Function).pop()._imp_
+                implementation = _func._imp_
                 if isinstance(implementation, pi.Function):
                     domain = domain_intersection(domain, implementation.nonzero)
                     pi_funcs.append((implementation, int(der_order)))
@@ -288,16 +305,20 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
                 elif callable(implementation):
                     if der_order != 0:
                         raise NotImplementedError(
-                            "Only derivatives of a pyinduct.Function"
+                            "Only derivatives of a pyinduct.Function "
                             "can be aquired.")
 
                     py_funcs.append(implementation)
+
+                else:
+                    raise NotImplementedError
 
             # check if things will be processed correctly
             prove_integrand = np.prod(
                 [sym for sym in constants + [prove_integrand]])
             assert sp.Integral(
-                prove_integrand, (dependent_var, limit_a, limit_b)) == integral
+                prove_integrand, (dependent_var, limit_a, limit_b)
+            ).xreplace(prove_replace) == integral
 
             # function to integrate
             def _integrand(z, py_funcs=py_funcs, pi_funcs=pi_funcs):
