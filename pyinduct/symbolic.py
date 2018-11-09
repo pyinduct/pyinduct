@@ -1,7 +1,6 @@
 import warnings
 import sympy as sp
 import numpy as np
-import mpmath
 import sys
 from tqdm import tqdm
 import collections
@@ -210,7 +209,60 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     return simulate_state_space(_rhs, init_conds, temp_domain, settings)
 
 
-def evaluate_integrals(expression, presc=mpmath.mp.dps):
+def evaluate_implemented_functions(expression):
+
+    der_replace_dict = dict()
+    for der in expression.atoms(sp.Derivative):
+
+        # only derivatives will be processed which holds
+        # exact one sympy function
+        if len(der.atoms(sp.Function)) != 1:
+            continue
+
+        # skip if the function is not the only argument of the derivative
+        func = der.atoms(sp.Function).pop()
+        if der.args[0] != func:
+            continue
+
+        # skip if the function has no implementation
+        if not hasattr(func, "_imp_"):
+            continue
+
+        # skip if the function has more or less than one dependent variable
+        if len(func.args) != 1:
+            continue
+
+        # determine derivative order
+        der_order = get_derivative_order(der)
+
+        imp = func._imp_
+        if isinstance(imp, pi.Function):
+            new_imp = imp.derive(der_order)
+            dummy_der = new_dummy_variable(func.args, new_imp)
+            der_replace_dict.update({der: dummy_der})
+
+        elif callable(imp):
+            raise NotImplementedError(
+                "Only derivatives of a pyinduct.Function "
+                "can be aquired.")
+
+        else:
+            raise NotImplementedError
+
+    # replace all derived implemented pyinduct functions
+    # with a dummy function which holds the derivative as implementation
+    expr_without_derivatives = expression.xreplace(der_replace_dict)
+
+    # evaluate if possible
+    evaluated_expression = expr_without_derivatives.doit().n()
+
+    # undo replace if the derivative could not be evaluated
+    reverse_replace = dict([(v, k) for k, v in der_replace_dict.items()])
+
+    return evaluated_expression.xreplace(reverse_replace)
+
+
+def evaluate_integrals(expression):
     expr_expand = expression.expand()
 
     replace_dict = dict()
@@ -288,7 +340,7 @@ def evaluate_integrals(expression, presc=mpmath.mp.dps):
 
                 # determine derivative order
                 if isinstance(func, sp.Derivative):
-                    der_order = func.args[1][1]
+                    der_order = get_derivative_order(func)
 
                 else:
                     der_order = 0
@@ -405,3 +457,15 @@ def implement_as_linear_ode(rhs, funcs, input_):
         return A_num @ c + B_num @ u[0]
 
     return new_dummy_variable((funcs, input_), __rhs)
+
+
+def get_derivative_order(derivative):
+    # its really a derivative?
+    assert isinstance(derivative, sp.Derivative)
+
+    der_order = derivative.args[1][1]
+
+    # its really a integer value?
+    assert der_order == int(der_order)
+
+    return int(der_order)

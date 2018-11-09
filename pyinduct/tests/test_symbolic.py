@@ -160,7 +160,34 @@ class EvaluateIntegralTestCase(unittest.TestCase):
             self.assertAlmostEqual(sy.evaluate_integrals(d_expr_p), 2)
             self.assertAlmostEqual(sy.evaluate_integrals(d_expr_m), -8)
 
+    def test_evaluate_implemented_functions(self):
+        f1_pi = self.f1_pi.subs(self.z, 10)
+        f1_py = self.f1_py.subs(self.z, 20)
+        f2_pi = self.f2_pi.subs(self.z, 30)
+        f2_py = self.f2_py.subs(self.z, 40)
+        d_f1_pi = sp.diff(self.f1_pi, self.z).subs(self.z, 1)
+        d_f1_py = sp.diff(self.f1_py, self.z).subs(self.z, 2)
+        d_f2_pi = sp.diff(self.f2_pi, self.z).subs(self.z, 3)
+        d_f2_py = sp.diff(self.f2_py, self.z).subs(self.z, 4)
+
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(f1_pi), -8)
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(f1_py), -18)
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(f2_pi), 30)
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(f2_py), 40)
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(d_f1_pi), -1)
+        self.assertAlmostEqual(sy.evaluate_implemented_functions(d_f2_pi), 1)
+        with self.assertRaises(NotImplementedError):
+            sy.evaluate_implemented_functions(d_f1_py)
+        with self.assertRaises(NotImplementedError):
+            sy.evaluate_implemented_functions(d_f2_py)
+
+        dd_f2_pi = sp.diff(self.f2_pi, self.z)
+        self.assertTrue(sy.evaluate_implemented_functions(dd_f2_pi) == dd_f2_pi)
+
+        expr = f1_pi * f1_py * f2_pi * f2_py * d_f1_pi * d_f2_pi * dd_f2_pi
+        self.assertTrue(sy.evaluate_implemented_functions(expr)
+                        ==
+                        -172800 * dd_f2_pi)
 
     def tearDown(self):
         sy.VariablePool.variable_pool_registry.clear()
-
