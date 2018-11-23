@@ -10,9 +10,15 @@ language: python
 python:
   - "3.5"
   - "3.6"
+
 env:
-  - DIST=anaconda
   - DIST=pypi
+  - DIST=anaconda
+
+matrix:
+  fast_finish: true
+  allow_failures:
+  - env: DIST=anaconda
 
 install:
   - >
