@@ -623,6 +623,20 @@ class Base:
             Transformation handle
         """
         if (info.dst_base is self) and (info.src_lbl in self.matching_bases):
+
+            if len(info.dst_base) != len(info.src_base):
+                raise ValueError(
+                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
+                    f"not be a matching base of '{info.dst_lbl}' (length "
+                    f"{len(info.dst_base)}), since the they have differnt "
+                    f"lengths.")
+
+            if info.dst_order != 0 or info.src_order != 0:
+                raise NotImplementedError(
+                    "The matching_bases transformation feature is not yet\n"
+                    "implemented for source- and/or destination-order not\n"
+                    "equal zero.")
+
             def handle(weights):
                 return weights
 

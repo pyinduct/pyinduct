@@ -9,6 +9,7 @@ import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
 from pyinduct.tests import show_plots
+from pyinduct.registry import clear_registry
 import pyqtgraph as pg
 
 
@@ -381,12 +382,28 @@ class StackedBaseTestCase(unittest.TestCase):
 class TransformationTestCase(unittest.TestCase):
 
     def setUp(self):
+
+        class ComposedFuncVecBase(pi.Base):
+            def __init__(self, fractions, matching_bases=list(),
+                         intermediate_base=None):
+                super(ComposedFuncVecBase, self).__init__(
+                    fractions, matching_bases, intermediate_base)
+
         dom1 = pi.Domain((0, 1), num=11)
         dom2 = pi.Domain((0, 1), num=21)
         self.base1 = pi.LagrangeFirstOrder.cure_interval(dom1)
         pi.register_base("fem1", self.base1)
         self.base2 = pi.LagrangeSecondOrder.cure_interval(dom2)
         pi.register_base("fem2", self.base2)
+
+        self.comp_base1 = ComposedFuncVecBase(
+            [pi.ComposedFunctionVector([f], [0]) for f in self.base1],
+            matching_bases=["fem1"])
+        pi.register_base("comp1", self.comp_base1)
+        self.comp_base2 = ComposedFuncVecBase(
+            [pi.ComposedFunctionVector([f], [0]) for f in self.base2],
+            intermediate_base="comp1")
+        pi.register_base("comp2", self.comp_base2)
 
     def test_transformation_info(self):
         info = core.get_transformation_info("fem1", "fem2", 1, 7)
@@ -413,9 +430,38 @@ class TransformationTestCase(unittest.TestCase):
         dst_weights = trafo(src_weights)
         self.assertEqual(dst_weights.shape, (42,))
 
+    def test_matching_base_asserts(self):
+        err_base1 = pi.Base(self.base1.fractions,
+                            matching_bases=["fem2"],
+                            intermediate_base="fem2")
+        pi.register_base("err1", err_base1)
+        info_lengt_err = core.get_transformation_info("comp2", "err1", 0, 0)
+        with self.assertRaises(ValueError):
+            core.get_weight_transformation(info_lengt_err)
+
+        err_base2 = pi.Base(self.base1.fractions,
+                            matching_bases=["comp1"],
+                            intermediate_base="comp1")
+        pi.register_base("err2", err_base2)
+        info_order_err = core.get_transformation_info("comp1", "err2", 1, 0)
+        with self.assertRaises(NotImplementedError):
+            core.get_weight_transformation(info_order_err)
+
+    def test_matching_base(self):
+        length = len(pi.get_base("fem1"))
+        info = core.get_transformation_info("fem1", "comp1", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(length, len(trafo(np.ones(length))))
+
+    def test_intermediate_base(self):
+        length1 = len(pi.get_base("fem1"))
+        length2 = len(pi.get_base("comp2"))
+        info = core.get_transformation_info("fem1", "comp2", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(length2, len(trafo(np.ones(length1))))
+
     def tearDown(self):
-        pi.deregister_base("fem1")
-        pi.deregister_base("fem2")
+        clear_registry()
 
 
 class SimplificationTestCase(unittest.TestCase):
