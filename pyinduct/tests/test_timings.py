@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 import pyinduct as pi
 
-from .test_core import CalculateScalarProductMatrixTestCase
+from pyinduct.tests.test_core import CalculateScalarProductMatrixTestCase
 
 
 def simulation_benchmark(spat_domain, settings):
