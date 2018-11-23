@@ -607,11 +607,14 @@ class DotProductL2TestCase(unittest.TestCase):
 
     def test_length(self):
         with self.assertRaises(ValueError):
-            pi.dot_product_l2(self.fem_base[2:4], self.fem_base[4:8])
+            pi.vectorize_scalar_product(
+                self.fem_base[2:4], self.fem_base[4:8],
+                self.fem_base.scalar_product_hint())
 
     def test_output(self):
-        res = pi.dot_product_l2(self.fem_base.fractions,
-                                self.fem_base.fractions)
+        res = pi.vectorize_scalar_product(self.fem_base.fractions,
+                                          self.fem_base.fractions,
+                                          self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
 
 
@@ -675,40 +678,44 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def quadratic_case1(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
-                                                 self.initial_functions1,
-                                                 optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(
+            self.initial_functions1.scalar_product_hint(),
+            self.initial_functions1,
+            self.initial_functions1,
+            optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def quadratic_case2(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2,
-                                                 self.initial_functions2,
-                                                 optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(
+            self.initial_functions2.scalar_product_hint(),
+            self.initial_functions2,
+            self.initial_functions2,
+            optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def rectangular_case_1(self):
         # rect1
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
-                                                 self.initial_functions2,
-                                                 optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(
+            self.initial_functions1.scalar_product_hint(),
+            self.initial_functions1,
+            self.initial_functions2,
+            optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def rectangular_case_2(self):
         # rect2
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2,
-                                                 self.initial_functions1,
-                                                 optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(
+            self.initial_functions1.scalar_product_hint(),
+            self.initial_functions2,
+            self.initial_functions1,
+            optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
@@ -874,12 +881,14 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
 
     def test_self_scale(self):
         f = pi.normalize_base(self.base_f)
-        prod = pi.dot_product_l2(f.fractions, f.fractions)[0]
+        prod = pi.vectorize_scalar_product(
+            f.fractions, f.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
         f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = pi.dot_product_l2(f.fractions, l.fractions)[0]
+        prod = pi.vectorize_scalar_product(
+            f.fractions, l.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_culprits(self):

@@ -23,7 +23,8 @@ __all__ = ["Domain", "EvalData", "Parameters",
            "normalize_base",
            "project_on_base", "change_projection_base", "back_project_from_base",
            "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
-           "calculate_expanded_base_transformation_matrix", "dot_product_l2",
+           "calculate_expanded_base_transformation_matrix",
+           "vectorize_scalar_product",
            "generic_scalar_product"]
 
 
@@ -408,10 +409,10 @@ class Function(BaseFraction):
 
     def scalar_product_hint(self):
         """
-        Return the hint that the :py:func:`.dot_product_l2` has to calculated to
+        Return the hint that the :py:func:`._dot_product_l2` has to calculated to
         gain the scalar product.
         """
-        return dot_product_l2
+        return _dot_product_l2
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -495,27 +496,12 @@ class ComposedFunctionVector(BaseFraction):
 
     @staticmethod
     def scalar_product(left, right):
+        sp_f = np.sum([_dot_product_l2(fl, fr) for fl, fr in
+                       zip(left.members["funcs"], right.members["funcs"])])
+        sp_s = np.sum([np.conj(sl) * sr for sl, sr in
+                       zip(left.members["scalars"], right.members["scalars"])])
 
-        def _scalar_product(l, r):
-            sp_f = np.sum([_dot_product_l2(fl, fr) for fl, fr in
-                           zip(l.members["funcs"], r.members["funcs"])])
-            sp_s = np.sum([sl * sr for sl, sr in
-                           zip(l.members["scalars"], r.members["scalars"])])
-
-            return sp_f + sp_s
-
-        left = np.atleast_1d(left)
-        right = np.atleast_1d(right)
-
-        if len(left) != len(right):
-            raise ValueError(
-                "Provided function vectors must be of same length.")
-
-        res = list()
-        for l, r in zip(left, right):
-            res.append(_scalar_product(l, r))
-
-        return np.array(res)
+        return sp_f + sp_s
 
     def scalar_product_hint(self):
         return self.scalar_product
@@ -739,7 +725,7 @@ class StackedBase(Base):
         self._info = base_info
 
     def scalar_product_hint(self):
-        return [dot_product_l2 for k in self.members.keys()]
+        pass
 
     def get_member(self, idx):
         return list(self.members.values())[idx]
@@ -1022,9 +1008,10 @@ def _dot_product_l2(first, second):
     return result
 
 
-def dot_product_l2(first, second):
+def vectorize_scalar_product(first, second, scalar_product):
     r"""
-    Vectorized version of the inner product on L2.
+    Call the given :code:`scalar_product` in a loop for the arguments
+    in :code:`left` and :code:`right`.
 
     Given two vectors of functions
 
@@ -1073,7 +1060,7 @@ def dot_product_l2(first, second):
     # TODO propagate vectorization into _dot_product_l2 to save this loop
     # loop over entries
     for idx, (f, s) in enumerate(zip(first, second)):
-        out[idx] = _dot_product_l2(f, s)
+        out[idx] = scalar_product(f, s)
 
     return np.real_if_close(out)
 
@@ -1118,10 +1105,13 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
     Return:
         numpy.ndarray: matrix :math:`A`
     """
+    if base_a.__class__ != base_b.__class__:
+        raise TypeError("Bases must be from the same type.")
+
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    if optimize and base_a == base_b and scalar_product_handle == dot_product_l2:
+    if optimize and base_a == base_b and scalar_product_handle == _dot_product_l2:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
         output = np.zeros((dim, dim), dtype=np.complex)
@@ -1143,8 +1133,10 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         fractions_i = fractions_a[i]
         fractions_j = fractions_b[j]
 
-        res = scalar_product_handle(fractions_i.flatten(),
-                                    fractions_j.flatten())
+        res = vectorize_scalar_product(fractions_i.flatten(),
+                                       fractions_j.flatten(),
+                                       scalar_product_handle)
+
         return res.reshape(fractions_i.shape)
 
 
@@ -1162,13 +1154,15 @@ def project_on_base(state, base):
     if not isinstance(base, Base):
         raise TypeError("Only pyinduct.core.Base accepted as base")
 
+    scalar_product = base.scalar_product_hint()
+
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(dot_product_l2,
-                                                  Base(state),
+    projections = calculate_scalar_product_matrix(scalar_product,
+                                                  base.__class__(state),
                                                   base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(dot_product_l2, base, base)
+    scale_mat = calculate_scalar_product_matrix(scalar_product, base, base)
 
     return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
 
@@ -1571,7 +1565,11 @@ def generic_scalar_product(b1, b2=None):
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    return np.real_if_close(b1.scalar_product_hint()(b1, b2))
+    scalar_product = b1.scalar_product_hint()
+
+    res = vectorize_scalar_product(b1, b2, scalar_product)
+
+    return np.real_if_close(res)
 
 
 def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,

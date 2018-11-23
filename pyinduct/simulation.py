@@ -17,7 +17,7 @@ from scipy.linalg import block_diag
 from .core import (Domain, Parameters, Function,
                    domain_intersection, integrate_function,
                    calculate_scalar_product_matrix,
-                   dot_product_l2, sanitize_input,
+                   vectorize_scalar_product, sanitize_input,
                    StackedBase, get_weight_transformation,
                    get_transformation_info,
                    EvalData, project_on_bases)
@@ -1073,9 +1073,8 @@ def parse_weak_formulation(weak_form, finalize=False):
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(dot_product_l2,
-                                                         fractions,
-                                                         shape_funcs)
+                result = calculate_scalar_product_matrix(
+                    fractions.scalar_product_hint(), fractions, shape_funcs)
             else:
                 # extract constant term and compute integral
                 components = []
