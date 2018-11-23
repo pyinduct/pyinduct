@@ -411,7 +411,7 @@ class Function(BaseFraction):
         Return the hint that the :py:func:`.dot_product_l2` has to calculated to
         gain the scalar product.
         """
-        return [dot_product_l2]
+        return dot_product_l2
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -493,9 +493,32 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
+    @staticmethod
+    def scalar_product(left, right):
+
+        def _scalar_product(l, r):
+            sp_f = np.sum([_dot_product_l2(fl, fr) for fl, fr in
+                           zip(l.members["funcs"], r.members["funcs"])])
+            sp_s = np.sum([sl * sr for sl, sr in
+                           zip(l.members["scalars"], r.members["scalars"])])
+
+            return sp_f + sp_s
+
+        left = np.atleast_1d(left)
+        right = np.atleast_1d(right)
+
+        if len(left) != len(right):
+            raise ValueError(
+                "Provided function vectors must be of same length.")
+
+        res = list()
+        for l, r in zip(left, right):
+            res.append(_scalar_product(l, r))
+
+        return np.array(res)
+
     def scalar_product_hint(self):
-        return [dot_product_l2 for funcs in self.members["funcs"]] \
-               + [np.multiply for scals in self.members["scalars"]]
+        return self.scalar_product
 
     def get_member(self, idx):
         if idx < len(self.members["funcs"]):
@@ -1448,32 +1471,15 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
     """
-    # compute P and Q matrices, where P = Sum(P_n) and Q = Sum(Q_n)
-    s_hints = src_base.scalar_product_hint()
-    d_hints = dst_base.scalar_product_hint()
+    if src_base.__class__ != dst_base.__class__:
+        raise TypeError("Source and destination base must be from the same "
+                        "type.")
 
-    p_matrices = []
-    q_matrices = []
-    for idx, (s_hint, d_hint) in enumerate(zip(s_hints, d_hints)):
-        dst_members = Base([dst_frac.get_member(idx)
-                            for dst_frac in dst_base.fractions])
-        src_members = Base([src_frac.get_member(idx)
-                            for src_frac in src_base.fractions])
+    p_mat = calculate_scalar_product_matrix(
+        src_base.scalar_product_hint(), dst_base, src_base)
 
-        # compute P_n matrix:
-        # <phi_tilde_ni(z), phi_dash_nj(z)> for 0 < i < N, 0 < j < M
-        p_matrices.append(calculate_scalar_product_matrix(s_hint,
-                                                          dst_members,
-                                                          src_members))
-
-        # compute Q_n matrix:
-        # <phi_dash_ni(z), phi_dash_nj(z)> for 0 < i < M, 0 < j < M
-        q_matrices.append(calculate_scalar_product_matrix(d_hint,
-                                                          dst_members,
-                                                          dst_members))
-
-    p_mat = np.sum(p_matrices, axis=0)
-    q_mat = np.sum(q_matrices, axis=0)
+    q_mat = calculate_scalar_product_matrix(
+        src_base.scalar_product_hint(), dst_base, dst_base)
 
     # compute V matrix, where V = inv(Q)*P
     v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
@@ -1549,15 +1555,7 @@ def generic_scalar_product(b1, b2=None):
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    hints = b1.scalar_product_hint()
-    res = np.zeros(b1.fractions.shape, dtype=complex)
-    for idx, hint in enumerate(hints):
-        members_1 = np.array([fraction.get_member(idx)
-                              for fraction in b1.fractions])
-        members_2 = np.array([fraction.get_member(idx)
-                              for fraction in b2.fractions])
-        res += hint(members_1, members_2)
-    return np.real_if_close(res)
+    return np.real_if_close(b1.scalar_product_hint()(b1, b2))
 
 
 def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
