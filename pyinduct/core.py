@@ -1121,8 +1121,9 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         upper_idxs = np.triu_indices(dim)
         i_upper = i[upper_idxs]
         j_upper = j[upper_idxs]
-        output[upper_idxs] = scalar_product_handle(fractions_a[i_upper],
-                                                   fractions_a[j_upper])
+        output[upper_idxs] = vectorize_scalar_product(fractions_a[i_upper],
+                                                      fractions_a[j_upper],
+                                                      scalar_product_handle)
 
         # reconstruct using symmetry
         output += np.conjugate(np.triu(output, 1)).T

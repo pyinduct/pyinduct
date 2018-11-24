@@ -94,7 +94,7 @@ def product_benchmark(base):
         return np.sin(2 * z) + np.exp(z)
 
     _t = time.clock()
-    res = pi.calculate_scalar_product_matrix(pi.vectorize_scalar_product, base, base)
+    res = pi.calculate_scalar_product_matrix(base.scalar_product_hint(), base, base)
     _t_mat = time.clock() - _t
 
     _t = time.clock()
