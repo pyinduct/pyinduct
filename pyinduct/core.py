@@ -533,10 +533,10 @@ class Base:
             dict of :py:class:`.BaseFraction`'s
         matching_bases (list of str): List of labels from exactly matching
             bases, for which no transformation is necessary.
-            Useful for transformations from bases the 'live' in
+            Useful for transformations from bases that 'live' in
             different function spaces but evolve with the same time
             dynamic/coefficients (e.g. modal bases).
-        intermediate_base (str): If it is ceratain that this base instance will
+        intermediate_base (str): If it is certain that this base instance will
             be asked (as destination base) to return a transformation
             to a source base, whose implementation is cumbersome,
             its label can be provided here. This will trigger the generation
@@ -547,7 +547,7 @@ class Base:
             long transformation chains are possible, if the provided
             intermediate bases again define intermediate bases.
     """
-    def __init__(self, fractions, matching_bases=list(), intermediate_base=None):
+    def __init__(self, fractions, matching_bases=(), intermediate_base=None):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -614,7 +614,7 @@ class Base:
                 raise ValueError(
                     f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
                     f"not be a matching base of '{info.dst_lbl}' (length "
-                    f"{len(info.dst_base)}), since the they have differnt "
+                    f"{len(info.dst_base)}), since the they have different "
                     f"lengths.")
 
             if info.dst_order != 0 or info.src_order != 0:
