@@ -190,7 +190,7 @@ class Function(BaseFraction):
     def derivative_handles(self, eval_handle_derivatives):
         if eval_handle_derivatives is None:
             eval_handle_derivatives = []
-        if not isinstance(eval_handle_derivatives, collections.Iterable):
+        if not isinstance(eval_handle_derivatives, collections.abc.Iterable):
             eval_handle_derivatives = [eval_handle_derivatives]
         for der_handle in eval_handle_derivatives:
             if not isinstance(der_handle, collections.Callable):
@@ -569,16 +569,32 @@ class Base:
         return self.fractions[item]
 
     @staticmethod
-    def _transformation_factory(info):
+    def _transformation_factory(info, equivalent=False):
         mat = calculate_expanded_base_transformation_matrix(info.src_base,
                                                             info.dst_base,
                                                             info.src_order,
-                                                            info.dst_order)
+                                                            info.dst_order,
+                                                            use_eye=equivalent)
 
         def handle(weights):
             return np.dot(mat, weights)
 
         return handle
+
+    def is_compatible_to(self, other):
+        """
+        Check if the scalar products, defined on the function spaces and
+        therefore the function spaces of the bases themselves are compatible.
+
+        Args:
+            other(pi.Base): Base to check compatibility for.
+
+        Returns:
+            bool: True if bases are compatible.
+        """
+        own_sp = self.scalar_product_hint()
+        other_sp = other.scalar_product_hint()
+        return own_sp == other_sp
 
     def transformation_hint(self, info):
         """
@@ -608,44 +624,50 @@ class Base:
         Returns:
             Transformation handle
         """
-        if (info.dst_base is self) and (info.src_lbl in self.matching_bases):
+        if self is info.src_base:
 
-            if len(info.dst_base) != len(info.src_base):
-                raise ValueError(
-                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
-                    f"not be a matching base of '{info.dst_lbl}' (length "
-                    f"{len(info.dst_base)}), since the they have different "
-                    f"lengths.")
+            if info.dst_base in self.matching_bases:
+                # check dimensions
+                if len(info.dst_base) != len(info.src_base):
+                    raise ValueError(
+                        f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
+                        f"not be a matching base of '{info.dst_lbl}' (length "
+                        f"{len(info.dst_base)}), since the they have different "
+                        f"lengths.")
 
-            if info.dst_order != 0 or info.src_order != 0:
-                raise NotImplementedError(
-                    "The matching_bases transformation feature is not yet\n"
-                    "implemented for source- and/or destination-order not\n"
-                    "equal zero.")
+                # if info.dst_order != 0 or info.src_order != 0:
+                #     raise NotImplementedError(
+                #         "The matching_bases transformation feature is not yet\n"
+                #         "implemented for source- and/or destination-order not\n"
+                #         "equal zero.")
 
-            def handle(weights):
-                return weights
+                # forward weights
+                return self._transformation_factory(info, True), None
 
-            return handle, None
+            if self.is_compatible_to(info.dst_base):
+                # bases are compatible, use standard approach
+                return self._transformation_factory(info), None
 
-        elif info.src_base.__class__ == info.dst_base.__class__:
-            return self._transformation_factory(info), None
+            elif self.intermediate_base:
+                # we got a middleman
+                intermediate_hint = get_transformation_info(
+                    self.intermediate_base, info.dst_lbl,
+                    info.dst_order, info.dst_order
+                )
+                handle = get_weight_transformation(intermediate_hint)
+                hint = get_transformation_info(
+                    info.src_lbl, self.intermediate_base,
+                    info.src_order, info.dst_order
+                )
+                return handle, hint
 
-        elif self.intermediate_base is not None:
-            intermediate_hint = get_transformation_info(
-                self.intermediate_base, info.dst_lbl,
-                info.dst_order, info.dst_order
-            )
-            handle = get_weight_transformation(intermediate_hint)
-            hint = get_transformation_info(
-                info.src_lbl, self.intermediate_base,
-                info.src_order, info.dst_order
-            )
-            return handle, hint
+            else:
+                # No Idea what to do.
+                return None, None
 
-        else:
-            # No Idea what to do.
-            return None, None
+        elif self is info.dst_base:
+            # TODO copy logic from above, mind the copy cat
+            return NotImplemented
 
     def scalar_product_hint(self):
         """
@@ -1482,7 +1504,7 @@ def calculate_base_transformation_matrix(src_base, dst_base):
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
     """
-    if src_base.__class__ != dst_base.__class__:
+    if not src_base.is_compatible_to(dst_base):
         raise TypeError("Source and destination base must be from the same "
                         "type.")
 

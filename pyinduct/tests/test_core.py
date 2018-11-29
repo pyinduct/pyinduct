@@ -237,15 +237,32 @@ class BaseTestCase(unittest.TestCase):
             for i in range(10)]
 
     def test_init(self):
+        # default args
+        fractions = pi.BaseFraction([])
+        b = pi.Base(fractions)
+        self.assertEqual(b.fractions, np.asarray(fractions))
+        self.assertEqual(b.matching_bases, tuple())
+        self.assertEqual(b.intermediate_base, None)
+
         # single and iterable arguments should be taken
-        b1 = pi.Base(self.fractions[0])
-        b2 = pi.Base(self.fractions)
-        b3 = pi.Base(self.other_fractions)
-        b4 = pi.Base(self.completely_other_fractions)
+        pi.Base(self.fractions[0])
+        pi.Base(self.fractions)
+        pi.Base(self.other_fractions)
+        pi.Base(self.completely_other_fractions)
 
         # the provided scalar product hints should be compatible
         with self.assertRaises(ValueError):
             pi.Base([self.fractions[0], self.other_fractions[2]])
+
+        pi.Base([self.other_fractions[0], self.completely_other_fractions[2]])
+
+    def test_is_compatible(self):
+        b0 = pi.Base(self.fractions[0])
+        b1 = pi.Base(self.fractions)
+        b2 = pi.Base(self.other_fractions)
+
+        self.assertTrue(b1.is_compatible_to(b0))
+        self.assertFalse(b1.is_compatible_to(b2))
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
@@ -262,31 +279,6 @@ class BaseTestCase(unittest.TestCase):
         g2 = f.scale(factor)
         for a, b in zip(f.fractions, g2.fractions):
             np.testing.assert_array_equal(10 * a(values), b(values))
-
-    def test_transformation_hint(self):
-        f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
-                     pi.Function(np.cos, domain=(0, np.pi))])
-
-        info = core.TransformationInfo()
-        info.src_lbl = "me"
-        info.dst_lbl = "me again"
-        info.src_base = f
-        info.dst_base = f
-        info.src_order = 1
-        info.dst_order = 1
-
-        # test defaults
-        func, extra = f.transformation_hint(info)
-        weights = np.array(range(4))
-        t_weights = func(weights)
-        np.testing.assert_array_almost_equal(weights, t_weights)
-        self.assertIsNone(extra)
-
-        # no transformation hint known
-        info.dst_base = pi.StackedBase(self.fractions, None)
-        func, extra = f.transformation_hint(info)
-        self.assertIsNone(func)
-        self.assertIsNone(extra)
 
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
@@ -356,6 +348,84 @@ class BaseTestCase(unittest.TestCase):
         self.assertEqual(len(res), 2)
         self.assertIsNone(res[0])
         self.assertIsNone(res[1])
+
+
+class BaseTransformationTestCase(unittest.TestCase):
+    def setUp(self):
+        self.f1 = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
+                           pi.Function(np.cos, domain=(0, np.pi))])
+        pi.register_base("fourier_1", self.f1)
+        self.f2 = pi.Base([pi.Function(np.cos, domain=(0, np.pi)),
+                           pi.Function(np.sin, domain=(0, np.pi))])
+        pi.register_base("fourier_2", self.f2)
+        # matching_bases=["fourier_1"])
+
+    def tearDown(self):
+        pi.deregister_base("fourier_1")
+        pi.deregister_base("fourier_2")
+
+    def test_transformation_hint_auto(self):
+        """ Test if src and dst are equivalent"""
+
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "fourier_1", 0, 0)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(len(self.f1))
+        t_weights = func(weights)
+        np.testing.assert_array_almost_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "fourier_1", 2, 2)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(3*len(self.f1))
+        t_weights = func(weights)
+        np.testing.assert_array_almost_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "fourier_1", 2, 0)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(3*len(self.f1))
+        t_weights = func(weights)
+        self.assertEqual(len(t_weights), len(self.f1))
+        np.testing.assert_array_almost_equal(weights[:len(self.f1)], t_weights)
+        self.assertIsNone(extra)
+
+    def test_transformation_hint_same_fs(self):
+        """
+        Test if src is  a matching base for dst
+        and they share the same function space.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "fourier_2", 0, 0)
+        for f in (self.f1, ):  # self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(len(self.f1))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[::-1], t_weights)
+            self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "fourier_2", 2, 2)
+        for f in (self.f1, ):  # self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(3*len(self.f1))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[[1, 0, 3, 2, 5, 4]],
+                                                 t_weights)
+            self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "fourier_2", 2, 0)
+        for f in (self.f1, ):  # self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(3*len(self.f1))
+            t_weights = func(weights)
+            self.assertEqual(len(t_weights), len(self.f1))
+            np.testing.assert_array_almost_equal(weights[:len(self.f1)],
+                                                 t_weights[::-1])
+            self.assertIsNone(extra)
 
 
 class StackedBaseTestCase(unittest.TestCase):
