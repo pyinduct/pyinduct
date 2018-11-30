@@ -648,8 +648,9 @@ class Base:
             #         "implemented for source- and/or destination-order not\n"
             #         "equal zero.")
 
-            # forward weights
-            return self._transformation_factory(info, True), None
+            if info.src_order >= info.dst_order:
+                # forward weights
+                return self._transformation_factory(info, True), None
 
         compat_cond_src = (self is info.src_base
                            and self.is_compatible_to(info.dst_base))

@@ -514,12 +514,18 @@ class BaseTransformationTestCase(unittest.TestCase):
             self.assertIsNone(func)
             self.assertIsNone(extra)
             # valid information -> transformation
-            weights = np.random.rand(3*len(self.f1))
-            t_weights = func(weights)
-            self.assertEqual(len(t_weights), len(self.f1))
-            np.testing.assert_array_almost_equal(weights[:len(self.f1)],
-                                                 t_weights)
-            self.assertIsNone(extra)
+            func, extra = self.c1m.transformation_hint(_info)
+            if _info.src_order == 0:
+                # provided derivative order insufficient
+                self.assertIsNone(func)
+                self.assertIsNone(extra)
+            else:
+                weights = np.random.rand(3*len(self.f1))
+                t_weights = func(weights)
+                self.assertEqual(len(t_weights), len(self.f1))
+                np.testing.assert_array_almost_equal(weights[:len(self.f1)],
+                                                     t_weights)
+                self.assertIsNone(extra)
 
 
 class StackedBaseTestCase(unittest.TestCase):
