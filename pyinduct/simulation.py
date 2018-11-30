@@ -1073,8 +1073,7 @@ def parse_weak_formulation(weak_form, finalize=False):
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(
-                    fractions.scalar_product_hint(), fractions, shape_funcs)
+                result = calculate_scalar_product_matrix(fractions, shape_funcs)
             else:
                 # extract constant term and compute integral
                 components = []

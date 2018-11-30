@@ -1145,22 +1145,17 @@ def calculate_scalar_matrix(values_a, values_b):
     Return:
         numpy.ndarray: Matrix containing the pairwise products of the elements from *values_a* and *values_b*.
     """
-    return calculate_scalar_product_matrix(np.multiply,
-                                           sanitize_input(values_a, Number),
+    return calculate_scalar_product_matrix(sanitize_input(values_a, Number),
                                            sanitize_input(values_b, Number))
 
 
-def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
-                                    optimize=True):
+def calculate_scalar_product_matrix(base_a, base_b, optimize=True):
     r"""
     Calculates a matrix :math:`A` , whose elements are the scalar products of
     each element from *base_a* and *base_b*, so that
     :math:`a_{ij} = \langle \mathrm{a}_i\,,\: \mathrm{b}_j\rangle`.
 
     Args:
-        scalar_product_handle (callable): function handle that is called to
-            calculate the scalar product. This function has to be able to cope
-            with (1d) vectorial input.
         base_a (:py:class:`.Base`): Basis a
         base_b (:py:class:`.Base`): Basis b
         optimize (bool): Switch to turn on the symmetry based speed up.
@@ -1169,13 +1164,14 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
     Return:
         numpy.ndarray: matrix :math:`A`
     """
-    if base_a.is_compatible_to(base_b):
+    if not base_a.is_compatible_to(base_b):
         raise TypeError("Bases must be from the same type.")
 
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    if optimize and base_a == base_b and scalar_product_handle == dot_product_l2:
+    scalar_product = base_a.scalar_product_hint()
+    if optimize and base_a == base_b and scalar_product == dot_product_l2:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
         output = np.zeros((dim, dim), dtype=np.complex)
@@ -1187,7 +1183,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         j_upper = j[upper_idxs]
         output[upper_idxs] = vectorize_scalar_product(fractions_a[i_upper],
                                                       fractions_a[j_upper],
-                                                      scalar_product_handle)
+                                                      scalar_product)
 
         # reconstruct using symmetry
         output += np.conjugate(np.triu(output, 1)).T
@@ -1200,7 +1196,7 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
 
         res = vectorize_scalar_product(fractions_i.flatten(),
                                        fractions_j.flatten(),
-                                       scalar_product_handle)
+                                       scalar_product)
 
         return res.reshape(fractions_i.shape)
 
@@ -1222,12 +1218,11 @@ def project_on_base(state, base):
     scalar_product = base.scalar_product_hint()
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(scalar_product,
-                                                  base.__class__(state),
+    projections = calculate_scalar_product_matrix(base.__class__(state),
                                                   base).squeeze()
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
-    scale_mat = calculate_scalar_product_matrix(scalar_product, base, base)
+    scale_mat = calculate_scalar_product_matrix(base, base)
 
     return np.reshape(np.dot(np.linalg.inv(scale_mat), projections), (scale_mat.shape[0], ))
 
@@ -1543,11 +1538,9 @@ def calculate_base_transformation_matrix(src_base, dst_base):
         raise TypeError("Source and destination base must be from the same "
                         "type.")
 
-    p_mat = calculate_scalar_product_matrix(
-        src_base.scalar_product_hint(), dst_base, src_base)
+    p_mat = calculate_scalar_product_matrix(dst_base, src_base)
 
-    q_mat = calculate_scalar_product_matrix(
-        src_base.scalar_product_hint(), dst_base, dst_base)
+    q_mat = calculate_scalar_product_matrix(dst_base, dst_base)
 
     # compute V matrix, where V = inv(Q)*P
     v_mat = np.dot(np.linalg.inv(q_mat), p_mat)

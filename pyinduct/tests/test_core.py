@@ -771,8 +771,9 @@ class TransformationTestCase(unittest.TestCase):
                             intermediate_base_lbl="comp1")
         pi.register_base("err2", err_base2)
         info_order_err = core.get_transformation_info("comp1", "err2", 1, 0)
-        with self.assertRaises(NotImplementedError):
-            core.get_weight_transformation(info_order_err)
+        trafo = core.get_weight_transformation(info_order_err)
+        self.assertEqual(len(err_base2),
+                         len(trafo(np.ones(2*len(self.comp_base1)))))
 
     def test_matching_base(self):
         length = len(pi.get_base("fem1"))
@@ -1005,44 +1006,36 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def quadratic_case1(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(
-            self.initial_functions1.scalar_product_hint(),
-            self.initial_functions1,
-            self.initial_functions1,
-            optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
+                                                 self.initial_functions1,
+                                                 optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def quadratic_case2(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(
-            self.initial_functions2.scalar_product_hint(),
-            self.initial_functions2,
-            self.initial_functions2,
-            optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
+                                                 self.initial_functions2,
+                                                 optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def rectangular_case_1(self):
         # rect1
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(
-            self.initial_functions1.scalar_product_hint(),
-            self.initial_functions1,
-            self.initial_functions2,
-            optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
+                                                 self.initial_functions2,
+                                                 optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
     def rectangular_case_2(self):
         # rect2
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(
-            self.initial_functions1.scalar_product_hint(),
-            self.initial_functions2,
-            self.initial_functions1,
-            optimize=self.optimization)
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
+                                                 self.initial_functions1,
+                                                 optimize=self.optimization)
         t_calc = time.clock() - t0
         return mat, t_calc
 
