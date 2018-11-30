@@ -531,12 +531,12 @@ class Base:
     Args:
         fractions (iterable of :py:class:`.BaseFraction`): List, array or
             dict of :py:class:`.BaseFraction`'s
-        matching_bases (list of str): List of labels from exactly matching
+        matching_base_lbls (list of str): List of labels from exactly matching
             bases, for which no transformation is necessary.
             Useful for transformations from bases that 'live' in
             different function spaces but evolve with the same time
             dynamic/coefficients (e.g. modal bases).
-        intermediate_base (str): If it is certain that this base instance will
+        intermediate_base_lbl (str): If it is certain that this base instance will
             be asked (as destination base) to return a transformation
             to a source base, whose implementation is cumbersome,
             its label can be provided here. This will trigger the generation
@@ -547,7 +547,8 @@ class Base:
             long transformation chains are possible, if the provided
             intermediate bases again define intermediate bases.
     """
-    def __init__(self, fractions, matching_bases=(), intermediate_base=None):
+    def __init__(self, fractions, matching_base_lbls=(),
+                 intermediate_base_lbl=None):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -556,8 +557,8 @@ class Base:
                 raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
-        self.matching_bases = matching_bases
-        self.intermediate_base = intermediate_base
+        self.matching_base_lbls = matching_base_lbls
+        self.intermediate_base_lbl = intermediate_base_lbl
 
     def __iter__(self):
         return iter(self.fractions)
@@ -624,50 +625,73 @@ class Base:
         Returns:
             Transformation handle
         """
-        if self is info.src_base:
+        if info.src_lbl == info.dst_lbl:
+            # trivial case
+            return self._transformation_factory(info, equivalent=True), None
 
-            if info.dst_base in self.matching_bases:
-                # check dimensions
-                if len(info.dst_base) != len(info.src_base):
-                    raise ValueError(
-                        f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
-                        f"not be a matching base of '{info.dst_lbl}' (length "
-                        f"{len(info.dst_base)}), since the they have different "
-                        f"lengths.")
+        match_cond_src = (self is info.src_base
+                          and info.dst_lbl in self.matching_base_lbls)
+        match_cond_dst = (self is info.dst_base
+                          and info.src_lbl in self.matching_base_lbls)
+        if match_cond_src or match_cond_dst:
+            # bases are a match
+            if len(info.dst_base) != len(info.src_base):
+                raise ValueError(
+                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
+                    f"not be a matching base of '{info.dst_lbl}' (length "
+                    f"{len(info.dst_base)}), since the they have different "
+                    f"lengths.")
 
-                # if info.dst_order != 0 or info.src_order != 0:
-                #     raise NotImplementedError(
-                #         "The matching_bases transformation feature is not yet\n"
-                #         "implemented for source- and/or destination-order not\n"
-                #         "equal zero.")
+            # if info.dst_order != 0 or info.src_order != 0:
+            #     raise NotImplementedError(
+            #         "The matching_bases transformation feature is not yet\n"
+            #         "implemented for source- and/or destination-order not\n"
+            #         "equal zero.")
 
-                # forward weights
-                return self._transformation_factory(info, True), None
+            # forward weights
+            return self._transformation_factory(info, True), None
 
-            if self.is_compatible_to(info.dst_base):
-                # bases are compatible, use standard approach
-                return self._transformation_factory(info), None
+        compat_cond_src = (self is info.src_base
+                           and self.is_compatible_to(info.dst_base))
+        compat_cond_dst = (self is info.dst_base
+                           and self.is_compatible_to(info.src_base))
+        if compat_cond_src or compat_cond_dst:
+            # bases are compatible, use standard approach
+            return self._transformation_factory(info), None
 
-            elif self.intermediate_base:
-                # we got a middleman
+        if self.intermediate_base_lbl:
+            # we got a middleman
+            if self is info.src_base:
+                # build trafo from us to middleman
                 intermediate_hint = get_transformation_info(
-                    self.intermediate_base, info.dst_lbl,
-                    info.dst_order, info.dst_order
+                    info.src_lbl, self.intermediate_base_lbl,
+                    info.src_order, info.src_order
                 )
                 handle = get_weight_transformation(intermediate_hint)
+                # create hint form middleman to dst
                 hint = get_transformation_info(
-                    info.src_lbl, self.intermediate_base,
+                    self.intermediate_base_lbl, info.dst_lbl,
                     info.src_order, info.dst_order
                 )
                 return handle, hint
+            if self is info.dst_base:
+                # create hint form src to middleman
+                hint = get_transformation_info(
+                    info.src_lbl, self.intermediate_base_lbl,
+                    info.src_order, info.dst_order
+                )
+                # build trafo from middleman to us
+                intermediate_hint = get_transformation_info(
+                    self.intermediate_base_lbl, info.dst_lbl,
+                    info.dst_order, info.dst_order
+                )
+                handle = get_weight_transformation(intermediate_hint)
+                return handle, hint
 
-            else:
-                # No Idea what to do.
-                return None, None
+        # TODO provide on of the matching bases as middleman?
 
-        elif self is info.dst_base:
-            # TODO copy logic from above, mind the copy cat
-            return NotImplemented
+        # No Idea what to do.
+        return None, None
 
     def scalar_product_hint(self):
         """
@@ -1306,12 +1330,17 @@ class TransformationInfo:
         self.src_order = None
         self.dst_order = None
 
+    def as_tuple(self):
+        return self.src_lbl, self.dst_lbl, self.src_order, self.dst_order
+
     def __hash__(self):
-        return hash((self.src_lbl, self.dst_lbl, self.src_order, self.dst_order))
+        return hash(self.as_tuple())
 
     def __eq__(self, other):
-        return (self.src_lbl, self.dst_lbl, self.src_order, self.dst_order) == \
-               (other.src_lbl, other.dst_lbl, other.src_order, other.dst_order)
+        if not isinstance(other, TransformationInfo):
+            raise TypeError("Unknown type to compare with")
+
+        return self.as_tuple() == other.as_tuple()
 
     def mirror(self):
         """
@@ -1322,8 +1351,8 @@ class TransformationInfo:
         new_info = TransformationInfo()
         new_info.src_lbl = self.dst_lbl
         new_info.src_base = self.dst_base
-        new_info.src_order = self.src_order
-        new_info.dst_lbl = self.dst_lbl
+        new_info.src_order = self.dst_order
+        new_info.dst_lbl = self.src_lbl
         new_info.dst_base = self.src_base
         new_info.dst_order = self.src_order
         return new_info
@@ -1346,18 +1375,6 @@ def get_weight_transformation(info):
         callable: transformation function handle
     """
     # TODO since this lives in core now, get rid of base labels
-    # trivial case
-    if info.src_lbl == info.dst_lbl:
-        mat = calculate_expanded_base_transformation_matrix(
-            info.src_base, info.dst_base,
-            info.src_order, info.dst_order,
-            True)
-
-        def identity(weights):
-            return np.dot(mat, weights)
-
-        return identity
-
     # try to get help from the destination base
     handle, hint = info.dst_base.transformation_hint(info)
     if handle is None:
