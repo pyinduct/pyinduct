@@ -481,11 +481,11 @@ class BaseTransformationTestCase(unittest.TestCase):
         info = core.get_transformation_info("fourier_1", "comp_1m", 0, 0)
         for _info in (info, info.mirror()):
             # no information -> no transformation
-            func, extra = self.f1.transformation_hint(info)
+            func, extra = self.f1.transformation_hint(_info)
             self.assertIsNone(func)
             self.assertIsNone(extra)
             # valid information -> transformation
-            func, extra = self.c1m.transformation_hint(info)
+            func, extra = self.c1m.transformation_hint(_info)
             weights = np.random.rand(len(self.f1))
             t_weights = func(weights)
             np.testing.assert_array_almost_equal(weights, t_weights)
@@ -526,6 +526,77 @@ class BaseTransformationTestCase(unittest.TestCase):
                 np.testing.assert_array_almost_equal(weights[:len(self.f1)],
                                                      t_weights)
                 self.assertIsNone(extra)
+
+    def test_transformation_hint_different_fs_intermediate(self):
+        """
+        Test if src and dst do not share the same function space and
+        and an intermediate base is given.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "comp_2", 0, 0)
+        inter_hint = core.TransformationInfo()
+        inter_hint.src_lbl = "fourier_1"
+        inter_hint.src_order = 0
+        inter_hint.src_base = self.f1
+        inter_hint.dst_lbl = "comp_1m"
+        inter_hint.dst_order = 0
+        inter_hint.dst_base = self.c1m
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint.mirror())):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information
+            # -> transformation from intermediate (comp_1m) to (comp_2)
+            # and info from (fourier_1) to (comp_1m)
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand(len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[::-1], t_weights)
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "comp_2", 2, 2)
+        inter_hint = core.get_transformation_info("fourier_1", "comp_1m",
+                                                  2, 2)
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint.mirror())):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand(3*len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[[1, 0, 3, 2, 5, 4]],
+                                                 t_weights)
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "comp_2", 2, 0)
+        inter_hint = core.get_transformation_info("fourier_1", "comp_1m",
+                                                  2, 2)
+        inter_hint_m = core.get_transformation_info("comp_1m", "fourier_1",
+                                                    0, 2)
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint_m)):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand((1+_info.src_order)*len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(
+                weights[:len(_info.src_base)],
+                t_weights[::-1])
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
 
 
 class StackedBaseTestCase(unittest.TestCase):

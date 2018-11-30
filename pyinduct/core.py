@@ -629,6 +629,7 @@ class Base:
             # trivial case
             return self._transformation_factory(info, equivalent=True), None
 
+        # check for matching bases
         match_cond_src = (self is info.src_base
                           and info.dst_lbl in self.matching_base_lbls)
         match_cond_dst = (self is info.dst_base
@@ -652,6 +653,7 @@ class Base:
                 # forward weights
                 return self._transformation_factory(info, True), None
 
+        # check for compatible base
         compat_cond_src = (self is info.src_base
                            and self.is_compatible_to(info.dst_base))
         compat_cond_dst = (self is info.dst_base
@@ -664,11 +666,15 @@ class Base:
             # we got a middleman
             if self is info.src_base:
                 # build trafo from us to middleman
-                intermediate_hint = get_transformation_info(
+                intermediate_info = get_transformation_info(
                     info.src_lbl, self.intermediate_base_lbl,
                     info.src_order, info.src_order
                 )
-                handle = get_weight_transformation(intermediate_hint)
+                handle = get_weight_transformation(intermediate_info)
+                if info.dst_lbl == self.intermediate_base_lbl:
+                    # middleman is the source -> we are finished
+                    return handle, None
+
                 # create hint form middleman to dst
                 hint = get_transformation_info(
                     self.intermediate_base_lbl, info.dst_lbl,
@@ -676,20 +682,24 @@ class Base:
                 )
                 return handle, hint
             if self is info.dst_base:
+                # build trafo from middleman to us
+                intermediate_info = get_transformation_info(
+                    self.intermediate_base_lbl, info.dst_lbl,
+                    info.src_order, info.dst_order
+                )
+                handle = get_weight_transformation(intermediate_info)
+                if info.src_lbl == self.intermediate_base_lbl:
+                    # middleman is the source -> we are finished
+                    return handle, None
+
                 # create hint form src to middleman
                 hint = get_transformation_info(
                     info.src_lbl, self.intermediate_base_lbl,
-                    info.src_order, info.dst_order
+                    info.src_order, info.src_order
                 )
-                # build trafo from middleman to us
-                intermediate_hint = get_transformation_info(
-                    self.intermediate_base_lbl, info.dst_lbl,
-                    info.dst_order, info.dst_order
-                )
-                handle = get_weight_transformation(intermediate_hint)
                 return handle, hint
 
-        # TODO provide on of the matching bases as middleman?
+        # TODO provide one of the matching bases as middleman?
 
         # No Idea what to do.
         return None, None
