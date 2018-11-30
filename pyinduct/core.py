@@ -412,7 +412,7 @@ class Function(BaseFraction):
         Return the hint that the :py:func:`._dot_product_l2` has to calculated to
         gain the scalar product.
         """
-        return _dot_product_l2
+        return dot_product_l2
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -496,10 +496,18 @@ class ComposedFunctionVector(BaseFraction):
 
     @staticmethod
     def scalar_product(left, right):
-        sp_f = np.sum([_dot_product_l2(fl, fr) for fl, fr in
-                       zip(left.members["funcs"], right.members["funcs"])])
-        sp_s = np.sum([np.conj(sl) * sr for sl, sr in
-                       zip(left.members["scalars"], right.members["scalars"])])
+        l_funcs = left.members["funcs"]
+        r_funcs = right.members["funcs"]
+        assert len(l_funcs) == len(r_funcs)
+
+        l_scals = left.members["scalars"]
+        r_scals = right.members["scalars"]
+        assert len(l_scals) == len(r_scals)
+
+        sp_f = np.sum([dot_product_l2(fl, fr)
+                       for fl, fr in zip(l_funcs, r_funcs)])
+        sp_s = np.sum([np.conj(sl) * sr
+                       for sl, sr in zip(l_scals, r_scals)])
 
         return sp_f + sp_s
 
@@ -515,8 +523,11 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(np.array([func.scale(factor) for func in self.members["funcs"]]),
-                              np.array([scal * factor for scal in self.members["scalars"]]))
+
+        return self.__class__(
+            np.array([func.scale(factor) for func in self.members["funcs"]]),
+            np.array([scal * factor for scal in self.members["scalars"]])
+        )
 
 
 class Base:
@@ -1017,7 +1028,7 @@ def dot_product(first, second):
     return np.inner(first, second)
 
 
-def _dot_product_l2(first, second):
+def dot_product_l2(first, second):
     r"""
     Calculate the inner product on L2.
 
@@ -1155,20 +1166,16 @@ def calculate_scalar_product_matrix(scalar_product_handle, base_a, base_b,
         optimize (bool): Switch to turn on the symmetry based speed up.
             For development purposes only.
 
-    TODO:
-        making use of the commutable scalar product could save time,
-        run some test on this
-
     Return:
         numpy.ndarray: matrix :math:`A`
     """
-    if base_a.__class__ != base_b.__class__:
+    if base_a.is_compatible_to(base_b):
         raise TypeError("Bases must be from the same type.")
 
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    if optimize and base_a == base_b and scalar_product_handle == _dot_product_l2:
+    if optimize and base_a == base_b and scalar_product_handle == dot_product_l2:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
         output = np.zeros((dim, dim), dtype=np.complex)

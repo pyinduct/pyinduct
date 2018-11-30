@@ -222,6 +222,92 @@ class FunctionTestCase(unittest.TestCase):
         self.assertTrue(np.array_equal(f(np.array(range(10))),
                                        [vector_func(val) for val in range(10)]))
 
+    def test_scalar_product_hint(self):
+        f = pi.Function(np.cos, domain=(0, 10))
+        # l2 scalar product is what we want here
+        self.assertEqual(core.dot_product_l2, f.scalar_product_hint())
+
+        # different instances should return the same scalar product
+        g = pi.Function(np.sin, domain=(-17, 10))
+        self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
+
+
+class ComposedFunctionVectorTestCase(unittest.TestCase):
+    def setUp(self):
+        self.functions = [pi.Function(lambda x: 2),
+                          pi.Function(lambda x: 2 * x),
+                          pi.Function(lambda x: x ** 2),
+                          pi.Function(lambda x: np.sin(x))
+                          ]
+        self.scalars = [f(7) for f in self.functions]
+
+    def test_init(self):
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(None, None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector([np.sin, np.cos], None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, np.sin)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, "0")
+
+        # defaults to lists
+        v = pi.ComposedFunctionVector(self.functions[0], self.scalars[0])
+        self.assertEqual(v.members["funcs"], [self.functions[0]])
+        self.assertEqual(v.members["scalars"], [self.scalars[0]])
+
+    def test_get_member(self):
+        v = pi.ComposedFunctionVector(self.functions, self.scalars)
+        self.assertEqual(v.get_member(0), self.functions[0])
+        self.assertEqual(v.get_member(3), self.functions[3])
+        self.assertEqual(v.get_member(4), self.scalars[0])
+        self.assertEqual(v.get_member(7), self.scalars[3])
+
+        with self.assertRaises(ValueError):
+            v.get_member(200)
+
+    def test_scale(self):
+        v = pi.ComposedFunctionVector(self.functions, self.scalars)
+        factor = np.random.rand()
+        v1 = v.scale(factor)
+
+        s_funcs = pi.Base(self.functions).scale(factor).fractions
+        test_data = pi.Domain((0, 10), 60)
+        results = []
+        test_results = []
+        for f, f_test in zip(s_funcs, v1.members["funcs"]):
+            vals = f(test_data)
+            results.append(vals)
+            test_vals = f(test_data)
+            test_results.append(test_vals)
+        np.testing.assert_array_almost_equal(results, test_results)
+
+        s_scals = np.array(self.scalars) * factor
+        np.testing.assert_array_equal(v1.members["scalars"], s_scals)
+
+        with self.assertRaises(TypeError):
+            v.scale(self.functions[2])
+
+    def test_scalar_product_hint(self):
+        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        v2 = pi.ComposedFunctionVector(self.functions[::-1], self.scalars[::-1])
+        sp = v1.scalar_product_hint()
+
+        # test commutativity
+        self.assertAlmostEqual(sp(v1, v2), sp(v2, v1))
+
+        # TODO test distributivity
+
+        # TODO test bilinearity
+
+        # test scalar multiplication
+        self.assertAlmostEqual(sp(v1.scale(5), v2.scale(3)), 5*3*sp(v1, v2))
+
+        # scalar products of equal bases should be equal
+        self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
+
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
@@ -806,38 +892,38 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.g2 = pi.Function(lambda x: 2 - 2j, domain=(0, 5))
 
     def test_domain(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
         # swap arguments
-        self.assertAlmostEqual(core._dot_product_l2(self.f2, self.f1),
+        self.assertAlmostEqual(core.dot_product_l2(self.f2, self.f1),
                                np.conjugate(10))
 
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f3), 2)
         # swap arguments
-        self.assertAlmostEqual(core._dot_product_l2(self.f3, self.f1),
+        self.assertAlmostEqual(core.dot_product_l2(self.f3, self.f1),
                                np.conjugate(2))
 
     def test_nonzero(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
-        self.assertAlmostEqual(core._dot_product_l2(self.f4, self.f1),
+        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
+        self.assertAlmostEqual(core.dot_product_l2(self.f4, self.f1),
                                np.conjugate(2e-1))
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
 
     def test_complex(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.g1, self.g2), -40j)
+        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), -40j)
         # swapping of args will return the conjugated expression
-        self.assertAlmostEqual(core._dot_product_l2(self.g2, self.g1),
+        self.assertAlmostEqual(core.dot_product_l2(self.g2, self.g1),
                                np.conj(-40j))
 
     def test_linearity(self):
         factor = 2+1j
         s = self.g1.scale(factor)
-        res = core._dot_product_l2(s, self.g2)
-        part = core._dot_product_l2(self.g1, self.g2)
+        res = core.dot_product_l2(s, self.g2)
+        part = core.dot_product_l2(self.g1, self.g2)
         np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
 
 
@@ -875,7 +961,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         res_quad1 = np.zeros([len(self.initial_functions1)]*2)
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions1):
-                res_quad1[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res_quad1[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         r, t = self.quadratic_case1()
         self.assertFalse(np.iscomplexobj(r))
@@ -886,7 +972,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         res_quad2 = np.zeros([len(self.initial_functions2)]*2)
         for idx1, frac1 in enumerate(self.initial_functions2):
             for idx2, frac2 in enumerate(self.initial_functions2):
-                res_quad2[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res_quad2[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         r, t = self.quadratic_case2()
         self.assertFalse(np.iscomplexobj(r))
@@ -899,7 +985,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
                         len(self.initial_functions2)))
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions2):
-                res[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         res_rect1 = res.copy()
         res_rect2 = np.conjugate(res).T
