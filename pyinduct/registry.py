@@ -36,6 +36,8 @@ def register_base(label, base, overwrite=False):
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as labels!")
+    if not label:
+        raise ValueError("No empty bases labels allowed.")
 
     new_base = _registry.get(label, None)
 
