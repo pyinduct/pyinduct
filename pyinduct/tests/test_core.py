@@ -344,8 +344,6 @@ class BaseTestCase(unittest.TestCase):
             pi.Base([self.other_fractions[0],
                      self.completely_other_fractions[2]])
 
-        pi.Base([self.other_fractions[0], self.completely_other_fractions[2]])
-
     def test_is_compatible(self):
         b0 = pi.Base(self.fractions[0])
         b1 = pi.Base(self.fractions)
@@ -353,6 +351,14 @@ class BaseTestCase(unittest.TestCase):
 
         self.assertTrue(b1.is_compatible_to(b0))
         self.assertFalse(b1.is_compatible_to(b2))
+
+        b3 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1]))
+        b4 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1, 1]))
+        b5 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]] * 2, [1]))
+
+        self.assertFalse(b3.is_compatible_to(b4))
+        self.assertFalse(b3.is_compatible_to(b5))
+        self.assertFalse(b4.is_compatible_to(b5))
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
@@ -713,13 +719,6 @@ class StackedBaseTestCase(unittest.TestCase):
 class TransformationTestCase(unittest.TestCase):
 
     def setUp(self):
-
-        class ComposedFuncVecBase(pi.Base):
-            def __init__(self, fractions, matching_base_lbls=list(),
-                         intermediate_base_lbl=None):
-                super(ComposedFuncVecBase, self).__init__(
-                    fractions, matching_base_lbls, intermediate_base_lbl)
-
         dom1 = pi.Domain((0, 1), num=11)
         dom2 = pi.Domain((0, 1), num=21)
         self.base1 = pi.LagrangeFirstOrder.cure_interval(dom1)
@@ -727,11 +726,11 @@ class TransformationTestCase(unittest.TestCase):
         self.base2 = pi.LagrangeSecondOrder.cure_interval(dom2)
         pi.register_base("fem2", self.base2)
 
-        self.comp_base1 = ComposedFuncVecBase(
+        self.comp_base1 = pi.Base(
             [pi.ComposedFunctionVector([f], [0]) for f in self.base1],
             matching_base_lbls=["fem1"])
         pi.register_base("comp1", self.comp_base1)
-        self.comp_base2 = ComposedFuncVecBase(
+        self.comp_base2 = pi.Base(
             [pi.ComposedFunctionVector([f], [0]) for f in self.base2],
             intermediate_base_lbl="comp1")
         pi.register_base("comp2", self.comp_base2)

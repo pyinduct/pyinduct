@@ -59,15 +59,35 @@ class BaseFraction:
         """
         Empty Hint that can return steps for scalar product calculation.
 
-        In detail this means a list object containing function calls to fill
-        with (first, second) parameters that will calculate the scalar product
-        when summed up.
-
         Note:
             Overwrite to implement custom functionality.
             For an example implementation see :py:class:`.Function`
         """
         pass
+
+    def function_space_hint(self):
+        """
+        Empty Hint that can return properties which uniquely define
+        the function space of the :py:class:`.BaseFraction`.
+
+        Note:
+            Overwrite to implement custom functionality.
+            For an example implementation see :py:class:`.Function`.
+        """
+        pass
+
+    def is_compatible(self, other):
+        """
+        Returns True if :code:`other` and code:`self` are elements of
+        the same function space.
+
+        Args:
+            other: An instance of :py:class:`BaseFraction`.
+
+        Returns:
+            bool: True if compatible.
+        """
+        return self.function_space_hint() == other.function_space_hint()
 
     def derive(self, order):
         """
@@ -409,10 +429,24 @@ class Function(BaseFraction):
 
     def scalar_product_hint(self):
         """
-        Return the hint that the :py:func:`._dot_product_l2` has to calculated to
-        gain the scalar product.
+        Return the hint that the :py:func:`._dot_product_l2` has to
+        calculated to gain the scalar product.
         """
         return dot_product_l2
+
+    def function_space_hint(self):
+        """
+        Return the hint that this function is an element of the
+        an scalar product space which is uniquely defined by
+        the scalar product :py:meth:`.scalar_product_hint`.
+
+        Note:
+            If you are working on different function spaces, you have
+            to overwrite this hint in order to provide more properties
+            which characterize your specific function space. For
+            example the domain of the functions.
+        """
+        return self.scalar_product_hint()
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -514,6 +548,26 @@ class ComposedFunctionVector(BaseFraction):
     def scalar_product_hint(self):
         return self.scalar_product
 
+    def function_space_hint(self):
+        """
+        Return the hint that this function is an element of the
+        an scalar product space which is uniquely defined by
+
+            * the scalar product :py:meth:`.scalar_product`
+            * :code:`len(self.members["funcs"])` functions
+            * and :code:`len(self.members["scalars"])` scalars.
+
+        Note:
+            If you are working on function spaces which have the
+            same number of functions and scalars but differ from each
+            other (e.g. the domains differ), you have to overwrite this
+            hint in order to provide more properties which characterize
+            your specific function space.
+        """
+        return (self.scalar_product_hint(),
+                len(self.members["funcs"]),
+                len(self.members["scalars"]))
+
     def get_member(self, idx):
         if idx < len(self.members["funcs"]):
             return self.members["funcs"][idx]
@@ -563,9 +617,8 @@ class Base:
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
-        for frac in fractions:
-            if frac.scalar_product_hint() != fractions[0].scalar_product_hint():
-                raise ValueError("Provided fractions must be compatible!")
+        if not all([fractions[0].is_compatible(frac) for frac in fractions]):
+            raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
         self.matching_base_lbls = matching_base_lbls
@@ -595,8 +648,7 @@ class Base:
 
     def is_compatible_to(self, other):
         """
-        Check if the scalar products, defined on the function spaces and
-        therefore the function spaces of the bases themselves are compatible.
+        Check if the function spaces of the bases are compatible.
 
         Args:
             other(pi.Base): Base to check compatibility for.
@@ -604,9 +656,7 @@ class Base:
         Returns:
             bool: True if bases are compatible.
         """
-        own_sp = self.scalar_product_hint()
-        other_sp = other.scalar_product_hint()
-        return own_sp == other_sp
+        return self.function_space_hint() == other.function_space_hint()
 
     def transformation_hint(self, info):
         """
@@ -725,6 +775,17 @@ class Base:
         """
         return self.fractions[0].scalar_product_hint()
 
+    def function_space_hint(self):
+        """
+        Hint that returns properties that characterize the functional
+        space of the fractions.
+        It can be used to determine if function spaces match.
+
+        Note:
+            Overwrite to implement custom functionality.
+        """
+        return self.fractions[0].function_space_hint()
+
     def derive(self, order):
         """
         Basic implementation of derive function.
@@ -793,6 +854,9 @@ class StackedBase(Base):
         self._info = base_info
 
     def scalar_product_hint(self):
+        pass
+
+    def function_space_hint(self):
         pass
 
     def get_member(self, idx):
