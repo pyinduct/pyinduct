@@ -340,6 +340,10 @@ class BaseTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             pi.Base([self.fractions[0], self.other_fractions[2]])
 
+        with self.assertRaises(ValueError):
+            pi.Base([self.other_fractions[0],
+                     self.completely_other_fractions[2]])
+
         pi.Base([self.other_fractions[0], self.completely_other_fractions[2]])
 
     def test_is_compatible(self):
