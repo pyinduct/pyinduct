@@ -76,7 +76,7 @@ class BaseFraction:
         """
         pass
 
-    def is_compatible(self, other):
+    def is_compatible_to(self, other):
         """
         Returns True if :code:`other` and code:`self` are elements of
         the same function space.
@@ -617,7 +617,7 @@ class Base:
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
-        if not all([fractions[0].is_compatible(frac) for frac in fractions]):
+        if not all([fractions[0].is_compatible_to(frac) for frac in fractions]):
             raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
