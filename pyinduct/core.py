@@ -736,7 +736,7 @@ class Base:
                     # middleman is the source -> we are finished
                     return handle, None
 
-                # create hint form middleman to dst
+                # create hint from middleman to dst
                 hint = get_transformation_info(
                     self.intermediate_base_lbl, info.dst_lbl,
                     info.src_order, info.dst_order
@@ -753,7 +753,7 @@ class Base:
                     # middleman is the source -> we are finished
                     return handle, None
 
-                # create hint form src to middleman
+                # create hint from src to middleman
                 hint = get_transformation_info(
                     info.src_lbl, self.intermediate_base_lbl,
                     info.src_order, info.src_order

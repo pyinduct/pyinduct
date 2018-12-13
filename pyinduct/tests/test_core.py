@@ -309,6 +309,23 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
 
 
+def check_compatibility_and_scalar_product(b1, b2):
+    """
+    Check the compatibility of two bases,
+    if they are make sure that the scalar product computation works
+    """
+    compat1 = b1.is_compatible_to(b2)
+    compat2 = b2.is_compatible_to(b1)
+    if compat1 != compat2:
+        raise ValueError("Compatibility should not depend on the order")
+
+    if compat1 and compat2:
+        res = pi.calculate_scalar_product_matrix(b1, b2)
+        return True
+
+    return False
+
+
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
         self.fractions = [pi.Function(lambda x: 2),
@@ -316,10 +333,10 @@ class BaseTestCase(unittest.TestCase):
                           pi.Function(lambda x: x ** 2),
                           pi.Function(lambda x: np.sin(x))
                           ]
-        self.other_fractions = [pi.ComposedFunctionVector(frac, 7)
+        self.other_fractions = [pi.ComposedFunctionVector(frac, frac(1))
                                 for frac in self.fractions]
         self.completely_other_fractions = [
-            pi.ComposedFunctionVector(self.fractions, i)
+            pi.ComposedFunctionVector(self.fractions, 4*[i])
             for i in range(10)]
 
     def test_init(self):
@@ -349,13 +366,18 @@ class BaseTestCase(unittest.TestCase):
         b1 = pi.Base(self.fractions)
         b2 = pi.Base(self.other_fractions)
 
-        self.assertTrue(b1.is_compatible_to(b0))
-        self.assertFalse(b1.is_compatible_to(b2))
+        self.assertTrue(check_compatibility_and_scalar_product(b0, b0))
+        self.assertTrue(check_compatibility_and_scalar_product(b1, b1))
+        self.assertTrue(check_compatibility_and_scalar_product(b2, b2))
+
+        self.assertTrue(check_compatibility_and_scalar_product(b0, b1))
+        self.assertFalse(check_compatibility_and_scalar_product(b1, b2))
 
         b3 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1]))
         b4 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1, 1]))
         b5 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]] * 2, [1]))
 
+        self.assertFalse(check_compatibility_and_scalar_product(b1, b2))
         self.assertFalse(b3.is_compatible_to(b4))
         self.assertFalse(b3.is_compatible_to(b5))
         self.assertFalse(b4.is_compatible_to(b5))
@@ -626,7 +648,7 @@ class BaseTransformationTestCase(unittest.TestCase):
     def test_transformation_hint_different_fs_intermediate(self):
         """
         Test if src and dst do not share the same function space and
-        and an intermediate base is given.
+        an intermediate base is given.
         """
         # equal derivative orders, both zero
         info = core.get_transformation_info("fourier_1", "comp_2", 0, 0)
@@ -714,6 +736,10 @@ class StackedBaseTestCase(unittest.TestCase):
         info = None
         b = pi.StackedBase(fractions, info)
         self.assertEqual(b.fractions.size, 6)
+
+    def tearDown(self):
+        pi.deregister_base("b1")
+        pi.deregister_base("b2")
 
 
 class TransformationTestCase(unittest.TestCase):
