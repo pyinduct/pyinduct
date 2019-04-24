@@ -11,12 +11,13 @@ import collections
 from abc import ABCMeta, abstractstaticmethod
 from functools import partial
 from numbers import Number
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.integrate as si
 import sympy as sp
-from sympy.utilities.lambdify import lambdify
+from sympy.utilities.lambdify import lambdify, implemented_function
 
 from .core import (Domain, Base, Function, generic_scalar_product,
                    normalize_base, find_roots, real)
@@ -559,9 +560,39 @@ class LambdifiedSympyExpression(Function):
             complex values. Default: False.
     """
 
-    def __init__(self, sympy_funcs, spat_symbol, spatial_domain, complex_=False):
-        self.complex_ = complex_
-        self._funcs = [lambdify(spat_symbol, sp_func, 'numpy')
+    def __init__(self, sympy_funcs, spat_symbol, spatial_domain,
+                 complex_=False):
+
+        def ensure_numeric_scalar(scal):
+            if isinstance(scal, Number):
+                return scal
+
+            elif sp.N(scal).is_real:
+                return float(scal)
+
+            else:
+                return complex(scal)
+
+        def ensure_numeric_arguments(arg):
+            if hasattr(arg, "__iter__"):
+                if isinstance(arg, np.ndarray):
+                    arg = np.atleast_1d(arg)
+
+                if all([isinstance(num, Number) for num in arg]):
+                    return arg
+
+                else:
+                    return np.array([ensure_numeric_scalar(num) for num in arg])
+
+            else:
+                return ensure_numeric_scalar(arg)
+
+        num_spat_symbol = implemented_function(
+            "__dummy_spat_symbol" + str(hash(time.time())),
+            ensure_numeric_arguments)(spat_symbol)
+        self._funcs = [lambdify(spat_symbol,
+                                sp_func.subs(spat_symbol, num_spat_symbol),
+                                'numpy')
                        for sp_func in sympy_funcs]
         funcs = [self._func_factory(der_ord)
                  for der_ord in range(len(sympy_funcs))]
@@ -1328,4 +1359,3 @@ class FiniteTransformFunction(Function):
                 elif j < 0 or j > 2 * self.n - 1:
                     raise ValueError
         return to_return
-
