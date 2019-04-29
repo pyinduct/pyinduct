@@ -114,7 +114,8 @@ def new_dummy_variables(dependcies, implementations, **kwargs):
     return dummies
 
 
-def pprint(expr, description=None, n=None, limit=4, num_columns=180):
+def pprint(expr, description=None, n=None, limit=4, num_columns=180,
+           discard_small_values=False, tolerance=1e-6):
     """
     Wraps sympy.pprint adds description to the console output
     (if given) and the availability of hiding the output if
@@ -128,13 +129,21 @@ def pprint(expr, description=None, n=None, limit=4, num_columns=180):
         limit (int): Limit approximation order, default 4.
         num_columns (int): Kwarg :code:`num_columns` of sympy.pprint,
             default 180.
+        discard_small_values (bool): If true: round numbers < tolerance to 0.
+            Default: false.
+        tolerance (float): Applies when discard_small_values is true.
+            Default: 1e-6.
     """
     if n is not None and n > limit:
         return
 
     else:
         if description is not None:
-            print("\n {}".format(description))
+            print("\n>>> {}".format(description))
+
+        if discard_small_values:
+            # this is not clever or perfomant, but short
+            expr = sp.nsimplify(expr, tolerance=tolerance, rational=True).n()
 
         sp.pprint(expr, num_columns=num_columns)
 
@@ -195,10 +204,9 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     _input_var = dict(time=0, weights=init_conds, weight_lbl=base_label)
 
     # derive callable from the symbolic expression of the right hand side
-    print(">>> lambdify right hand side")
+    print("\n>>> lambdify right hand side")
     rhs_lam = sp.lambdify((funcs, time_sym, input_var), rhs, modules="numpy")
     assert len(rhs_lam(init_conds, 0, _input_var)) == n
-    print("done!")
 
     def _rhs(_t, _q):
         _input_var["time"] = _t
@@ -267,7 +275,7 @@ def evaluate_integrals(expression):
 
     replace_dict = dict()
     for integral in tqdm(expr_expand.atoms(sp.Integral), file=sys.stdout,
-                         desc=">>> evaluate integrals"):
+                         desc="\n>>> evaluate integrals"):
 
         if not len(integral.args[1]) == 3:
             raise ValueError(
@@ -387,13 +395,12 @@ def evaluate_integrals(expression):
         else:
             raise NotImplementedError
 
-    print("done!")
-
     return expr_expand.xreplace(replace_dict)
 
 
 def derive_first_order_representation(expression, funcs, input_,
-                                      mode="sympy.solve"):
+                                      mode="sympy.solve",
+                                      interim_results=None):
 
     # make sure funcs depends on one varialble only
     assert len(funcs.free_symbols) == 1
@@ -401,16 +408,15 @@ def derive_first_order_representation(expression, funcs, input_,
 
     if mode == "sympy.solve":
         # use sympy solve for rewriting
-        print(">>> rewrite  as c' = f(c,u)")
+        print("\n>>> rewrite  as c' = f(c,u)")
         sol = sp.solve(expression, sp.diff(funcs, depvar))
         rhs = sp.Matrix([sol[it] for it in sp.diff(funcs, depvar)])
-        print("done!")
 
         return rhs
 
     elif mode == "sympy.linear_eq_to_matrix":
         # rewrite expression as E1 * c' + E0 * c + G * u = 0
-        print(">>> rewrite as E1 c' + E0 c + G u = 0")
+        print("\n>>> rewrite as E1 c' + E0 c + G u = 0")
         E1, _expression = sp.linear_eq_to_matrix(expression,
                                                  list(sp.diff(funcs, depvar)))
         expression = (-1) * _expression
@@ -418,10 +424,9 @@ def derive_first_order_representation(expression, funcs, input_,
         expression = (-1) * _expression
         G, _expression = sp.linear_eq_to_matrix(expression, list(input_))
         assert _expression == _expression * 0
-        print("done!")
 
         # rewrite expression as c' = A c + B * u
-        print(">>> rewrite as c' = A c + B u")
+        print("\n>>> rewrite as c' = A c + B u")
         if len(E1.atoms(sp.Symbol, sp.Function)) == 0:
             E1_num = np.array(E1).astype(float)
             E1_inv = sp.Matrix(np.linalg.inv(E1_num))
@@ -435,7 +440,11 @@ def derive_first_order_representation(expression, funcs, input_,
 
         A = -E1_inv * E0
         B = -E1_inv * G
-        print("done!")
+
+        if interim_results is not None:
+            interim_results.update({
+                "E1": E1, "E0": E0, "G": G, "A": A, "B": B,
+            })
 
         return A * funcs + B * input_
 
