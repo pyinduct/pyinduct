@@ -6,7 +6,7 @@ from tqdm import tqdm
 import collections
 import pyinduct as pi
 from pyinduct.core import domain_intersection, integrate_function
-from pyinduct.simulation import simulate_state_space
+from pyinduct.simulation import simulate_state_space, SimulationInput
 from sympy.utilities.lambdify import implemented_function
 
 __all__ = ["VariablePool"]
@@ -162,6 +162,58 @@ class SimulationInputWrapper:
 
     def __call__(self, kwargs):
         return self._sim_input(**kwargs)
+
+
+# TODO: find a better name for this class
+class SymbolicFeedback(SimulationInput):
+
+    def __init__(self, expression, base_weights_info, name=str(), args=None):
+        SimulationInput.__init__(self, name=name)
+
+        self.feedback_gains = dict()
+        for lbl, vec in base_weights_info.items():
+            gain, _expression = sp.linear_eq_to_matrix(expression, list(vec))
+            expression = (-1) * _expression
+            self.feedback_gains.update({lbl: np.array(gain).astype(float)})
+
+        self.remaining_terms = None
+        if not expression == expression * 0:
+            if args is None:
+                raise ValueError("The feedback law holds variables, which "
+                                 "could not be sort into the linear feedback "
+                                 "gains. Provide the weights variable 'weights' "
+                                 "and the time variabel 't' as tuple over the "
+                                 "'args' argument.")
+
+            # TODO: check that 'expression' depends only on 'args'
+            elif False:
+                pass
+
+            else:
+                self.remaining_terms = sp.lambdify(args, expression, "numpy")
+
+
+    def _calc_output(self, **kwargs):
+        """
+        Calculates the controller output based on the current_weights and time.
+
+        Keyword Args:
+            weights: Current weights of the simulations system approximation.
+            weights_lbl (str): Corresponding label of :code:`weights`.
+            time (float): Current simulation time.
+
+        Return:
+            dict: Controller output :math:`u`.
+        """
+
+        # linear feedback u = k^T * x
+        res = self.feedback_gains[kwargs["weight_lbl"]] @ kwargs["weights"]
+
+        # add constant, nonlinear and other crazy terms
+        if self.remaining_terms is not None:
+            res += self.remaining_terms(kwargs["weights"], kwargs["time"])
+
+        return dict(output=res)
 
 
 def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
