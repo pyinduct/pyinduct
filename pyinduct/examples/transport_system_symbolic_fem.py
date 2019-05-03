@@ -39,8 +39,8 @@ z = var_pool.new_symbol("z", "location")
 # as implemented function needs a unique  variable  from which
 # they depend, since they are called with a bunch of
 # arguments during simulation
-input_var = var_pool.new_symbol("inputvar", "simulation input variable")
-u = var_pool.new_implemented_function("u", (input_var,), input_, "input")
+input_arg = var_pool.new_symbol("input_arg", "simulation input argument")
+u = var_pool.new_implemented_function("u", (input_arg,), input_, "input")
 input_vector = sp.Matrix([u])
 
 # system parameters

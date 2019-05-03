@@ -1408,8 +1408,6 @@ def simulate_state_space(rhs, initial_state, temp_domain, settings=None):
         t.append(r.t)
         q.append(qn)
 
-    print("done!")
-
     # create results
     q = np.array(q)
 

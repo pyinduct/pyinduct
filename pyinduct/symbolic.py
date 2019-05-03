@@ -13,17 +13,27 @@ __all__ = ["VariablePool"]
 
 
 class VariablePool:
-    variable_pool_registry = dict()
+    registry = dict()
 
     def __init__(self, description):
-        if description in self.variable_pool_registry:
+        if description in self.registry:
             raise ValueError("Variable pool '{}' already exists.".format(description))
 
-        self.variable_pool_registry.update({description: self})
+        self.registry.update({description: self})
         self.description = description
         self.variables = dict()
         self.categories = dict()
         self.categories.update({None: list()})
+
+    def __getitem__(self, item):
+        if len(self.categories[item]) == 0:
+            return None
+
+        elif len(self.categories[item]) == 1:
+            return self.categories[item][0]
+
+        else:
+            return self.categories[item]
 
     def _new_variable(self, name, dependency, implementation, category, **kwargs):
         assert isinstance(name, str)
@@ -98,7 +108,7 @@ dummy_counter = 0
 def new_dummy_variable(dependcy, implementation, **kwargs):
     global dummy_counter
 
-    name = "_dummy{}".format(dummy_counter)
+    name = "_pyinduct_dummy{}".format(dummy_counter)
     dummy_counter += 1
 
     return global_variable_pool._new_variable(
@@ -117,12 +127,13 @@ def new_dummy_variables(dependcies, implementations, **kwargs):
 def pprint(expr, description=None, n=None, limit=4, num_columns=180,
            discard_small_values=False, tolerance=1e-6):
     """
-    Wraps sympy.pprint adds description to the console output
+    Wraps sympy.pprint, adds description to the console output
     (if given) and the availability of hiding the output if
-    the approximation order exceeds a given approximation order.
+    the approximation order exceeds a given limit.
 
     Args:
-        expr (sympy.Expr): Sympy expression to pprint.
+        expr (sympy.Expr or array-like): Sympy expression or list of sympy
+            expressions to pprint.
         description (str): Description of the sympy expression to pprint.
         n (int): Current approximation order, default None, means
             :code:`limit` will be ignored.
@@ -155,7 +166,6 @@ class SimulationInputWrapper:
     the simulation, see :py:class:`.simulate_system`.
     """
     def __init__(self, sim_input):
-        from pyinduct.simulation import SimulationInput
         assert isinstance(sim_input, SimulationInput)
 
         self._sim_input = sim_input
@@ -244,9 +254,9 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     """
     # check if all simulation input symbols have only one
     # depended variable and uniqueness of it
-    input_var = input_syms[0].args[0]
+    input_arg = input_syms[0].args[0]
     assert all([len(sym.args) == 1 for sym in input_syms])
-    assert all([input_var == sym.args[0] for sym in input_syms])
+    assert all([input_arg == sym.args[0] for sym in input_syms])
 
     # check length of args
     n = len(pi.get_base(base_label))
@@ -257,7 +267,7 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
 
     # derive callable from the symbolic expression of the right hand side
     print("\n>>> lambdify right hand side")
-    rhs_lam = sp.lambdify((funcs, time_sym, input_var), rhs, modules="numpy")
+    rhs_lam = sp.lambdify((funcs, time_sym, input_arg), rhs, modules="numpy")
     assert len(rhs_lam(init_conds, 0, _input_var)) == n
 
     def _rhs(_t, _q):

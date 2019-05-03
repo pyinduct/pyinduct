@@ -190,4 +190,4 @@ class EvaluateIntegralTestCase(unittest.TestCase):
                         -172800 * dd_f2_pi)
 
     def tearDown(self):
-        sy.VariablePool.variable_pool_registry.clear()
+        sy.VariablePool.registry.clear()
