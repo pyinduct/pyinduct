@@ -159,7 +159,7 @@ class SimulationInputSum(SimulationInput):
 
     def __init__(self, inputs):
         SimulationInput.__init__(self)
-        self.inputs = inputs
+        self.inputs = sanitize_input(inputs, SimulationInput)
 
     def _calc_output(self, **kwargs):
         outs = [handle(**kwargs) for handle in self.inputs]
