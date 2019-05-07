@@ -252,9 +252,14 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     Returns:
         See :py:func:`.simulate_state_space`.
     """
+    # argument for the dictionary by a pyinuct simulation input call
+    input_arg = input_syms[0].args[0]
+
+    # dictionary / kwargs for the pyinuct simulation input call
+    _input_arg = dict(time=0, weights=init_conds, weight_lbl=base_label)
+
     # check if all simulation input symbols have only one
     # depended variable and uniqueness of it
-    input_arg = input_syms[0].args[0]
     assert all([len(sym.args) == 1 for sym in input_syms])
     assert all([input_arg == sym.args[0] for sym in input_syms])
 
@@ -265,19 +270,18 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     # check if all inputs holds an SimulationInputWrapper as implementation
     assert all(isinstance(inp._imp_, SimulationInputWrapper) for inp in list(input_syms))
 
-    # dictionary / kwargs for the pyinuct simulation input call
-    _input_var = dict(time=0, weights=init_conds, weight_lbl=base_label)
-
     # derive callable from the symbolic expression of the right hand side
     print("\n>>> lambdify right hand side")
     rhs_lam = sp.lambdify((funcs, time_sym, input_arg), rhs, modules="numpy")
-    assert len(rhs_lam(init_conds, 0, _input_var)) == n
+
+    # check callback
+    assert len(rhs_lam(init_conds, 0, _input_arg)) == n
 
     def _rhs(_t, _q):
-        _input_var["time"] = _t
-        _input_var["weights"] = _q
+        _input_arg["time"] = _t
+        _input_arg["weights"] = _q
 
-        return rhs_lam(_q, _t, _input_var)
+        return rhs_lam(_q, _t, _input_arg)
 
     return simulate_state_space(_rhs, init_conds, temp_domain, settings)
 
