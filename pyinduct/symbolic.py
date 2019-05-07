@@ -262,6 +262,9 @@ def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
     n = len(pi.get_base(base_label))
     assert all([n == len(it) for it in [init_conds, funcs]])
 
+    # check if all inputs holds an SimulationInputWrapper as implementation
+    assert all(isinstance(inp._imp_, SimulationInputWrapper) for inp in list(input_syms))
+
     # dictionary / kwargs for the pyinuct simulation input call
     _input_var = dict(time=0, weights=init_conds, weight_lbl=base_label)
 
