@@ -182,7 +182,7 @@ class SymbolicFeedback(SimulationInput):
 
         self.feedback_gains = dict()
         for lbl, vec in base_weights_info.items():
-            gain, _expression = sp.linear_eq_to_matrix(expression, list(vec))
+            gain, _expression = sp.linear_eq_to_matrix(sp.Matrix([expression]), list(vec))
             expression = (-1) * _expression
             self.feedback_gains.update({lbl: np.array(gain).astype(float)})
 
