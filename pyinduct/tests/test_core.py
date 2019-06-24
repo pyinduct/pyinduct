@@ -909,6 +909,7 @@ class IntegrateFunctionTestCase(unittest.TestCase):
 
 class ScalarDotProductL2TestCase(unittest.TestCase):
     def setUp(self):
+        self.f0 = pi.Function(lambda x: -1, domain=(-10, 0))
         self.f1 = pi.Function(lambda x: 1, domain=(0, 10))
         self.f2 = pi.Function(lambda x: 2, domain=(0, 5))
         self.f3 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
@@ -931,6 +932,9 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         # swap arguments
         self.assertAlmostEqual(core.dot_product_l2(self.f3, self.f1),
                                np.conjugate(2))
+
+    def test_disjoint_domains(self):
+        self.assertEqual(core.dot_product_l2(self.f0, self.f1), 0)
 
     def test_nonzero(self):
         self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
