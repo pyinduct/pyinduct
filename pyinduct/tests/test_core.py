@@ -1119,6 +1119,16 @@ class ProjectionTest(unittest.TestCase):
                           ]
         self.real_values = [func(self.z_values) for func in self.functions]
 
+        self.eval_pos = np.array([.5])
+        self.selected_values = [func(self.eval_pos) for func in self.functions]
+        self.func_vectors = [pi.ComposedFunctionVector([f], [f_s])
+                             for f, f_s in zip(self.functions,
+                                               self.selected_values)]
+        self.comp_lag_base = pi.Base([
+            pi.ComposedFunctionVector([f], [f(self.eval_pos)])
+            for f in self.lag_base])
+        pi.register_base("comp_lag_base", self.lag_base, overwrite=True)
+
     def test_types_projection(self):
         self.assertRaises(TypeError, pi.project_on_base, 1, 2)
         self.assertRaises(TypeError, pi.project_on_base, np.sin, np.sin)
@@ -1129,16 +1139,22 @@ class ProjectionTest(unittest.TestCase):
                    pi.project_on_base(self.functions[3], self.lag_base)]
 
         # linear function -> should be fitted exactly
-        np.testing.assert_array_almost_equal(weights[0], self.functions[1](self.nodes))
+        np.testing.assert_array_almost_equal(weights[0],
+                                             self.functions[1](self.nodes))
 
         # quadratic function -> should be fitted somehow close
-        np.testing.assert_array_almost_equal(weights[1], self.functions[2](self.nodes), decimal=0)
+        np.testing.assert_array_almost_equal(weights[1],
+                                             self.functions[2](self.nodes),
+                                             decimal=0)
 
         # trig function -> will be crappy
-        np.testing.assert_array_almost_equal(weights[2], self.functions[3](self.nodes), decimal=1)
+        np.testing.assert_array_almost_equal(weights[2],
+                                             self.functions[3](self.nodes),
+                                             decimal=1)
 
         if show_plots:
-            # since test function are lagrange1st order, plotting the results is fairly easy
+            # since test function are lagrange1st order, plotting the results
+            # is fairly easy
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
@@ -1160,8 +1176,44 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
             pi.show(show_mpl=False)
 
+    def test_projection_on_composed_function_vector(self):
+        weights = [pi.project_on_base(self.func_vectors[idx],
+                                      self.comp_lag_base)
+                   for idx in [1, 2, 3]]
+
+        # linear function -> should be fitted exactly
+        np.testing.assert_array_almost_equal(weights[0],
+                                             self.functions[1](self.nodes))
+
+        # quadratic function -> should be fitted somehow close
+        np.testing.assert_array_almost_equal(weights[1],
+                                             self.functions[2](self.nodes),
+                                             decimal=0)
+
+        # trig function -> will be crappy
+        np.testing.assert_array_almost_equal(weights[2],
+                                             self.functions[3](self.nodes),
+                                             decimal=1)
+
+        if show_plots:
+            for idx, w in enumerate(weights):
+                pw = pg.plot(title="Weights {0}".format(idx))
+                pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
+                pw.plot(x=self.eval_pos,
+                        y=self.selected_values[idx + 1],
+                        symbol="o")
+                pw.plot(x=self.nodes.points, y=w, pen="b")
+                coll_parts = np.array([_w * vec.get_member(1) for _w, vec in
+                                       zip(w, self.comp_lag_base)]).squeeze()
+                coll_part = np.sum(coll_parts, keepdims=True)
+                pw.plot(x=self.eval_pos,
+                        y=coll_part,
+                        symbol="+")
+                pi.show(show_mpl=False)
+
     def tearDown(self):
         pi.deregister_base("lag_base")
+        pi.deregister_base("comp_lag_base")
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
