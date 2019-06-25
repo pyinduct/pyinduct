@@ -923,30 +923,34 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.g2 = pi.Function(lambda x: 2 - 2j, domain=(0, 5))
 
     def test_domain(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f2), 10)
-        # swap arguments
-        self.assertAlmostEqual(core.dot_product_l2(self.f2, self.f1),
-                               np.conjugate(10))
-
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f3), 2)
-        # swap arguments
-        self.assertAlmostEqual(core.dot_product_l2(self.f3, self.f1),
-                               np.conjugate(2))
-
-    def test_disjoint_domains(self):
         with self.assertRaises(ValueError):
+            # disjoint domains
             core.dot_product_l2(self.f0, self.f1)
 
+        with self.assertRaises(ValueError):
+            # partially matching domains
+            core.dot_product_l2(self.f1, self.f2)
+
+        with self.assertRaises(ValueError):
+            # partially matching domains
+            core.dot_product_l2(self.f1, self.f3)
+
     def test_nonzero(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
-        self.assertAlmostEqual(core.dot_product_l2(self.f4, self.f1),
-                               np.conjugate(2e-1))
+        self.assertAlmostEqual(core.dot_product_l2(self.f2, self.f4), 4e-1)
+        self.assertAlmostEqual(core.dot_product_l2(self.f4, self.f2),
+                               np.conjugate(4e-1))
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
         self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f5), 0)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f6, self.f5), 1 / 6)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f6, self.f7), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
 
     def test_complex(self):
         self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), -40j)
@@ -1117,10 +1121,10 @@ class ProjectionTest(unittest.TestCase):
         # "real" functions
         # because we are smarter
         self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)
-        self.functions = [pi.Function(lambda x: 2),
-                          pi.Function(lambda x: 2 * x),
-                          pi.Function(lambda x: x ** 2),
-                          pi.Function(lambda x: np.sin(x))
+        self.functions = [pi.Function(lambda x: 2, domain=interval),
+                          pi.Function(lambda x: 2 * x, domain=interval),
+                          pi.Function(lambda x: x ** 2, domain=interval),
+                          pi.Function(lambda x: np.sin(x), domain=interval)
                           ]
         self.real_values = [func(self.z_values) for func in self.functions]
 
