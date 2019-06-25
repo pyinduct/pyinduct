@@ -1114,9 +1114,12 @@ def dot_product_l2(first, second):
     if not isinstance(first, Function) or not isinstance(second, Function):
         raise TypeError("Wrong type(s) supplied. both must be a {0}".format(Function))
 
-    limits = domain_intersection(first.domain, second.domain)
+    if not first.domain == second.domain:
+        raise ValueError("Domains of arguments must be identical, "
+                         "but {} and {} were given".format(first.domain,
+                                                           second.domain))
     nonzero = domain_intersection(first.nonzero, second.nonzero)
-    areas = domain_intersection(limits, nonzero)
+    areas = domain_intersection(first.domain, nonzero)
 
     # try some shortcuts
     if first == second:

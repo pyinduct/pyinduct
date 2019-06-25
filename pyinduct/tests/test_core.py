@@ -934,7 +934,8 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
                                np.conjugate(2))
 
     def test_disjoint_domains(self):
-        self.assertEqual(core.dot_product_l2(self.f0, self.f1), 0)
+        with self.assertRaises(ValueError):
+            core.dot_product_l2(self.f0, self.f1)
 
     def test_nonzero(self):
         self.assertAlmostEqual(core.dot_product_l2(self.f1, self.f4), 2e-1)
