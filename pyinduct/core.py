@@ -466,6 +466,11 @@ class Function(BaseFraction):
         def f_dz(z):
             return 0
 
+        if "eval_handle" in kwargs:
+            raise ValueError("'eval_handle' must not be provided")
+        if "derivative_handles" in kwargs:
+            raise ValueError("'derivative_handles' must not be provided")
+
         func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
         return func
 

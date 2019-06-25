@@ -76,6 +76,25 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, pi.Function, wrong_handle)
 
+    def test_from_scalar(self):
+        ord_func = pi.Function(lambda x: 1)
+        func = pi.Function.from_constant(1)
+
+        # standard values should be used
+        self.assertEqual(ord_func.domain, func.domain)
+        self.assertEqual(ord_func.nonzero, func.nonzero)
+
+        # specific parameters should be passed on
+        func = pi.Function.from_constant(1, domain=(3, 19), nonzero=(6, 7))
+        self.assertEqual(func.domain, {(3, 19)})
+        self.assertEqual(func.nonzero, {(6, 7)})
+
+        # passing explicit handles is prohibited
+        with self.assertRaises(ValueError):
+            pi.Function.from_constant(7, eval_handle=lambda x: 2*x)
+        with self.assertRaises(ValueError):
+            pi.Function.from_constant(7, derivative_handles=lambda x: 2)
+
     def test_derivation(self):
         f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
 
@@ -177,7 +196,7 @@ class FunctionTestCase(unittest.TestCase):
     def test_call(self):
 
         def func(x):
-            if isinstance(x, collections.Iterable):
+            if isinstance(x, collections.abc.Iterable):
                 raise TypeError("no vectorial stuff allowed!")
             return 2 ** x
 

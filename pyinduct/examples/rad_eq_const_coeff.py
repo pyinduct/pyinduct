@@ -23,7 +23,8 @@ if __name__ == "__main__" or test_examples:
     T = 1
     actuation_type = 'robin'
     bound_cond_type = 'robin'
-    spatial_domain = pi.Domain(bounds=(0, l), num=n_fem)
+    spat_bounds = (0, l)
+    spatial_domain = pi.Domain(bounds=spat_bounds, num=n_fem)
     temporal_domain = pi.Domain(bounds=(0, 1), num=100)
     n = n_modal
 
@@ -152,7 +153,7 @@ if __name__ == "__main__" or test_examples:
         spatial_domain.bounds)
     eval_d = pi.simulate_system(
         rad_pde,
-        initial_states=pi.Function(lambda z: 0.2),
+        initial_states=pi.Function(lambda z: 0.2, domain=spat_bounds),
         temporal_domain=temporal_domain,
         spatial_domain=spatial_domain)[0]
 
