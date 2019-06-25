@@ -87,7 +87,7 @@ class BaseFraction:
         Returns:
             bool: True if compatible.
         """
-        return self.function_space_hint() == other.function_space_hint()
+        return self.members == other.members
 
     def derive(self, order):
         """
@@ -182,7 +182,7 @@ class Function(BaseFraction):
             derivative_handles (list): List of callable(s) that contain
                 derivatives of eval_handle
         """
-        super().__init__(self)
+        super().__init__(None)
         self._vectorial = False
         self._function_handle = None
         self._derivative_handles = None
@@ -434,6 +434,15 @@ class Function(BaseFraction):
         """
         return dot_product_l2
 
+    def is_compatible_to(self, other):
+        if not isinstance(other, Function):
+            return super().is_compatible_to(other)
+
+        if self.domain != other.domain:
+            return False
+
+        return True
+
     def function_space_hint(self):
         """
         Return the hint that this function is an element of the
@@ -446,7 +455,7 @@ class Function(BaseFraction):
             which characterize your specific function space. For
             example the domain of the functions.
         """
-        return self.scalar_product_hint()
+        return "H{}".format(len(self.derivative_handles))
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -553,6 +562,17 @@ class ComposedFunctionVector(BaseFraction):
     def scalar_product_hint(self):
         return self.scalar_product
 
+    def is_compatible_to(self, other):
+        if not isinstance(other, ComposedFunctionVector):
+            return super().is_compatible_to(other)
+
+        if len(self.members["funcs"]) != len(other.members["funcs"]):
+            return False
+        if len(self.members["scalars"]) != len(other.members["scalars"]):
+            return False
+
+        return True
+
     def function_space_hint(self):
         """
         Return the hint that this function is an element of the
@@ -569,9 +589,9 @@ class ComposedFunctionVector(BaseFraction):
             hint in order to provide more properties which characterize
             your specific function space.
         """
-        return (self.scalar_product_hint(),
-                len(self.members["funcs"]),
-                len(self.members["scalars"]))
+        func_hints = [f.function_space_hint() for f in self.members["funcs"]]
+        scalar_hints = [s.function_space_hint() for s in self.members["scalars"]]
+        return func_hints + scalar_hints
 
     def get_member(self, idx):
         if idx < len(self.members["funcs"]):
@@ -582,7 +602,6 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-
         return self.__class__(
             np.array([func.scale(factor) for func in self.members["funcs"]]),
             np.array([scal * factor for scal in self.members["scalars"]])
@@ -661,7 +680,7 @@ class Base:
         Returns:
             bool: True if bases are compatible.
         """
-        return self.function_space_hint() == other.function_space_hint()
+        return self.fractions[0].is_compatible_to(other.fractions[0])
 
     def transformation_hint(self, info):
         """
