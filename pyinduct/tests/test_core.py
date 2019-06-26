@@ -76,6 +76,30 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, pi.Function, wrong_handle)
 
+    def test_is_compatible(self):
+        f1 = pi.Function(lambda x: 2, domain=(0, 10))
+        f2 = pi.Function(lambda x: 2 * x, domain=(0, 5))
+
+        # Function from H2
+        f3 = pi.Function(lambda x: x ** 2,
+                         derivative_handles=[lambda x: 2 * x, lambda x: 2],
+                         domain=(0, 3))
+        # Function from H1
+        f4 = pi.Function(lambda x: 2 * x,
+                         derivative_handles=[lambda x: 2],
+                         domain=(0, 3))
+
+        # domains got to math
+        self.assertFalse(f1.is_compatible_to(f2))
+        self.assertFalse(f2.is_compatible_to(f1))
+
+        # smoothness may not influence the outcome
+        self.assertTrue(f3.is_compatible_to(f4))
+        self.assertTrue(f4.is_compatible_to(f3))
+
+    def test_function_space_hint(self):
+        pass
+
     def test_from_scalar(self):
         ord_func = pi.Function(lambda x: 1)
         func = pi.Function.from_constant(1)

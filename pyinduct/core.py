@@ -455,7 +455,7 @@ class Function(BaseFraction):
             which characterize your specific function space. For
             example the domain of the functions.
         """
-        return "H{}".format(len(self.derivative_handles))
+        return "H{}".format(len(self.derivative_handles)), self.domain
 
     @staticmethod
     def from_constant(constant, **kwargs):
