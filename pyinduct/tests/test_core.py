@@ -1248,7 +1248,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
     def setUp(self):
         # real function
         self.z_values = np.linspace(0, 1, 1000)
-        self.real_func = pi.Function(lambda x: x)
+        self.real_func = pi.Function(lambda x: x, domain=(0, 1))
         self.real_func_handle = np.vectorize(self.real_func)
 
         # approximation by lag1st
@@ -1300,9 +1300,9 @@ class ChangeProjectionBaseTest(unittest.TestCase):
 
 class NormalizeFunctionsTestCase(unittest.TestCase):
     def setUp(self):
-        self.f = pi.Function(np.sin, domain=(0, np.pi * 2))
-        self.g = pi.Function(np.cos, domain=(0, np.pi * 2))
-        self.l = pi.Function(np.log, domain=(0, np.exp(1)))
+        self.f = pi.Function(np.sin, domain=(0, np.pi))
+        self.g = pi.Function(np.cos, domain=(0, np.pi))
+        self.l = pi.Function(np.exp, domain=(0, np.pi))
 
         self.base_f = pi.Base(self.f)
         self.base_g = pi.Base(self.g)
