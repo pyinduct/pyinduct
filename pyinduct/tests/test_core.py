@@ -76,29 +76,28 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, pi.Function, wrong_handle)
 
-    def test_is_compatible(self):
+    def test_function_space_hint(self):
         f1 = pi.Function(lambda x: 2, domain=(0, 10))
+        self.assertEqual(f1.function_space_hint(),
+                         (core.dot_product_l2, {(0, 10)}))
+
         f2 = pi.Function(lambda x: 2 * x, domain=(0, 5))
+        self.assertEqual(f2.function_space_hint(),
+                         (core.dot_product_l2, {(0, 5)}))
 
         # Function from H2
         f3 = pi.Function(lambda x: x ** 2,
                          derivative_handles=[lambda x: 2 * x, lambda x: 2],
                          domain=(0, 3))
+        self.assertEqual(f3.function_space_hint(),
+                         (core.dot_product_l2, {(0, 3)}))
+
         # Function from H1
         f4 = pi.Function(lambda x: 2 * x,
                          derivative_handles=[lambda x: 2],
                          domain=(0, 3))
-
-        # domains got to math
-        self.assertFalse(f1.is_compatible_to(f2))
-        self.assertFalse(f2.is_compatible_to(f1))
-
-        # smoothness may not influence the outcome
-        self.assertTrue(f3.is_compatible_to(f4))
-        self.assertTrue(f4.is_compatible_to(f3))
-
-    def test_function_space_hint(self):
-        pass
+        self.assertEqual(f4.function_space_hint(),
+                         (core.dot_product_l2, {(0, 3)}))
 
     def test_from_scalar(self):
         ord_func = pi.Function(lambda x: 1)
@@ -350,6 +349,17 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
 
         # scalar products of equal bases should be equal
         self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
+
+    def test_function_space_hint(self):
+        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        self.assertEqual(v1.function_space_hint(),
+                         [f.function_space_hint() for f in self.functions]
+                         [core.dot_product()]
+                        )
+        # v2 = pi.ComposedFunctionVector(self.functions[], self.scalars)
+        # g = pi.Function(lambda x: 2, domain=(0, 10))
+        # self.assertEqual(f4.function_space_hint(),
+        #                  (core.dot_product_l2, {(0, 3)}))
 
 
 def check_compatibility_and_scalar_product(b1, b2):

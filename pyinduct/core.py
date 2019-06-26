@@ -76,18 +76,18 @@ class BaseFraction:
         """
         pass
 
-    def is_compatible_to(self, other):
-        """
-        Returns True if :code:`other` and code:`self` are elements of
-        the same function space.
-
-        Args:
-            other: An instance of :py:class:`BaseFraction`.
-
-        Returns:
-            bool: True if compatible.
-        """
-        return self.members == other.members
+    # def is_compatible_to(self, other):
+    #     """
+    #     Returns True if :code:`other` and code:`self` are elements of
+    #     the same function space.
+    #
+    #     Args:
+    #         other: An instance of :py:class:`BaseFraction`.
+    #
+    #     Returns:
+    #         bool: True if compatible.
+    #     """
+    #     return self.members == other.members
 
     def derive(self, order):
         """
@@ -434,14 +434,14 @@ class Function(BaseFraction):
         """
         return dot_product_l2
 
-    def is_compatible_to(self, other):
-        if not isinstance(other, Function):
-            return super().is_compatible_to(other)
-
-        if self.domain != other.domain:
-            return False
-
-        return True
+    # def is_compatible_to(self, other):
+    #     if not isinstance(other, Function):
+    #         return super().is_compatible_to(other)
+    #
+    #     if self.domain != other.domain:
+    #         return False
+    #
+    #     return True
 
     def function_space_hint(self):
         """
@@ -455,7 +455,8 @@ class Function(BaseFraction):
             which characterize your specific function space. For
             example the domain of the functions.
         """
-        return "H{}".format(len(self.derivative_handles)), self.domain
+        # return "H{}".format(len(self.derivative_handles)), self.domain
+        return dot_product_l2, self.domain
 
     @staticmethod
     def from_constant(constant, **kwargs):
@@ -542,36 +543,39 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
-    @staticmethod
-    def scalar_product(left, right):
-        l_funcs = left.members["funcs"]
-        r_funcs = right.members["funcs"]
-        assert len(l_funcs) == len(r_funcs)
-
-        l_scals = left.members["scalars"]
-        r_scals = right.members["scalars"]
-        assert len(l_scals) == len(r_scals)
-
-        sp_f = np.sum([dot_product_l2(fl, fr)
-                       for fl, fr in zip(l_funcs, r_funcs)])
-        sp_s = np.sum([np.conj(sl) * sr
-                       for sl, sr in zip(l_scals, r_scals)])
-
-        return sp_f + sp_s
+    # @staticmethod
+    # def scalar_product(left, right):
+    #     l_funcs = left.members["funcs"]
+    #     r_funcs = right.members["funcs"]
+    #     assert len(l_funcs) == len(r_funcs)
+    #
+    #     l_scals = left.members["scalars"]
+    #     r_scals = right.members["scalars"]
+    #     assert len(l_scals) == len(r_scals)
+    #
+    #     sp_f = np.sum([dot_product_l2(fl, fr)
+    #                    for fl, fr in zip(l_funcs, r_funcs)])
+    #     sp_s = np.sum([np.conj(sl) * sr
+    #                    for sl, sr in zip(l_scals, r_scals)])
+    #
+    #     return sp_f + sp_s
 
     def scalar_product_hint(self):
-        return self.scalar_product
+        func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
+        scalar_hints = [dot_product for s in self.members["scalars"]]
+        return func_hints + scalar_hints
+        # return self.scalar_product
 
-    def is_compatible_to(self, other):
-        if not isinstance(other, ComposedFunctionVector):
-            return super().is_compatible_to(other)
-
-        if len(self.members["funcs"]) != len(other.members["funcs"]):
-            return False
-        if len(self.members["scalars"]) != len(other.members["scalars"]):
-            return False
-
-        return True
+    # def is_compatible_to(self, other):
+    #     if not isinstance(other, ComposedFunctionVector):
+    #         return super().is_compatible_to(other)
+    #
+    #     if len(self.members["funcs"]) != len(other.members["funcs"]):
+    #         return False
+    #     if len(self.members["scalars"]) != len(other.members["scalars"]):
+    #         return False
+    #
+    #     return True
 
     def function_space_hint(self):
         """
@@ -590,7 +594,7 @@ class ComposedFunctionVector(BaseFraction):
             your specific function space.
         """
         func_hints = [f.function_space_hint() for f in self.members["funcs"]]
-        scalar_hints = [s.function_space_hint() for s in self.members["scalars"]]
+        scalar_hints = [dot_product for s in self.members["scalars"]]
         return func_hints + scalar_hints
 
     def get_member(self, idx):
@@ -674,13 +678,17 @@ class Base:
         """
         Check if the function spaces of the bases are compatible.
 
+        For now this is done by equating the function spaces of the bases.
+
         Args:
             other(pi.Base): Base to check compatibility for.
 
         Returns:
             bool: True if bases are compatible.
         """
-        return self.fractions[0].is_compatible_to(other.fractions[0])
+        own_space = self.fractions[0].function_space_hint()
+        other_space = other.fractions[0].function_space_hint()
+        return own_space == other_space
 
     def transformation_hint(self, info):
         """
@@ -1261,6 +1269,7 @@ def calculate_scalar_product_matrix(base_a, base_b, optimize=True):
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
+    # TODO take care of direct sum here
     scalar_product = base_a.scalar_product_hint()
     if optimize and base_a == base_b and scalar_product == dot_product_l2:
         # since the scalar_product commutes whe can save some operations
