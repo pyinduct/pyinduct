@@ -113,8 +113,8 @@ class ObserverFeedback:
 
 def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
     r"""
-    Transform the different feedback/observer gains in `ce` to the basis
-    `weight_label` and accumulate them to one gain vector.
+    Transform the different feedback/observer gains in ``ce`` to the basis
+    ``weight_label`` and accumulate them to one gain vector.
 
     For weight transformations the procedure is straight forward.
     If the feedback gain :math:`u(t) = k^Tc(t)` was approximated with respect
@@ -139,7 +139,7 @@ def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
     involved. Since, if one want to know the transformation from the gain vector
     :math:`l_i = \langle l(z), \psi_i(z) \rangle, i=1,...,n`
     to the approximation with respect to another test base
-    :math:`\bar{l}_j = \langle l(z), \bar{\psi}_j(z), j=1,...,m \rangle`
+    :math:`\bar{l}_j = \langle l(z), \bar{\psi}_j(z) \rangle, j=1,...,m`
     one have a additional degree of freedom with the ansatz
     :math:`l(z) = \sum_{i=1}^{k} c_i \varphi_i(z)`.
 
@@ -156,25 +156,25 @@ def evaluate_trafos(ce, weight_label, vect_shape, is_observer=False):
 
         \begin{align*}
           \langle l(z), \psi_j(z)\rangle =
-          \langle \sum_{i=1}^{n} c_i \psi_i(z), \psi_j(z)\rangle
+          \langle \sum_{i=1}^{n} c_i \varphi_i(z), \psi_j(z)\rangle
           \quad \Rightarrow c = N^{-1} l,
-          \quad N_{(i,j)} = \langle \varphi_i(z), \varphi_j(z) \rangle\\
+          \quad N_{(i,j)} = \langle \varphi_i(z), \psi_j(z) \rangle\\
           \langle l(z), \bar{\psi}_j(z)\rangle =
           \langle \sum_{i=1}^{m} \bar{c}_i \bar{\psi}_i(z), \bar{\psi}_j(z)
           \quad \Rightarrow \bar{l} = M \bar{c},
           \quad M_{(i,j)} =
-          \langle \bar{\varphi}_i(z), \bar{\varphi}_j(z) \rangle\\
+          \langle \bar{\psi}_i(z), \bar{\psi}_j(z) \rangle\\
         \end{align*}
 
     Finally the transformation between the weights
     :math:`c` and :math:`\bar{c}` will be computed with
-    :py:class:`.get_weights_transformation`.
+    :py:class:`.get_weight_transformation`.
 
-    For more advanced built-in observer approximation and transformation
+    For more advanced approximation and transformation
     features, take a look at upcoming tools in the symbolic simulation
-    branch of pyinduct (comment from 2018/09/02).
+    branch of pyinduct (comment from 2019/06/27).
 
-    Note:
+    Warning:
         Since neither :py:class:`.CanonicalEquation` nor
         :py:class:`.StateSpace` know the target test base
         :math:`\bar{\psi}_j, j=1,...m`, which was used in the
