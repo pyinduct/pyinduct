@@ -629,19 +629,19 @@ class Base:
             Useful for transformations from bases that 'live' in
             different function spaces but evolve with the same time
             dynamic/coefficients (e.g. modal bases).
-        intermediate_base_lbl (str): If it is certain that this base instance will
-            be asked (as destination base) to return a transformation
-            to a source base, whose implementation is cumbersome,
-            its label can be provided here. This will trigger the generation
-            of the transformation using build-in features.
+        intermediate_base_lbls (list of str): If it is certain that this base
+            instance will be asked (as destination base) to return a
+            transformation to a source base, whose implementation is
+            cumbersome, its label can be provided here. This will trigger the
+            generation of the transformation using build-in features.
             The algorithm, implemented in :py:class:`.get_weights_transformation`
-            is then called again with the intermediate base as destination
-            base and the 'old' source base. With this technique arbitrary
-            long transformation chains are possible, if the provided
-            intermediate bases again define intermediate bases.
+            is then called again with the intermediate base as destination base
+            and the 'old' source base. With this technique arbitrary long
+            transformation chains are possible, if the provided intermediate
+            bases again define intermediate bases.
     """
-    def __init__(self, fractions, matching_base_lbls=(),
-                 intermediate_base_lbl=None):
+    def __init__(self, fractions,
+                 matching_base_lbls=None, intermediate_base_lbls=None):
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -652,7 +652,7 @@ class Base:
 
         self.fractions = fractions
         self.matching_base_lbls = matching_base_lbls
-        self.intermediate_base_lbl = intermediate_base_lbl
+        self.intermediate_base_lbls = intermediate_base_lbls
 
     def __iter__(self):
         return iter(self.fractions)
@@ -757,39 +757,39 @@ class Base:
             # bases are compatible, use standard approach
             return self._transformation_factory(info), None
 
-        if self.intermediate_base_lbl:
+        if self.intermediate_base_lbls:
             # we got a middleman
             if self is info.src_base:
                 # build trafo from us to middleman
                 intermediate_info = get_transformation_info(
-                    info.src_lbl, self.intermediate_base_lbl,
+                    info.src_lbl, self.intermediate_base_lbls,
                     info.src_order, info.src_order
                 )
                 handle = get_weight_transformation(intermediate_info)
-                if info.dst_lbl == self.intermediate_base_lbl:
+                if info.dst_lbl == self.intermediate_base_lbls:
                     # middleman is the source -> we are finished
                     return handle, None
 
                 # create hint from middleman to dst
                 hint = get_transformation_info(
-                    self.intermediate_base_lbl, info.dst_lbl,
+                    self.intermediate_base_lbls, info.dst_lbl,
                     info.src_order, info.dst_order
                 )
                 return handle, hint
             if self is info.dst_base:
                 # build trafo from middleman to us
                 intermediate_info = get_transformation_info(
-                    self.intermediate_base_lbl, info.dst_lbl,
+                    self.intermediate_base_lbls, info.dst_lbl,
                     info.src_order, info.dst_order
                 )
                 handle = get_weight_transformation(intermediate_info)
-                if info.src_lbl == self.intermediate_base_lbl:
+                if info.src_lbl == self.intermediate_base_lbls:
                     # middleman is the source -> we are finished
                     return handle, None
 
                 # create hint from src to middleman
                 hint = get_transformation_info(
-                    info.src_lbl, self.intermediate_base_lbl,
+                    info.src_lbl, self.intermediate_base_lbls,
                     info.src_order, info.src_order
                 )
                 return handle, hint

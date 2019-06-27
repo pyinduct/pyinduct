@@ -405,7 +405,7 @@ class BaseTestCase(unittest.TestCase):
         b = pi.Base(fractions)
         self.assertEqual(b.fractions, np.asarray(fractions))
         self.assertEqual(b.matching_base_lbls, tuple())
-        self.assertEqual(b.intermediate_base_lbl, None)
+        self.assertEqual(b.intermediate_base_lbls, None)
 
         # single and iterable arguments should be taken
         pi.Base(self.fractions[0])
