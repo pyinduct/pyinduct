@@ -1,4 +1,5 @@
 import collections
+from collections import OrderedDict
 import time
 import unittest
 import warnings
@@ -349,7 +350,7 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         # test scalar multiplication
         first = core.generic_scalar_product(v1.scale(5), v2.scale(3))
         second = 5 * 3 * core.generic_scalar_product(v1, v2)
-        self.assertAlmostEqual(first, second)
+        np.testing.assert_array_almost_equal(first, second)
 
         # scalar products of equal bases should be equal
         self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
@@ -801,17 +802,87 @@ class StackedBaseTestCase(unittest.TestCase):
             pi.Function(lambda x: np.cos(2 ** 2 * x), domain=(1, 2)),
         ])
         pi.register_base("b2", self.b2)
+        self.base_info = OrderedDict(
+            b1={"base": self.b1, "sys_name": "sys1", "order": 1},
+            b2={"base": self.b2, "sys_name": "sys2", "order": 0},
+        )
 
-    @unittest.skip  # TODO complete this
-    def test_init(self):
-        fractions = np.hstack([self.b1, self.b2])
-        info = None
-        b = pi.StackedBase(fractions, info)
-        self.assertEqual(b.fractions.size, 6)
+    def test_defaults(self):
+        s = pi.StackedBase(self.base_info)
+        self.assertEqual(len(s), 6)
+        self.assertEqual(s.fractions.size, 6)
+        self.assertEqual(s[2], self.b1[2])
+        self.assertEqual(s[4], self.b2[1])
+        self.assertEqual(s[0], self.b1[0])
+        self.assertEqual(s[-1], self.b2[-1])
+
+        self.assertEqual(s.base_lbls, ["b1", "b2"])
+        self.assertEqual(s.system_names, ["sys1", "sys2"])
+        self.assertEqual(s.orders, [0, 2])
+
+        self.assertFalse(s.is_compatible_to(self.b1))
+        self.assertFalse(self.b1.is_compatible_to(s))
+        self.assertFalse(s.is_compatible_to(self.b2))
+        self.assertFalse(self.b2.is_compatible_to(s))
+
+        self.assertEqual(s.scalar_product_hint(), NotImplemented)
+
+        self.assertEqual(s.function_space_hint(),
+                         [self.b1.function_space_hint(),
+                          self.b2.function_space_hint()])
+
+    def test_transfomration_hint(self):
+        s1 = pi.StackedBase(self.base_info)
+        pi.register_base("s1", s1)
+        pi.register_base("unknown", self.b2)
+        input_weights = np.concatenate((
+            np.ones(len(self.b1)),  # b1
+            2 * np.ones(len(self.b1)),  # b1_dt
+            3 * np.ones(len(self.b2)),  # b2
+        ))
+
+        # targeted base not included in stacked base -> no trafo
+        info = core.get_transformation_info("s1", "unknown")
+        with self.assertRaises(TypeError):
+            core.get_weight_transformation(info)
+
+        # targeted base is included in stacked base -> should work
+        info = core.get_transformation_info("s1", "b1",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, np.ones(len(self.b1)))
+
+        # calling the trafo with wrong input should fail, here b1_dt is missing
+        wrong_weights = np.concatenate((
+            np.ones(len(self.b1)),  # b1
+            3 * np.ones(len(self.b2)),  # b2
+        ))
+        with self.assertRaises(AssertionError):
+            trafo(wrong_weights)
+
+        # targeted base is included in stacked base and we want the derivative
+        info = core.get_transformation_info("s1", "b1",  0, 1)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, np.concatenate((
+            1 * np.ones(len(self.b1)), 2 * np.ones(len(self.b1)),
+        )))
+
+        # targeted base is included in stacked base but not this derivative
+        info = core.get_transformation_info("s1", "b1",  0, 2)
+        with self.assertRaises(TypeError):
+            core.get_weight_transformation(info)
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("s1", "b2",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, 3 * np.ones(len(self.b2)))
+
+        pi.deregister_base("s1")
 
     def tearDown(self):
-        pi.deregister_base("b1")
-        pi.deregister_base("b2")
+        pass
 
 
 class TransformationTestCase(unittest.TestCase):
@@ -832,6 +903,13 @@ class TransformationTestCase(unittest.TestCase):
             [pi.ComposedFunctionVector([f], [0]) for f in self.base2],
             intermediate_base_lbls="comp1")
         pi.register_base("comp2", self.comp_base2)
+
+        info1 = OrderedDict(
+            fem1={"base": self.base1, "sys_name": "sys1", "order": 0},
+            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 2},
+        )
+        self.stacked_base1 = core.StackedBase(info1)
+        pi.register_base("stacked1", self.stacked_base1)
 
     def test_transformation_info(self):
         info = core.get_transformation_info("fem1", "fem2", 1, 7)
@@ -885,6 +963,21 @@ class TransformationTestCase(unittest.TestCase):
         length1 = len(pi.get_base("fem1"))
         length2 = len(pi.get_base("comp2"))
         info = core.get_transformation_info("fem1", "comp2", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(length2, len(trafo(np.ones(length1))))
+
+    def test_stacked_base_transform(self):
+        length1 = len(pi.get_base("stacked1"))
+        length2 = len(pi.get_base("fem1"))
+        info = core.get_transformation_info("fem1", "stacked1", 0, 0)
+
+        # targeted base not included in stacked base
+        info = core.get_transformation_info("stacked1", "fem2",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(trafo, None)
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("stacked1", "fem1",  0, 0)
         trafo = core.get_weight_transformation(info)
         self.assertEqual(length2, len(trafo(np.ones(length1))))
 

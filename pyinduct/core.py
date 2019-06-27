@@ -884,35 +884,66 @@ class Base:
         return np.array([getattr(frac, attr, None) for frac in self.fractions])
 
 
-class StackedBase(Base):
+class StackedBase:
     """
-    Implementation of a basis vector that is obtained by stacking different bases onto each other.
-        This typically occurs when the bases of coupled systems are joined to create a unified system.
+    Implementation of a basis vector that is obtained by stacking different
+    bases onto each other. This typically occurs when the bases of coupled
+    systems are joined to create a unified system.
 
     Args:
-        fractions (dict): Dictionary with base_label and corresponding function
+        base_info (OrderedDict): Dictionary with base_labels and corresponding
+            information about the bases.
     """
 
-    def __init__(self, fractions, base_info):
-        super().__init__(fractions)
-        self._info = base_info
+    def __init__(self, base_info):
+        self.base_lbls = []
+        self.system_names = []
+        self.orders = []
+
+        self._bases = []
+        self._cum_frac_idxs = [0]
+        self._cum_weight_idxs = [0]
+        for lbl, info in base_info.items():
+            # public properties
+            self.base_lbls.append(lbl)
+            self.system_names.append(info["sys_name"])
+            order = info["order"]
+            self.orders.append(order)
+            base = info["base"]
+
+            # internal properties
+            self._bases.append(base)
+            self._cum_frac_idxs.append(self._cum_frac_idxs[-1] + len(base))
+            self._cum_weight_idxs.append(self._cum_weight_idxs[-1]
+                                         + (order + 1) * len(base))
+
+        self.fractions = np.concatenate([b.fractions for b in self._bases])
+        self._size = self._cum_frac_idxs.pop(-1)
+        self._weight_size = self._cum_weight_idxs.pop(-1)
+
+    def __len__(self):
+        return self._size
+
+    def __getitem__(self, item):
+        return self.fractions[item]
+
+    def is_compatible_to(self, other):
+        return self.function_space_hint() == other.function_space_hint()
 
     def scalar_product_hint(self):
-        pass
+        return NotImplemented
 
     def function_space_hint(self):
-        pass
-
-    def get_member(self, idx):
-        return list(self.members.values())[idx]
+        return [b.function_space_hint() for b in self._bases]
 
     def scale(self, factor):
-        return self.__class__({lbl: func.scale(factor) for lbl, func in self.members})
+        return self.__class__({lbl: func.scale(factor)
+                               for lbl, func in self.members})
 
     def transformation_hint(self, info):
         """
-        If *info.src_lbl* is a member, just return it, using to correct derivative transformation, otherwise
-        return `None`
+        If *info.src_lbl* is a member, just return it, using to correct
+        derivative transformation, otherwise return `None`
 
         Args:
             info (:py:class:`.TransformationInfo`): Information about the
@@ -920,23 +951,36 @@ class StackedBase(Base):
         Return:
             transformation handle
         """
-
-        # we only know how to get from a stacked base to one of our parts
-        if info.src_base.__class__ != self.__class__ or info.dst_lbl not in self._info.keys():
+        if info.src_order != 0:
+            # this can be implemented but is not really meaningful
             return None, None
 
-        # we can help
-        start_idx = self._info[info.dst_lbl]["start"]
-        sel_len = self._info[info.dst_lbl]["size"]
-        src_ord = self._info[info.dst_lbl]["order"]
-        trans_mat = calculate_expanded_base_transformation_matrix(info.dst_base,
-                                                                  info.dst_base,
-                                                                  src_ord,
-                                                                  info.dst_order,
-                                                                  use_eye=True)
+        # we only know how to get from a stacked base to one of our parts
+        if info.src_base != self:
+            return None, None
+        if info.dst_lbl not in self.base_lbls:
+            return None, None
+
+        # check maximum available derivative order
+        dst_idx = self.base_lbls.index(info.dst_lbl)
+        init_src_ord = self.orders[dst_idx]
+        if info.dst_order > init_src_ord:
+            return None, None
+
+        # get transform
+        trans_mat = calculate_expanded_base_transformation_matrix(
+            info.dst_base,
+            info.dst_base,
+            init_src_ord,
+            info.dst_order,
+            use_eye=True)
+
+        start_idx = self._cum_weight_idxs[dst_idx]
+        length = (init_src_ord + 1) * len(self._bases[dst_idx])
 
         def selection_func(weights):
-            return trans_mat @ weights[start_idx: start_idx + sel_len]
+            assert len(weights) == self._weight_size
+            return trans_mat @ weights[start_idx: start_idx + length]
 
         return selection_func, None
 
@@ -1566,7 +1610,7 @@ def get_weight_transformation(info):
 
 
 def get_transformation_info(source_label, destination_label,
-                            source_order, destination_order):
+                            source_order=0, destination_order=0):
     """
     Provide the weights transformation from one/source base to
     another/destination base.
@@ -1593,7 +1637,9 @@ def get_transformation_info(source_label, destination_label,
     return info
 
 
-def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order, dst_order, use_eye=False):
+def calculate_expanded_base_transformation_matrix(src_base, dst_base,
+                                                  src_order, dst_order,
+                                                  use_eye=False):
     r"""
     Constructs a transformation matrix :math:`\bar V` from basis given by
     *src_base* to basis given by *dst_base* that also transforms all temporal
@@ -1619,18 +1665,22 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
     """
     if src_order < dst_order:
         raise ValueError(("higher 'dst_order'({0}) demanded than "
-                          + "'src_order'({1}) can provide for this strategy.").format(dst_order, src_order))
+                          + "'src_order'({1}) can provide for this strategy."
+                            "").format(dst_order, src_order))
 
     # build core transformation
     if use_eye:
         core_transformation = np.eye(src_base.fractions.size)
     else:
-        core_transformation = calculate_base_transformation_matrix(src_base, dst_base)
+        core_transformation = calculate_base_transformation_matrix(src_base,
+                                                                   dst_base)
 
     # build block matrix
-    part_transformation = block_diag(*[core_transformation for i in range(dst_order + 1)])
+    part_transformation = block_diag(*[core_transformation
+                                       for i in range(dst_order + 1)])
     complete_transformation = np.hstack([part_transformation]
-                                        + [np.zeros((part_transformation.shape[0], src_base.fractions.size))
+                                        + [np.zeros((part_transformation.shape[0],
+                                                     src_base.fractions.size))
                                            for i in range(src_order - dst_order)])
     return complete_transformation
 
@@ -1655,6 +1705,8 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
     Args:
         src_base (:py:class:`.Base`): Current projection base.
         dst_base (:py:class:`.Base`): New projection base.
+        scalar_product (list of callable): Callbacks for product calculation.
+            Defaults to `scalar_product_hint` from `src_base`.
 
     Return:
         :py:class:`numpy.ndarray`: Transformation matrix :math:`V` .
