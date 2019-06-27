@@ -652,7 +652,16 @@ class Base:
 
         self.fractions = fractions
         self.matching_base_lbls = matching_base_lbls
+        if self.matching_base_lbls is None:
+            self.matching_base_lbls = []
+        if isinstance(self.matching_base_lbls, str):
+            self.matching_base_lbls = [self.matching_base_lbls]
+
         self.intermediate_base_lbls = intermediate_base_lbls
+        if self.intermediate_base_lbls is None:
+            self.intermediate_base_lbls = []
+        if isinstance(self.intermediate_base_lbls, str):
+            self.intermediate_base_lbls = [self.intermediate_base_lbls]
 
     def __iter__(self):
         return iter(self.fractions)
@@ -688,8 +697,8 @@ class Base:
         Returns:
             bool: True if bases are compatible.
         """
-        own_space = self.fractions[0].function_space_hint()
-        other_space = other.fractions[0].function_space_hint()
+        own_space = self.function_space_hint()
+        other_space = other.function_space_hint()
         return own_space == other_space
 
     def transformation_hint(self, info):
@@ -738,12 +747,6 @@ class Base:
                     f"{len(info.dst_base)}), since the they have different "
                     f"lengths.")
 
-            # if info.dst_order != 0 or info.src_order != 0:
-            #     raise NotImplementedError(
-            #         "The matching_bases transformation feature is not yet\n"
-            #         "implemented for source- and/or destination-order not\n"
-            #         "equal zero.")
-
             if info.src_order >= info.dst_order:
                 # forward weights
                 return self._transformation_factory(info, True), None
@@ -757,44 +760,51 @@ class Base:
             # bases are compatible, use standard approach
             return self._transformation_factory(info), None
 
-        if self.intermediate_base_lbls:
-            # we got a middleman
-            if self is info.src_base:
-                # build trafo from us to middleman
-                intermediate_info = get_transformation_info(
-                    info.src_lbl, self.intermediate_base_lbls,
-                    info.src_order, info.src_order
-                )
-                handle = get_weight_transformation(intermediate_info)
-                if info.dst_lbl == self.intermediate_base_lbls:
-                    # middleman is the source -> we are finished
-                    return handle, None
+        if self.intermediate_base_lbls is not None:
+            # try intermediate bases
+            for inter_lbl in self.intermediate_base_lbls:
+                trafo, hint = self._get_intermediate_transform(info, inter_lbl)
+                if trafo is not None:
+                    return trafo, hint
 
-                # create hint from middleman to dst
-                hint = get_transformation_info(
-                    self.intermediate_base_lbls, info.dst_lbl,
-                    info.src_order, info.dst_order
-                )
-                return handle, hint
-            if self is info.dst_base:
-                # build trafo from middleman to us
-                intermediate_info = get_transformation_info(
-                    self.intermediate_base_lbls, info.dst_lbl,
-                    info.src_order, info.dst_order
-                )
-                handle = get_weight_transformation(intermediate_info)
-                if info.src_lbl == self.intermediate_base_lbls:
-                    # middleman is the source -> we are finished
-                    return handle, None
+        # No Idea what to do.
+        return None, None
 
-                # create hint from src to middleman
-                hint = get_transformation_info(
-                    info.src_lbl, self.intermediate_base_lbls,
-                    info.src_order, info.src_order
-                )
-                return handle, hint
+    def _get_intermediate_transform(self, info, inter_lbl):
+        if self is info.src_base:
+            # build trafo from us to middleman
+            intermediate_info = get_transformation_info(
+                info.src_lbl, inter_lbl,
+                info.src_order, info.src_order
+            )
+            handle = get_weight_transformation(intermediate_info)
+            if info.dst_lbl == inter_lbl:
+                # middleman is the source -> we are finished
+                return handle, None
 
-        # TODO provide one of the matching bases as middleman?
+            # create hint from middleman to dst
+            hint = get_transformation_info(
+                inter_lbl, info.dst_lbl,
+                info.src_order, info.dst_order
+            )
+            return handle, hint
+        if self is info.dst_base:
+            # build trafo from middleman to us
+            intermediate_info = get_transformation_info(
+                inter_lbl, info.dst_lbl,
+                info.src_order, info.dst_order
+            )
+            handle = get_weight_transformation(intermediate_info)
+            if info.src_lbl == inter_lbl:
+                # middleman is the source -> we are finished
+                return handle, None
+
+            # create hint from src to middleman
+            hint = get_transformation_info(
+                info.src_lbl, inter_lbl,
+                info.src_order, info.src_order
+            )
+            return handle, hint
 
         # No Idea what to do.
         return None, None
@@ -1736,7 +1746,7 @@ def generic_scalar_product(b1, b2=None, scalar_product=None):
     if scalar_product is None:
         scalar_product = b1.scalar_product_hint()
 
-    res = vectorize_scalar_product(b1, b2, scalar_product).squeeze()
+    res = vectorize_scalar_product(b1, b2, scalar_product)
 
     return np.real_if_close(res)
 

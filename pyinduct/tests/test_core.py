@@ -404,8 +404,8 @@ class BaseTestCase(unittest.TestCase):
         fractions = pi.BaseFraction([])
         b = pi.Base(fractions)
         self.assertEqual(b.fractions, np.asarray(fractions))
-        self.assertEqual(b.matching_base_lbls, tuple())
-        self.assertEqual(b.intermediate_base_lbls, None)
+        self.assertEqual(b.matching_base_lbls, [])
+        self.assertEqual(b.intermediate_base_lbls, [])
 
         # single and iterable arguments should be taken
         pi.Base(self.fractions[0])
@@ -420,6 +420,16 @@ class BaseTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             pi.Base([self.other_fractions[0],
                      self.completely_other_fractions[2]])
+
+        # either strings or list of strings may be given fo base labels
+        b = pi.Base(fractions, matching_base_lbls="test")
+        self.assertEqual(b.matching_base_lbls, ["test"])
+        b = pi.Base(fractions, matching_base_lbls=["test", "toast"])
+        self.assertEqual(b.matching_base_lbls, ["test", "toast"])
+        b = pi.Base(fractions, intermediate_base_lbls="test")
+        self.assertEqual(b.intermediate_base_lbls, ["test"])
+        b = pi.Base(fractions, intermediate_base_lbls=["test", "toast"])
+        self.assertEqual(b.intermediate_base_lbls, ["test", "toast"])
 
     def test_is_compatible(self):
         b0 = pi.Base(self.fractions[0])
@@ -544,11 +554,11 @@ class BaseTransformationTestCase(unittest.TestCase):
         pi.register_base("comp_1", self.c1)
         self.c1m = pi.Base([pi.ComposedFunctionVector([f], [f(0)])
                            for f in self.f1],
-                           matching_base_lbls=["fourier_1"])
+                           matching_base_lbls=("fourier_1", ))
         pi.register_base("comp_1m", self.c1m)
         self.c2 = pi.Base([pi.ComposedFunctionVector([f], [f(0)])
                            for f in self.f2],
-                          intermediate_base_lbl="comp_1m")
+                          intermediate_base_lbls=("comp_1m", ))
         pi.register_base("comp_2", self.c2)
 
     def tearDown(self):
@@ -779,15 +789,17 @@ class BaseTransformationTestCase(unittest.TestCase):
 
 class StackedBaseTestCase(unittest.TestCase):
     def setUp(self):
-        self.b1 = pi.Base([pi.Function(lambda x: np.sin(2)),
-                           pi.Function(lambda x: np.sin(2*x)),
-                           pi.Function(lambda x: np.sin(2 ** 2 * x)),
-                           ])
+        self.b1 = pi.Base([
+            pi.Function(lambda x: np.sin(2), domain=(0, 1)),
+            pi.Function(lambda x: np.sin(2*x), domain=(0, 1)),
+            pi.Function(lambda x: np.sin(2 ** 2 * x), domain=(0, 1)),
+        ])
         pi.register_base("b1", self.b1)
-        self.b2 = pi.Base([pi.Function(lambda x: np.cos(4)),
-                           pi.Function(lambda x: np.cos(4 * x)),
-                           pi.Function(lambda x: np.cos(4 ** 2 * x)),
-                           ])
+        self.b2 = pi.Base([
+            pi.Function(lambda x: np.cos(2), domain=(1, 2)),
+            pi.Function(lambda x: np.cos(2*x), domain=(1, 2)),
+            pi.Function(lambda x: np.cos(2 ** 2 * x), domain=(1, 2)),
+        ])
         pi.register_base("b2", self.b2)
 
     @unittest.skip  # TODO complete this
@@ -814,11 +826,11 @@ class TransformationTestCase(unittest.TestCase):
 
         self.comp_base1 = pi.Base(
             [pi.ComposedFunctionVector([f], [0]) for f in self.base1],
-            matching_base_lbls=["fem1"])
+            matching_base_lbls="fem1")
         pi.register_base("comp1", self.comp_base1)
         self.comp_base2 = pi.Base(
             [pi.ComposedFunctionVector([f], [0]) for f in self.base2],
-            intermediate_base_lbl="comp1")
+            intermediate_base_lbls="comp1")
         pi.register_base("comp2", self.comp_base2)
 
     def test_transformation_info(self):
@@ -834,7 +846,6 @@ class TransformationTestCase(unittest.TestCase):
         """ Transformation between to standard bases"""
         info = core.get_transformation_info("fem1", "fem2", 0, 0)
         trafo = core.get_weight_transformation(info)
-        trafo_mat = trafo(np.eye(11))
         src_weights = np.random.rand(11)
         dst_weights = trafo(src_weights)
         self.assertEqual(dst_weights.shape, (21,))
@@ -848,16 +859,16 @@ class TransformationTestCase(unittest.TestCase):
 
     def test_matching_base_asserts(self):
         err_base1 = pi.Base(self.base1.fractions,
-                            matching_base_lbls=["fem2"],
-                            intermediate_base_lbl="fem2")
+                            matching_base_lbls="fem2",
+                            intermediate_base_lbls="fem2")
         pi.register_base("err1", err_base1)
         info_lengt_err = core.get_transformation_info("comp2", "err1", 0, 0)
         with self.assertRaises(ValueError):
             core.get_weight_transformation(info_lengt_err)
 
         err_base2 = pi.Base(self.base1.fractions,
-                            matching_base_lbls=["comp1"],
-                            intermediate_base_lbl="comp1")
+                            matching_base_lbls="comp1",
+                            intermediate_base_lbls="comp1")
         pi.register_base("err2", err_base2)
         info_order_err = core.get_transformation_info("comp1", "err2", 1, 0)
         trafo = core.get_weight_transformation(info_order_err)
@@ -1339,7 +1350,7 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         pi.deregister_base("lag_base")
 
 
-class NormalizeFunctionsTestCase(unittest.TestCase):
+class NormalizeBaseTestCase(unittest.TestCase):
     def setUp(self):
         self.f = pi.Function(np.sin, domain=(0, np.pi))
         self.g = pi.Function(np.cos, domain=(0, np.pi))
