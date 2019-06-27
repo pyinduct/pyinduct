@@ -818,7 +818,7 @@ class StackedBaseTestCase(unittest.TestCase):
 
         self.assertEqual(s.base_lbls, ["b1", "b2"])
         self.assertEqual(s.system_names, ["sys1", "sys2"])
-        self.assertEqual(s.orders, [0, 2])
+        self.assertEqual(s.orders, [1, 0])
 
         self.assertFalse(s.is_compatible_to(self.b1))
         self.assertFalse(self.b1.is_compatible_to(s))
@@ -843,12 +843,14 @@ class StackedBaseTestCase(unittest.TestCase):
 
         # targeted base not included in stacked base -> no trafo
         info = core.get_transformation_info("s1", "unknown")
-        with self.assertRaises(TypeError):
-            core.get_weight_transformation(info)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(trafo, None)
+        self.assertEqual(hint, None)
 
         # targeted base is included in stacked base -> should work
         info = core.get_transformation_info("s1", "b1",  0, 0)
-        trafo = core.get_weight_transformation(info)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
         output = trafo(input_weights)
         np.testing.assert_almost_equal(output, np.ones(len(self.b1)))
 
@@ -857,12 +859,15 @@ class StackedBaseTestCase(unittest.TestCase):
             np.ones(len(self.b1)),  # b1
             3 * np.ones(len(self.b2)),  # b2
         ))
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
         with self.assertRaises(AssertionError):
             trafo(wrong_weights)
 
         # targeted base is included in stacked base and we want the derivative
         info = core.get_transformation_info("s1", "b1",  0, 1)
-        trafo = core.get_weight_transformation(info)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
         output = trafo(input_weights)
         np.testing.assert_almost_equal(output, np.concatenate((
             1 * np.ones(len(self.b1)), 2 * np.ones(len(self.b1)),
@@ -870,19 +875,22 @@ class StackedBaseTestCase(unittest.TestCase):
 
         # targeted base is included in stacked base but not this derivative
         info = core.get_transformation_info("s1", "b1",  0, 2)
-        with self.assertRaises(TypeError):
-            core.get_weight_transformation(info)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(trafo, None)
+        self.assertEqual(hint, None)
 
         # targeted base is included in stacked base
         info = core.get_transformation_info("s1", "b2",  0, 0)
-        trafo = core.get_weight_transformation(info)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
         output = trafo(input_weights)
         np.testing.assert_almost_equal(output, 3 * np.ones(len(self.b2)))
 
         pi.deregister_base("s1")
 
     def tearDown(self):
-        pass
+        pi.deregister_base("b1")
+        pi.deregister_base("b2")
 
 
 class TransformationTestCase(unittest.TestCase):
@@ -969,12 +977,11 @@ class TransformationTestCase(unittest.TestCase):
     def test_stacked_base_transform(self):
         length1 = len(pi.get_base("stacked1"))
         length2 = len(pi.get_base("fem1"))
-        info = core.get_transformation_info("fem1", "stacked1", 0, 0)
 
         # targeted base not included in stacked base
         info = core.get_transformation_info("stacked1", "fem2",  0, 0)
-        trafo = core.get_weight_transformation(info)
-        self.assertEqual(trafo, None)
+        with self.assertRaises(TypeError):
+            trafo = core.get_weight_transformation(info)
 
         # targeted base is included in stacked base
         info = core.get_transformation_info("stacked1", "fem1",  0, 0)

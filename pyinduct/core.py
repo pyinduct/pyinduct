@@ -543,39 +543,10 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
-    # @staticmethod
-    # def scalar_product(left, right):
-    #     l_funcs = left.members["funcs"]
-    #     r_funcs = right.members["funcs"]
-    #     assert len(l_funcs) == len(r_funcs)
-    #
-    #     l_scals = left.members["scalars"]
-    #     r_scals = right.members["scalars"]
-    #     assert len(l_scals) == len(r_scals)
-    #
-    #     sp_f = np.sum([dot_product_l2(fl, fr)
-    #                    for fl, fr in zip(l_funcs, r_funcs)])
-    #     sp_s = np.sum([np.conj(sl) * sr
-    #                    for sl, sr in zip(l_scals, r_scals)])
-    #
-    #     return sp_f + sp_s
-
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
         scalar_hints = [dot_product for s in self.members["scalars"]]
         return func_hints + scalar_hints
-        # return self.scalar_product
-
-    # def is_compatible_to(self, other):
-    #     if not isinstance(other, ComposedFunctionVector):
-    #         return super().is_compatible_to(other)
-    #
-    #     if len(self.members["funcs"]) != len(other.members["funcs"]):
-    #         return False
-    #     if len(self.members["scalars"]) != len(other.members["scalars"]):
-    #         return False
-    #
-    #     return True
 
     def function_space_hint(self):
         """
