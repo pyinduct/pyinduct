@@ -645,7 +645,9 @@ class Base:
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
-        if not all([fractions[0].is_compatible_to(frac) for frac in fractions]):
+        base_space = fractions[0].function_space_hint()
+        if not all([frac.function_space_hint() == base_space
+                    for frac in fractions]):
             raise ValueError("Provided fractions must be compatible!")
 
         self.fractions = fractions
@@ -1218,16 +1220,22 @@ def vectorize_scalar_product(first, second, scalar_product):
     first = np.atleast_1d(first)
     second = np.atleast_1d(second)
 
+    try:
+        iter(scalar_product)
+    except TypeError:
+        scalar_product = (scalar_product, )
+
     if len(first) != len(second):
         raise ValueError("Provided function vectors must be of same length.")
 
     # calculate output size and allocate output
-    out = np.ones(first.shape, dtype=complex) * np.nan
+    out = np.zeros(first.shape, dtype=complex)
 
     # TODO propagate vectorization into _dot_product_l2 to save this loop
     # loop over entries
     for idx, (f, s) in enumerate(zip(first, second)):
-        out[idx] = scalar_product(f, s)
+        for m_idx, scal_prod in enumerate(scalar_product):
+            out[idx] += scal_prod(f.get_member(m_idx), s.get_member(m_idx))
 
     return np.real_if_close(out)
 
@@ -1245,10 +1253,12 @@ def calculate_scalar_matrix(values_a, values_b):
         numpy.ndarray: Matrix containing the pairwise products of the elements from *values_a* and *values_b*.
     """
     return calculate_scalar_product_matrix(sanitize_input(values_a, Number),
-                                           sanitize_input(values_b, Number))
+                                           sanitize_input(values_b, Number),
+                                           np.multiply)
 
 
-def calculate_scalar_product_matrix(base_a, base_b, optimize=True):
+def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
+                                    optimize=True):
     r"""
     Calculates a matrix :math:`A` , whose elements are the scalar products of
     each element from *base_a* and *base_b*, so that
@@ -1257,6 +1267,9 @@ def calculate_scalar_product_matrix(base_a, base_b, optimize=True):
     Args:
         base_a (:py:class:`.Base`): Basis a
         base_b (:py:class:`.Base`): Basis b
+        scalar_product: (List of) function objects that are passed the members
+            of the given bases as pairs. Defaults to the scalar product given by
+            `base_a`
         optimize (bool): Switch to turn on the symmetry based speed up.
             For development purposes only.
 
@@ -1266,12 +1279,13 @@ def calculate_scalar_product_matrix(base_a, base_b, optimize=True):
     if not base_a.is_compatible_to(base_b):
         raise TypeError("Bases must be from the same type.")
 
+    if scalar_product is None:
+        scalar_product = base_a.scalar_product_hint()
+
     fractions_a = base_a.fractions
     fractions_b = base_b.fractions
 
-    # TODO take care of direct sum here
-    scalar_product = base_a.scalar_product_hint()
-    if optimize and base_a == base_b and scalar_product == dot_product_l2:
+    if optimize and base_a == base_b:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
         output = np.zeros((dim, dim), dtype=np.complex)
@@ -1611,7 +1625,7 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base, src_order,
     return complete_transformation
 
 
-def calculate_base_transformation_matrix(src_base, dst_base):
+def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None):
     """
     Calculates the transformation matrix :math:`V` , so that the a
     set of weights, describing a function in the
@@ -1639,9 +1653,9 @@ def calculate_base_transformation_matrix(src_base, dst_base):
         raise TypeError("Source and destination base must be from the same "
                         "type.")
 
-    p_mat = calculate_scalar_product_matrix(dst_base, src_base)
+    p_mat = calculate_scalar_product_matrix(dst_base, src_base, scalar_product)
 
-    q_mat = calculate_scalar_product_matrix(dst_base, dst_base)
+    q_mat = calculate_scalar_product_matrix(dst_base, dst_base, scalar_product)
 
     # compute V matrix, where V = inv(Q)*P
     v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
@@ -1697,7 +1711,7 @@ def normalize_base(b1, b2=None):
         return b1_scaled, b2_scaled
 
 
-def generic_scalar_product(b1, b2=None):
+def generic_scalar_product(b1, b2=None, scalar_product=None):
     """
     Calculates the pairwise scalar product between the elements
     of the :py:class:`.Base` *b1* and *b2*.
@@ -1706,6 +1720,8 @@ def generic_scalar_product(b1, b2=None):
         b1 (:py:class:`.Base`): first basis
         b2 (:py:class:`.Base`): second basis, if omitted
             defaults to *b1*
+        scalar_product (list of callable): Callbacks for product calculation.
+            Defaults to `scalar_product_hint` from `b1`.
 
     Note:
         If *b2* is omitted, the result can be used to normalize
@@ -1717,9 +1733,10 @@ def generic_scalar_product(b1, b2=None):
     if type(b1) != type(b2):
         raise TypeError("only arguments of same type allowed.")
 
-    scalar_product = b1.scalar_product_hint()
+    if scalar_product is None:
+        scalar_product = b1.scalar_product_hint()
 
-    res = vectorize_scalar_product(b1, b2, scalar_product)
+    res = vectorize_scalar_product(b1, b2, scalar_product).squeeze()
 
     return np.real_if_close(res)
 

@@ -338,14 +338,18 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         sp = v1.scalar_product_hint()
 
         # test commutativity
-        self.assertAlmostEqual(sp(v1, v2), sp(v2, v1))
+        p1 = core.generic_scalar_product(v1, v2)
+        p2 = core.generic_scalar_product(v2, v1)
+        self.assertAlmostEqual(p1, p2)
 
         # TODO test distributivity
 
         # TODO test bilinearity
 
         # test scalar multiplication
-        self.assertAlmostEqual(sp(v1.scale(5), v2.scale(3)), 5*3*sp(v1, v2))
+        first = core.generic_scalar_product(v1.scale(5), v2.scale(3))
+        second = 5 * 3 * core.generic_scalar_product(v1, v2)
+        self.assertAlmostEqual(first, second)
 
         # scalar products of equal bases should be equal
         self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
@@ -354,7 +358,7 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
         self.assertEqual(v1.function_space_hint(),
                          [f.function_space_hint() for f in self.functions]
-                         [core.dot_product()]
+                         + [core.dot_product for s in self.scalars]
                         )
         # v2 = pi.ComposedFunctionVector(self.functions[], self.scalars)
         # g = pi.Function(lambda x: 2, domain=(0, 10))
@@ -373,7 +377,10 @@ def check_compatibility_and_scalar_product(b1, b2):
         raise ValueError("Compatibility should not depend on the order")
 
     if compat1 and compat2:
-        res = pi.calculate_scalar_product_matrix(b1, b2)
+        res = pi.calculate_scalar_product_matrix(b1, b2,
+                                                 b1.scalar_product_hint())
+        res = pi.calculate_scalar_product_matrix(b1, b2,
+                                                 b2.scalar_product_hint())
         return True
 
     return False
