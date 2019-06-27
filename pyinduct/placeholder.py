@@ -261,13 +261,13 @@ class ObserverGain(Placeholder):
 
 class TestFunction(SpatialPlaceholder):
     """
-    Class that works as a placeholder for test-functions in an equation.
+    Class that works as a placeholder for test functions in an equation.
 
     Args:
-        function_label (str):
-        order (int):
-        location:
-        approx_label (str):
+        function_label (str): Label of the function test base.
+        order (int): Spatial derivative order.
+        location (Number): Point of evaluation / argument of the function.
+        approx_label (str): Label of the approximation test base.
     """
 
     def __init__(self, function_label, order=0, location=None,

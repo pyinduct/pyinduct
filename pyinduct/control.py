@@ -62,6 +62,12 @@ class ObserverFeedback:
     Wrapper class for all observer gains that have to interact with the
     simulation environment.
 
+    Note:
+        For observer gains (``observer_gain``) which are constructed
+        from different test function bases, dont forget to specify
+        these bases by the :py:class:`.TestFunction`
+        initialization with the keyword argument ``approx_lbl``.
+
     Args:
         observer_gain (:py:class:`.WeakFormulation`): Observer gain projected
             on a set of test functions.
