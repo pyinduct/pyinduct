@@ -914,7 +914,7 @@ class TransformationTestCase(unittest.TestCase):
 
         info1 = OrderedDict(
             fem1={"base": self.base1, "sys_name": "sys1", "order": 0},
-            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 2},
+            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 1},
         )
         self.stacked_base1 = core.StackedBase(info1)
         pi.register_base("stacked1", self.stacked_base1)
@@ -975,18 +975,37 @@ class TransformationTestCase(unittest.TestCase):
         self.assertEqual(length2, len(trafo(np.ones(length1))))
 
     def test_stacked_base_transform(self):
-        length1 = len(pi.get_base("stacked1"))
-        length2 = len(pi.get_base("fem1"))
-
-        # targeted base not included in stacked base
-        info = core.get_transformation_info("stacked1", "fem2",  0, 0)
-        with self.assertRaises(TypeError):
-            trafo = core.get_weight_transformation(info)
+        len_b1 = len(pi.get_base("fem1"))
+        len_c1 = len(pi.get_base("comp1"))
+        len_c2 = len(pi.get_base("comp2"))
+        input_weights = np.concatenate((
+            np.ones(len_b1),  # base_1
+            2 * np.ones(len_c1),  # comp1
+            3 * np.ones(len_c1),  # comp1_dt
+        ))
 
         # targeted base is included in stacked base
         info = core.get_transformation_info("stacked1", "fem1",  0, 0)
         trafo = core.get_weight_transformation(info)
-        self.assertEqual(length2, len(trafo(np.ones(length1))))
+        output = trafo(input_weights)
+        np.testing.assert_array_equal(output, np.ones(len_b1))
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("stacked1", "comp1",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_array_equal(output, 2 * np.ones(len_c1))
+
+        # targeted base not included in stacked base
+        info = core.get_transformation_info("stacked1", "fem2",  0, 0)
+        with self.assertRaises(TypeError):
+            core.get_weight_transformation(info)
+
+        # targeted base has matching base in the stacked base
+        info = core.get_transformation_info("stacked1", "comp2",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_array_almost_equal(output, 2 * np.ones(len_c2))
 
     def tearDown(self):
         clear_registry()
