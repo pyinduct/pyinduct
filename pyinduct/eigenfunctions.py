@@ -697,6 +697,10 @@ class SecondOrderEigenfunction(ShapeFunction, metaclass=ABCMeta):
         """
         a2, a1, a0, alpha, beta = param
 
+        if np.isclose(a1, 0):
+            # associated operator is self-adjoint
+            return param
+
         if alpha is None:
             alpha_n = None
         else:

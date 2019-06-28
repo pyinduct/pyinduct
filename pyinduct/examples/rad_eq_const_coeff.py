@@ -41,80 +41,85 @@ References:
           International Conference on Decision and Control (CDC), Miami,
           Florida, USA, December 17-19, 2018.
 """
+import numpy as np
+import matplotlib.pyplot as plt
+
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
+from pyinduct.simulation import get_sim_result
 from pyinduct.tests import test_examples
 
-if __name__ == "__main__" or test_examples:
-    import numpy as np
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
-    from pyinduct.simulation import get_sim_result
+
+def approximate_observer(obs_params, sys_params, sys_domain, sys_lbl,
+                         obs_sys_lbl, test_lbl, tar_test_lbl, system_input):
+    a2, a1_t, a0_t, alpha_t, beta_t = obs_params
+    a2, a1, a0, alpha, beta = sys_params
+    bounds = sys_domain.bounds
+
+    int_kernel_00 = beta_t - beta - (a0_t - a0) / 2 / a2 * bounds[1]
+    l0 = alpha_t - alpha + int_kernel_00
+
+    x_sys = pi.FieldVariable(sys_lbl)
+    x_obs = pi.FieldVariable(obs_sys_lbl)
+    psi_fem = pi.TestFunction(obs_sys_lbl)
+    psi_eig = pi.TestFunction(test_lbl)
+    psi_eig_t = pi.TestFunction(tar_test_lbl, approx_label=test_lbl)
+
+    obs_rad_pde, obs_base_labels = parabolic.get_parabolic_robin_weak_form(
+        obs_sys_lbl,
+        obs_sys_lbl,
+        system_input,
+        sys_params,
+        bounds)
+    obs_error = pi.StateFeedback(pi.WeakFormulation(
+        [pi.ScalarTerm(x_obs(0), scale=-1), pi.ScalarTerm(x_sys(0))],
+        name="observer_error"))
+    gain_handle = pi.ObserverFeedback(
+        pi.WeakFormulation(
+            [pi.ScalarTerm(psi_fem(0), scale=a2 * l0),
+             pi.ScalarTerm(psi_eig_t(0), scale=a2 * alpha_t),
+             pi.ScalarTerm(psi_eig(0), scale=-a2 * alpha_t),
+             pi.ScalarTerm(psi_eig_t(0).derive(order=1), scale=-a2),
+             pi.ScalarTerm(psi_eig(0).derive(order=1), scale=a2),
+             pi.ScalarTerm(psi_eig(0), scale=-a2 * int_kernel_00)],
+            name="observer_gain"),
+        obs_error)
+
+    obs_rad_pde.terms = np.hstack((
+        obs_rad_pde.terms, pi.ScalarTerm(pi.ObserverGain(gain_handle))
+    ))
+
+    return obs_rad_pde, obs_base_labels
 
 
-    def approximate_observer(sys_lbl, obs_sys_lbl, test_lbl, tar_test_lbl, system_input):
-        a1_t, a0_t, alpha_t, beta_t = a1_t_o, a0_t_o, alpha_t_o, beta_t_o
-        int_kernel_00 = beta_t - beta - (a0_t - a0) / 2 / a2 * l
-        l0 = alpha_t - alpha + int_kernel_00
+class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
+    def __init__(self, om, param, l, scale=1, max_der_order=2):
+        a2, a1, a0, alpha, beta = param
+        _param = a2, -a1, a0, beta, alpha
+        pi.SecondOrderRobinEigenfunction.__init__(self, om, _param, l,
+                                                  scale, max_der_order)
 
-        x_sys = pi.FieldVariable(sys_lbl)
-        x_obs = pi.FieldVariable(obs_sys_lbl)
-        psi_fem = pi.TestFunction(obs_sys_lbl)
-        psi_eig = pi.TestFunction(test_lbl)
-        psi_eig_t = pi.TestFunction(tar_test_lbl, approx_label=test_lbl)
+        self.function_handle = self.function_handle_factory(
+            self.function_handle, l)
+        self.derivative_handles = [
+            self.function_handle_factory(handle, l, ord + 1) for
+            ord, handle in enumerate(self.derivative_handles)]
 
-        obs_rad_pde, obs_base_labels = parabolic.get_parabolic_robin_weak_form(
-            obs_sys_lbl,
-            obs_sys_lbl,
-            system_input,
-            param,
-            spatial_domain.bounds)
-        obs_error = pi.StateFeedback(pi.WeakFormulation(
-            [pi.ScalarTerm(x_obs(0), scale=-1), pi.ScalarTerm(x_sys(0))],
-            name="observer_error"))
-        gain_handle = pi.ObserverFeedback(
-            pi.WeakFormulation(
-                [pi.ScalarTerm(psi_fem(0), scale=a2 * l0),
-                 pi.ScalarTerm(psi_eig_t(0), scale=a2 * alpha_t),
-                 pi.ScalarTerm(psi_eig(0), scale=-a2 * alpha_t),
-                 pi.ScalarTerm(psi_eig_t(0).derive(order=1), scale=-a2),
-                 pi.ScalarTerm(psi_eig(0).derive(order=1), scale=a2),
-                 pi.ScalarTerm(psi_eig(0), scale=-a2 * int_kernel_00)],
-                name="observer_gain"),
-            obs_error)
+    def function_handle_factory(self, old_handle, l, der_order=0):
+        def new_handle(z):
+            return old_handle(l - z) * (-1) ** der_order
 
-        obs_rad_pde.terms = np.hstack((
-            obs_rad_pde.terms, pi.ScalarTerm(pi.ObserverGain(gain_handle))
-        ))
+        return new_handle
 
-        return obs_rad_pde, obs_base_labels
+    @staticmethod
+    def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
+        a2, a1, a0, alpha, beta = param
+        _param = a2, -a1, a0, beta, alpha
+        return pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
+            _param, l, n_roots, show_plot=show_plot)
 
 
-    class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
-        def __init__(self, om, param, l, scale=1, max_der_order=2):
-            a2, a1, a0, alpha, beta = param
-            _param = a2, -a1, a0, beta, alpha
-            pi.SecondOrderRobinEigenfunction.__init__(self, om, _param, l,
-                                                      scale, max_der_order)
-
-            self.function_handle = self.function_handle_factory(
-                self.function_handle, l)
-            self.derivative_handles = [
-                self.function_handle_factory(handle, l, ord + 1) for
-                ord, handle in enumerate(self.derivative_handles)]
-
-        def function_handle_factory(self, old_handle, l, der_order=0):
-            def new_handle(z):
-                return old_handle(l - z) * (-1) ** der_order
-
-            return new_handle
-
-        @staticmethod
-        def eigfreq_eigval_hint(param, l, n_roots, show_plot=False):
-            a2, a1, a0, alpha, beta = param
-            _param = a2, -a1, a0, beta, alpha
-            return pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
-                _param, l, n_roots, show_plot=show_plot)
-
-
+def main():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -122,49 +127,51 @@ if __name__ == "__main__" or test_examples:
     n_fem = 20
 
     # system/simulation parameters
-    l = 1
-    T = 1
+    z_end = 1
+    spatial_domain = pi.Domain(bounds=(0, z_end), num=n_fem)
+    trans_time = 1
+    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
     actuation_type = 'robin'
     bound_cond_type = 'robin'
-    spatial_domain = pi.Domain(bounds=(0, l), num=n_fem)
-    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
     n = n_modal
 
     # original system parameter
     a2 = 1
     a1 = 0
-    assert a1 == 0
     a0 = 6
     alpha = -1
     beta = -1
-    param = [a2, a1, a0, alpha, beta]
+    param = (a2, a1, a0, alpha, beta)
     param_a = pi.SecondOrderEigenfunction.get_adjoint_problem(param)
+
+    # the given approach only works for self-adjoint problems
+    assert param == param_a
 
     # controller target system parameters (controller parameters)
     a1_t_c = 0
     a0_t_c = -8
     alpha_t_c = 2
     beta_t_c = 2
-    # a1_t = a1 a0_t = a0 alpha_t = alpha beta_t = beta
-    param_t_c = [a2, a1_t_c, a0_t_c, alpha_t_c, beta_t_c]
+    param_t_c = (a2, a1_t_c, a0_t_c, alpha_t_c, beta_t_c)
 
     # observer target system parameters (controller parameters)
     a1_t_o = 0
-    assert a1_t_o == 0
     a0_t_o = -16
     alpha_t_o = 3
     beta_t_o = 3
-    # a1_t = a1 a0_t = a0 alpha_t = alpha beta_t = beta
-    param_t_o = [a2, a1_t_o, a0_t_o, alpha_t_o, beta_t_o]
+    param_t_o = (a2, a1_t_o, a0_t_o, alpha_t_o, beta_t_o)
     param_a_t_o = pi.SecondOrderEigenfunction.get_adjoint_problem(param_t_o)
+
+    # the given approach only works for self-adjoint problems
+    assert param_t_o == param_a_t_o
 
     # original intermediate ("_i") and
     # target intermediate ("_ti") system parameters
     _, _, a0_i, alpha_i, beta_i = parabolic.eliminate_advection_term(
-        param, l)
+        param, z_end)
     param_i = a2, 0, a0_i, alpha_i, beta_i
     _, _, a0_ti, alpha_ti, beta_ti = parabolic.eliminate_advection_term(
-        param_t_c, l)
+        param_t_c, z_end)
     param_ti = a2, 0, a0_ti, alpha_ti, beta_ti
 
     # create eigenfunctions (arbitrary f(0))
@@ -172,7 +179,7 @@ if __name__ == "__main__" or test_examples:
         spatial_domain, param, n=n)
 
     # create adjoint eigenfunctions ("_a") (arbitrary f(l))
-    scale_a = [func(l) for func in eig_funcs_init]
+    scale_a = [func(z_end) for func in eig_funcs_init]
     _, eig_funcs_a_init = ReversedRobinEigenfunction.cure_interval(
         spatial_domain, param_a, eig_val=eig_val, scale=scale_a)
 
@@ -185,7 +192,7 @@ if __name__ == "__main__" or test_examples:
         spatial_domain, param_t_c, eig_val=eig_val, scale=scale_t)
 
     # adjoint eigenfunctions from observer target system ("_a_t") (arbitrary f(l))
-    scale_a_t = [func(l) for func in eig_funcs_a]
+    scale_a_t = [func(z_end) for func in eig_funcs_a]
     _, eig_funcs_a_t = ReversedRobinEigenfunction.cure_interval(
         spatial_domain, param_a_t_o, eig_val=eig_val, scale=scale_a_t)
 
@@ -212,18 +219,18 @@ if __name__ == "__main__" or test_examples:
     pi.register_base(obs_target_lbl, eig_funcs_a_t)
 
     # original () and target (_t) field variable
-    fem_field_variable = pi.FieldVariable(sys_lbl, location=l)
-    field_variable = pi.FieldVariable(ctrl_lbl, location=l)
-    field_variable_t = pi.FieldVariable(ctrl_target_lbl, location=l,
+    fem_field_variable = pi.FieldVariable(sys_lbl, location=z_end)
+    field_variable = pi.FieldVariable(ctrl_lbl, location=z_end)
+    field_variable_t = pi.FieldVariable(ctrl_target_lbl, location=z_end,
                                         weight_label=ctrl_lbl)
 
     # intermediate (_i) transformation at z=l
     # x_i  = x   * transform_i
-    transform_i_l = np.exp(a1 / 2 / a2 * l)
+    transform_i_l = np.exp(a1 / 2 / a2 * z_end)
 
     # target intermediate (_ti) transformation at z=l
     # x_ti = x_t * transform_ti
-    transform_ti_l = np.exp(a1_t_c / 2 / a2 * l)
+    transform_ti_l = np.exp(a1_t_c / 2 / a2 * z_end)
 
     # intermediate (_i) and target intermediate (_ti) field variable
     # (list of scalar terms = sum of scalar terms)
@@ -239,12 +246,12 @@ if __name__ == "__main__" or test_examples:
                                 transform_ti_l * a1_t_c / 2 / a2)]
 
     # discontinuous operator (Kx)(t) = int_kernel_zz(l)*x(l,t)
-    int_kernel_ll = alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * l
-    scale_factor = np.exp(-a1 / 2 / a2 * l)
+    int_kernel_ll = alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z_end
+    scale_factor = np.exp(-a1 / 2 / a2 * z_end)
 
     # trajectory initialization
     trajectory = parabolic.RadFeedForward(
-        l, T, param_ti, bound_cond_type, actuation_type,
+        z_end, trans_time, param_ti, bound_cond_type, actuation_type,
         length_t=len(temporal_domain), scale=scale_factor)
 
     # controller initialization
@@ -266,8 +273,14 @@ if __name__ == "__main__" or test_examples:
         spatial_domain.bounds)
 
     # observer
-    obs_rad_pde, obs_base_labels = approximate_observer(
-        sys_lbl, obs_sys_lbl, obs_lbl, obs_target_lbl, system_input)
+    obs_rad_pde, obs_base_labels = approximate_observer(param_t_o,
+                                                        param,
+                                                        spatial_domain,
+                                                        sys_lbl,
+                                                        obs_sys_lbl,
+                                                        obs_lbl,
+                                                        obs_target_lbl,
+                                                        system_input)
 
     # desired observer error system
     obs_err_rad_pde, tar_obs_base_labels = parabolic.get_parabolic_robin_weak_form(
@@ -276,7 +289,6 @@ if __name__ == "__main__" or test_examples:
         pi.ConstantTrajectory(0),
         param_t_c,
         spatial_domain.bounds)
-
 
     # initial states/conditions
     def sys_ic(z): return .0
@@ -295,7 +307,7 @@ if __name__ == "__main__" or test_examples:
         spatial_domains)
 
     # evaluate desired output data
-    y_d, t_d = pi.gevrey_tanh(T, 40, length_t=len(temporal_domain))
+    y_d, t_d = pi.gevrey_tanh(trans_time, 40, length_t=len(temporal_domain))
     C = pi.coefficient_recursion(y_d, alpha * y_d, param)
     x_l = pi.power_series(np.array(spatial_domain), t_d, C)
     evald_traj = pi.EvalData([t_d, np.array(spatial_domain)], x_l,
@@ -309,7 +321,6 @@ if __name__ == "__main__" or test_examples:
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
                                  legend_label=["$x(0,t)$",
                                                "$\hat x(0,t)$"]))
-    import matplotlib.pyplot as plt
     plt.legend(loc=4)
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=1,
                                  legend_label=["$x(1,t)$",
@@ -321,5 +332,9 @@ if __name__ == "__main__" or test_examples:
                   obs_lbl, obs_target_lbl) + \
                  base_labels + obs_base_labels + tar_obs_base_labels,
                  plots)
+
+
+if __name__ == "__main__" or test_examples:
+    main()
 
 
