@@ -22,11 +22,11 @@ class ControllerObserverTestCase(unittest.TestCase):
         self.x = pi.FieldVariable(self.weight_label)
         self.psi = pi.TestFunction(self.weight_label)
         self.exp = pi.ScalarFunction(self.func_label)
-        self.out_err = pi.Controller(pi.WeakFormulation(
+        self.out_err = pi.StateFeedback(pi.WeakFormulation(
             [pi.ScalarTerm(self.x(0))], name="observer_error"))
 
     def _build_ctrl(self, term):
-        ctrl = pi.Controller(pi.WeakFormulation([term], name="test_ctrl"))
+        ctrl = pi.StateFeedback(pi.WeakFormulation([term], name="test_ctrl"))
 
         return ctrl._calc_output(weights=self.weights,
                                  weight_lbl=self.weight_label)["output"]

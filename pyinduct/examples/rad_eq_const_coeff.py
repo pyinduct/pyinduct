@@ -31,7 +31,7 @@ operator, see [RW2018]_.
 Note:
     For now, only :code:`a0 = 0` and :code:`a0_t_o = 0` are supported, because
     of some limitations of the automatic observer gain transformation,
-    see :py:func:`.evaluate_trafos` docstring.
+    see :py:func:`.evaluate_transformations` docstring.
 
 References:
 
@@ -67,10 +67,10 @@ if __name__ == "__main__" or test_examples:
             system_input,
             param,
             spatial_domain.bounds)
-        obs_error = pi.Controller(pi.WeakFormulation(
+        obs_error = pi.StateFeedback(pi.WeakFormulation(
             [pi.ScalarTerm(x_obs(0), scale=-1), pi.ScalarTerm(x_sys(0))],
             name="observer_error"))
-        observer_gain = pi.ObserverFeedback(
+        gain_handle = pi.ObserverFeedback(
             pi.WeakFormulation(
                 [pi.ScalarTerm(psi_fem(0), scale=a2 * l0),
                  pi.ScalarTerm(psi_eig_t(0), scale=a2 * alpha_t),
@@ -82,7 +82,7 @@ if __name__ == "__main__" or test_examples:
             obs_error)
 
         obs_rad_pde.terms = np.hstack((
-            obs_rad_pde.terms, pi.ScalarTerm(pi.ObserverGain(observer_gain))
+            obs_rad_pde.terms, pi.ScalarTerm(pi.ObserverGain(gain_handle))
         ))
 
         return obs_rad_pde, obs_base_labels

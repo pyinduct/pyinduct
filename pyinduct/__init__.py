@@ -18,7 +18,7 @@ np.seterr(all="raise")
 # noinspection PyUnresolvedReferences
 from .core import *
 # noinspection PyUnresolvedReferences
-from .control import *
+from .feedback import *
 # noinspection PyUnresolvedReferences
 from .eigenfunctions import *
 # noinspection PyUnresolvedReferences
