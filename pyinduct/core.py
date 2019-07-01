@@ -433,7 +433,7 @@ class Function(BaseFraction):
             which characterize your specific function space. For
             example the domain of the functions.
         """
-        return dot_product_l2, self.domain
+        return self.scalar_product_hint(), self.domain
 
     @staticmethod
     def from_constant(constant, **kwargs):
