@@ -76,19 +76,6 @@ class BaseFraction:
         """
         pass
 
-    # def is_compatible_to(self, other):
-    #     """
-    #     Returns True if :code:`other` and code:`self` are elements of
-    #     the same function space.
-    #
-    #     Args:
-    #         other: An instance of :py:class:`BaseFraction`.
-    #
-    #     Returns:
-    #         bool: True if compatible.
-    #     """
-    #     return self.members == other.members
-
     def derive(self, order):
         """
         Basic implementation of derive function.
@@ -434,15 +421,6 @@ class Function(BaseFraction):
         """
         return dot_product_l2
 
-    # def is_compatible_to(self, other):
-    #     if not isinstance(other, Function):
-    #         return super().is_compatible_to(other)
-    #
-    #     if self.domain != other.domain:
-    #         return False
-    #
-    #     return True
-
     def function_space_hint(self):
         """
         Return the hint that this function is an element of the
@@ -455,7 +433,6 @@ class Function(BaseFraction):
             which characterize your specific function space. For
             example the domain of the functions.
         """
-        # return "H{}".format(len(self.derivative_handles)), self.domain
         return dot_product_l2, self.domain
 
     @staticmethod
@@ -556,13 +533,6 @@ class ComposedFunctionVector(BaseFraction):
             * the scalar product :py:meth:`.scalar_product`
             * :code:`len(self.members["funcs"])` functions
             * and :code:`len(self.members["scalars"])` scalars.
-
-        Note:
-            If you are working on function spaces which have the
-            same number of functions and scalars but differ from each
-            other (e.g. the domains differ), you have to overwrite this
-            hint in order to provide more properties which characterize
-            your specific function space.
         """
         func_hints = [f.function_space_hint() for f in self.members["funcs"]]
         scalar_hints = [dot_product for s in self.members["scalars"]]
