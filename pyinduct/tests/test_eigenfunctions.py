@@ -298,9 +298,7 @@ class TestSecondOrderEigenVector(unittest.TestCase):
             np.testing.assert_array_almost_equal(bc2, 0, decimal=5)
 
         # check if they are orthonormal
-        product_mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                         eig_base,
-                                                         eig_base)
+        product_mat = pi.calculate_scalar_product_matrix(eig_base, eig_base)
         np.testing.assert_array_almost_equal(product_mat,
                                              np.eye(self.cnt))
 

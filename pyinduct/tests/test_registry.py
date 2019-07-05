@@ -36,6 +36,9 @@ class RegistryTests(unittest.TestCase):
         # label is not a string
         self.assertRaises(TypeError, rg.register_base, 1, self.base)
 
+        # label must not be empty
+        self.assertRaises(ValueError, rg.register_base, "", self.base)
+
         # this should be fine
         rg.register_base("test_base", self.base)
 

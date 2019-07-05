@@ -781,8 +781,9 @@ class StringMassTest(unittest.TestCase):
     def setUp(self):
         z_start = 0
         z_end = 1
+        z_bounds = (z_start, z_end)
         z_step = 0.1
-        self.dz = pi.Domain(bounds=(z_start, z_end), num=9)
+        self.dz = pi.Domain(bounds=z_bounds, num=9)
 
         t_start = 0
         t_end = 10
@@ -814,8 +815,8 @@ class StringMassTest(unittest.TestCase):
 
         # initial conditions
         self.ic = np.array([
-            pi.Function(lambda z: x(z, 0)),  # x(z, 0)
-            pi.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
+            pi.Function(lambda z: x(z, 0), domain=z_bounds),  # x(z, 0)
+            pi.Function(lambda z: x_dt(z, 0), domain=z_bounds),  # dx_dt(z, 0)
         ])
 
     def test_fem(self):
@@ -1108,11 +1109,15 @@ class MultiplePDETest(unittest.TestCase):
             return 0
 
         # initial conditions
-        fx = pi.Function(lambda z: x(z, 0))
-        self.ic1 = np.array([fx])
-        self.ic2 = np.array([fx])
-        self.ic3 = np.array([fx])
-        self.ic4 = np.array([fx, fx])
+        self.ic1 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz1.bounds)])
+        self.ic2 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz2.bounds)])
+        self.ic3 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz3.bounds)])
+        self.ic4 = np.array([
+            pi.Function(lambda z: x(z, 0), domain=self.dz4.bounds),
+            pi.Function(lambda z: x(z, 0), domain=self.dz4.bounds)])
 
         # weak formulations
         nodes1 = pi.Domain(self.dz1.bounds, num=3)

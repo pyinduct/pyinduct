@@ -60,7 +60,7 @@ if __name__ == "__main__" or test_examples:
                                name="backstepping_controller"))
 
     # derive initial field variable x(z,0) and weights
-    start_state = pi.Function(lambda z: init_profile)
+    start_state = pi.Function(lambda z: init_profile, domain=spatial_domain.bounds)
     initial_weights = pi.project_on_base(start_state, eig_funcs)
 
     # init trajectory
