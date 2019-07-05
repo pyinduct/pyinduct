@@ -832,8 +832,13 @@ class StackedBase:
     systems are joined to create a unified system.
 
     Args:
-        base_info (OrderedDict): Dictionary with base_labels and corresponding
-            information about the bases.
+        base_info (OrderedDict): Dictionary with `base_label` as keys and
+            dictionaries holding information about the bases as values.
+            In detail, these Information must contain:
+
+                - sys_name (str): Name of the system the base is associated with.
+                - order (int): Highest temporal derivative order with which the base shall be represented in the stacked base.
+                - base (:py:class:`.Base`): The actual basis.
     """
 
     def __init__(self, base_info):
