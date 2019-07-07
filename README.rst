@@ -17,7 +17,7 @@ PyInduct
 
 This project provides a python toolbox for simulation and control design of infinite dimensional systems.
 
-* Free software: GPL v3.0
+* Free software: BSD 3-Clause License
 * Documentation: https://pyinduct.readthedocs.org.
 
 Features
