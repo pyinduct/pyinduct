@@ -17,7 +17,7 @@ from scipy.linalg import block_diag
 from .core import (Domain, Parameters, Function,
                    domain_intersection, integrate_function,
                    calculate_scalar_product_matrix,
-                   dot_product_l2, sanitize_input,
+                   vectorize_scalar_product, sanitize_input,
                    StackedBase, get_weight_transformation,
                    get_transformation_info,
                    EvalData, project_on_bases)
@@ -425,19 +425,16 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
     """
     ss_base = get_base(state_space.base_lbl)
     if names is None:
-        # TODO: implement getter method in StackedBase or change function interface
         if isinstance(ss_base, StackedBase):
-            labels = [lbl for lbl in ss_base._info.keys()]
-            names = [ss_base._info[lbl]["sys_name"] for lbl in labels]
+            labels = ss_base.base_lbls
+            names = ss_base.system_names
         else:
             names = list(spat_domains)
             labels = [state_space.base_lbl]
     else:
         if isinstance(ss_base, StackedBase):
-            labels = list()
-            for nm in names:
-                labels = [key for key, val in ss_base._info.items()
-                          if val["sys_name"] is nm]
+            labels = [ss_base.base_lbls[ss_base.system_names.index(name)]
+                      for name in names]
         else:
             labels = [state_space.base_lbl]
 
@@ -454,9 +451,10 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
             derivative_orders[nm][1] = 0
 
         # acquire a transformation into the original weights
+        src_order = int(weights.shape[1] / ss_base.fractions.size) - 1
         info = get_transformation_info(state_space.base_lbl,
                                        lbl,
-                                       int(weights.shape[1] / ss_base.fractions.size) - 1,
+                                       src_order,
                                        derivative_orders[nm][0])
         transformation = get_weight_transformation(info)
 
@@ -975,10 +973,12 @@ def create_state_space(canonical_equations):
     if len(canonical_equations) == 1:
         new_name = next(iter(canonical_equations)).dominant_lbl
     else:
-        members = state_space_props.parts.keys()
-        new_name = "_".join(members)
-        fracs = [frac for lbl in members for frac in get_base(lbl).fractions]
-        new_base = StackedBase(fracs, state_space_props.parts)
+        base_info = copy(state_space_props.parts)
+        base_lbls = state_space_props.parts.keys()
+        for lbl in base_lbls:
+            base_info[lbl].update({"base": get_base(lbl)})
+        new_base = StackedBase(base_info)
+        new_name = "_".join(base_lbls)
         register_base(new_name, new_base)
 
     # build new state transition matrices A_p_k for corresponding powers p_k of the state vector
@@ -1138,9 +1138,7 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                     raise NotImplementedError
                 func = placeholders["functions"][0]
                 fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(dot_product_l2,
-                                                         fractions,
-                                                         shape_funcs)
+                result = calculate_scalar_product_matrix(fractions, shape_funcs)
             else:
                 # extract constant term and compute integral
                 components = []

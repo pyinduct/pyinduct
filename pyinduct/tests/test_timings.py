@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 import pyinduct as pi
 
-from .test_core import CalculateScalarProductMatrixTestCase
+from pyinduct.tests.test_core import CalculateScalarProductMatrixTestCase
 
 
 def simulation_benchmark(spat_domain, settings):
@@ -94,7 +94,7 @@ def product_benchmark(base):
         return np.sin(2 * z) + np.exp(z)
 
     _t = time.clock()
-    res = pi.calculate_scalar_product_matrix(pi.dot_product_l2, base, base)
+    res = pi.calculate_scalar_product_matrix(base, base)
     _t_mat = time.clock() - _t
 
     _t = time.clock()

@@ -238,10 +238,10 @@ def evaluate_transformations(ce, weight_label, vect_shape, is_observer=False):
             if is_observer:
                 # map the available projections to the origin weights
                 org_weights_trafo = calculate_scalar_product_matrix(
-                    org_base.scalar_product_hint()[0], org_base, org_base)
+                    org_base, org_base)
                 # map the desired projections to the target weights
                 tar_weights_trafo = calculate_scalar_product_matrix(
-                    tar_base.scalar_product_hint()[0], tar_base, tar_base)
+                    tar_base, tar_base)
                 # map the available projections to the target projections
                 gain += tar_weights_trafo @ transformation(
                     np.linalg.inv(org_weights_trafo) @ vectors[1])

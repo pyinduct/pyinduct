@@ -1,4 +1,5 @@
 import collections
+from collections import OrderedDict
 import time
 import unittest
 import warnings
@@ -9,6 +10,7 @@ import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
 from pyinduct.tests import show_plots
+from pyinduct.registry import clear_registry
 import pyqtgraph as pg
 
 
@@ -74,6 +76,48 @@ class FunctionTestCase(unittest.TestCase):
             return np.array([x, x])
 
         self.assertRaises(TypeError, pi.Function, wrong_handle)
+
+    def test_function_space_hint(self):
+        f1 = pi.Function(lambda x: 2, domain=(0, 10))
+        self.assertEqual(f1.function_space_hint(),
+                         (core.dot_product_l2, {(0, 10)}))
+
+        f2 = pi.Function(lambda x: 2 * x, domain=(0, 5))
+        self.assertEqual(f2.function_space_hint(),
+                         (core.dot_product_l2, {(0, 5)}))
+
+        # Function from H2
+        f3 = pi.Function(lambda x: x ** 2,
+                         derivative_handles=[lambda x: 2 * x, lambda x: 2],
+                         domain=(0, 3))
+        self.assertEqual(f3.function_space_hint(),
+                         (core.dot_product_l2, {(0, 3)}))
+
+        # Function from H1
+        f4 = pi.Function(lambda x: 2 * x,
+                         derivative_handles=[lambda x: 2],
+                         domain=(0, 3))
+        self.assertEqual(f4.function_space_hint(),
+                         (core.dot_product_l2, {(0, 3)}))
+
+    def test_from_scalar(self):
+        ord_func = pi.Function(lambda x: 1)
+        func = pi.Function.from_constant(1)
+
+        # standard values should be used
+        self.assertEqual(ord_func.domain, func.domain)
+        self.assertEqual(ord_func.nonzero, func.nonzero)
+
+        # specific parameters should be passed on
+        func = pi.Function.from_constant(1, domain=(3, 19), nonzero=(6, 7))
+        self.assertEqual(func.domain, {(3, 19)})
+        self.assertEqual(func.nonzero, {(6, 7)})
+
+        # passing explicit handles is prohibited
+        with self.assertRaises(ValueError):
+            pi.Function.from_constant(7, eval_handle=lambda x: 2*x)
+        with self.assertRaises(ValueError):
+            pi.Function.from_constant(7, derivative_handles=lambda x: 2)
 
     def test_derivation(self):
         f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
@@ -176,7 +220,7 @@ class FunctionTestCase(unittest.TestCase):
     def test_call(self):
 
         def func(x):
-            if isinstance(x, collections.Iterable):
+            if isinstance(x, collections.abc.Iterable):
                 raise TypeError("no vectorial stuff allowed!")
             return 2 ** x
 
@@ -221,6 +265,127 @@ class FunctionTestCase(unittest.TestCase):
         self.assertTrue(np.array_equal(f(np.array(range(10))),
                                        [vector_func(val) for val in range(10)]))
 
+    def test_scalar_product_hint(self):
+        f = pi.Function(np.cos, domain=(0, 10))
+        # l2 scalar product is what we want here
+        self.assertEqual(core.dot_product_l2, f.scalar_product_hint())
+
+        # different instances should return the same scalar product
+        g = pi.Function(np.sin, domain=(-17, 10))
+        self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
+
+
+class ComposedFunctionVectorTestCase(unittest.TestCase):
+    def setUp(self):
+        self.functions = [pi.Function(lambda x: 2),
+                          pi.Function(lambda x: 2 * x),
+                          pi.Function(lambda x: x ** 2),
+                          pi.Function(lambda x: np.sin(x))
+                          ]
+        self.scalars = [f(7) for f in self.functions]
+
+    def test_init(self):
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(None, None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector([np.sin, np.cos], None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, None)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, np.sin)
+        with self.assertRaises(TypeError):
+            pi.ComposedFunctionVector(self.functions, "0")
+
+        # defaults to lists
+        v = pi.ComposedFunctionVector(self.functions[0], self.scalars[0])
+        self.assertEqual(v.members["funcs"], [self.functions[0]])
+        self.assertEqual(v.members["scalars"], [self.scalars[0]])
+
+    def test_get_member(self):
+        v = pi.ComposedFunctionVector(self.functions, self.scalars)
+        self.assertEqual(v.get_member(0), self.functions[0])
+        self.assertEqual(v.get_member(3), self.functions[3])
+        self.assertEqual(v.get_member(4), self.scalars[0])
+        self.assertEqual(v.get_member(7), self.scalars[3])
+
+        with self.assertRaises(ValueError):
+            v.get_member(200)
+
+    def test_scale(self):
+        v = pi.ComposedFunctionVector(self.functions, self.scalars)
+        factor = np.random.rand()
+        v1 = v.scale(factor)
+
+        s_funcs = pi.Base(self.functions).scale(factor).fractions
+        test_data = pi.Domain((0, 10), 60)
+        results = []
+        test_results = []
+        for f, f_test in zip(s_funcs, v1.members["funcs"]):
+            vals = f(test_data)
+            results.append(vals)
+            test_vals = f(test_data)
+            test_results.append(test_vals)
+        np.testing.assert_array_almost_equal(results, test_results)
+
+        s_scals = np.array(self.scalars) * factor
+        np.testing.assert_array_equal(v1.members["scalars"], s_scals)
+
+        with self.assertRaises(TypeError):
+            v.scale(self.functions[2])
+
+    def test_scalar_product_hint(self):
+        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        v2 = pi.ComposedFunctionVector(self.functions[::-1], self.scalars[::-1])
+        sp = v1.scalar_product_hint()
+
+        # test commutativity
+        p1 = core.generic_scalar_product(v1, v2)
+        p2 = core.generic_scalar_product(v2, v1)
+        self.assertAlmostEqual(p1, p2)
+
+        # TODO test distributivity
+
+        # TODO test bilinearity
+
+        # test scalar multiplication
+        first = core.generic_scalar_product(v1.scale(5), v2.scale(3))
+        second = 5 * 3 * core.generic_scalar_product(v1, v2)
+        np.testing.assert_array_almost_equal(first, second)
+
+        # scalar products of equal bases should be equal
+        self.assertEqual(v1.scalar_product_hint(), v2.scalar_product_hint())
+
+    def test_function_space_hint(self):
+        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        self.assertEqual(v1.function_space_hint(),
+                         [f.function_space_hint() for f in self.functions]
+                         + [core.dot_product for s in self.scalars]
+                        )
+        # v2 = pi.ComposedFunctionVector(self.functions[], self.scalars)
+        # g = pi.Function(lambda x: 2, domain=(0, 10))
+        # self.assertEqual(f4.function_space_hint(),
+        #                  (core.dot_product_l2, {(0, 3)}))
+
+
+def check_compatibility_and_scalar_product(b1, b2):
+    """
+    Check the compatibility of two bases,
+    if they are make sure that the scalar product computation works
+    """
+    compat1 = b1.is_compatible_to(b2)
+    compat2 = b2.is_compatible_to(b1)
+    if compat1 != compat2:
+        raise ValueError("Compatibility should not depend on the order")
+
+    if compat1 and compat2:
+        res = pi.calculate_scalar_product_matrix(b1, b2,
+                                                 b1.scalar_product_hint())
+        res = pi.calculate_scalar_product_matrix(b1, b2,
+                                                 b2.scalar_product_hint())
+        return True
+
+    return False
+
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
@@ -229,26 +394,64 @@ class BaseTestCase(unittest.TestCase):
                           pi.Function(lambda x: x ** 2),
                           pi.Function(lambda x: np.sin(x))
                           ]
-        self.other_fractions = [pi.ComposedFunctionVector(frac, 7)
+        self.other_fractions = [pi.ComposedFunctionVector(frac, frac(1))
                                 for frac in self.fractions]
         self.completely_other_fractions = [
-            pi.ComposedFunctionVector(self.fractions, i)
+            pi.ComposedFunctionVector(self.fractions, 4*[i])
             for i in range(10)]
 
     def test_init(self):
+        # default args
+        fractions = pi.BaseFraction([])
+        b = pi.Base(fractions)
+        self.assertEqual(b.fractions, np.asarray(fractions))
+        self.assertEqual(b.matching_base_lbls, [])
+        self.assertEqual(b.intermediate_base_lbls, [])
+
         # single and iterable arguments should be taken
-        b1 = pi.Base(self.fractions[0])
-        b2 = pi.Base(self.fractions)
-        b3 = pi.Base(self.other_fractions)
-        b4 = pi.Base(self.completely_other_fractions)
+        pi.Base(self.fractions[0])
+        pi.Base(self.fractions)
+        pi.Base(self.other_fractions)
+        pi.Base(self.completely_other_fractions)
 
-        # # the provided scalar product hints should be compatible
-        # with self.assertRaises(ValueError):
-        #     pi.Base([self.fractions[0], self.other_fractions[2]])
+        # the provided scalar product hints should be compatible
+        with self.assertRaises(ValueError):
+            pi.Base([self.fractions[0], self.other_fractions[2]])
 
-        # with self.assertRaises(ValueError):
-        #     pi.Base([self.other_fractions[0],
-        #              self.completely_other_fractions[2]])
+        with self.assertRaises(ValueError):
+            pi.Base([self.other_fractions[0],
+                     self.completely_other_fractions[2]])
+
+        # either strings or list of strings may be given fo base labels
+        b = pi.Base(fractions, matching_base_lbls="test")
+        self.assertEqual(b.matching_base_lbls, ["test"])
+        b = pi.Base(fractions, matching_base_lbls=["test", "toast"])
+        self.assertEqual(b.matching_base_lbls, ["test", "toast"])
+        b = pi.Base(fractions, intermediate_base_lbls="test")
+        self.assertEqual(b.intermediate_base_lbls, ["test"])
+        b = pi.Base(fractions, intermediate_base_lbls=["test", "toast"])
+        self.assertEqual(b.intermediate_base_lbls, ["test", "toast"])
+
+    def test_is_compatible(self):
+        b0 = pi.Base(self.fractions[0])
+        b1 = pi.Base(self.fractions)
+        b2 = pi.Base(self.other_fractions)
+
+        self.assertTrue(check_compatibility_and_scalar_product(b0, b0))
+        self.assertTrue(check_compatibility_and_scalar_product(b1, b1))
+        self.assertTrue(check_compatibility_and_scalar_product(b2, b2))
+
+        self.assertTrue(check_compatibility_and_scalar_product(b0, b1))
+        self.assertFalse(check_compatibility_and_scalar_product(b1, b2))
+
+        b3 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1]))
+        b4 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]], [1, 1]))
+        b5 = pi.Base(pi.ComposedFunctionVector([self.fractions[0]] * 2, [1]))
+
+        self.assertFalse(check_compatibility_and_scalar_product(b1, b2))
+        self.assertFalse(b3.is_compatible_to(b4))
+        self.assertFalse(b3.is_compatible_to(b5))
+        self.assertFalse(b4.is_compatible_to(b5))
 
     def test_scale(self):
         f = pi.Base([pi.Function(np.sin,
@@ -265,35 +468,6 @@ class BaseTestCase(unittest.TestCase):
         g2 = f.scale(factor)
         for a, b in zip(f.fractions, g2.fractions):
             np.testing.assert_array_equal(10 * a(values), b(values))
-
-    def test_transformation_hint(self):
-        f = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
-                     pi.Function(np.cos, domain=(0, np.pi))])
-
-        pi.register_base("me", f)
-
-        info = core.TransformationInfo()
-        info.src_lbl = "me"
-        info.dst_lbl = "me"
-        info.src_base = f
-        info.dst_base = f
-        info.src_order = 1
-        info.dst_order = 1
-
-        # test defaults
-        func, extra = f.transformation_hint(info)
-        weights = np.array(range(4))
-        t_weights = func(weights)
-        np.testing.assert_array_almost_equal(weights, t_weights)
-        self.assertIsNone(extra)
-
-        # no transformation hint known
-        info.dst_base = pi.StackedBase(self.fractions, None)
-        func, extra = f.transformation_hint(info)
-        self.assertIsNone(func)
-        self.assertIsNone(extra)
-
-        pi.deregister_base("me")
 
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
@@ -365,25 +539,476 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNone(res[1])
 
 
+class BaseTransformationTestCase(unittest.TestCase):
+    def setUp(self):
+        # simple fourier bases
+        self.f1 = pi.Base([pi.Function(np.sin, domain=(0, np.pi)),
+                           pi.Function(np.cos, domain=(0, np.pi))])
+        pi.register_base("fourier_1", self.f1)
+        self.f2 = pi.Base([pi.Function(np.cos, domain=(0, np.pi)),
+                           pi.Function(np.sin, domain=(0, np.pi))])
+        pi.register_base("fourier_2", self.f2)
+
+        # composed bases
+        self.c1 = pi.Base([pi.ComposedFunctionVector([f], [f(0)])
+                           for f in self.f1])
+        pi.register_base("comp_1", self.c1)
+        self.c1m = pi.Base([pi.ComposedFunctionVector([f], [f(0)])
+                           for f in self.f1],
+                           matching_base_lbls=("fourier_1", ))
+        pi.register_base("comp_1m", self.c1m)
+        self.c2 = pi.Base([pi.ComposedFunctionVector([f], [f(0)])
+                           for f in self.f2],
+                          intermediate_base_lbls=("comp_1m", ))
+        pi.register_base("comp_2", self.c2)
+
+    def tearDown(self):
+        pi.deregister_base("fourier_1")
+        pi.deregister_base("fourier_2")
+        pi.deregister_base("comp_1")
+        pi.deregister_base("comp_1m")
+        pi.deregister_base("comp_2")
+
+    def test_transformation_hint_auto(self):
+        """
+        Test if src and dst are equivalent.
+        No computations should be performed and the exact weights should be
+        returned by the transformation.
+        """
+
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "fourier_1", 0, 0)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(len(self.f1))
+        t_weights = func(weights)
+        np.testing.assert_array_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "fourier_1", 2, 2)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(3*len(self.f1))
+        t_weights = func(weights)
+        np.testing.assert_array_equal(weights, t_weights)
+        self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "fourier_1", 2, 0)
+        func, extra = self.f1.transformation_hint(info)
+        weights = np.random.rand(3*len(self.f1))
+        t_weights = func(weights)
+        self.assertEqual(len(t_weights), len(self.f1))
+        np.testing.assert_array_equal(weights[:len(self.f1)], t_weights)
+        self.assertIsNone(extra)
+
+    def test_transformation_hint_same_fs(self):
+        """
+        Test if src and dst share the same function space.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "fourier_2", 0, 0)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(len(f))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[::-1], t_weights)
+            self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "fourier_2", 2, 2)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(3*len(f))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[[1, 0, 3, 2, 5, 4]],
+                                                 t_weights)
+            self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "fourier_2", 2, 0)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            weights = np.random.rand(3*len(f))
+            t_weights = func(weights)
+            self.assertEqual(len(t_weights), len(f))
+            np.testing.assert_array_almost_equal(weights[:len(f)],
+                                                 t_weights[::-1])
+            self.assertIsNone(extra)
+
+    def test_transformation_hint_different_fs_no_info(self):
+        """
+        Test if src and dst do not share the same function space
+        and no matching or intermediate bases are given.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "comp_1", 0, 0)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "comp_1", 2, 2)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "comp_1", 2, 0)
+        for f in (self.f1, self.f2):
+            func, extra = f.transformation_hint(info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+
+    def test_transformation_hint_different_fs_matching(self):
+        """
+        Test if src and dst do not share the same function space and
+        and a matching base is given.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "comp_1m", 0, 0)
+        for _info in (info, info.mirror()):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c1m.transformation_hint(_info)
+            weights = np.random.rand(len(self.f1))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights, t_weights)
+            self.assertIsNone(extra)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "comp_1m", 2, 2)
+        for _info in (info, info.mirror()):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c1m.transformation_hint(_info)
+            weights = np.random.rand(3*len(self.f1))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights,
+                                                 t_weights)
+            self.assertIsNone(extra)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "comp_1m", 2, 0)
+        for _info in (info, info.mirror()):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c1m.transformation_hint(_info)
+            if _info.src_order == 0:
+                # provided derivative order insufficient
+                self.assertIsNone(func)
+                self.assertIsNone(extra)
+            else:
+                weights = np.random.rand(3*len(self.f1))
+                t_weights = func(weights)
+                self.assertEqual(len(t_weights), len(self.f1))
+                np.testing.assert_array_almost_equal(weights[:len(self.f1)],
+                                                     t_weights)
+                self.assertIsNone(extra)
+
+    def test_transformation_hint_different_fs_intermediate(self):
+        """
+        Test if src and dst do not share the same function space and
+        an intermediate base is given.
+        """
+        # equal derivative orders, both zero
+        info = core.get_transformation_info("fourier_1", "comp_2", 0, 0)
+        inter_hint = core.TransformationInfo()
+        inter_hint.src_lbl = "fourier_1"
+        inter_hint.src_order = 0
+        inter_hint.src_base = self.f1
+        inter_hint.dst_lbl = "comp_1m"
+        inter_hint.dst_order = 0
+        inter_hint.dst_base = self.c1m
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint.mirror())):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information
+            # -> transformation from intermediate (comp_1m) to (comp_2)
+            # and info from (fourier_1) to (comp_1m)
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand(len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[::-1], t_weights)
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
+
+        # equal derivative orders, both nonzero
+        info = core.get_transformation_info("fourier_1", "comp_2", 2, 2)
+        inter_hint = core.get_transformation_info("fourier_1", "comp_1m",
+                                                  2, 2)
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint.mirror())):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand(3*len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(weights[[1, 0, 3, 2, 5, 4]],
+                                                 t_weights)
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
+
+        # different derivative orders
+        info = core.get_transformation_info("fourier_1", "comp_2", 2, 0)
+        inter_hint = core.get_transformation_info("fourier_1", "comp_1m",
+                                                  2, 2)
+        inter_hint_m = core.get_transformation_info("comp_1m", "fourier_1",
+                                                    0, 2)
+        for _info, _hint in zip([info, info.mirror()],
+                                (inter_hint, inter_hint_m)):
+            # no information -> no transformation
+            func, extra = self.f1.transformation_hint(_info)
+            self.assertIsNone(func)
+            self.assertIsNone(extra)
+            # valid information -> transformation
+            func, extra = self.c2.transformation_hint(_info)
+            weights = np.random.rand((1+_info.src_order)*len(_info.src_base))
+            t_weights = func(weights)
+            np.testing.assert_array_almost_equal(
+                weights[:len(_info.src_base)],
+                t_weights[::-1])
+            self.assertIsInstance(extra, core.TransformationInfo)
+            self.assertEqual(extra, _hint)
+
+
 class StackedBaseTestCase(unittest.TestCase):
     def setUp(self):
-        self.b1 = pi.Base([pi.Function(lambda x: np.sin(2)),
-                           pi.Function(lambda x: np.sin(2*x)),
-                           pi.Function(lambda x: np.sin(2 ** 2 * x)),
-                           ])
+        self.b1 = pi.Base([
+            pi.Function(lambda x: np.sin(2), domain=(0, 1)),
+            pi.Function(lambda x: np.sin(2*x), domain=(0, 1)),
+            pi.Function(lambda x: np.sin(2 ** 2 * x), domain=(0, 1)),
+        ])
         pi.register_base("b1", self.b1)
-        self.b2 = pi.Base([pi.Function(lambda x: np.cos(4)),
-                           pi.Function(lambda x: np.cos(4 * x)),
-                           pi.Function(lambda x: np.cos(4 ** 2 * x)),
-                           ])
+        self.b2 = pi.Base([
+            pi.Function(lambda x: np.cos(2), domain=(1, 2)),
+            pi.Function(lambda x: np.cos(2*x), domain=(1, 2)),
+            pi.Function(lambda x: np.cos(2 ** 2 * x), domain=(1, 2)),
+        ])
         pi.register_base("b2", self.b2)
+        self.base_info = OrderedDict(
+            b1={"base": self.b1, "sys_name": "sys1", "order": 1},
+            b2={"base": self.b2, "sys_name": "sys2", "order": 0},
+        )
 
-    @unittest.skip  # TODO complete this
-    def test_init(self):
-        fractions = np.hstack([self.b1, self.b2])
-        info = None
-        b = pi.StackedBase(fractions, info)
-        self.assertEqual(b.fractions.size, 6)
+    def test_defaults(self):
+        s = pi.StackedBase(self.base_info)
+        self.assertEqual(len(s), 6)
+        self.assertEqual(s.fractions.size, 6)
+        self.assertEqual(s[2], self.b1[2])
+        self.assertEqual(s[4], self.b2[1])
+        self.assertEqual(s[0], self.b1[0])
+        self.assertEqual(s[-1], self.b2[-1])
+
+        self.assertEqual(s.base_lbls, ["b1", "b2"])
+        self.assertEqual(s.system_names, ["sys1", "sys2"])
+        self.assertEqual(s.orders, [1, 0])
+
+        self.assertFalse(s.is_compatible_to(self.b1))
+        self.assertFalse(self.b1.is_compatible_to(s))
+        self.assertFalse(s.is_compatible_to(self.b2))
+        self.assertFalse(self.b2.is_compatible_to(s))
+
+        self.assertEqual(s.scalar_product_hint(), NotImplemented)
+
+        self.assertEqual(s.function_space_hint(),
+                         [self.b1.function_space_hint(),
+                          self.b2.function_space_hint()])
+
+    def test_transfomration_hint(self):
+        s1 = pi.StackedBase(self.base_info)
+        pi.register_base("s1", s1)
+        pi.register_base("unknown", self.b2)
+        input_weights = np.concatenate((
+            np.ones(len(self.b1)),  # b1
+            2 * np.ones(len(self.b1)),  # b1_dt
+            3 * np.ones(len(self.b2)),  # b2
+        ))
+
+        # targeted base not included in stacked base -> no trafo
+        info = core.get_transformation_info("s1", "unknown")
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(trafo, None)
+        self.assertEqual(hint, None)
+
+        # targeted base is included in stacked base -> should work
+        info = core.get_transformation_info("s1", "b1",  0, 0)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, np.ones(len(self.b1)))
+
+        # calling the trafo with wrong input should fail, here b1_dt is missing
+        wrong_weights = np.concatenate((
+            np.ones(len(self.b1)),  # b1
+            3 * np.ones(len(self.b2)),  # b2
+        ))
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
+        with self.assertRaises(AssertionError):
+            trafo(wrong_weights)
+
+        # targeted base is included in stacked base and we want the derivative
+        info = core.get_transformation_info("s1", "b1",  0, 1)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, np.concatenate((
+            1 * np.ones(len(self.b1)), 2 * np.ones(len(self.b1)),
+        )))
+
+        # targeted base is included in stacked base but not this derivative
+        info = core.get_transformation_info("s1", "b1",  0, 2)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(trafo, None)
+        self.assertEqual(hint, None)
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("s1", "b2",  0, 0)
+        trafo, hint = s1.transformation_hint(info)
+        self.assertEqual(hint, None)
+        output = trafo(input_weights)
+        np.testing.assert_almost_equal(output, 3 * np.ones(len(self.b2)))
+
+        pi.deregister_base("s1")
+
+    def tearDown(self):
+        pi.deregister_base("b1")
+        pi.deregister_base("b2")
+
+
+class TransformationTestCase(unittest.TestCase):
+
+    def setUp(self):
+        dom1 = pi.Domain((0, 1), num=11)
+        dom2 = pi.Domain((0, 1), num=21)
+        self.base1 = pi.LagrangeFirstOrder.cure_interval(dom1)
+        pi.register_base("fem1", self.base1)
+        self.base2 = pi.LagrangeSecondOrder.cure_interval(dom2)
+        pi.register_base("fem2", self.base2)
+
+        self.comp_base1 = pi.Base(
+            [pi.ComposedFunctionVector([f], [0]) for f in self.base1],
+            matching_base_lbls="fem1")
+        pi.register_base("comp1", self.comp_base1)
+        self.comp_base2 = pi.Base(
+            [pi.ComposedFunctionVector([f], [0]) for f in self.base2],
+            intermediate_base_lbls="comp1")
+        pi.register_base("comp2", self.comp_base2)
+
+        info1 = OrderedDict(
+            fem1={"base": self.base1, "sys_name": "sys1", "order": 0},
+            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 1},
+        )
+        self.stacked_base1 = core.StackedBase(info1)
+        pi.register_base("stacked1", self.stacked_base1)
+
+    def test_transformation_info(self):
+        info = core.get_transformation_info("fem1", "fem2", 1, 7)
+        self.assertEqual(info.src_lbl, "fem1")
+        self.assertEqual(info.src_base, self.base1)
+        self.assertEqual(info.src_order, 1)
+        self.assertEqual(info.dst_lbl, "fem2")
+        self.assertEqual(info.dst_base, self.base2)
+        self.assertEqual(info.dst_order, 7)
+
+    def test_get_trafo_simple(self):
+        """ Transformation between to standard bases"""
+        info = core.get_transformation_info("fem1", "fem2", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        src_weights = np.random.rand(11)
+        dst_weights = trafo(src_weights)
+        self.assertEqual(dst_weights.shape, (21,))
+
+        # now with different orders
+        info = core.get_transformation_info("fem1", "fem2", 1, 1)
+        trafo = core.get_weight_transformation(info)
+        src_weights = np.random.rand(22)
+        dst_weights = trafo(src_weights)
+        self.assertEqual(dst_weights.shape, (42,))
+
+    def test_matching_base_asserts(self):
+        err_base1 = pi.Base(self.base1.fractions,
+                            matching_base_lbls="fem2",
+                            intermediate_base_lbls="fem2")
+        pi.register_base("err1", err_base1)
+        info_lengt_err = core.get_transformation_info("comp2", "err1", 0, 0)
+        with self.assertRaises(ValueError):
+            core.get_weight_transformation(info_lengt_err)
+
+        err_base2 = pi.Base(self.base1.fractions,
+                            matching_base_lbls="comp1",
+                            intermediate_base_lbls="comp1")
+        pi.register_base("err2", err_base2)
+        info_order_err = core.get_transformation_info("comp1", "err2", 1, 0)
+        trafo = core.get_weight_transformation(info_order_err)
+        self.assertEqual(len(err_base2),
+                         len(trafo(np.ones(2*len(self.comp_base1)))))
+
+    def test_matching_base(self):
+        length = len(pi.get_base("fem1"))
+        info = core.get_transformation_info("fem1", "comp1", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(length, len(trafo(np.ones(length))))
+
+    def test_intermediate_base(self):
+        length1 = len(pi.get_base("fem1"))
+        length2 = len(pi.get_base("comp2"))
+        info = core.get_transformation_info("fem1", "comp2", 0, 0)
+        trafo = core.get_weight_transformation(info)
+        self.assertEqual(length2, len(trafo(np.ones(length1))))
+
+    def test_stacked_base_transform(self):
+        len_b1 = len(pi.get_base("fem1"))
+        len_c1 = len(pi.get_base("comp1"))
+        len_c2 = len(pi.get_base("comp2"))
+        input_weights = np.concatenate((
+            np.ones(len_b1),  # base_1
+            2 * np.ones(len_c1),  # comp1
+            3 * np.ones(len_c1),  # comp1_dt
+        ))
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("stacked1", "fem1",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_array_equal(output, np.ones(len_b1))
+
+        # targeted base is included in stacked base
+        info = core.get_transformation_info("stacked1", "comp1",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_array_equal(output, 2 * np.ones(len_c1))
+
+        # targeted base not included in stacked base
+        info = core.get_transformation_info("stacked1", "fem2",  0, 0)
+        with self.assertRaises(TypeError):
+            core.get_weight_transformation(info)
+
+        # targeted base has matching base in the stacked base
+        info = core.get_transformation_info("stacked1", "comp2",  0, 0)
+        trafo = core.get_weight_transformation(info)
+        output = trafo(input_weights)
+        np.testing.assert_array_almost_equal(output, 2 * np.ones(len_c2))
+
+    def tearDown(self):
+        clear_registry()
 
 
 class SimplificationTestCase(unittest.TestCase):
@@ -474,6 +1099,7 @@ class IntegrateFunctionTestCase(unittest.TestCase):
 
 class ScalarDotProductL2TestCase(unittest.TestCase):
     def setUp(self):
+        self.f0 = pi.Function(lambda x: -1, domain=(-10, 0))
         self.f1 = pi.Function(lambda x: 1, domain=(0, 10))
         self.f2 = pi.Function(lambda x: 2, domain=(0, 5))
         self.f3 = pi.Function(lambda x: 2, domain=(0, 5), nonzero=(2, 3))
@@ -487,38 +1113,46 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.g2 = pi.Function(lambda x: 2 - 2j, domain=(0, 5))
 
     def test_domain(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f2), 10)
-        # swap arguments
-        self.assertAlmostEqual(core._dot_product_l2(self.f2, self.f1),
-                               np.conjugate(10))
+        with self.assertRaises(ValueError):
+            # disjoint domains
+            core.dot_product_l2(self.f0, self.f1)
 
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f3), 2)
-        # swap arguments
-        self.assertAlmostEqual(core._dot_product_l2(self.f3, self.f1),
-                               np.conjugate(2))
+        with self.assertRaises(ValueError):
+            # partially matching domains
+            core.dot_product_l2(self.f1, self.f2)
+
+        with self.assertRaises(ValueError):
+            # partially matching domains
+            core.dot_product_l2(self.f1, self.f3)
 
     def test_nonzero(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f1, self.f4), 2e-1)
-        self.assertAlmostEqual(core._dot_product_l2(self.f4, self.f1),
-                               np.conjugate(2e-1))
+        self.assertAlmostEqual(core.dot_product_l2(self.f2, self.f4), 4e-1)
+        self.assertAlmostEqual(core.dot_product_l2(self.f4, self.f2),
+                               np.conjugate(4e-1))
 
     def test_lagrange(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f7), 0)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f7, self.f6), 1 / 6)
-        self.assertAlmostEqual(core._dot_product_l2(self.f5, self.f5), 2 / 3)
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f5), 2 / 3)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f7), 0)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f5), 0)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f5, self.f6), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f6, self.f5), 1 / 6)
+
+        self.assertAlmostEqual(core.dot_product_l2(self.f6, self.f7), 1 / 6)
+        self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
 
     def test_complex(self):
-        self.assertAlmostEqual(core._dot_product_l2(self.g1, self.g2), -40j)
+        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), -40j)
         # swapping of args will return the conjugated expression
-        self.assertAlmostEqual(core._dot_product_l2(self.g2, self.g1),
+        self.assertAlmostEqual(core.dot_product_l2(self.g2, self.g1),
                                np.conj(-40j))
 
     def test_linearity(self):
         factor = 2+1j
         s = self.g1.scale(factor)
-        res = core._dot_product_l2(s, self.g2)
-        part = core._dot_product_l2(self.g1, self.g2)
+        res = core.dot_product_l2(s, self.g2)
+        part = core.dot_product_l2(self.g1, self.g2)
         np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
 
 
@@ -529,11 +1163,14 @@ class DotProductL2TestCase(unittest.TestCase):
 
     def test_length(self):
         with self.assertRaises(ValueError):
-            pi.dot_product_l2(self.fem_base[2:4], self.fem_base[4:8])
+            pi.vectorize_scalar_product(
+                self.fem_base[2:4], self.fem_base[4:8],
+                self.fem_base.scalar_product_hint())
 
     def test_output(self):
-        res = pi.dot_product_l2(self.fem_base.fractions,
-                                self.fem_base.fractions)
+        res = pi.vectorize_scalar_product(self.fem_base.fractions,
+                                          self.fem_base.fractions,
+                                          self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
 
 
@@ -553,7 +1190,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         res_quad1 = np.zeros([len(self.initial_functions1)]*2)
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions1):
-                res_quad1[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res_quad1[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         r, t = self.quadratic_case1()
         self.assertFalse(np.iscomplexobj(r))
@@ -564,7 +1201,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         res_quad2 = np.zeros([len(self.initial_functions2)]*2)
         for idx1, frac1 in enumerate(self.initial_functions2):
             for idx2, frac2 in enumerate(self.initial_functions2):
-                res_quad2[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res_quad2[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         r, t = self.quadratic_case2()
         self.assertFalse(np.iscomplexobj(r))
@@ -577,7 +1214,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
                         len(self.initial_functions2)))
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions2):
-                res[idx1, idx2] = core._dot_product_l2(frac1, frac2)
+                res[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         res_rect1 = res.copy()
         res_rect2 = np.conjugate(res).T
@@ -597,8 +1234,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def quadratic_case1(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
         t_calc = time.clock() - t0
@@ -607,8 +1243,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def quadratic_case2(self):
         # result is quadratic
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2,
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
         t_calc = time.clock() - t0
@@ -617,8 +1252,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def rectangular_case_1(self):
         # rect1
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions1,
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
         t_calc = time.clock() - t0
@@ -627,8 +1261,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def rectangular_case_2(self):
         # rect2
         t0 = time.clock()
-        mat = pi.calculate_scalar_product_matrix(pi.dot_product_l2,
-                                                 self.initial_functions2,
+        mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
         t_calc = time.clock() - t0
@@ -678,12 +1311,22 @@ class ProjectionTest(unittest.TestCase):
         # "real" functions
         # because we are smarter
         self.z_values = np.linspace(interval[0], interval[1], 100 * node_cnt)
-        self.functions = [pi.Function(lambda x: 2),
-                          pi.Function(lambda x: 2 * x),
-                          pi.Function(lambda x: x ** 2),
-                          pi.Function(lambda x: np.sin(x))
+        self.functions = [pi.Function(lambda x: 2, domain=interval),
+                          pi.Function(lambda x: 2 * x, domain=interval),
+                          pi.Function(lambda x: x ** 2, domain=interval),
+                          pi.Function(lambda x: np.sin(x), domain=interval)
                           ]
         self.real_values = [func(self.z_values) for func in self.functions]
+
+        self.eval_pos = np.array([.5])
+        self.selected_values = [func(self.eval_pos) for func in self.functions]
+        self.func_vectors = [pi.ComposedFunctionVector([f], [f_s])
+                             for f, f_s in zip(self.functions,
+                                               self.selected_values)]
+        self.comp_lag_base = pi.Base([
+            pi.ComposedFunctionVector([f], [f(self.eval_pos)])
+            for f in self.lag_base])
+        pi.register_base("comp_lag_base", self.lag_base, overwrite=True)
 
     def test_types_projection(self):
         self.assertRaises(TypeError, pi.project_on_base, 1, 2)
@@ -695,16 +1338,22 @@ class ProjectionTest(unittest.TestCase):
                    pi.project_on_base(self.functions[3], self.lag_base)]
 
         # linear function -> should be fitted exactly
-        np.testing.assert_array_almost_equal(weights[0], self.functions[1](self.nodes))
+        np.testing.assert_array_almost_equal(weights[0],
+                                             self.functions[1](self.nodes))
 
         # quadratic function -> should be fitted somehow close
-        np.testing.assert_array_almost_equal(weights[1], self.functions[2](self.nodes), decimal=0)
+        np.testing.assert_array_almost_equal(weights[1],
+                                             self.functions[2](self.nodes),
+                                             decimal=0)
 
         # trig function -> will be crappy
-        np.testing.assert_array_almost_equal(weights[2], self.functions[3](self.nodes), decimal=1)
+        np.testing.assert_array_almost_equal(weights[2],
+                                             self.functions[3](self.nodes),
+                                             decimal=1)
 
         if show_plots:
-            # since test function are lagrange1st order, plotting the results is fairly easy
+            # since test function are lagrange1st order, plotting the results
+            # is fairly easy
             for idx, w in enumerate(weights):
                 pw = pg.plot(title="Weights {0}".format(idx))
                 pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
@@ -726,15 +1375,51 @@ class ProjectionTest(unittest.TestCase):
             pw.plot(x=self.z_values, y=approx_func_dz(self.z_values), pen="b")
             pi.show(show_mpl=False)
 
+    def test_projection_on_composed_function_vector(self):
+        weights = [pi.project_on_base(self.func_vectors[idx],
+                                      self.comp_lag_base)
+                   for idx in [1, 2, 3]]
+
+        # linear function -> should be fitted exactly
+        np.testing.assert_array_almost_equal(weights[0],
+                                             self.functions[1](self.nodes))
+
+        # quadratic function -> should be fitted somehow close
+        np.testing.assert_array_almost_equal(weights[1],
+                                             self.functions[2](self.nodes),
+                                             decimal=0)
+
+        # trig function -> will be crappy
+        np.testing.assert_array_almost_equal(weights[2],
+                                             self.functions[3](self.nodes),
+                                             decimal=1)
+
+        if show_plots:
+            for idx, w in enumerate(weights):
+                pw = pg.plot(title="Weights {0}".format(idx))
+                pw.plot(x=self.z_values, y=self.real_values[idx + 1], pen="r")
+                pw.plot(x=self.eval_pos,
+                        y=self.selected_values[idx + 1],
+                        symbol="o")
+                pw.plot(x=self.nodes.points, y=w, pen="b")
+                coll_parts = np.array([_w * vec.get_member(1) for _w, vec in
+                                       zip(w, self.comp_lag_base)]).squeeze()
+                coll_part = np.sum(coll_parts, keepdims=True)
+                pw.plot(x=self.eval_pos,
+                        y=coll_part,
+                        symbol="+")
+                pi.show(show_mpl=False)
+
     def tearDown(self):
         pi.deregister_base("lag_base")
+        pi.deregister_base("comp_lag_base")
 
 
 class ChangeProjectionBaseTest(unittest.TestCase):
     def setUp(self):
         # real function
         self.z_values = np.linspace(0, 1, 1000)
-        self.real_func = pi.Function(lambda x: x)
+        self.real_func = pi.Function(lambda x: x, domain=(0, 1))
         self.real_func_handle = np.vectorize(self.real_func)
 
         # approximation by lag1st
@@ -784,11 +1469,11 @@ class ChangeProjectionBaseTest(unittest.TestCase):
         pi.deregister_base("lag_base")
 
 
-class NormalizeFunctionsTestCase(unittest.TestCase):
+class NormalizeBaseTestCase(unittest.TestCase):
     def setUp(self):
-        self.f = pi.Function(np.sin, domain=(0, np.pi * 2))
-        self.g = pi.Function(np.cos, domain=(0, np.pi * 2))
-        self.l = pi.Function(np.log, domain=(0, np.exp(1)))
+        self.f = pi.Function(np.sin, domain=(0, np.pi))
+        self.g = pi.Function(np.cos, domain=(0, np.pi))
+        self.l = pi.Function(np.exp, domain=(0, np.pi))
 
         self.base_f = pi.Base(self.f)
         self.base_g = pi.Base(self.g)
@@ -796,12 +1481,14 @@ class NormalizeFunctionsTestCase(unittest.TestCase):
 
     def test_self_scale(self):
         f = pi.normalize_base(self.base_f)
-        prod = pi.dot_product_l2(f.fractions, f.fractions)[0]
+        prod = pi.vectorize_scalar_product(
+            f.fractions, f.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
         f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = pi.dot_product_l2(f.fractions, l.fractions)[0]
+        prod = pi.vectorize_scalar_product(
+            f.fractions, l.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_culprits(self):
@@ -932,6 +1619,77 @@ class ParamsTestCase(unittest.TestCase):
         self.assertTrue(p.a == 10)
         self.assertTrue(p.b == 12)
         self.assertTrue(p.c == "high")
+
+
+class TransformationInfoTextCase(unittest.TestCase):
+    def test_init(self):
+        # defaults
+        info = core.TransformationInfo()
+        self.assertIsNone(info.src_lbl)
+        self.assertIsNone(info.dst_lbl)
+        self.assertIsNone(info.src_base)
+        self.assertIsNone(info.dst_base)
+        self.assertIsNone(info.src_order)
+        self.assertIsNone(info.dst_order)
+
+    def test_as_tuple(self):
+        info = core.TransformationInfo()
+        info.src_lbl = "A"
+        info.dst_lbl = "B"
+        info.src_base = pi.Base(pi.BaseFraction(None))
+        info.dst_base = pi.Base(pi.BaseFraction(None))
+        info.src_order = "1"
+        info.dst_order = "2"
+
+        # base objects are not included in the tuple view
+        correct_tuple = (info.src_lbl, info.dst_lbl,
+                         info.src_order, info.dst_order)
+        self.assertEqual(correct_tuple, info.as_tuple())
+
+    def test_hash(self):
+        info = core.TransformationInfo()
+        info.src_lbl = "A"
+        info.dst_lbl = "B"
+        info.src_base = pi.Base(pi.BaseFraction(None))
+        info.dst_base = pi.Base(pi.BaseFraction(None))
+        info.src_order = "1"
+        info.dst_order = "2"
+
+        # base objects are not included in the hash
+        h1 = hash(info)
+        info.dst_base = "Something else"
+        self.assertEqual(h1, hash(info))
+
+    def test_equality(self):
+        info_1 = core.TransformationInfo()
+        info_1.src_lbl = "A"
+        info_1.dst_lbl = "B"
+        info_1.src_base = pi.Base(pi.BaseFraction(None))
+        info_1.dst_base = pi.Base(pi.BaseFraction(None))
+        info_1.src_order = "1"
+        info_1.dst_order = "2"
+        info_2 = core.TransformationInfo()
+        info_2.src_lbl = "A"
+        info_2.dst_lbl = "B"
+        info_2.src_base = pi.Base(pi.BaseFraction(None))
+        info_2.dst_base = pi.Base(pi.BaseFraction(None))
+        info_2.src_order = "1"
+        info_2.dst_order = "2"
+
+        # base objects are not compared
+        self.assertTrue(info_1 == info_2)
+
+        # the rest should be
+        info_1.src_lbl = "C"
+        self.assertFalse(info_1 == info_2)
+        info_1.src_lbl = "A"
+        info_2.dst_order = np.random.rand()
+        self.assertFalse(info_1 == info_2)
+
+        # equal objects should produce equal hashes
+        info_1.dst_order = info_2.dst_order
+        self.assertEqual(info_1, info_2)
+        self.assertEqual(hash(info_1), hash(info_2))
 
 
 class DomainTestCase(unittest.TestCase):
@@ -1566,4 +2324,3 @@ class EvalDataTestCase(unittest.TestCase):
         data.input_data[0].points[0] = 999
         np.testing.assert_array_equal(self.data5.input_data[0],
                                       self.data5.input_data[0])
-

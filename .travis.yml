@@ -8,11 +8,34 @@ branches:
 language: python
 
 python:
-  - "3.5"
-  - "3.6"
+  - 3.5
+  - 3.6
+
 env:
-  - DIST=anaconda
   - DIST=pypi
+  - DIST=anaconda
+
+matrix:
+  fast_finish: true
+
+  # at the time this is required to use python 3.7, see
+  # https://github.com/travis-ci/travis-ci/issues/9815
+  include:
+  - python: 3.7
+    dist: xenial
+    sudo: true
+
+  # dont take care of anaconda or older python versions
+  allow_failures:
+  - env: DIST=anaconda
+  - python: 3.5
+
+  # dont test latest python version with anaconda
+  exclude:
+      - python: 3.7
+        dist: xenial
+        sudo: true
+        env: anaconda
 
 install:
   - >

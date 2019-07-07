@@ -310,7 +310,9 @@ def coefficient_recursion(c0, c1, param):
         c_3 = numpy.array&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\
         &\vdots                                          \\
         c_{2N-1} = numpy.array&([c_{2N-1}^{(0)}])                \\
-        c_{2N} = numpy.array&([c_{2N}^{(0)}])
+        c_{2N} = numpy.array&([c_{2N}^{(0)}]).
+
+    Only constant parameters :math:`a_2, a_1, a_0 \in \mathbb R` supported.
 
     Args:
         c0 (array_like): :math:`c_0`
@@ -320,11 +322,13 @@ def coefficient_recursion(c0, c1, param):
     Return:
         dict: :math:`C = \{0: c_0, 1: c_1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}\}`
     """
-    # TODO: documentation: only constant coefficients
     if c0.shape != c1.shape:
         raise ValueError
 
     a2, a1, a0, _, _ = param
+    if not all([isinstance(p, Number) for p in (a2, a1, a0)]):
+        raise TypeError("Only constant coefficients supported.")
+
     N = c0.shape[0]
     C = dict()
 

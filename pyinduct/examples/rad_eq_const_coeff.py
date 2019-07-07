@@ -128,6 +128,7 @@ def main():
 
     # system/simulation parameters
     z_end = 1
+    spat_bounds = (0, z_end)
     spatial_domain = pi.Domain(bounds=(0, z_end), num=n_fem)
     trans_time = 1
     temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
@@ -210,7 +211,7 @@ def main():
     ctrl_lbl = "ctrl_appr_base"
     ctrl_target_lbl = "ctrl_appr_target_base"
     ctrl_base = pi.Base(eig_funcs.fractions)
-    ctrl_base.intermediate_base = obs_sys_lbl
+    ctrl_base.intermediate_base_lbls = [obs_sys_lbl]
     pi.register_base(ctrl_lbl, ctrl_base)
     pi.register_base(ctrl_target_lbl, eig_funcs_t)
     obs_lbl = "obs_appr_base"
@@ -294,8 +295,8 @@ def main():
     def sys_ic(z): return .0
     def obs_ic(z): return .5
 
-    ics = {rad_pde.name: [pi.Function(sys_ic)],
-           obs_rad_pde.name: [pi.Function(obs_ic)]}
+    ics = {rad_pde.name: [pi.Function(sys_ic, domain=spat_bounds)],
+           obs_rad_pde.name: [pi.Function(obs_ic, domain=spat_bounds)]}
 
     # spatial domains
     spatial_domains = {rad_pde.name: spatial_domain,

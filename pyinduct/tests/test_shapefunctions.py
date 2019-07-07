@@ -40,7 +40,7 @@ class CureTestCase(unittest.TestCase):
                 test_dom = pi.Domain(bounds=nodes.bounds, num=50)
 
                 # constant profile
-                ref_func = pi.Function.from_constant(1)
+                ref_func = pi.Function.from_constant(1, domain=nodes.bounds)
                 test_weights = pi.project_on_base(ref_func, base)
 
                 values = pi.back_project_from_base(test_weights,
