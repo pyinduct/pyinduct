@@ -12,4 +12,4 @@ Contributors
 ------------
 
 * Jens Wurm <>
-* Florian Alber <>
+* Florian Alber <albflo@hotmail.de>
