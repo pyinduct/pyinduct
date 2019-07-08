@@ -11,5 +11,5 @@ Development Lead
 Contributors
 ------------
 
-* Jens Wurm <>
+* Jens Wurm <jens.wurm@umit.ata>
 * Florian Alber <albflo@hotmail.de>
