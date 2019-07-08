@@ -5,7 +5,7 @@ Credits
 Development Lead
 ----------------
 
-* Stefan Ecklebe <>
+* Stefan Ecklebe <stefan.ecklebe@tu-dresden.de>
 * Marcus Riesmeier <marcus.riesmeier@umit.at>
 
 Contributors
