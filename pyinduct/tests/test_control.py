@@ -32,8 +32,8 @@ class ControllerObserverTestCase(unittest.TestCase):
                                  weight_lbl=self.weight_label)["output"]
 
     def _build_obs(self, term):
-        obs = pi.ObserverFeedback(
-            pi.WeakFormulation([term], name="test_obs"), self.out_err)
+        obs = pi.ObserverFeedback(pi.WeakFormulation([term], name="test_obs"),
+                                  self.out_err)
 
         return obs._calc_output(time=0,
                                 weights=self.weights,

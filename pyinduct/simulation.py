@@ -1500,10 +1500,11 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
 class SimulationInputVector(SimulationInput):
     """
-    A simulation input which return a column vector as output.
-    The vector elements are :py:class:`SimulationInput`s.
+    A simulation input which combines :py:class:`SimulationInput`s into a column
+    vector.
 
-    input_vector (array-like): List of simulation inputs.
+    Args:
+        input_vector (array-like): Simulation inputs to stack.
     """
 
     def __init__(self, input_vector):
@@ -1517,7 +1518,9 @@ class SimulationInputVector(SimulationInput):
         return self._input_vector[item]
 
     def append(self, input_vector):
-        [self._input_vector.append(input) for input in input_vector]
+        # [self._input_vector.append(input) for input in input_vector]
+        inputs = list(input_vector)
+        self._input_vector += inputs
 
     def _calc_output(self, **kwargs):
         output = list()
