@@ -1757,7 +1757,7 @@ class SetDominantLabel(unittest.TestCase):
 
 class SimulationInputVectorTestCase(unittest.TestCase):
 
-    def setUp(self) -> None:
+    def setUp(self):
         self.inputs = np.array(
             [CorrectInput(output=i, der_order=i) for i in range(5)])
 
