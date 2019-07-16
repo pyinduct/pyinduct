@@ -1756,12 +1756,13 @@ class SetDominantLabel(unittest.TestCase):
 class SimulationInputVectorTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.inputs = [CorrectInput(output=i, der_order=i) for i in range(5)]
+        self.inputs = np.array(
+            [CorrectInput(output=i, der_order=i) for i in range(5)])
 
     def test_init(self):
         # empty arg
         input_vector = sim.SimulationInputVector([])
-        self.assertEqual(input_vector._input_vector, [])
+        self.assertTrue(input_vector._input_vector == [])
 
         # single arg
         input_vector = sim.SimulationInputVector(self.inputs[1])
@@ -1769,7 +1770,7 @@ class SimulationInputVectorTestCase(unittest.TestCase):
 
         # iterable arg
         input_vector = sim.SimulationInputVector(self.inputs)
-        self.assertEqual(input_vector._input_vector, self.inputs)
+        self.assertTrue(all(input_vector._input_vector == self.inputs))
 
     def test_iter(self):
         input_vector = sim.SimulationInputVector(self.inputs[:2])
@@ -1789,15 +1790,15 @@ class SimulationInputVectorTestCase(unittest.TestCase):
 
         # slice
         val = input_vector[2:4]
-        self.assertEqual(val, self.inputs[2:4])
+        self.assertTrue(all(val == self.inputs[2:4]))
 
     def test_append(self):
         input_vector = sim.SimulationInputVector([])
         input_vector.append(self.inputs[:2])
-        self.assertEqual(input_vector._input_vector, self.inputs[:2])
+        self.assertTrue(all(input_vector._input_vector == self.inputs[:2]))
 
         input_vector.append(self.inputs[2:])
-        self.assertEqual(input_vector._input_vector, self.inputs)
+        self.assertTrue(all(input_vector._input_vector == self.inputs))
 
     def test_output(self):
         kwargs = dict(time=1, weights=[1, 2, 3], weight_lbl="test")
@@ -1809,5 +1810,7 @@ class SimulationInputVectorTestCase(unittest.TestCase):
         input_vector = sim.SimulationInputVector(self.inputs)
         outputs = [inp(**kwargs) for inp in self.inputs]
         vec_outputs = input_vector(**kwargs)
-        self.assertEqual(np.array(outputs), vec_outputs)
+        self.assertTrue(
+            all([all(a == b) for a, b in zip(outputs, vec_outputs)])
+        )
 

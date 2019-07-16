@@ -1509,7 +1509,13 @@ class SimulationInputVector(SimulationInput):
 
     def __init__(self, input_vector):
         SimulationInput.__init__(self)
-        self._input_vector = list(input_vector)
+        self._input_vector = self._sanitize_input_vector(input_vector)
+
+    def _sanitize_input_vector(self, input_vector):
+        if hasattr(input_vector, "__len__") and len(input_vector) == 0:
+            return list()
+        else:
+            return sanitize_input(input_vector, SimulationInput)
 
     def __iter__(self):
         return iter(self._input_vector)
@@ -1518,14 +1524,13 @@ class SimulationInputVector(SimulationInput):
         return self._input_vector[item]
 
     def append(self, input_vector):
-        # [self._input_vector.append(input) for input in input_vector]
-        inputs = list(input_vector)
-        self._input_vector += inputs
+        inputs = self._sanitize_input_vector(input_vector)
+        self._input_vector = np.hstack((self._input_vector, inputs))
 
     def _calc_output(self, **kwargs):
         output = list()
         for input in self._input_vector:
             output.append(input(**kwargs))
 
-        return dict(output=np.vstack(output))
+        return dict(output=output)
 
