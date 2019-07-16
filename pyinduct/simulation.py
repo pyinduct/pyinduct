@@ -191,26 +191,30 @@ class StateSpace(object):
     Wrapper class that represents the state space form of a dynamic system where
 
     .. math::
-        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
-        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
+        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k}
+        \boldsymbol{x}^{p_k}(t)
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k}
+        \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
         + \boldsymbol{L}\tilde{\boldsymbol{y}}(t)\\
-        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
+        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t)
+        + \boldsymbol{D}u(t)
 
     which has been approximated by projection on a base given by weight_label.
 
     Args:
-        a_matrices (dict): State transition matrices :math:`\boldsymbol{A}_{p_k}`
-            for the corresponding powers of :math:`\boldsymbol{x}`
-        b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
-            temporal derivative order, exponent .
-        input_handles (np.ndarray):  (Array of) callables for the the system
-            inputs :math:`u(t)`.
+        a_matrices (dict): State transition matrices
+            :math:`\boldsymbol{A}_{p_k}` for the corresponding powers of
+            :math:`\boldsymbol{x}`.
+        b_matrices (dict): Cascaded dictionary for the input matrices
+            :math:`\boldsymbol{B}_{j, k}` in the sequence: temporal derivative
+            order, exponent.
+        input_handle (:py:class:`.SimulationInput`): System input :math:`u(t)`.
         c_matrix: :math:`\boldsymbol{C}`
         d_matrix: :math:`\boldsymbol{D}`
     """
 
     def __init__(self, a_matrices, b_matrices, base_lbl=None,
-                 input_handles=None, c_matrix=None, d_matrix=None,
+                 input_handle=None, c_matrix=None, d_matrix=None,
                  obs_fb_handle=None):
         self.C = c_matrix
         self.D = d_matrix
@@ -242,10 +246,12 @@ class StateSpace(object):
         if self.D is None:
             self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
-        if input_handles is None:
+        if input_handle is None:
             self.input = EmptyInput(self.B[0][available_power].shape[1])
+        elif isinstance(input_handle, SimulationInput):
+            self.input = input_handle
         else:
-            self.input = sanitize_input(input_handles, SimulationInput)
+            raise NotImplementedError
 
     # TODO export cython code?
     def rhs(self, _t, _q):
@@ -264,14 +270,12 @@ class StateSpace(object):
             state_part = state_part + a_mat @ np.power(_q, power)
 
         input_part = np.zeros_like(state_part)
-        inputs = np.atleast_2d([u(time=_t, weights=_q, weight_lbl=self.base_lbl)
-                                for u in self.input])
-        # TODO create a commit
-                              # for u in self.input[0]])
+        inputs = np.atleast_2d(
+            self.input(time=_t, weights=_q, weight_lbl=self.base_lbl))
         for der_order, power_dict in self.B.items():
             for power, b_mat in power_dict.items():
                 for idx, col in enumerate(b_mat.T):
-                    input_part = input_part + col * inputs[idx, der_order]
+                    input_part = input_part + col * inputs[idx][der_order]
 
         q_t = state_part + input_part
 
@@ -483,7 +487,7 @@ class CanonicalForm(object):
         self.matrices = {}
         # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
-        self._input_functions = None
+        self._input_function = None
         self._observer_feedback = list()
         self._finalized = False
         self.powers = None
@@ -507,26 +511,17 @@ class CanonicalForm(object):
     #                 self._matrices[name][der][p] += pow
 
     @property
-    def input_functions(self):
-        return self._input_functions
+    def input_function(self):
+        return self._input_function
 
-    def set_input_function(self, func, index=0):
+    def set_input_function(self, func):
         if not isinstance(func, SimulationInput):
             raise TypeError("Inputs must be of type `SimulationInput`.")
 
-        if self._input_functions is None:
-            self._input_functions = np.atleast_1d(func)
-
-        # check whether the dimensions must be extended
-        if index >= self.input_functions.shape[0]:
-            old_len = self._input_functions.shape[0]
-            new_input_functions = np.empty(index + 1, dtype=object)
-            new_input_functions[:old_len] = self._input_functions
-            self._input_functions = new_input_functions
-            self._input_functions[index] = func
-        else:
-            if self._input_functions[index] != func:
-                raise ValueError("already defined input is overridden!")
+        if self._input_function is None:
+            self._input_function = func
+        elif not self._input_function is func:
+            raise ValueError("already defined input is overridden!")
 
     # @property
     # def weights(self):
@@ -735,7 +730,7 @@ class CanonicalForm(object):
         a_matrices.update({0: f_mat})
 
         ss = StateSpace(a_matrices, b_matrices,
-                        input_handles=self.input_functions)
+                        input_handle=self.input_function)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
@@ -882,14 +877,14 @@ class CanonicalEquation(object):
         return {label: val.get_terms() for label, val in self.dynamic_forms.items()}
 
     @property
-    def input_functions(self):
+    def input_function(self):
         """
         The input handles for the equation.
         """
-        return self._static_form.input_functions
+        return self._static_form.input_function
 
-    def set_input_function(self, func, index=0):
-        self._static_form.set_input_function(func, index)
+    def set_input_function(self, func):
+        self._static_form.set_input_function(func)
 
 
 def create_state_space(canonical_equations):
@@ -966,9 +961,9 @@ def create_state_space(canonical_equations):
 
         # update input handles
         if state_space_props.input is None:
-            state_space_props.input = eq.input_functions
-        else:
-            if eq.input_functions is not None and state_space_props.input not in eq.input_functions:
+            state_space_props.input = eq.input_function
+        elif eq.input_function is not None:
+            if not state_space_props.input is eq.input_function:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
@@ -1053,7 +1048,7 @@ def create_state_space(canonical_equations):
         return res
 
     dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
-                        input_handles=state_space_props.input,
+                        input_handle=state_space_props.input,
                         obs_fb_handle=observer_feedback)
     return dom_ss
 
@@ -1241,7 +1236,7 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
                 ce.add_to(weight_label=None, term=term_info,
                           val=result * term.scale, column=input_index)
-                ce.set_input_function(input_func, input_index)
+                ce.set_input_function(input_func)
                 continue
 
             if is_observer:
@@ -1279,7 +1274,7 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
                 ce.add_to(weight_label=None, term=term_info,
                           val=result * term.scale, column=input_index)
-                ce.set_input_function(input_func, input_index)
+                ce.set_input_function(input_func)
                 continue
 
             if is_observer:
