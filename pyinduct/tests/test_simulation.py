@@ -98,7 +98,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput(output=1, limits=(0, 1))
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handles=u)
+        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, pi.Domain((0, 1), num=10))
@@ -108,7 +108,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = MonotonousInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace(a, b, input_handles=u)
+        ss = sim.StateSpace(a, b, input_handle=u)
 
         # run simulation to fill the internal storage
         domain = pi.Domain((0, 10), num=11)
@@ -216,22 +216,24 @@ class ParseTest(unittest.TestCase):
 
         # callbacks
         self.u = pi.ConstantTrajectory(7)
-        self.u1 = CorrectInput(output=1)
-        self.u2 = CorrectInput(output=2)
+        u1 = CorrectInput(output=1)
+        u2 = CorrectInput(output=2)
+        self.u_vec = pi.SimulationInputVector([u1, u2])
         self.u_dt = CorrectInput(output=1, der_order=1)
-        self.u1_dt = CorrectInput(output=1, der_order=1)
-        self.u2_dt = CorrectInput(output=2, der_order=1)
+        u1_dt = CorrectInput(output=1, der_order=1)
+        u2_dt = CorrectInput(output=2, der_order=1)
+        self.u_vec_dt = pi.SimulationInputVector([u1_dt, u2_dt])
 
         # inputs
         self.input = pi.Input(self.u)
 
-        self.vec_input_1 = pi.Input(self.u1, index=0)
-        self.vec_input_2 = pi.Input(self.u2, index=1)
+        self.vec_input_1 = pi.Input(self.u_vec, index=0)
+        self.vec_input_2 = pi.Input(self.u_vec, index=1)
 
         self.input_dt = pi.Input(self.u_dt, order=1)
 
-        self.vec_input_dt_1 = pi.Input(self.u1_dt, index=0, order=1)
-        self.vec_input_dt_2 = pi.Input(self.u2_dt, index=1, order=1)
+        self.vec_input_dt_1 = pi.Input(self.u_vec_dt, index=0, order=1)
+        self.vec_input_dt_2 = pi.Input(self.u_vec_dt, index=1, order=1)
 
         # scale function
         def heavyside(z):
@@ -751,7 +753,7 @@ class StateSpaceTests(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             ss.B[0][1],
             np.array([[0], [0], [0], [0.125], [-1.75], [6.875]]))
-        self.assertEqual(self.ce.input_functions, self.u)
+        self.assertEqual(self.ce.input_function, self.u)
 
     def test_simulate_state_space(self):
         """
@@ -1508,7 +1510,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         a_mat = np.diag(eig_values)
         b_mat = -a2 * np.atleast_2d(
             [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(
@@ -1587,7 +1589,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine pair (A, B) by modal transformation
         a_mat = np.diag(np.real_if_close(eig_val))
         b_mat = a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
