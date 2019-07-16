@@ -55,9 +55,9 @@ if __name__ == "__main__" or test_examples:
     xt_at_1 = pi.FieldVariable("eig_funcs_t",
                                weight_label="eig_funcs",
                                location=1)
-    controller = pi.Controller(pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
-                                                   pi.ScalarTerm(xt_at_1, -1)],
-                               name="backstepping_controller"))
+    controller = pi.StateFeedback(pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
+                                                      pi.ScalarTerm(xt_at_1, -1)],
+                                                     name="backstepping_controller"))
 
     # derive initial field variable x(z,0) and weights
     start_state = pi.Function(lambda z: init_profile, domain=spatial_domain.bounds)

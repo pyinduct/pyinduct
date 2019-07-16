@@ -129,10 +129,10 @@ def eliminate_advection_term(param, domain_end):
     Return:
         SecondOrderOperator or tuple:
         Parameters
-        
+
         .. math:: \big(a_2, \tilde a_1=0, \tilde a_0(z),
             \tilde \alpha, \tilde \beta \big) for
-            
+
         the transformed system
 
         .. math:: \dot{\tilde{x}}(z,t) = a_2 \tilde x''(z,t) +
@@ -250,19 +250,47 @@ def get_parabolic_dirichlet_weak_form(init_func_label,
                            name="parabolic_dirichlet")
 
 
-def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handle, param, spatial_domain,
+def get_parabolic_robin_weak_form(shape_base_label, test_base_label,
+                                  input_handle, param, spatial_domain,
                                   actuation_type_point=None):
-    """
+    r"""
+    Provide the weak formulation for the diffusion system with advection term,
+    reaction term, robin boundary condition and robin actuation.
 
-    :param shape_base_label:
-    :param test_base_label:
-    :param input_handle:
-    :param param:
-    :param spatial_domain:
-    :param actuation_type_point:
-    :return:
+    .. math::
+        :nowrap:
+
+        \begin{align*}
+            \dot x(z,t) &= a_2 x''(z,t) + a_1(z) x'(z,t) + a_0(z) x(z,t),
+             && z\in (0, l) \\
+            x'(0,t) &= \alpha x(0,t) \\
+            x'(l,t) &= -\beta x(l,t) + u(t)
+        \end{align*}
+
+    Args:
+        shape_base_label (str): State space base label
+        test_base_label (str): Test base label
+        input_handle (:py:class:`.SimulationInput`): System input
+        param (array-like): List of parameters:
+
+            - :math:`a_2` (numbers.Number) ~ diffusion coefficient
+            - :math:`a_1(z)` (callable) ~ advection coefficient
+            - :math:`a_0(z)` (callable) ~ reaction coefficient
+            - :math:`\alpha, \beta` (numbers.Number) ~ constants for robin
+              boundary conditions
+
+        spatial_domain (tuple): Limits of the spatial domain :math:`(0,l) \ni z`
+        actuation_type_point (numbers.number): Here you can shift the point of
+            actuation from :math:`z=l` to a other point in the spatial domain.
+
+    Returns:
+        tuple:
+
+            - :py:class:`.WeakFormulation`
+            - strings for the created base lables for the advection and reaction
+              coefficient
+
     """
-    # TODO What is happening here? -> add documentation.
 
     if actuation_type_point is None:
         actuation_type_point = spatial_domain[1]
@@ -271,7 +299,7 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     l = spatial_domain[1]
 
     # init ScalarFunction for a1 and a0 to handle spatially varying coefficients
-    created_base_labels = ("a0_z", "a1_z")
+    created_base_labels = (shape_base_label + "a0_z", shape_base_label + "a1_z")
     a0_z = ScalarFunction.from_scalar(a0, created_base_labels[0])
     a1_z = ScalarFunction.from_scalar(a1, created_base_labels[1])
 
@@ -291,12 +319,18 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label, input_handl
     # scalar terms
     s1 = ScalarTerm(Product(x(0), psi(0)), a2 * alpha)
     s2 = ScalarTerm(Product(x(l), psi(l)), a2 * beta)
-    s3 = ScalarTerm(Product(Input(input_handle), psi(actuation_type_point)),
-                    -a2)
+
+    terms = [int1, int2, int3, int4, s1, s2]
+
+    # consider input if given
+    if input_handle is not None:
+        terms.append(ScalarTerm(
+            Product(Input(input_handle), psi(actuation_type_point)), -a2))
 
     # derive state-space system
-    weak_form = WeakFormulation([int1, int2, int3, int4, s1, s2, s3],
-                                name="parabolic_robin_{}".format(param))
+    weak_form = WeakFormulation(
+        terms, name="parabolic_robin_{}_{}".format(param, shape_base_label))
+
     return weak_form, created_base_labels
 
 
@@ -346,3 +380,4 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     else:
         raise ValueError("String in variable 'mode' not understood.")
     return M * 0.5
+

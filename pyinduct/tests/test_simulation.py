@@ -74,8 +74,12 @@ class AlternatingInput(sim.SimulationInput):
 
     def __init__(self):
         super().__init__(self)
-        self.tr_up = pi.SmoothTransition(states=(0, 1), interval=(0, 1), method="poly")
-        self.tr_down = pi.SmoothTransition(states=(1, 0), interval=(1, 2), method="poly")
+        self.tr_up = pi.SmoothTransition(states=(0, 1),
+                                         interval=(0, 1),
+                                         method="poly")
+        self.tr_down = pi.SmoothTransition(states=(1, 0),
+                                           interval=(1, 2),
+                                           method="poly")
 
 
 class SimulationInputTest(unittest.TestCase):
@@ -1747,3 +1751,63 @@ class SetDominantLabel(unittest.TestCase):
         pi.deregister_base("base_1")
         pi.deregister_base("base_2")
         pi.deregister_base("base_3")
+
+
+class SimulationInputVectorTestCase(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.inputs = [CorrectInput(output=i, der_order=i) for i in range(5)]
+
+    def test_init(self):
+        # empty arg
+        input_vector = sim.SimulationInputVector([])
+        self.assertEqual(input_vector._input_vector, [])
+
+        # single arg
+        input_vector = sim.SimulationInputVector(self.inputs[1])
+        self.assertEqual(input_vector._input_vector, [self.inputs[1]])
+
+        # iterable arg
+        input_vector = sim.SimulationInputVector(self.inputs)
+        self.assertEqual(input_vector._input_vector, self.inputs)
+
+    def test_iter(self):
+        input_vector = sim.SimulationInputVector(self.inputs[:2])
+        itr = iter(input_vector)
+        val = next(itr)
+        self.assertEqual(val, self.inputs[0])
+        val = next(itr)
+        self.assertEqual(val, self.inputs[1])
+        with self.assertRaises(StopIteration):
+            next(itr)
+
+    def test_getitem(self):
+        # single val
+        input_vector = sim.SimulationInputVector(self.inputs)
+        val = input_vector[1]
+        self.assertEqual(val, self.inputs[1])
+
+        # slice
+        val = input_vector[2:4]
+        self.assertEqual(val, self.inputs[2:4])
+
+    def test_append(self):
+        input_vector = sim.SimulationInputVector([])
+        input_vector.append(self.inputs[:2])
+        self.assertEqual(input_vector._input_vector, self.inputs[:2])
+
+        input_vector.append(self.inputs[2:])
+        self.assertEqual(input_vector._input_vector, self.inputs)
+
+    def test_output(self):
+        kwargs = dict(time=1, weights=[1, 2, 3], weight_lbl="test")
+        input_vector = sim.SimulationInputVector([])
+        # empty content
+        input_vector(**kwargs)
+
+        # full content
+        input_vector = sim.SimulationInputVector(self.inputs)
+        outputs = [inp(**kwargs) for inp in self.inputs]
+        vec_outputs = input_vector(**kwargs)
+        self.assertEqual(np.array(outputs), vec_outputs)
+

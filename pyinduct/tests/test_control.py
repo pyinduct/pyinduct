@@ -4,97 +4,123 @@ import numpy as np
 import pyinduct as pi
 
 
-class CollocatedTestCase(unittest.TestCase):
+class ControllerObserverTestCase(unittest.TestCase):
     def setUp(self):
-        spat_dom = pi.Domain((0, 1), 10)
+        self.interval = (0, 1)
+        spat_dom = pi.Domain(self.interval, 10)
         nodes = pi.Domain(spat_dom.bounds, num=3)
         base = pi.LagrangeFirstOrder.cure_interval(nodes)
-        pi.register_base("base", base)
-
-        x = pi.FieldVariable("base")
-        x_dt_at1 = x.derive(temp_order=1)(1)
-        x_dz_at0 = x.derive(spat_order=1)(0)
+        self.weight_label = "base"
+        pi.register_base(self.weight_label, base)
 
         exp_base = pi.Base(pi.Function(np.exp))
-        pi.register_base("exp_base", exp_base, overwrite=True)
-        exp_at1 = pi.ScalarFunction("exp_base")(1)
+        self.func_label = "exp_base"
+        pi.register_base(self.func_label, exp_base, overwrite=True)
 
-        alpha = 2
-        self.term1 = pi.ScalarTerm(x_dt_at1, 1 + alpha)
-        self.term2 = pi.ScalarTerm(x_dz_at0, 2)
-        self.term3 = pi.ScalarTerm(pi.Product(x(0), exp_at1))
-
-        self.weight_label = "base"
+        self.alpha = 2
         self.weights = np.array([1, 1, 1, 2, 2, 2])
+        self.x = pi.FieldVariable(self.weight_label)
+        self.psi = pi.TestFunction(self.weight_label)
+        self.exp = pi.ScalarFunction(self.func_label)
+        self.out_err = pi.StateFeedback(pi.WeakFormulation(
+            [pi.ScalarTerm(self.x(0))], name="observer_error"))
 
-    def _build_case(self, term):
-        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"),
-                                       finalize=False)
-        evaluator = pi.LawEvaluator(ce)
-        return evaluator(self.weights, self.weight_label)["output"]
+    def _build_ctrl(self, term):
+        ctrl = pi.StateFeedback(pi.WeakFormulation([term], name="test_ctrl"))
 
-    def test_temp_term(self):
-        res = self._build_case(self.term1)
+        return ctrl._calc_output(weights=self.weights,
+                                 weight_lbl=self.weight_label)["output"]
+
+    def _build_obs(self, term):
+        obs = pi.ObserverFeedback(pi.WeakFormulation([term], name="test_obs"),
+                                  self.out_err)
+
+        return obs._calc_output(time=0,
+                                weights=self.weights,
+                                weight_lbl=self.weight_label,
+                                obs_weight_lbl=self.weight_label)["output"]
+
+    def test_collocated_ctrl(self):
+        term1c = pi.ScalarTerm(self.x.derive(temp_order=1)(1), 1 + self.alpha)
+        term2c = pi.ScalarTerm(self.x.derive(spat_order=1)(0), 2)
+        term3c = pi.ScalarTerm(pi.Product(self.x(1), self.exp(1)))
+
+        res = self._build_ctrl(term1c)
         self.assertAlmostEqual(res, 6)
 
-    def test_spat_term(self):
-        res = self._build_case(self.term2)
+        res = self._build_ctrl(term2c)
         self.assertAlmostEqual(res, 0)
 
-    def test_product_term(self):
-        res = self._build_case(self.term3)
+        res = self._build_ctrl(term3c)
         self.assertAlmostEqual(res, 1 * np.exp(1))
 
-    def tearDown(self):
-        pi.deregister_base("base")
-        pi.deregister_base("exp_base")
+    def test_collocated_obs(self):
+        term1o = pi.ScalarTerm(self.psi(1), 1 + self.alpha)
+        term2o = pi.ScalarTerm(self.psi.derive(1)(0), 2)
+        term3o = pi.ScalarTerm(pi.Product(self.psi(0), self.exp(1)))
 
+        res = self._build_obs(term1o)
+        np.testing.assert_array_almost_equal(res, np.array([[0], [0], [3]]))
 
-class ContinuousTestCase(unittest.TestCase):
-    def setUp(self):
-        self.weight_label = "base"
+        res = self._build_obs(term2o)
+        np.testing.assert_array_almost_equal(res, np.array([[-4], [4], [0]]))
 
-        interval = (0, 1)
-        nodes = pi.Domain(interval, num=3)
-        funcs = pi.LagrangeFirstOrder.cure_interval(nodes)
-        pi.register_base(self.weight_label, funcs)
+        res = self._build_obs(term3o)
+        np.testing.assert_array_almost_equal(res, np.eye(3)[:, 0, None] * np.e)
 
-        x = pi.FieldVariable(self.weight_label)
-        x_dt = x.derive(temp_order=1)
-        x_dz = x.derive(spat_order=1)
+    def test_continuous_ctrl(self):
+        term1c = pi.IntegralTerm(
+            self.x.derive(temp_order=1), self.interval, 1 + self.alpha)
+        term2c = pi.IntegralTerm(self.x.derive(spat_order=1), self.interval, 2)
+        term3c = pi.IntegralTerm(pi.Product(self.x, self.exp), self.interval)
 
-        pi.register_base("scalar_func", pi.Base(pi.Function(np.exp)))
-        exp = pi.ScalarFunction("scalar_func")
+        res = self._build_ctrl(term1c)
+        self.assertAlmostEqual(res, 6)
 
-        alpha = 2
-        self.term1 = pi.IntegralTerm(x_dt, interval, 1 + alpha)
-        self.term2 = pi.IntegralTerm(x_dz, interval, 2)
-        self.term3 = pi.IntegralTerm(pi.Product(x, exp), interval)
-
-        self.weights = np.array([1, 1, 1, 2, 2, 2])
-
-    def _build_case(self, term):
-        ce = pi.parse_weak_formulation(pi.WeakFormulation([term], name="test"),
-                                       finalize=False)
-        evaluator = pi.LawEvaluator(ce)
-        return evaluator(self.weights, self.weight_label)["output"]
-
-    def test_temp_term(self):
-        res = self._build_case(self.term1)
-        self.assertTrue(np.equal(res, 6))
-
-    def test_spat_term(self):
-        res = self._build_case(self.term2)
+        res = self._build_ctrl(term2c)
         self.assertAlmostEqual(res, 0)
 
-    def test_product_term(self):
-        res = self._build_case(self.term3)
-        # TODO calculate expected result
-        # self.assertAlmostEqual(res, 1*np.exp(1))
+        res = self._build_ctrl(term3c)
+        self.assertAlmostEqual(
+            float(res), np.array([0.2974425414002563, 0.8416785741175778,
+                                  0.5791607129412111, 0, 0, 0]) @ self.weights)
+
+    def test_continuous_obs(self):
+        term1c = pi.IntegralTerm(self.psi, self.interval, 1 + self.alpha)
+        term2c = pi.IntegralTerm(self.psi.derive(order=1), self.interval, 2)
+        term3c = pi.IntegralTerm(pi.Product(self.psi, self.exp), self.interval)
+
+        res = self._build_obs(term1c)
+        np.testing.assert_array_almost_equal(
+            res, np.array([[0.75], [1.5], [0.75]]))
+
+        res = self._build_obs(term2c)
+        np.testing.assert_array_almost_equal(
+            res, np.array([[-2], [0], [2]]))
+
+        res = self._build_obs(term3c)
+        np.testing.assert_array_almost_equal(
+            res, np.array([[0.2974425414002563],
+                           [0.8416785741175778],
+                           [0.5791607129412111]]))
+
+    def test_observer_errors(self):
+        test1o = pi.WeakFormulation([pi.IntegralTerm(
+            self.x, limits=self.interval)], name="test")
+        test2o = pi.WeakFormulation([pi.IntegralTerm(
+            pi.Product(self.x, self.exp), limits=self.interval)], name="test")
+        test3o = pi.WeakFormulation([pi.ScalarTerm(pi.ObserverGain(
+            pi.ObserverFeedback(pi.WeakFormulation([pi.IntegralTerm(
+                self.psi, limits=self.interval)], name="test"),
+                self.out_err)))], name="test")
+
+        self.assertRaises(ValueError, pi.ObserverFeedback, test1o, self.out_err)
+        self.assertRaises(ValueError, pi.ObserverFeedback, test2o, self.out_err)
+        self.assertRaises(ValueError, pi.ObserverFeedback, test3o, self.out_err)
 
     def tearDown(self):
         pi.deregister_base(self.weight_label)
-        pi.deregister_base("scalar_func")
+        pi.deregister_base(self.func_label)
 
 
 class TestControllerInExamplesModule(unittest.TestCase):
@@ -111,4 +137,5 @@ class TestControllerInExamplesModule(unittest.TestCase):
 
     def test_robin_in_domain(self):
         import pyinduct.examples.rad_eq_in_domain
+
 

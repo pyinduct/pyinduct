@@ -53,7 +53,7 @@ class TestSecondOrderEigenfunction(unittest.TestCase):
                 z, param=param, n=n, eig_val=eig_val, eig_freq=eig_freq)
         with self.assertRaises(ValueError):
             _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
-            pi.Domain((1, 2), 2), param=param, n=n)
+                pi.Domain((1, 2), 2), param=param, n=n)
         with self.assertRaises(ValueError):
             _, _ = pi.SecondOrderDirichletEigenfunction.cure_interval(
                 pi.Domain((0, -2), 2), param=param, n=n)
@@ -316,6 +316,7 @@ class TestEigenvalues(unittest.TestCase):
 
     def test_robin(self):
         param_desired_ef_pairs = [
+            ([.5, 0, 6, -1, -1], [1.543405j, 2.331122, 5.950173, 9.208434]),
             ([1, 0, 1, -2, -2], [2.39935728j, 0, 5.59677209, 8.98681892]),
             ([1, 0, 1, 0, 0], [0j, 3.14159265, 6.28318531, 9.42477796]),
             ([1, 2, 1, 3, 4], [2.06301691, 4.46395118, 7.18653501, 10.09113552]),
@@ -324,7 +325,7 @@ class TestEigenvalues(unittest.TestCase):
         for param, desired_eig_freq in param_desired_ef_pairs:
             eig_freq, _ = pi.SecondOrderRobinEigenfunction.eigfreq_eigval_hint(
                 param, 1, 4, show_plot=False)
-            self.assertTrue(all(np.isclose(eig_freq, desired_eig_freq)))
+            np.testing.assert_array_almost_equal(eig_freq, desired_eig_freq)
 
 
 class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
@@ -339,8 +340,8 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
                 (a2 * eig_f.derive(2)(self.z)
                  + a1 * eig_f.derive(1)(self.z)
                  + a0 * eig_f(self.z)) / eig_v,
-                 eig_v.real * eig_f(self.z) / eig_v,
-            decimal=4)
+                eig_v.real * eig_f(self.z) / eig_v,
+                decimal=4)
             boundary_check(eig_v, eig_f, self.z[-1])
 
 
@@ -455,7 +456,7 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
             [self.eig_funcs[i](0), self.eig_funcs[i].derive(1)(0), 0, 0],
             [a2_z, a1_z, a0_z],
             self.z)
-                                      for i in range(len(self.eig_funcs))]
+            for i in range(len(self.eig_funcs))]
         # TODO: provide second derivative of transformed eigenfunctions
         for i in range(len(self.eig_funcs)):
             eig_f = transformed_eig_funcs[i]
@@ -499,10 +500,10 @@ class IntermediateTransformationTest(unittest.TestCase):
         self.param_t = [a2, a1_t, a0_t, alpha_t, beta_t]
 
         # original intermediate ("_i") and target intermediate ("_ti") system parameters
-        _, _, a0_i, self.alpha_i, self.beta_i =\
+        _, _, a0_i, self.alpha_i, self.beta_i = \
             parabolic.general.eliminate_advection_term(self.param, self.l)
         self.param_i = a2, 0, a0_i, self.alpha_i, self.beta_i
-        _, _, a0_ti, self.alpha_ti, self.beta_ti =\
+        _, _, a0_ti, self.alpha_ti, self.beta_ti = \
             parabolic.general.eliminate_advection_term(self.param_t, self.l)
         self.param_ti = a2, 0, a0_ti, self.alpha_ti, self.beta_ti
 
@@ -539,3 +540,4 @@ class IntermediateTransformationTest(unittest.TestCase):
         for i in range(self.n):
             self.assertTrue(all(np.isclose(self.eig_base.fractions[i](test_vec),
                                            eig_funcs_i[i](test_vec) * np.exp(-a1 / 2 / a2 * test_vec))))
+

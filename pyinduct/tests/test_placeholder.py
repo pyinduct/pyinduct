@@ -207,10 +207,19 @@ class TestFunctionTest(unittest.TestCase):
         pi.register_base("test_funcs", ini_funcs, overwrite=True)
 
     def test_init(self):
-        # init with invalid base
         self.assertRaises(ValueError, ph.TestFunction, "test_fungs")
 
-        tf = ph.TestFunction(function_label="test_funcs", order=1)
+        tf = ph.TestFunction(function_label="test_funcs")
+        self.assertEqual(tf.data["appr_lbl"], tf.data["func_lbl"])
+        self.assertEqual(tf.data["appr_lbl"], "test_funcs")
+        tf = ph.TestFunction(function_label="test_funcs", order=7)
+        self.assertEqual(tf.order[1], 7)
+        tf = ph.TestFunction(function_label="test_funcs", order=1, location=5)
+        self.assertEqual(tf.location, 5)
+        tf = ph.TestFunction(function_label="test_funcs", order=1, location=0,
+                             approx_label="appr_funcs")
+        self.assertEqual(tf.data["func_lbl"], "test_funcs")
+        self.assertEqual(tf.data["appr_lbl"], "appr_funcs")
 
     def test_call_factory(self):
         a = ph.TestFunction("test_funcs")
@@ -462,3 +471,4 @@ class EvaluatePlaceholderTestCase(unittest.TestCase):
 
     def tearDown(self):
         pi.deregister_base("funcs")
+
