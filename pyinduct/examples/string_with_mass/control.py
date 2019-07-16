@@ -4,7 +4,7 @@ from pyinduct.parabolic.control import scale_equation_term_list
 
 
 
-class SwmObserverError(pi.Controller):
+class SwmObserverError(pi.StateFeedback):
     """
     For a smooth fade-in of the observer error.
 
@@ -15,7 +15,7 @@ class SwmObserverError(pi.Controller):
     """
 
     def __init__(self, control_law, smooth=None):
-        pi.Controller.__init__(self, control_law)
+        super().__init__(control_law)
 
         self.smooth = smooth
         if smooth is not None:
@@ -86,7 +86,7 @@ def build_controller(sys_lbl, ctrl_lbl):
         approx_label (string): Shapefunction label for approximation.
 
     Returns:
-        :py:class:`pyinduct.simulation.Controller`: Control law
+        :py:class:`.StateFeedback`: Control law
     """
     x1 = pi.FieldVariable(ctrl_lbl + "_1_ctrl")
     x2 = pi.FieldVariable(ctrl_lbl + "_2_ctrl")
@@ -95,35 +95,55 @@ def build_controller(sys_lbl, ctrl_lbl):
     xi2 = pi.FieldVariable(ctrl_lbl + "_4_ctrl")(0)
     dz_x1 = x1.derive(spat_order=1)
 
-    scalar_scale_funcs = [pi.Function(lambda theta: param.m * (1 - np.exp(-theta / param.m))),
-                          pi.Function(lambda theta: param.m * (-1 + np.exp(theta / param.m))),
-                          pi.Function(lambda theta: np.exp(-theta / param.m)),
-                          pi.Function(lambda theta: np.exp(theta / param.m))]
-
-    pi.register_base("int_scale1", pi.Base(pi.Function(lambda tau: 1 - np.exp(-(1 - tau) / param.m))))
-    pi.register_base("int_scale2", pi.Base(pi.Function(lambda tau: -1 + np.exp((-1 + tau) / param.m))))
-    pi.register_base("int_scale3", pi.Base(pi.Function(lambda tau: np.exp(-(1 - tau) / param.m) / param.m)))
-    pi.register_base("int_scale4", pi.Base(pi.Function(lambda tau: np.exp((-1 + tau) / param.m) / param.m)))
+    limits_cf = (-1, 1)
+    scalar_scale_funcs = [
+        pi.Function(lambda theta: param.m * (1 - np.exp(-theta / param.m)),
+                    domain=limits_cf),
+        pi.Function(lambda theta: param.m * (-1 + np.exp(theta / param.m)),
+                    domain=limits_cf),
+        pi.Function(lambda theta: np.exp(-theta / param.m), domain=limits_cf),
+        pi.Function(lambda theta: np.exp(theta / param.m), domain=limits_cf)]
 
     limits = (0, 1)
-    y_bar_plus1 = [pi.ScalarTerm(xi1),
-                   pi.ScalarTerm(xi2, scale=scalar_scale_funcs[0](1)),
-                   pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale1"), dz_x1), limits=limits),
-                   pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale1"), x2), limits=limits)
-                   ]
-    y_bar_minus1 = [pi.ScalarTerm(xi1),
-                    pi.ScalarTerm(xi2, scale=scalar_scale_funcs[1](-1)),
-                    pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale2"), dz_x1), limits=limits, scale=-1),
-                    pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale2"), x2), limits=limits)
-                    ]
-    dz_y_bar_plus1 = [pi.ScalarTerm(xi2, scale=scalar_scale_funcs[2](1)),
-                      pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale3"), dz_x1), limits=limits),
-                      pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale3"), x2), limits=limits)
-                      ]
-    dz_y_bar_minus1 = [pi.ScalarTerm(xi2, scale=scalar_scale_funcs[3](-1)),
-                       pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale4"), dz_x1), limits=limits, scale=-1),
-                       pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale4"), x2), limits=limits)
-                       ]
+    pi.register_base("int_scale1", pi.Base(pi.Function(
+        lambda tau: 1 - np.exp(-(1 - tau) / param.m), domain=limits)))
+    pi.register_base("int_scale2", pi.Base(pi.Function(
+        lambda tau: -1 + np.exp((-1 + tau) / param.m), domain=limits)))
+    pi.register_base("int_scale3", pi.Base(pi.Function(
+        lambda tau: np.exp(-(1 - tau) / param.m) / param.m, domain=limits)))
+    pi.register_base("int_scale4", pi.Base(pi.Function(
+        lambda tau: np.exp((-1 + tau) / param.m) / param.m, domain=limits)))
+
+    y_bar_plus1 = [
+        pi.ScalarTerm(xi1),
+        pi.ScalarTerm(xi2, scale=scalar_scale_funcs[0](1)),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale1"), dz_x1),
+                        limits=limits),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale1"), x2),
+                        limits=limits)
+    ]
+    y_bar_minus1 = [
+        pi.ScalarTerm(xi1),
+        pi.ScalarTerm(xi2, scale=scalar_scale_funcs[1](-1)),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale2"), dz_x1),
+                        limits=limits, scale=-1),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale2"), x2),
+                        limits=limits)
+    ]
+    dz_y_bar_plus1 = [
+        pi.ScalarTerm(xi2, scale=scalar_scale_funcs[2](1)),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale3"), dz_x1),
+                        limits=limits),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale3"), x2),
+                        limits=limits)
+    ]
+    dz_y_bar_minus1 = [
+        pi.ScalarTerm(xi2, scale=scalar_scale_funcs[3](-1)),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale4"), dz_x1),
+                        limits=limits, scale=-1),
+        pi.IntegralTerm(pi.Product(pi.ScalarFunction("int_scale4"), x2),
+                        limits=limits)
+    ]
 
     k = flatness_based_controller(x2_sys(1), y_bar_plus1, y_bar_minus1,
                                   dz_y_bar_plus1, dz_y_bar_minus1,
@@ -137,7 +157,7 @@ def approximate_controller(sys_lbl, modal_lbl):
 
 def flatness_based_controller(x2_plus1, y_bar_plus1, y_bar_minus1,
                               dz_y_bar_plus1, dz_y_bar_minus1, name):
-    k = pi.Controller(pi.WeakFormulation(scale_equation_term_list(
+    k = pi.StateFeedback(pi.WeakFormulation(scale_equation_term_list(
         [pi.ScalarTerm(x2_plus1, scale=-(1 - ctrl_gain.alpha))] +
         scale_equation_term_list(dz_y_bar_plus1, factor=(1 - param.m * ctrl_gain.k1)) +
         scale_equation_term_list(dz_y_bar_minus1, factor=-ctrl_gain.alpha * (1 + param.m * ctrl_gain.k1)) +
@@ -246,47 +266,47 @@ def apply_control_mode(sys_fem_lbl, sys_modal_lbl,
 
     # obligatory
     for postfix in ("_1_visu", "_2_visu", "_3_visu"):
-        pi.get_base(obs_modal_lbl + postfix).matching_bases = [obs_modal_lbl]
-        pi.get_base(obs_modal_lbl + postfix).intermediate_base = obs_modal_lbl
-        pi.get_base(obs_fem_lbl + postfix).matching_bases = [obs_fem_lbl]
-        pi.get_base(obs_fem_lbl + postfix).intermediate_base = obs_fem_lbl
+        pi.get_base(obs_modal_lbl + postfix).matching_base_lbls = [obs_modal_lbl]
+        pi.get_base(obs_modal_lbl + postfix).intermediate_base_lbls = [obs_modal_lbl]
+        pi.get_base(obs_fem_lbl + postfix).matching_base_lbls = [obs_fem_lbl]
+        pi.get_base(obs_fem_lbl + postfix).intermediate_base_lbls = [obs_fem_lbl]
     for postfix in ("_1_visu", "_2_visu", "_3_visu", "_4_visu"):
-        pi.get_base(sys_fem_lbl + postfix).intermediate_base = sys_fem_lbl
-        pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl]
+        pi.get_base(sys_fem_lbl + postfix).intermediate_base_lbls = [sys_fem_lbl]
+        pi.get_base(sys_fem_lbl + postfix).matching_base_lbls = [sys_fem_lbl]
     for postfix in ("_1_ctrl", "_2_ctrl", "_3_ctrl", "_4_ctrl"):
-            pi.get_base(sys_fem_lbl + postfix).intermediate_base = sys_fem_lbl + "_ctrl"
-            pi.get_base(sys_fem_lbl + postfix).matching_bases = [sys_fem_lbl + "_ctrl"]
-            pi.get_base(sys_modal_lbl + postfix).intermediate_base = sys_modal_lbl + "_ctrl"
-            pi.get_base(sys_modal_lbl + postfix).matching_bases = [sys_modal_lbl + "_ctrl"]
+            pi.get_base(sys_fem_lbl + postfix).intermediate_base_lbls = [sys_fem_lbl + "_ctrl"]
+            pi.get_base(sys_fem_lbl + postfix).matching_base_lbls = [sys_fem_lbl + "_ctrl"]
+            pi.get_base(sys_modal_lbl + postfix).intermediate_base_lbls = [sys_modal_lbl + "_ctrl"]
+            pi.get_base(sys_modal_lbl + postfix).matching_base_lbls = [sys_modal_lbl + "_ctrl"]
 
     # controller gets the weights from the system
     if mode == "closed_loop":
         # for the fem control case
-        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl
-        pi.get_base(sys_fem_lbl + "_ctrl").matching_bases = [sys_fem_lbl]
+        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base_lbls = [sys_fem_lbl]
+        pi.get_base(sys_fem_lbl + "_ctrl").matching_base_lbls = [sys_fem_lbl]
         # for the modal control case
-        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base = sys_fem_lbl
+        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base_lbls = [sys_fem_lbl]
 
     # controller gets the weights from the modal observer
     elif mode == "modal_observer":
         # for the modal control case
-        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base = sys_modal_lbl
-        pi.get_base(sys_modal_lbl + "_ctrl").matching_bases = [sys_modal_lbl]
+        pi.get_base(sys_modal_lbl + "_ctrl").intermediate_base_lbls = [sys_modal_lbl]
+        pi.get_base(sys_modal_lbl + "_ctrl").matching_base_lbls = [sys_modal_lbl]
         # for the fem control case
-        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_modal_lbl
+        pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base_lbls = [sys_modal_lbl]
         # route to the modal observer
-        pi.get_base(sys_modal_lbl).intermediate_base = obs_modal_lbl
+        pi.get_base(sys_modal_lbl).intermediate_base_lbls = [obs_modal_lbl]
         # hint that the modal observer evolve with the same weights
-        pi.get_base(sys_modal_lbl).matching_bases = [obs_modal_lbl]
+        pi.get_base(sys_modal_lbl).matching_base_lbls = [obs_modal_lbl]
 
     # controller gets the weights from the fem observer
     elif mode == "fem_observer":
             # compute transformation
-            pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base = sys_fem_lbl + "_trafo"
+            pi.get_base(sys_fem_lbl + "_ctrl").intermediate_base_lbls = [sys_fem_lbl + "_trafo"]
             # route to the fem observer
-            pi.get_base(sys_fem_lbl + "_trafo").intermediate_base = obs_fem_lbl
+            pi.get_base(sys_fem_lbl + "_trafo").intermediate_base_lbls = [obs_fem_lbl]
             # hint that the fem observer base evolve with the same weights
-            pi.get_base(sys_fem_lbl + "_trafo").matching_bases = [obs_fem_lbl]
+            pi.get_base(sys_fem_lbl + "_trafo").matching_base_lbls = [obs_fem_lbl]
 
     elif mode == "open_loop":
         pass

@@ -48,9 +48,9 @@ def main():
     sys_modal_lbl = "modal_system"
     obs_fem_lbl = "fem_observer"
     obs_modal_lbl = "modal_observer"
-    n1 = 31
-    n2 = 31
-    n_obs_fem = 21
+    n1 = 11
+    n2 = 11
+    n_obs_fem = 11
     n_obs_modal = 16
     build_fem_bases(sys_fem_lbl, n1, n2, obs_fem_lbl, n_obs_fem, sys_modal_lbl)
     build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl, n_obs_modal)
@@ -88,7 +88,8 @@ def main():
     # define initial conditions
     init_cond = {
         sys_wf.name: [SwmBaseFraction(
-            [pi.Function.from_constant(0), pi.Function.from_constant(0)],
+            [pi.Function.from_constant(0, domain=spatial_domain.bounds),
+             pi.Function.from_constant(0, domain=spatial_domain.bounds)],
             [0, 0])],
         obs_fem_wf.name: [SwmBaseCanonicalFraction(
             [pi.Function(lambda th: ie * (2 - th), (-1, 1))], [0, ie * 4])],

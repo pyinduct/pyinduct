@@ -20,7 +20,7 @@ __all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
            "real", "Base", "BaseFraction", "StackedBase", "Function",
            "ComposedFunctionVector", "normalize_base", "project_on_base",
            "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix",
+           "calculate_scalar_product_matrix", "dot_product_l2",
            "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
            "vectorize_scalar_product", "generic_scalar_product"]
@@ -576,7 +576,9 @@ class ComposedFunctionVector(BaseFraction):
             )
 
         else:
-            raise NotImplementedError
+            raise TypeError("ComposedFunctionVector can only be scaled with "
+                            "comptibal ComposedFunctionVector of with a"
+                            "constant scalar")
 
 
 class Base:
