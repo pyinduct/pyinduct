@@ -1886,10 +1886,6 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
 
     valid_roots = np.array(roots)
 
-    # TODO: create a commit
-    if len(valid_roots) == 0:
-        return list()
-
     # sort roots
     if sort_mode == "norm":
         # sort entries by their norm

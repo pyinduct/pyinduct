@@ -1540,6 +1540,17 @@ class FindRootsTestCase(unittest.TestCase):
         roots = pi.find_roots(function=self.no_roots,
                               grid=[self.grid, self.grid], cmplx=True)
         self.assertEqual(len(roots), 0)
+        pi.find_roots(function=self.no_roots,
+                      n_roots=0, grid=self.grid, cmplx=False)
+        pi.find_roots(function=self.no_roots,
+                      n_roots=0, grid=[self.grid, self.grid], cmplx=True)
+
+        # function has roots but no roots requested
+        pi.find_roots(function=self.char_eq, grid=self.grid,
+                      n_roots=0, cmplx=False)
+        # TODO take care of this case
+        # pi.find_roots(function=self.char_eq, grid=[self.grid, self.grid],
+        #               n_roots=0, cmplx=True)
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
