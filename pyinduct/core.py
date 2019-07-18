@@ -23,7 +23,7 @@ __all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
            "calculate_scalar_product_matrix", "dot_product_l2",
            "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
-           "vectorize_scalar_product", "generic_scalar_product"]
+           "dot_product_l2"]
 
 
 def sanitize_input(input_object, allowed_type):
