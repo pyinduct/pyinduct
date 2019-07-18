@@ -507,6 +507,35 @@ class Function(BaseFraction):
         return func
 
 
+class ConstantFunction(Function):
+    """
+    A :py:class:`.Function` that returns a constant value.
+
+    This function can be differentiated without limits.
+
+    Args:
+        constant (number): value to return
+
+    Keyword Args:
+        **kwargs: All other kwargs get passed to :py:class:`.Function`.
+
+    """
+
+    def __init__(self, constant, **kwargs):
+        def f(z):
+            return constant
+
+        super().__init__(eval_handle=f, **kwargs)
+
+    def derive(self, order=1):
+        def f0(z):
+            return np.zeros_like(z)
+
+        zero_func = deepcopy(self)
+        zero_func.function_handle = f0
+        return zero_func
+
+
 class ComposedFunctionVector(BaseFraction):
     r"""
     Implementation of composite function vector :math:`\boldsymbol{x}`.
