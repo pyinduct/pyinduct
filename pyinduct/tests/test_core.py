@@ -9,6 +9,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
+from pyinduct.core import vectorize_scalar_product
 from pyinduct.tests import show_plots
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
@@ -1163,12 +1164,12 @@ class DotProductL2TestCase(unittest.TestCase):
 
     def test_length(self):
         with self.assertRaises(ValueError):
-            pi.vectorize_scalar_product(
+            vectorize_scalar_product(
                 self.fem_base[2:4], self.fem_base[4:8],
                 self.fem_base.scalar_product_hint())
 
     def test_output(self):
-        res = pi.vectorize_scalar_product(self.fem_base.fractions,
+        res = vectorize_scalar_product(self.fem_base.fractions,
                                           self.fem_base.fractions,
                                           self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
@@ -1481,13 +1482,13 @@ class NormalizeBaseTestCase(unittest.TestCase):
 
     def test_self_scale(self):
         f = pi.normalize_base(self.base_f)
-        prod = pi.vectorize_scalar_product(
+        prod = vectorize_scalar_product(
             f.fractions, f.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
         f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = pi.vectorize_scalar_product(
+        prod = vectorize_scalar_product(
             f.fractions, l.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
