@@ -524,21 +524,27 @@ class ConstantFunction(Function):
     def __init__(self, constant, **kwargs):
         self._constant = constant
 
-        if "derivative_handles" in kwargs:
-            kwargs.pop("derivative_handles")
-            raise warnings.warn(
-                "derivative handles passed to ConstantFunction were discarded")
-
-        if "nonzero" in kwargs:
-            kwargs.pop("nonzero")
-            raise warnings.warn(
-                "nonzero passed to ConstantFunction were discarded")
+        func_kwargs = dict(eval_handle=self._constant_function_handle)
 
         if "domain" in kwargs:
-            if constant == 0:
-                kwargs.update(dict(nonzero=set()))
-            else:
-                kwargs.update(dict(nonzero=kwargs["domain"]))
+            func_kwargs["domain"] = kwargs["domain"]
+
+        if "nonzero" in kwargs:
+            func_kwargs["nonzero"] = kwargs["nonzero"]
+            if "domain" in func_kwargs \
+                    and func_kwargs["nonzero"] != func_kwargs["domain"]:
+                warnings.warn(
+                    "Constant Function is expected to be constant on the complete "
+                    "domain. Nonzero argument is discarded")
+                func_kwargs["nonzero"] = func_kwargs["domain"]
+
+            if constant == 0 and func_kwargs["nonzero"] != set():
+                raise ValueError("Constant Function with constant 0 must have an"
+                                 " empty set nonzero area.")
+
+        if "derivative_handles" in kwargs:
+            warnings.warn(
+                "Derivative handles passed to ConstantFunction are discarded")
 
         super().__init__(eval_handle=self._constant_function_handle, **kwargs)
 
