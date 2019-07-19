@@ -2302,7 +2302,7 @@ class EvalData:
                 #     fill_val = None
                 # else:
                 #     Since the value has to be the same at every border
-                # fill_val = 0
+                #     fill_val = 0
 
                 self._interpolator = interp2d(input_data[0],
                                               input_data[1],
