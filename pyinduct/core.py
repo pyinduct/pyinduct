@@ -522,17 +522,43 @@ class ConstantFunction(Function):
     """
 
     def __init__(self, constant, **kwargs):
-        def f(z):
-            return constant
+        self._constant = constant
 
-        super().__init__(eval_handle=f, **kwargs)
+        if "derivative_handles" in kwargs:
+            kwargs.pop("derivative_handles")
+            raise warnings.warn(
+                "derivative handles passed to ConstantFunction were discarded")
+
+        if "nonzero" in kwargs:
+            kwargs.pop("nonzero")
+            raise warnings.warn(
+                "nonzero passed to ConstantFunction were discarded")
+
+        if "domain" in kwargs:
+            if constant == 0:
+                kwargs.update(dict(nonzero=set()))
+            else:
+                kwargs.update(dict(nonzero=kwargs["domain"]))
+
+        super().__init__(eval_handle=self._constant_function_handle, **kwargs)
+
+    def _constant_function_handle(self, z):
+        return self._constant * np.ones_like(z)
 
     def derive(self, order=1):
-        def f0(z):
-            return np.zeros_like(z)
+        if not isinstance(order, int):
+            raise TypeError("only integer allowed as derivation order")
+
+        if order == 0:
+            return self
+
+        if order < 0:
+            raise ValueError("only derivative order >= 0 supported")
 
         zero_func = deepcopy(self)
-        zero_func.function_handle = f0
+        zero_func._constant = 0
+        zero_func.nonzero = set()
+
         return zero_func
 
 
