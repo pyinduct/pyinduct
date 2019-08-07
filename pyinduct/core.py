@@ -525,28 +525,31 @@ class ConstantFunction(Function):
         self._constant = constant
 
         func_kwargs = dict(eval_handle=self._constant_function_handle)
-
-        if "domain" in kwargs:
-            func_kwargs["domain"] = kwargs["domain"]
-
         if "nonzero" in kwargs:
+            if constant == 0:
+                if kwargs["nonzero"] != set():
+                    raise ValueError("Constant Function with constant 0 must have an"
+                                     " empty set nonzero area.")
+            if "domain" in kwargs:
+                if kwargs["nonzero"] != kwargs["domain"]:
+                    raise ValueError(
+                        "Constant Function is expected to be constant on the complete "
+                        "domain. Nonzero argument is prohibited")
+            else:
+                func_kwargs["domain"] = kwargs["nonzero"]
             func_kwargs["nonzero"] = kwargs["nonzero"]
-            if "domain" in func_kwargs \
-                    and func_kwargs["nonzero"] != func_kwargs["domain"]:
-                warnings.warn(
-                    "Constant Function is expected to be constant on the complete "
-                    "domain. Nonzero argument is discarded")
-                func_kwargs["nonzero"] = func_kwargs["domain"]
-
-            if constant == 0 and func_kwargs["nonzero"] != set():
-                raise ValueError("Constant Function with constant 0 must have an"
-                                 " empty set nonzero area.")
+        else:
+            if "domain" in kwargs:
+                func_kwargs["domain"] = kwargs["domain"]
+                func_kwargs["nonzero"] = kwargs["domain"]
+            if constant == 0:
+                func_kwargs["nonzero"] = set()
 
         if "derivative_handles" in kwargs:
             warnings.warn(
                 "Derivative handles passed to ConstantFunction are discarded")
 
-        super().__init__(eval_handle=self._constant_function_handle, **kwargs)
+        super().__init__( **func_kwargs)
 
     def _constant_function_handle(self, z):
         return self._constant * np.ones_like(z)

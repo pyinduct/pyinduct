@@ -276,6 +276,52 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
 
+class ConstantFunctionTestCase(unittest.TestCase):
+
+    def test_init(self):
+        # no default value for constant
+        with self.assertRaises(TypeError):
+            c = core.ConstantFunction()
+
+        c = core.ConstantFunction(7)
+        self.assertEqual(c.domain, {(-np.inf, np.inf)})
+
+        # no complex values -> fix tis in function
+        # with self.assertRaises(ValueError):
+        #     c1 = core.ConstantFunction(1+2j)
+
+        # if domain is given, nonzero area should automatically match
+        c = core.ConstantFunction(7, domain=(1, 4))
+        self.assertEqual(c.nonzero, c.domain)
+
+        # except for the case that the value is actually zero
+        c = core.ConstantFunction(0, domain=(1, 4))
+        self.assertEqual(c.nonzero, set())
+
+        # if nonzero is given, domain should be matched
+        c = core.ConstantFunction(1, nonzero=(1, 2))
+        self.assertEqual(c.nonzero, c.domain)
+
+        # except for zero where nonzero is not allowed
+        with self.assertRaises(ValueError):
+            c = core.ConstantFunction(0, nonzero=(1, 2))
+
+        # and it should match
+        with self.assertRaises(ValueError):
+            c = core.ConstantFunction(1, domain=(0, 3), nonzero=(1, 2))
+
+        c = core.ConstantFunction(1, domain=(1, 2), nonzero=(1, 2))
+
+    def test_derivation(self):
+        c = core.ConstantFunction(7, domain=(-1, 1))
+        c_dz = c.derive()
+        res = c_dz(np.random.rand(100))
+        self.assertTrue(all(res == 0))
+
+        self.assertEqual(c_dz.domain, {(-1, 1)})
+        self.assertEqual(c_dz.nonzero, set())
+
+
 class ComposedFunctionVectorTestCase(unittest.TestCase):
     def setUp(self):
         self.functions = [pi.Function(lambda x: 2),
