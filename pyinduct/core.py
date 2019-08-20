@@ -1,6 +1,7 @@
 """
 In the Core module you can find all basic classes and functions which form the backbone of the toolbox.
 """
+import abc
 import warnings
 import numbers
 
@@ -553,7 +554,27 @@ class ComposedFunctionVector(BaseFraction):
         )
 
 
-class Base:
+class ApproximationBasis(abc.ABC):
+    """
+    Base class for an approximation basis.
+
+    An approximation basis is formed by some objects on which given distributed
+    variables may be projected.
+    """
+    @abc.abstractmethod
+    def scalar_product_hint(self):
+        pass
+
+    @abc.abstractmethod
+    def function_space_hint(self):
+        pass
+
+    @abc.abstractmethod
+    def is_compatible_to(self, other):
+        pass
+
+
+class Base(ApproximationBasis):
     """
     Base class for approximation bases.
 
@@ -825,7 +846,7 @@ class Base:
         return np.array([getattr(frac, attr, None) for frac in self.fractions])
 
 
-class StackedBase:
+class StackedBase(ApproximationBasis):
     """
     Implementation of a basis vector that is obtained by stacking different
     bases onto each other. This typically occurs when the bases of coupled
@@ -837,7 +858,8 @@ class StackedBase:
             In detail, these Information must contain:
 
                 - sys_name (str): Name of the system the base is associated with.
-                - order (int): Highest temporal derivative order with which the base shall be represented in the stacked base.
+                - order (int): Highest temporal derivative order with which the
+                    base shall be represented in the stacked base.
                 - base (:py:class:`.Base`): The actual basis.
     """
 
@@ -883,8 +905,9 @@ class StackedBase:
         return [b.function_space_hint() for b in self._bases]
 
     def scale(self, factor):
-        return self.__class__({lbl: func.scale(factor)
-                               for lbl, func in self.members})
+        info_dict = {lbl: base.scale(factor) for lbl, base in
+                     zip(self.base_lbls, self._bases)}
+        return self.__class__(info_dict)
 
     def transformation_hint(self, info):
         """
