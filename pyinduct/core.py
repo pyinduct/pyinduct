@@ -912,12 +912,13 @@ class StackedBase(ApproximationBasis):
         return NotImplemented
 
     def function_space_hint(self):
-        return [b.function_space_hint() for b in self._bases]
+        return hash(self)
+
+    def is_compatible_to(self, other):
+        return False
 
     def scale(self, factor):
-        info_dict = {lbl: base.scale(factor) for lbl, base in
-                     zip(self.base_lbls, self._bases)}
-        return self.__class__(info_dict)
+        raise NotImplementedError("Stacked base should not be scaled.")
 
     def transformation_hint(self, info):
         """
