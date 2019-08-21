@@ -592,6 +592,15 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
+    def __call__(self, arg):
+        if not isinstance(arg, Number):
+            raise NotImplementedError("Only scalar arguments allowed.")
+
+        funcs = [f(arg) for f in self.members["funcs"]]
+        scalars = [s for s in self.members["scalars"]]
+
+        return np.array(funcs + scalars)
+
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
         scalar_hints = [dot_product for s in self.members["scalars"]]
