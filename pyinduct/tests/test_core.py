@@ -809,6 +809,15 @@ class StackedBaseTestCase(unittest.TestCase):
             b2={"base": self.b2, "sys_name": "sys2", "order": 0},
         )
 
+    def test_error_raises(self):
+        base_info = OrderedDict(
+            b1={"base": self.b1, "sys_name": "sys1", "order": 0},
+            b2={"base": self.b1, "sys_name": "sys2", "order": 0},
+        )
+        s = pi.StackedBase(base_info)
+        with self.assertRaises(TypeError):
+            pi.Base(s)
+
     def test_registration(self):
         s = pi.StackedBase(self.base_info)
         pi.register_base("Stacked-Basis", s)

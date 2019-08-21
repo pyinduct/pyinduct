@@ -629,6 +629,10 @@ class Base(ApproximationBasis):
     """
     def __init__(self, fractions,
                  matching_base_lbls=None, intermediate_base_lbls=None):
+        if isinstance(fractions, StackedBase):
+            raise TypeError("Stacked base instances are non-valid first "
+                            + "arguments for pinduct.Base.__init__().")
+
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
