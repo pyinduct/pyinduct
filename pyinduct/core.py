@@ -134,6 +134,20 @@ class BaseFraction:
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
 
+    def __call__(self, *args, **kwargs):
+        """
+        Spatial evaluation of the base fraction.
+
+        Args:
+            *args: Positional arguments.
+            **kwargs: Keyword arguments.
+
+        Returns:
+
+        """
+        raise NotImplementedError("This is an empty function."
+                                  " Overwrite it in your implementation to use this functionality.")
+
 
 class Function(BaseFraction):
     """
@@ -650,8 +664,15 @@ class ComposedFunctionVector(BaseFraction):
 
         else:
             raise TypeError("ComposedFunctionVector can only be scaled with "
-                            "comptibal ComposedFunctionVector of with a"
+                            "compatible ComposedFunctionVector of with a"
                             "constant scalar")
+
+    def __call__(self, arguments):
+        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]])
+        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
+        s_res = np.broadcast_to(s_res, f_res.T.shape)
+        res = np.hstack((f_res.T, s_res))
+        return res.squeeze()
 
 
 class Base:

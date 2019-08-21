@@ -253,6 +253,11 @@ class ParseTest(unittest.TestCase):
         self.distributed_base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("distributed_base", self.distributed_base)
 
+        fractions = [pi.ComposedFunctionVector(f, s) for f, s in
+                     zip(self.distributed_base, nodes)]
+        self.composed_base = pi.Base(fractions)
+        pi.register_base("composed_base", self.composed_base)
+
         # lumped base
         self.lumped_base = pi.Base([pi.Function.from_constant(1)])
         pi.register_base("lumped_base", self.lumped_base)
@@ -263,6 +268,12 @@ class ParseTest(unittest.TestCase):
         self.test_funcs_at1 = self.test_funcs(1)
         self.test_funcs_dz = self.test_funcs.derive(1)
         self.test_funcs_dz_at1 = self.test_funcs_dz(1)
+
+        self.comp_test_funcs = pi.TestFunction("composed_base")
+        self.comp_test_funcs_at0 = self.comp_test_funcs(0)
+        self.comp_test_funcs_at1 = self.comp_test_funcs(1)
+        self.comp_test_funcs_dz = self.comp_test_funcs.derive(1)
+        self.comp_test_funcs_dz_at1 = self.comp_test_funcs_dz(1)
 
         # Scalar Functions
         self.scalar_func = pi.ScalarFunction("heavyside_base")
@@ -276,15 +287,21 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
 
+        self.comp_field_var = pi.FieldVariable("distributed_base")
+        self.comp_field_var_at1 = self.comp_field_var(1)
+        self.comp_field_var_dz = self.comp_field_var.derive(spat_order=1)
+
         self.odd_weight_field_var = pi.FieldVariable(
             "distributed_base", weight_label="special_weights")
 
         # Field variable 2
         self.lumped_var = pi.FieldVariable("lumped_base")
 
+        # ---------------------------------------------------------------------
         # Construction of Equation Terms
+        # ---------------------------------------------------------------------
 
-        # input
+        # inputs
         self.input_term1 = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
                                                     self.input))
         self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input,
@@ -335,15 +352,27 @@ class ParseTest(unittest.TestCase):
                                                         self.test_funcs),
                                              limits=(0, 1))
 
+        self.comp_func_term = pi.ScalarTerm(self.comp_test_funcs_at1)
+        self.comp_func_term_int = pi.IntegralTerm(
+            pi.Product(self.comp_test_funcs, self.comp_test_funcs),
+            limits=(0, 1))
+
         # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = pi.ScalarTerm(self.field_var_ddt_at1)
 
+        self.comp_field_term_at1 = pi.ScalarTerm(self.comp_field_var_at1)
+
         self.field_int = pi.IntegralTerm(self.field_var, limits=(0, 1))
         self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
+
+        self.comp_field_int = pi.IntegralTerm(self.comp_field_var,
+                                              limits=(0, 1))
+        self.comp_field_dz_int = pi.IntegralTerm(self.comp_field_var,
+                                                 limits=(0, 1))
 
         # products
         self.prod_term_fs_at1 = pi.ScalarTerm(
@@ -484,6 +513,22 @@ class ParseTest(unittest.TestCase):
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.func_term_int, name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["f"]))
+        np.testing.assert_array_almost_equal(terms["f"],
+                                             np.array([[1 / 6],
+                                                       [1 / 3],
+                                                       [1 / 6]]))
+        # composed
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.comp_func_term, name="test"),
+            finalize=False).get_static_terms()
+        self.assertFalse(np.iscomplexobj(terms["f"]))
+        np.testing.assert_array_almost_equal(terms["f"],
+                                             np.array([[0], [0], [1]]))
+
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.comp_func_term_int, name="test"),
             finalize=False).get_static_terms()
         self.assertFalse(np.iscomplexobj(terms["f"]))
         np.testing.assert_array_almost_equal(terms["f"],
@@ -758,6 +803,7 @@ class ParseTest(unittest.TestCase):
     def tearDown(self):
         pi.deregister_base("heavyside_base")
         pi.deregister_base("distributed_base")
+        pi.deregister_base("composed_base")
         pi.deregister_base("lumped_base")
 
 

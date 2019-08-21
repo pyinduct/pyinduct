@@ -413,6 +413,12 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         # self.assertEqual(f4.function_space_hint(),
         #                  (core.dot_product_l2, {(0, 3)}))
 
+    def test_call(self):
+        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        res = v1(10)
+        res = v1(np.array(range(100)))
+        print(res)
+
 
 def check_compatibility_and_scalar_product(b1, b2):
     """

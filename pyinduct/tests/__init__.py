@@ -16,4 +16,4 @@ else:
     # Do not want to see plots or test all examples while test run?
     # Then force it and uncomment the respective line:
     # test_all_examples = False
-    # show_plots = False
+    show_plots = False
