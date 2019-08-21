@@ -493,10 +493,12 @@ class BaseTestCase(unittest.TestCase):
                                       cos_func.raise_to(1)(numbers))
 
         # power 4
-        np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
-                                      sin_func.raise_to(4)(numbers))
-        np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
-                                      cos_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
+                                          sin_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
+                                          cos_func.raise_to(4)(numbers))
 
     def test_derive(self):
         sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
@@ -806,6 +808,12 @@ class StackedBaseTestCase(unittest.TestCase):
             b1={"base": self.b1, "sys_name": "sys1", "order": 1},
             b2={"base": self.b2, "sys_name": "sys2", "order": 0},
         )
+
+    def test_registration(self):
+        s = pi.StackedBase(self.base_info)
+        pi.register_base("Stacked-Basis", s)
+        sr = pi.get_base("Stacked-Basis")
+        self.assertEqual(s, sr)
 
     def test_defaults(self):
         s = pi.StackedBase(self.base_info)
@@ -1267,7 +1275,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         t_calc = time.clock() - t0
         return mat, t_calc
 
-    def compare_timings(self):
+    def test_timings(self):
         """
         # run different versions of the code
         """

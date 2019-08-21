@@ -29,7 +29,7 @@ def register_base(label, base, overwrite=False):
     framework.
 
     Args:
-        base (:py:class:`.Base`): base to register
+        base (:py:class:`.ApproximationBase`): base to register
         label (str): String that will be used as label.
         overwrite: Force overwrite if a basis is already registered under this
             label.
