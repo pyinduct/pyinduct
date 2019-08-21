@@ -1351,6 +1351,8 @@ def _compute_product_of_scalars(scalars):
             # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
             elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
                 res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
+            else:
+                raise NotImplementedError
         except ValueError as e:
             raise ValueError("provided entries do not form a dyadic product")
 
