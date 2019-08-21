@@ -255,8 +255,12 @@ class Function(BaseFraction):
         Raises:
             ValueError: If values exceed the domain.
         """
-        # in_domain = False
         values = np.atleast_1d(values)
+        if values.dtype == complex:
+            raise TypeError("Only real valued arguments considered for "
+                            "pyinduct function. \nProvide value: {}\n"
+                            "Data type: {}".format(values, values.dtype))
+
         mask = np.full(len(values), False)
         for interval in self.domain:
             d_mask = np.logical_and(values >= interval[0],

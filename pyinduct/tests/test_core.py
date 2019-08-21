@@ -77,6 +77,16 @@ class FunctionTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, pi.Function, wrong_handle)
 
+        # only real bounds for kwargs domain and nonzero are considered
+        with self.assertRaises(TypeError):
+            pi.Function(np.sin, domain=(-1j, 1j))
+        with self.assertRaises(TypeError):
+            pi.Function(np.sin, nonzero=(-1j, 1j))
+        with self.assertRaises(TypeError):
+            pi.Function(np.sin, domain=(-1j, 1j), nonzero=(-.5, .5))
+        with self.assertRaises(TypeError):
+            pi.Function(np.sin, domain=(-1, 1), nonzero=(-.5j, .5j))
+
     def test_function_space_hint(self):
         f1 = pi.Function(lambda x: 2, domain=(0, 10))
         self.assertEqual(f1.function_space_hint(),
@@ -232,7 +242,11 @@ class FunctionTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             f(-4)
         with self.assertRaises(ValueError):
+            f([-4, 0])
+        with self.assertRaises(ValueError):
             f(11)
+        with self.assertRaises(ValueError):
+            f([4, 11])
 
         # call with scalar should return scalar with correct value
         self.assertIsInstance(f(10), Number)
@@ -244,6 +258,14 @@ class FunctionTestCase(unittest.TestCase):
         self.assertIsInstance(f(np.array(range(10))), np.ndarray)
         self.assertTrue(np.array_equal(f(np.array(range(10))),
                                        [func(val) for val in range(10)]))
+
+        # complex arguments are non-valid
+        with self.assertRaises(TypeError):
+            f(1j)
+        with self.assertRaises(TypeError):
+            f(-2j)
+        with self.assertRaises(TypeError):
+            f([0, 5, 10, 1j])
 
     def test_vector_call(self):
 
