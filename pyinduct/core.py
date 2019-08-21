@@ -615,6 +615,13 @@ class ComposedFunctionVector(BaseFraction):
 
         return np.array(funcs + scalars)
 
+    # def __call__(self, arguments):
+    #     f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]])
+    #     s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
+    #     s_res = np.broadcast_to(s_res, f_res.T.shape)
+    #     res = np.hstack((f_res.T, s_res))
+    #     return res.squeeze()
+
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
         scalar_hints = [dot_product for s in self.members["scalars"]]
@@ -666,13 +673,6 @@ class ComposedFunctionVector(BaseFraction):
             raise TypeError("ComposedFunctionVector can only be scaled with "
                             "compatible ComposedFunctionVector of with a"
                             "constant scalar")
-
-    def __call__(self, arguments):
-        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]])
-        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
-        s_res = np.broadcast_to(s_res, f_res.T.shape)
-        res = np.hstack((f_res.T, s_res))
-        return res.squeeze()
 
 
 class Base:
