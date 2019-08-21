@@ -1334,7 +1334,8 @@ def _compute_product_of_scalars(scalars):
             # simple scaling of all terms
             # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
             res = scalars[0].data
-    elif scalars[0].data.shape == scalars[1].data.shape:
+    elif (scalars[0].data.shape == scalars[1].data.shape and
+          scalars[0].data.shape[0] == 1 and scalars[1].data.shape[1] == 1):
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
     elif scalars[0].data.shape == (1, 1) or scalars[1].data.shape == (1, 1):
