@@ -606,21 +606,16 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
-    def __call__(self, arg):
-        if not isinstance(arg, Number):
-            raise NotImplementedError("Only scalar arguments allowed.")
-
-        funcs = [f(arg) for f in self.members["funcs"]]
-        scalars = [s for s in self.members["scalars"]]
-
-        return np.array(funcs + scalars)
-
-    # def __call__(self, arguments):
-    #     f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]])
-    #     s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
-    #     s_res = np.broadcast_to(s_res, f_res.T.shape)
-    #     res = np.hstack((f_res.T, s_res))
-    #     return res.squeeze()
+    def __call__(self, arguments):
+        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]]).T
+        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
+        if f_res.shape[1] > 1:
+            s_res = np.broadcast_to(s_res.T, f_res.shape)
+            res = np.hstack((f_res, s_res))
+        else:
+            res = np.vstack((f_res, s_res))
+        res = res.squeeze()
+        return res
 
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]

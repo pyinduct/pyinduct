@@ -414,11 +414,17 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         #                  (core.dot_product_l2, {(0, 3)}))
 
     def test_call(self):
-        # TODO finish this
-        v1 = pi.ComposedFunctionVector(self.functions, self.scalars)
+        v1 = pi.ComposedFunctionVector(self.functions[:2], self.scalars[:2])
+
+        # scalar case
         res = v1(10)
-        res = v1(np.array(range(100)))
-        print(res)
+        np.testing.assert_array_equal(res, np.array([2, 20, 2, 14]))
+
+        # vectorial case
+        inp = np.array(range(100))
+        ret = np.array([ [2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)]).T
+        res = v1(inp)
+        np.testing.assert_array_equal(res, ret)
 
 
 def check_compatibility_and_scalar_product(b1, b2):
