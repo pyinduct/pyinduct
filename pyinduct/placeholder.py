@@ -601,6 +601,23 @@ class IntegralTerm(EquationTerm):
         self.limits = limits
 
 
+class ScalarProductTerm(EquationTerm):
+    """
+    Class that represents a scalar product in a weak equation.
+
+    Args:
+        arg1: Fieldvariable (Shapefunctions) to be projected.
+        arg2: Testfunctions to project on.
+        scale (Number): Scaling of expression.
+    """
+
+    def __init__(self, arg1, arg2,  scale=1.0):
+        if not any([isinstance(arg, (FieldVariable, TestFunction))
+                    for arg in (arg2, arg2)]):
+            raise ValueError("nothing to integrate")
+        EquationTerm.__init__(self, scale, (arg1, arg2))
+
+
 def _evaluate_placeholder(placeholder):
     """
     Evaluates a placeholder object and returns a Scalars object.

@@ -148,6 +148,22 @@ class BaseFraction:
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
 
+    def add_neutral_element(self):
+        """
+        Return the neutral element of addition for this object.
+
+        In other words: `self + ret_val == self`.
+        """
+        raise NotImplementedError()
+
+    def mul_neutral_element(self):
+        """
+        Return the neutral element of multiplication for this object.
+
+        In other words: `self * ret_val == self`.
+        """
+        raise NotImplementedError()
+
 
 class Function(BaseFraction):
     """
@@ -447,41 +463,41 @@ class Function(BaseFraction):
         """
         return self.scalar_product_hint(), self.domain
 
-    @staticmethod
-    def from_constant(constant, **kwargs):
-        """
-        Create a :py:class:`.Function` that returns a constant value.
-
-        Args:
-            constant (number): value to return
-
-        Keyword Args:
-            der_order (int): Derivative order, default 2.
-            **kwargs: All other kwargs get passed to :py:class:`.Function`.
-
-        Returns:
-            :py:class:`.Function`: A constant function
-        """
-        def f(z):
-            return constant
-
-        def f_dz(z):
-            return 0
-
-        if "eval_handle" in kwargs:
-            raise ValueError("'eval_handle' must not be provided")
-        if "derivative_handles" in kwargs:
-            raise ValueError("'derivative_handles' must not be provided")
-
-        if "der_order" in kwargs:
-            der_order = kwargs["der_order"]
-        else:
-            der_order = 2
-
-        func = Function(eval_handle=f,
-                        derivative_handles=[f_dz] * der_order,
-                        **kwargs)
-        return func
+    # @staticmethod
+    # def from_constant(constant, **kwargs):
+    #     """
+    #     Create a :py:class:`.Function` that returns a constant value.
+    #
+    #     Args:
+    #         constant (number): value to return
+    #
+    #     Keyword Args:
+    #         der_order (int): Derivative order, default 2.
+    #         **kwargs: All other kwargs get passed to :py:class:`.Function`.
+    #
+    #     Returns:
+    #         :py:class:`.Function`: A constant function
+    #     """
+    #     def f(z):
+    #         return constant
+    #
+    #     def f_dz(z):
+    #         return 0
+    #
+    #     if "eval_handle" in kwargs:
+    #         raise ValueError("'eval_handle' must not be provided")
+    #     if "derivative_handles" in kwargs:
+    #         raise ValueError("'derivative_handles' must not be provided")
+    #
+    #     if "der_order" in kwargs:
+    #         der_order = kwargs["der_order"]
+    #     else:
+    #         der_order = 2
+    #
+    #     func = Function(eval_handle=f,
+    #                     derivative_handles=[f_dz] * der_order,
+    #                     **kwargs)
+    #     return func
 
     @staticmethod
     def from_data(x, y, **kwargs):
@@ -519,6 +535,12 @@ class Function(BaseFraction):
                         derivative_handles=der_handles)
 
         return func
+
+    def add_neutral_element(self):
+        return ConstantFunction(0, domain=self.domain)
+
+    def mul_neutral_element(self):
+        return ConstantFunction(1, domain=self.domain)
 
 
 class ConstantFunction(Function):
@@ -668,6 +690,63 @@ class ComposedFunctionVector(BaseFraction):
             raise TypeError("ComposedFunctionVector can only be scaled with "
                             "compatible ComposedFunctionVector of with a"
                             "constant scalar")
+
+    def mul_neutral_element(self):
+        """
+        Create neutral element of multiplication that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 1 and
+            scalars of value 1.
+
+        """
+        funcs = [f.mul_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [1 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
+
+    def add_neutral_element(self):
+        """
+        Create neutral element of addition that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 0 and
+            scalars of value 0.
+
+        """
+        funcs = [f.add_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [0 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
+
+
+class ConstantComposedFunctionVector(ComposedFunctionVector):
+    r"""
+    Constant composite function vector :math:`\boldsymbol{x}`.
+
+    .. math::
+        \boldsymbol{x} = \begin{pmatrix}
+            z \mapsto x_1(z) = c_1 \\
+            \vdots \\
+            z \mapsto x_n(z) = c_n \\
+            d_1 \\
+            \vdots \\
+            c_n \\
+        \end{pmatrix}
+
+
+    Args:
+        func_constants (array-like): Constants for the functions.
+        scalar_constants (array-like): The scalar constants.
+        **func_kwargs: Keyword args that are passed to the ConstantFunction.
+    """
+
+    def __init__(self, func_constants, scalar_constants, **func_kwargs):
+        func_constants = sanitize_input(func_constants, Number)
+        scalars = sanitize_input(scalar_constants, Number)
+
+        funcs = [ConstantFunction(c, **func_kwargs) for c in func_constants]
+        super().__init__(funcs, scalars)
 
 
 class Base:

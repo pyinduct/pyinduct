@@ -259,7 +259,7 @@ class ParseTest(unittest.TestCase):
         pi.register_base("composed_base", self.composed_base)
 
         # lumped base
-        self.lumped_base = pi.Base([pi.Function.from_constant(1)])
+        self.lumped_base = pi.Base([pi.ConstantFunction(1)])
         pi.register_base("lumped_base", self.lumped_base)
 
         # Test Functions
@@ -525,16 +525,18 @@ class ParseTest(unittest.TestCase):
             finalize=False).get_static_terms()
         self.assertFalse(np.iscomplexobj(terms["f"]))
         np.testing.assert_array_almost_equal(terms["f"],
-                                             np.array([[0], [0], [1]]))
+                                             np.array([[0, 0],
+                                                       [0, .5],
+                                                       [1, 1]]))
 
         terms = sim.parse_weak_formulation(
             sim.WeakFormulation(self.comp_func_term_int, name="test"),
             finalize=False).get_static_terms()
         self.assertFalse(np.iscomplexobj(terms["f"]))
         np.testing.assert_array_almost_equal(terms["f"],
-                                             np.array([[1 / 6],
-                                                       [1 / 3],
-                                                       [1 / 6]]))
+                                             np.array([[1 / 6 + 0],
+                                                       [1 / 3 + .25],
+                                                       [1 / 6 + 1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
@@ -754,7 +756,6 @@ class ParseTest(unittest.TestCase):
         scalars10 = [0] * 2 * nf + [1, 0]
         scalars01 = [0] * 2 * nf + [0, 1]
 
-
         def register_cfv_test_base(n_fracs, n_funcs, n_scalars, label):
             assert n_fracs <= 2 * nf + 2
             assert n_funcs <= 4
@@ -767,7 +768,6 @@ class ParseTest(unittest.TestCase):
                     [s[i] for s in [scalars10, scalars01][:n_scalars]]))
 
             pi.register_base(label, pi.Base(base), overwrite=True)
-
 
         register_cfv_test_base(N, 2, 2, "baseN22")
         fv = pi.FieldVariable("baseN22")
