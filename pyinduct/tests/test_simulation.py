@@ -751,30 +751,31 @@ class ParseTest(unittest.TestCase):
         nf = 2
         funcs0 = [pi.ConstantFunction(0, domain=(0, 1))] * nf
         funcs1 = list(pi.LagrangeFirstOrder.cure_interval(pi.Domain((0, 1), nf)))
-        funcs10 = funcs1 + funcs0 + funcs0
         funcs01 = funcs0 + funcs1 + funcs0
-        scalars10 = [0] * 2 * nf + [1, 0]
+        funcs10 = funcs1 + funcs0 + funcs0
         scalars01 = [0] * 2 * nf + [0, 1]
+        scalars10 = [0] * 2 * nf + [1, 0]
 
         def register_cfv_test_base(n_fracs, n_funcs, n_scalars, label):
-            assert n_fracs <= 2 * nf + 2
-            assert n_funcs <= 4
+            assert n_fracs <= min(len(funcs01), len(scalars01))
+            assert n_funcs <= 2
             assert n_scalars <= 2
 
+            sel_funcs = [funcs10, funcs01][:n_funcs]
+            sel_scalars = [scalars10, scalars01][:n_scalars]
             base = list()
             for i in range(n_fracs):
                 base.append(pi.ComposedFunctionVector(
-                    [f[i] for f in [funcs10, funcs01][:n_funcs]],
-                    [s[i] for s in [scalars10, scalars01][:n_scalars]]))
-
-            pi.register_base(label, pi.Base(base), overwrite=True)
+                    [f[i] for f in sel_funcs],
+                    [s[i] for s in sel_scalars]))
+            pi.register_base(label, pi.Base(base))
 
         register_cfv_test_base(N, 2, 2, "baseN22")
         fv = pi.FieldVariable("baseN22")
         tf = pi.TestFunction("baseN22")
         wf = pi.WeakFormulation([
             pi.IntegralTerm(pi.Product(fv, tf), limits=(0, 1)),
-            pi.ScalarTerm(pi.Product(fv(0).derive(temp_order=1), tf(1))),
+            pi.ScalarTerm(pi.Product(fv.derive(temp_order=1)(0), tf(1))),
         ], name="wfN22")
         cf = pi.parse_weak_formulation(wf)
 
@@ -794,6 +795,7 @@ class ParseTest(unittest.TestCase):
             prod_mat[:N, :N],
             cf.dynamic_forms["baseN22"].matrices["E"][1][1]
         )
+        pi.deregister_base("baseN22")
 
     def test_composed_function_vector(self):
         for i in [6, 5, 4, 3, 2, 1]:
