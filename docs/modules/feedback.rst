@@ -1,8 +1,8 @@
-=======
-Control
-=======
+========
+Feedback
+========
 
-.. automodule:: pyinduct.control
+.. automodule:: pyinduct.feedback
     :members:
     :undoc-members:
     :show-inheritance:
