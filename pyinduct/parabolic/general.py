@@ -335,7 +335,7 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label,
 
 
 def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
-    """
+    r"""
     Returns the transformation matrix M. M is one part of a transformation
 
     .. :math::
@@ -350,9 +350,11 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
         k2:
         mode: Available modes:
 
-            - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
+            - 'n_plus_1': M.shape =
+            :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
 
-            - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
+            - '2n': M.shape = (2n,2n),
+            :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
 
     Return:
         numpy.array: Transformation matrix M.

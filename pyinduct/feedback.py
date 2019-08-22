@@ -214,10 +214,11 @@ def evaluate_transformations(ce, weight_label, vect_shape, is_observer=False):
                 raise NotImplementedError
 
             # collect information
-            org_base = get_base(lbl)
-            tar_base = get_base(weight_label)
-            org_order = int(next(iter(vectors.values())).size / org_base.fractions.size) - 1
-            tar_order = int(max(vect_shape) / len(tar_base)) - 1
+            org_base = get_base(weight_label)
+            tar_base = get_base(lbl)
+            org_order = int(max(vect_shape) / org_base.fractions.size) - 1
+            tar_order = int(next(iter(vectors.values())).size / tar_base.fractions.size) - 1
+
             if is_observer:
                 info = get_transformation_info(
                     lbl,

@@ -9,7 +9,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from pyinduct.tests import show_plots
+from pyinduct.tests import show_plots, test_timings
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
 
@@ -1246,40 +1246,42 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
 
     def quadratic_case1(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def quadratic_case2(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_1(self):
         # rect1
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_2(self):
         # rect2
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
+    @unittest.skipIf(not test_timings,
+                     "`test_timings` was deactivated")
     def test_timings(self):
         """
         # run different versions of the code
