@@ -629,10 +629,6 @@ class Base(ApproximationBasis):
     """
     def __init__(self, fractions,
                  matching_base_lbls=None, intermediate_base_lbls=None):
-        if isinstance(fractions, StackedBase):
-            raise TypeError("Stacked base instances are non-valid first "
-                            + "arguments for pinduct.Base.__init__().")
-
         fractions = sanitize_input(fractions, BaseFraction)
 
         # check type
@@ -901,12 +897,6 @@ class StackedBase(ApproximationBasis):
         self.fractions = np.concatenate([b.fractions for b in self._bases])
         self._size = self._cum_frac_idxs.pop(-1)
         self._weight_size = self._cum_weight_idxs.pop(-1)
-
-    def __len__(self):
-        return self._size
-
-    def __getitem__(self, item):
-        return self.fractions[item]
 
     def scalar_product_hint(self):
         return NotImplemented
@@ -1360,6 +1350,9 @@ def project_on_base(state, base):
     Return:
         numpy.ndarray: Weight vector in the given *base*
     """
+    if not isinstance(base, ApproximationBasis):
+        raise TypeError("Projection only possible on approximation bases.")
+
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(base.__class__(state),
                                                   base).squeeze()

@@ -826,12 +826,11 @@ class StackedBaseTestCase(unittest.TestCase):
 
     def test_defaults(self):
         s = pi.StackedBase(self.base_info)
-        self.assertEqual(len(s), 6)
         self.assertEqual(s.fractions.size, 6)
-        self.assertEqual(s[0], self.b1[0])
-        self.assertEqual(s[2], self.b1[2])
-        self.assertEqual(s[4], self.b2[1])
-        self.assertEqual(s[-1], self.b2[-1])
+        self.assertEqual(s.fractions[0], self.b1[0])
+        self.assertEqual(s.fractions[2], self.b1[2])
+        self.assertEqual(s.fractions[4], self.b2[1])
+        self.assertEqual(s.fractions[-1], self.b2[-1])
 
         self.assertEqual(s.base_lbls, ["b1", "b2"])
         self.assertEqual(s.system_names, ["sys1", "sys2"])
@@ -843,10 +842,7 @@ class StackedBaseTestCase(unittest.TestCase):
         self.assertFalse(self.b2.is_compatible_to(s))
 
         self.assertEqual(s.scalar_product_hint(), NotImplemented)
-
-        self.assertEqual(s.function_space_hint(),
-                         [self.b1.function_space_hint(),
-                          self.b2.function_space_hint()])
+        self.assertEqual(s.function_space_hint(), hash(s))
 
     def test_transformation_hint(self):
         s1 = pi.StackedBase(self.base_info)
