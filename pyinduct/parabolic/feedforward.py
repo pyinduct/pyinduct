@@ -155,6 +155,10 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
     else:
         a2, a1, a0, alpha, beta = param
 
+    if not np.isclose(a1, 0):
+        raise ValueError("Power series_flat_out is designed for diffusion "
+                         "systems without convection term.")
+
     shape = (len(t), len(z))
     x = np.nan * np.ones(shape)
     d_x = np.nan * np.ones(shape)
