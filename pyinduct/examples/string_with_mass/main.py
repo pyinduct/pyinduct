@@ -88,8 +88,8 @@ def main():
     # define initial conditions
     init_cond = {
         sys_wf.name: [SwmBaseFraction(
-            [pi.Function.from_constant(0, domain=spatial_domain.bounds),
-             pi.Function.from_constant(0, domain=spatial_domain.bounds)],
+            [pi.ConstantFunction(0, domain=spatial_domain.bounds),
+             pi.ConstantFunction(0, domain=spatial_domain.bounds)],
             [0, 0])],
         obs_fem_wf.name: [SwmBaseCanonicalFraction(
             [pi.Function(lambda th: ie * (2 - th), (-1, 1))], [0, ie * 4])],

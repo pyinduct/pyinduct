@@ -193,14 +193,14 @@ def init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl):
 
     # register bases with precomputed observer gain approximations
     pi.register_base(obs_fem_lbl + "observer_gain", pi.Base([SwmBaseCanonicalFraction(
-        [pi.Function.from_constant(float(integrate_function(
+        [pi.ConstantFunction(float(integrate_function(
             lambda th: L.members["funcs"][0](th) * f.members["funcs"][0](th),
             [(-1, 1)])[0]), domain=(-1, 1))],
         [L.members["scalars"][0] * f.members["scalars"][0],
          L.members["scalars"][1] * f.members["scalars"][1]])
          for f in pi.get_base(obs_fem_lbl + "_test")]))
     pi.register_base(obs_modal_lbl + "observer_gain", pi.Base([SwmBaseCanonicalFraction(
-        [pi.Function.from_constant(float(integrate_function(
+        [pi.ConstantFunction(float(integrate_function(
             lambda th: L.members["funcs"][0](th) * f.members["funcs"][0](th),
             [(-1, 1)])[0]), domain=(-1, 1))],
         [L.members["scalars"][0] * f.members["scalars"][0],
