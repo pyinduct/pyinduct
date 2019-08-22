@@ -1325,7 +1325,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         return t, q
 
     @unittest.skip  # needs border homogenization to work
-    def test_dd(self):
+    def test_rd(self):
         # TODO adopt this test case
         # trajectory
         bound_cond_type = 'robin'
@@ -1509,7 +1509,8 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # ------------- determine (A,B) with modal transformation
         a_mat = np.diag(eig_values)
         b_mat = -a2 * np.atleast_2d(
-            [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
+            [fraction(l)
+             for fraction in adjoint_eig_base.derive(1).fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -1517,8 +1518,6 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
             np.sort(np.linalg.eigvals(ss_weak.A[1])),
             np.sort(np.linalg.eigvals(ss_modal.A[1])))
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
-
-        # TODO can the result be tested?
 
         # display results
         if show_plots:
@@ -1579,27 +1578,33 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadFeedForward(l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(
+            l, t_end, param, bound_cond_type, actuation_type)
 
         # determine pair (A, B) by weak-formulation (pyinduct)
-        rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
+        rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form(
+            "eig_base", "adjoint_eig_base", u, param, dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss_weak = sim.create_state_space(ce)
 
         # determine pair (A, B) by modal transformation
         a_mat = np.diag(np.real_if_close(eig_val))
-        b_mat = a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.fractions]).T
+        b_mat = a2 * np.atleast_2d(
+            [fraction(l) for fraction in adjoint_eig_base.fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
-                                             decimal=5)
+        np.testing.assert_array_almost_equal(
+            np.sort(np.linalg.eigvals(ss_weak.A[1])),
+            np.sort(np.linalg.eigvals(ss_modal.A[1])),
+            decimal=5)
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
         # display results
         if show_plots:
             t_end, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
-            eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz, spat_order=1)
+            eval_d = sim.evaluate_approximation(
+                "eig_base", q, t_end, dz, spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
             pi.show(show_mpl=False)
