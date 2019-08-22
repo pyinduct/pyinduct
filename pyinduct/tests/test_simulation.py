@@ -287,7 +287,7 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
 
-        self.comp_field_var = pi.FieldVariable("distributed_base")
+        self.comp_field_var = pi.FieldVariable("composed_base")
         self.comp_field_var_at1 = self.comp_field_var(1)
         self.comp_field_var_dz = self.comp_field_var.derive(spat_order=1)
 
@@ -362,12 +362,12 @@ class ParseTest(unittest.TestCase):
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
         self.field_term_ddt_at1 = pi.ScalarTerm(self.field_var_ddt_at1)
 
-        self.comp_field_term_at1 = pi.ScalarTerm(self.comp_field_var_at1)
-
         self.field_int = pi.IntegralTerm(self.field_var, limits=(0, 1))
         self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
+
+        self.comp_field_term_at1 = pi.ScalarTerm(self.comp_field_var_at1)
 
         self.comp_field_int = pi.IntegralTerm(self.comp_field_var,
                                               limits=(0, 1))
@@ -587,6 +587,45 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
         np.testing.assert_array_almost_equal(terms["E"][2][1],
                                              np.array([[.25, .5, .25]]))
+
+        # composed
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.comp_field_term_at1, name="test"),
+            finalize=False).get_dynamic_terms()["composed_base"]
+        self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[1, 0], [0, .5], [0, 1]]))
+
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.field_term_ddt_at1, name="test"),
+        #     finalize=False).get_dynamic_terms()["distributed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][2][1],
+        #                                      np.array([[0, 0, 1]]))
+        #
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.field_term_dz_at1, name="test"),
+        #     finalize=False).get_dynamic_terms()["distributed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[0, -2, 2]]))
+        #
+        terms = sim.parse_weak_formulation(
+            sim.WeakFormulation(self.comp_field_int, name="test"),
+            finalize=False).get_dynamic_terms()["composed_base"]
+        self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        np.testing.assert_array_almost_equal(terms["E"][0][1],
+                                             np.array([[[.25, 0],
+                                                        [.5, .5],
+                                                        [.25, 1]]]))
+        #
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.field_int_half, name="test"),
+        #     finalize=False).get_dynamic_terms()["distributed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[.25, .25, 0]]))
+
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case
