@@ -42,11 +42,9 @@ References:
           Florida, USA, December 17-19, 2018.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-from pyinduct.simulation import get_sim_result
 from pyinduct.tests import test_examples
 
 
@@ -319,6 +317,7 @@ def main():
     plots.append(pi.PgAnimatedPlot(
         [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
     # matplotlib visualization
+    import matplotlib.pyplot as plt
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
                                  legend_label=[r"$x(0,t)$",
                                                r"$\hat x(0,t)$"]))
