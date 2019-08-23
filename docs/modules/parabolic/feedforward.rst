@@ -2,7 +2,7 @@
 Feedforward
 ===========
 
-.. automodule:: pyinduct.parabolic.control
+.. automodule:: pyinduct.parabolic.feedforward
     :members:
     :undoc-members:
     :show-inheritance:

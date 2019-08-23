@@ -23,7 +23,7 @@ class RadFeedForward(InterpolationTrajectory):
               considered.
             - With :math:`x'(0,t) = y(t)` where :math:`y(t)` is the flat output.
 
-        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \alpha x(0,t)`
+        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \alpha \, x(0,t)`
 
             - A transition from :math:`x(0,0)=y0` to  :math:`x(0,T)=y1` is
               considered.
@@ -117,32 +117,51 @@ class RadFeedForward(InterpolationTrajectory):
 
 
 def power_series_flat_out(z, t, n, param, y, bound_cond_type):
-    """
-    Provide the solution x(z,t) and x'(z,t) of the pde
+    r"""
+    Provides the solution :math:`x(z,t)` (and the spatial derivative
+    :math:`x'(z,t)`) of the pde
 
-    .. math:: \dot x(z,t) = a_2 x''(z,t) + a_1 x'(z,t) + a_0 x(z,t)
+    .. math:: \dot x(z,t) = a_2 x''(z,t) + \underbrace{a_1 x'(z,t)}_{=0}
+        + a_0 x(z,t), \qquad a_1 = 0, \qquad z\in(0,l), \qquad t\in(0,T)
 
-    with
+    as power series approximation:
 
-        - the boundary condition :code:`bound_cond_type == "dirichlet"` /
-            :math:`x(0,t)=0` and the flat output :math:`y(t) = x'(0,t)`
+        - for the boundary condition (:code:`bound_cond_type == "dirichlet"`)
+          :math:`x(0,t)=0` and the flat output :math:`y(t) = x'(0,t)` with
 
-        - the boundary condition :code:`bound_cond_type == "robin"`: /
-            :math:`x'(0,t) = \alpha x(0,t)` and the flat output
-            :math:`y(t) = x(0,t)`
+          .. math:: x(z,t) = \sum_{n=0}^\infty \frac{z^{2n+1}}{a_2^n(2n+1)!}
+            \sum_{k=0}^n \binom{n}{k}(-a_0)^{n-k}y^{(k)}(t)
 
-    as power series approximation.
+        - for the boundary condition (:code:`bound_cond_type == "robin"`)
+          :math:`x'(0,t) = \alpha \, x(0,t)` and the flat output
+          :math:`y(t) = x(0,t)` with
+
+          .. math:: x(z,t) = \sum_{n=0}^\infty
+            \left( 1 + \alpha\frac{z}{2n+1}\right)
+            \frac{z^{2n}}{a_2^{n}(2n)!}
+            \sum_{k=0}^{n} \binom{n}{k}(-a_0)^{n-k}y^{(k)}(t).
 
     Args:
-        z (numpy.ndarray): [0, ..., l]
-        t (numpy.ndarray): [0, ... , t_end]
+        z (array_like): :math:`[0, ..., l]`
+        t (array_like): :math:`[0, ... , T]`
         n (int): Series termination index.
-        param (array_like): [a2, a1, a0, alpha, beta]
-        y (array_like): Flat output and derivatives
-            np.array([[y],...,[y^(n/2)]]).
+        param (array_like): Parameters
+
+            .. math:: [a_2, a_1, a_0, \alpha, \beta]
+
+            - :math:`\alpha=\text{None}` for ``bound_cond_type == dirichlet``
+            - :math:`beta` is not used from this function
+              but has to be provided (for now)
+
+        y (array_like): Flat output :math:`y(t)` and derivatives:
+
+            .. math:: [[y(0), ..., y(T)],...,[y^{(n/2)}(0), ..., y^{(n/2)}(T)]].
+
+        bound_cond_type (str): ``dirichlet`` or ``robin``
 
     Return:
-        Field variable x(z,t) and spatial derivative x'(z,t).
+        tuple: Solution :math:`x(z,t)` of the pde and the spatial derivative
+        :math:`x'(z,t)`.
     """
 
     if isinstance(param, SecondOrderOperator):
