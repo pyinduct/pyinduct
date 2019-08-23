@@ -87,7 +87,7 @@ class ObserverFeedback(Feedback):
     Args:
         observer_law (:py:class:`.WeakFormulation`): Variational formulation of
             the Observer gain. (Projected on a set of test functions.)
-        output_error (:py:class:`.Controller`): Output error
+        output_error (:py:class:`.StateFeedback`): Output error
     """
 
     def __init__(self, observer_law, output_error):

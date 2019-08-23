@@ -348,13 +348,13 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     Args:
         k1:
         k2:
-        mode: Available modes:
+        mode: Available modes
 
             - 'n_plus_1': M.shape =
-            :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
+              :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
 
             - '2n': M.shape = (2n,2n),
-            :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
+              :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
 
     Return:
         numpy.array: Transformation matrix M.
