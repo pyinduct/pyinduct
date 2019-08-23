@@ -519,24 +519,25 @@ class ParseTest(unittest.TestCase):
                                              np.array([[1 / 6],
                                                        [1 / 3],
                                                        [1 / 6]]))
-        # composed
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.comp_func_term, name="test"),
-            finalize=False).get_static_terms()
-        self.assertFalse(np.iscomplexobj(terms["f"]))
-        np.testing.assert_array_almost_equal(terms["f"],
-                                             np.array([[0, 0],
-                                                       [0, .5],
-                                                       [1, 1]]))
+        if 0:
+            # composed
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[0, 0],
+                                                           [0, .5],
+                                                           [1, 1]]))
 
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.comp_func_term_int, name="test"),
-            finalize=False).get_static_terms()
-        self.assertFalse(np.iscomplexobj(terms["f"]))
-        np.testing.assert_array_almost_equal(terms["f"],
-                                             np.array([[1 / 6 + 0],
-                                                       [1 / 3 + .25],
-                                                       [1 / 6 + 1]]))
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term_int, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[1 / 6 + 0],
+                                                           [1 / 3 + .25],
+                                                           [1 / 6 + 1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
@@ -589,43 +590,21 @@ class ParseTest(unittest.TestCase):
                                              np.array([[.25, .5, .25]]))
 
         # composed
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.comp_field_term_at1, name="test"),
-            finalize=False).get_dynamic_terms()["composed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
-        np.testing.assert_array_almost_equal(terms["E"][0][1],
-                                             np.array([[1, 0], [0, .5], [0, 1]]))
-
         # terms = sim.parse_weak_formulation(
-        #     sim.WeakFormulation(self.field_term_ddt_at1, name="test"),
-        #     finalize=False).get_dynamic_terms()["distributed_base"]
-        # self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
-        # np.testing.assert_array_almost_equal(terms["E"][2][1],
-        #                                      np.array([[0, 0, 1]]))
-        #
-        # terms = sim.parse_weak_formulation(
-        #     sim.WeakFormulation(self.field_term_dz_at1, name="test"),
-        #     finalize=False).get_dynamic_terms()["distributed_base"]
+        #     sim.WeakFormulation(self.comp_field_term_at1, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
         # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
         # np.testing.assert_array_almost_equal(terms["E"][0][1],
-        #                                      np.array([[0, -2, 2]]))
-        #
-        terms = sim.parse_weak_formulation(
-            sim.WeakFormulation(self.comp_field_int, name="test"),
-            finalize=False).get_dynamic_terms()["composed_base"]
-        self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
-        np.testing.assert_array_almost_equal(terms["E"][0][1],
-                                             np.array([[[.25, 0],
-                                                        [.5, .5],
-                                                        [.25, 1]]]))
-        #
+        #                                      np.array([[1, 0], [0, .5], [0, 1]]))
+
         # terms = sim.parse_weak_formulation(
-        #     sim.WeakFormulation(self.field_int_half, name="test"),
-        #     finalize=False).get_dynamic_terms()["distributed_base"]
+        #     sim.WeakFormulation(self.comp_field_int, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
         # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
         # np.testing.assert_array_almost_equal(terms["E"][0][1],
-        #                                      np.array([[.25, .25, 0]]))
-
+        #                                      np.array([[[.25, 0],
+        #                                                 [.5, .5],
+        #                                                 [.25, 1]]]))
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case
@@ -821,15 +800,15 @@ class ParseTest(unittest.TestCase):
         scal_prod1 = pi.calculate_scalar_product_matrix(pi.Base(funcs1),
                                                         pi.Base(funcs1))
         scal_prod_mat = block_diag(scal_prod1, scal_prod1, 1, 1)
-        print(scal_prod_mat[:N, :N])
-        print(cf.dynamic_forms["baseN22"].matrices["E"][0][1])
+        # print(scal_prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][0][1])
         np.testing.assert_array_almost_equal(
             scal_prod_mat[:N, :N],
             cf.dynamic_forms["baseN22"].matrices["E"][0][1]
         )
         prod_mat = np.diag([1, 0, 1, 0, 0], -1) + np.diag([0] * 4 + [1] * 2)
-        print(prod_mat[:N, :N])
-        print(cf.dynamic_forms["baseN22"].matrices["E"][1][1])
+        # print(prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][1][1])
         np.testing.assert_array_almost_equal(
             prod_mat[:N, :N],
             cf.dynamic_forms["baseN22"].matrices["E"][1][1]

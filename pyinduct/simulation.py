@@ -1329,36 +1329,51 @@ def parse_weak_formulations(weak_forms):
 
 
 def _compute_product_of_scalars(scalars):
-    if len(scalars) > 2:
-        raise NotImplementedError
+    """
+    Compute products for scalar terms while paying attention to some  caveats
 
+    Depending on how the data (coefficients for the lumped equations) of the
+    terms were generated, it is either a column or a row vector.
+    Special cases contain a simple scaling of all equations shape = (1, 1)
+    and products of row and column vectors if two terms are provided.
+
+    Args:
+        scalars:
+
+    Returns:
+
+    """
+    data_shape1 = scalars[0].data.shape
+    if len(scalars) < 1 or len(scalars) > 2:
+        raise NotImplementedError()
     if len(scalars) == 1:
-        data_shape = scalars[0].data.shape
-        # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
-        if data_shape[0] == 1 or data_shape[1] == 1:
-            # source is a base object -> simple scaling of all terms
-            res = scalars[0].data
+        # simple scaling of all terms
+        if sum(data_shape1) > (max(data_shape1) + 1):
+            print("Workaround 1: Summing up all entries")
+            res = np.sum(scalars[0].data, axis=0, keepdims=True).T
         else:
-            # source is ComposedFunctionVector ->
-            res = scalars[0].data.T
-            # res = np.transpose(
-            #     np.ones((1, scalars[0].data.shape[0])) @ scalars[0].data)
-    elif (scalars[0].data.shape == scalars[1].data.shape and
-          scalars[0].data.shape[0] == 1 and scalars[1].data.shape[1] == 1):
+            assert data_shape1[0] == 1 or data_shape1[1] == 1
+            res = scalars[0].data
+        return res
+
+    # two arguments
+    data_shape2 = scalars[1].data.shape
+    if data_shape1 == data_shape2 and data_shape2[1] == 1:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    elif scalars[0].data.shape == (1, 1) or scalars[1].data.shape == (1, 1):
-        # a lumped terms is present
+    elif data_shape1 == (1, 1) or data_shape2 == (1, 1):
+        # a lumped term is present
         res = scalars[0].data * scalars[1].data
     else:
         # dyadic product
         try:
-            if scalars[0].data.shape[1] == 1:
+            if data_shape1[1] == 1:
                 res = scalars[0].data @ scalars[1].data
-            elif scalars[1].data.shape[1] == 1:
+            elif data_shape2[1] == 1:
                 res = scalars[1].data @ scalars[0].data
             # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
-            elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
+            elif data_shape1[1] == data_shape2[0]:
+                print("Workaround 2: Matrix product")
                 res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
             else:
                 raise NotImplementedError

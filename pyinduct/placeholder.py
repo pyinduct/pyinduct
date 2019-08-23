@@ -16,7 +16,8 @@ from .registry import register_base, get_base, is_registered
 
 __all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
            "Input", "ObserverGain",
-           "Product", "ScalarTerm", "IntegralTerm",
+           "Product",
+           "ScalarTerm", "IntegralTerm", "ScalarProductTerm",
            "Placeholder"]
 
 
@@ -642,6 +643,18 @@ def _evaluate_placeholder(placeholder):
 
     values = np.atleast_2d([frac.raise_to(exponent)(location)
                             for frac in fractions])
+    # TODO full 2d output should be taken care of here but not all information
+    # is present for that
+    if values.shape[0] > 1 and values.shape[1] > 1 and False:
+        print("INFO: 2d input detected, probably some composed input "
+              "was used!")
+        zero_cnt = np.array([sum((row != 0).astype(int)) for row in values])
+        if any(zero_cnt > 1):
+            raise ValueError(
+                    "Invalid input detected when processing fractions: {} {}"
+                    "".format(fractions, zero_cnt))
+        print("WARNING: Summing up dimensions")
+        values = np.sum(values, axis=1, keepdims=True).T
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values,

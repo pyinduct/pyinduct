@@ -115,15 +115,18 @@ def main():
     split_indizes = [n1 + n2 ,
                      n1 + n2 + n_obs_fem,
                      n1 + n2 + n_obs_fem + n_obs_modal]
-    ## system
+    #  system
     weights_sys = weights[:, :split_indizes[0]]
-    eval_data1 = pi.get_sim_result(sys_fem_lbl + "_1_visu", weights_sys, temporal_domain, spatial_domain, 0, 0, name="x1(z,t)")[0]
-    ## fem observer
+    eval_data1 = pi.get_sim_result(sys_fem_lbl + "_1_visu", weights_sys,
+                                   temporal_domain, spatial_domain, 0, 0,
+                                   name="x1(z,t)")[0]
+
+    #  fem observer
     weights_fem_obs = weights[:, split_indizes[0]: split_indizes[1]]
     fem_obs_ed = pi.get_sim_result(sys_fem_lbl + "_1_trafo_visu", weights_fem_obs,
                                      temporal_domain, spatial_domain, 0, 0,
                                      name="\hat x1_fem(z,t)")[0]
-    ## modal observer
+    #  modal observer
     weights_modal_obs = weights[:, split_indizes[1]: split_indizes[2]]
     modal_obs_ed = pi.get_sim_result(sys_modal_lbl + "_1_trafo_visu", weights_modal_obs,
                                      temporal_domain, spatial_domain, 0, 0,
@@ -131,18 +134,20 @@ def main():
 
     # create plots
     plots = list()
-    timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
+    plots.append(pi.PgSurfacePlot([eval_data1, modal_obs_ed]))
     plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
     pi.show()
 
     # save results
-    path = "results/"
-    conf = "{}__({}-{}-{})__".format(
-        control_mode, n1 + n2, n_obs_fem, n_obs_modal)
-    description = input("result description:").replace(" ", "-")
-    file = open(path + timestamp + conf + description + ".pkl", "wb")
-    pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
-    file.close()
+    if 0:
+        timestamp = time.strftime("%Y-%m-%d__%H-%M-%S__")
+        path = "results/"
+        conf = "{}__({}-{}-{})__".format(
+            control_mode, n1 + n2, n_obs_fem, n_obs_modal)
+        description = input("result description:").replace(" ", "-")
+        file = open(path + timestamp + conf + description + ".pkl", "wb")
+        pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
+        file.close()
 
 
 if __name__ == "__main__" or test_examples:
