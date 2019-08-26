@@ -18,6 +18,6 @@ else:
     show_plots = True
     # Do not want to see plots or test all examples while test run?
     # Then force it and uncomment the respective line:
-    test_timings = False
+    # test_timings = False
     # test_all_examples = False
-    show_plots = False
+    # show_plots = False
