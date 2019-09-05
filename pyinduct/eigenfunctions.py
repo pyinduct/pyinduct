@@ -562,6 +562,7 @@ class LambdifiedSympyExpression(Function):
 
     def __init__(self, sympy_funcs, spat_symbol, spatial_domain,
                  complex_=False):
+        self.complex_ = complex_
 
         def ensure_numeric_scalar(scal):
             if isinstance(scal, Number):
