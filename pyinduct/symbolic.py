@@ -404,8 +404,10 @@ def evaluate_integrals(expression):
     expr_expand = expression.expand()
 
     replace_dict = dict()
+    # print newline before progress
+    print()
     for integral in tqdm(expr_expand.atoms(sp.Integral), file=sys.stdout,
-                         desc="\n>>> evaluate integrals"):
+                         desc=">>> evaluate integrals"):
 
         if not len(integral.args[1]) == 3:
             raise ValueError(

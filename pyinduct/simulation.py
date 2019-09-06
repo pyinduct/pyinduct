@@ -1398,6 +1398,8 @@ def simulate_state_space(rhs, initial_state, temp_domain, settings=None):
 
     r.set_initial_value(q[0], t[0])
 
+    # print newline before progress
+    print()
     for t_step in tqdm(temp_domain[1:],
                        desc=">>> simulate system", file=sys.stdout):
         qn = r.integrate(t_step)
