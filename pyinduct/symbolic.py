@@ -5,7 +5,8 @@ import sys
 from tqdm import tqdm
 import collections
 import pyinduct as pi
-from pyinduct.core import domain_intersection, integrate_function
+from pyinduct.core import (domain_intersection, integrate_function,
+                           get_transformation_info, get_weight_transformation)
 from pyinduct.simulation import simulate_state_space, SimulationInput
 from sympy.utilities.lambdify import implemented_function
 
@@ -174,8 +175,7 @@ class SimulationInputWrapper:
         return self._sim_input(**kwargs)
 
 
-# TODO: find a better name for this class
-class SymbolicFeedback(SimulationInput):
+class Feedback(SimulationInput):
 
     def __init__(self, expression, base_weights_info, name=str(), args=None):
         SimulationInput.__init__(self, name=name)
@@ -202,6 +202,8 @@ class SymbolicFeedback(SimulationInput):
             else:
                 self.remaining_terms = sp.lambdify(args, expression, "numpy")
 
+        self.feedback_gain_sum = dict()
+
 
     def _calc_output(self, **kwargs):
         """
@@ -216,14 +218,73 @@ class SymbolicFeedback(SimulationInput):
             dict: Controller output :math:`u`.
         """
 
+
+        # determine sum over feedback gains
+        if kwargs["weight_lbl"] not in self.feedback_gain_sum:
+            self.feedback_gain_sum[kwargs["weight_lbl"]] = \
+                self.evaluate_feedback_gain_sum(self.feedback_gains,
+                                                kwargs["weight_lbl"],
+                                                (1, len(kwargs["weights"])))
+
         # linear feedback u = k^T * x
-        res = self.feedback_gains[kwargs["weight_lbl"]] @ kwargs["weights"]
+        res = self.feedback_gain_sum[kwargs["weight_lbl"]] @ kwargs["weights"]
 
         # add constant, nonlinear and other crazy terms
         if self.remaining_terms is not None:
             res += self.remaining_terms(kwargs["weights"], kwargs["time"])
 
         return dict(output=res)
+
+    @staticmethod
+    def evaluate_feedback_gain_sum(gains, weight_label, vect_shape):
+        r"""
+        Transform the different feedback gains in `ce` to the basis
+        `weight_label` and accumulate them to one gain vector.
+        For weight transformations the procedure is straight forward.
+        If the feedback gain :math:`u(t) = k^Tc(t)` was approximated with respect
+        to the weights from the state
+        :math:`x(z,t) = \sum_{i=1}^{n}c_i(t)\varphi_i(z)`
+        but during the simulation only the weights from base
+        :math:`\bar{x}(z,t) = \sum_{i=1}^{m} \bar{c}_i(t)\varphi_i(z)`
+        are available a weights transformation
+        .. math::
+            :nowrap:
+            \begin{align*}
+              c(t) = N^{-1}M\bar{c}(t), \qquad
+              N_{(i,j)} = \langle \varphi_i(z), \varphi_j(z) \rangle, \qquad
+              M_{(i,j)} = \langle \varphi_i(z), \bar{\varphi}_j(z) \rangle
+            \end{align*}
+        will be computed.
+
+        Args:
+            gains (dict): Dictionary of all feedback gains.
+            weight_label (string): Label of functions the weights correspond to.
+            vect_shape (tuple): Shape of the feedback vector.
+
+        Return:
+            :class:`numpy.array`: Accumulated feedback/observer gain.
+        """
+        gain_sum = np.zeros(vect_shape)
+        identity = np.eye(max(vect_shape))
+
+        for lbl, gain in gains.items():
+            # collect information
+            org_order = 0
+            tar_order = 0
+            info = get_transformation_info(
+                weight_label,
+                lbl,
+                tar_order,
+                org_order)
+
+            # fetch handle
+            transformation = get_weight_transformation(info)
+
+            # evaluate
+            for i, iv in enumerate(identity):
+                gain_sum[0, i] += np.dot(gain, transformation(iv))
+
+        return gain_sum
 
 
 def simulate_system(rhs, funcs, init_conds, base_label, input_syms,
