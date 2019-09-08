@@ -42,11 +42,9 @@ References:
           Florida, USA, December 17-19, 2018.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-from pyinduct.simulation import get_sim_result
 from pyinduct.tests import test_examples
 
 
@@ -131,7 +129,7 @@ def main():
     spat_bounds = (0, z_end)
     spatial_domain = pi.Domain(bounds=(0, z_end), num=n_fem)
     trans_time = 1
-    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
+    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2000)
     actuation_type = 'robin'
     bound_cond_type = 'robin'
     n = n_modal
@@ -319,13 +317,14 @@ def main():
     plots.append(pi.PgAnimatedPlot(
         [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
     # matplotlib visualization
+    import matplotlib.pyplot as plt
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
-                                 legend_label=["$x(0,t)$",
-                                               "$\hat x(0,t)$"]))
+                                 legend_label=[r"$x(0,t)$",
+                                               r"$\hat x(0,t)$"]))
     plt.legend(loc=4)
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=1,
-                                 legend_label=["$x(1,t)$",
-                                               "$\hat x(1,t)$"]))
+                                 legend_label=[r"$x(1,t)$",
+                                               r"$\hat x(1,t)$"]))
     plt.legend(loc=1)
     pi.show()
 

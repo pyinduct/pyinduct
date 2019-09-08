@@ -10,7 +10,7 @@ import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
 from pyinduct.core import vectorize_scalar_product
-from pyinduct.tests import show_plots
+from pyinduct.tests import show_plots, test_timings
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
 
@@ -556,10 +556,12 @@ class BaseTestCase(unittest.TestCase):
                                       cos_func.raise_to(1)(numbers))
 
         # power 4
-        np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
-                                      sin_func.raise_to(4)(numbers))
-        np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
-                                      cos_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
+                                          sin_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
+                                          cos_func.raise_to(4)(numbers))
 
     def test_derive(self):
         sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
@@ -870,14 +872,28 @@ class StackedBaseTestCase(unittest.TestCase):
             b2={"base": self.b2, "sys_name": "sys2", "order": 0},
         )
 
+    def test_error_raises(self):
+        base_info = OrderedDict(
+            b1={"base": self.b1, "sys_name": "sys1", "order": 0},
+            b2={"base": self.b1, "sys_name": "sys2", "order": 0},
+        )
+        s = pi.StackedBase(base_info)
+        with self.assertRaises(TypeError):
+            pi.Base(s)
+
+    def test_registration(self):
+        s = pi.StackedBase(self.base_info)
+        pi.register_base("Stacked-Basis", s)
+        sr = pi.get_base("Stacked-Basis")
+        self.assertEqual(s, sr)
+
     def test_defaults(self):
         s = pi.StackedBase(self.base_info)
-        self.assertEqual(len(s), 6)
         self.assertEqual(s.fractions.size, 6)
-        self.assertEqual(s[2], self.b1[2])
-        self.assertEqual(s[4], self.b2[1])
-        self.assertEqual(s[0], self.b1[0])
-        self.assertEqual(s[-1], self.b2[-1])
+        self.assertEqual(s.fractions[0], self.b1[0])
+        self.assertEqual(s.fractions[2], self.b1[2])
+        self.assertEqual(s.fractions[4], self.b2[1])
+        self.assertEqual(s.fractions[-1], self.b2[-1])
 
         self.assertEqual(s.base_lbls, ["b1", "b2"])
         self.assertEqual(s.system_names, ["sys1", "sys2"])
@@ -889,12 +905,9 @@ class StackedBaseTestCase(unittest.TestCase):
         self.assertFalse(self.b2.is_compatible_to(s))
 
         self.assertEqual(s.scalar_product_hint(), NotImplemented)
+        self.assertEqual(s.function_space_hint(), hash(s))
 
-        self.assertEqual(s.function_space_hint(),
-                         [self.b1.function_space_hint(),
-                          self.b2.function_space_hint()])
-
-    def test_transfomration_hint(self):
+    def test_transformation_hint(self):
         s1 = pi.StackedBase(self.base_info)
         pi.register_base("s1", s1)
         pi.register_base("unknown", self.b2)
@@ -1296,41 +1309,43 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
 
     def quadratic_case1(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def quadratic_case2(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_1(self):
         # rect1
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_2(self):
         # rect2
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
-    def compare_timings(self):
+    @unittest.skipIf(not test_timings,
+                     "`test_timings` was deactivated")
+    def test_timings(self):
         """
         # run different versions of the code
         """

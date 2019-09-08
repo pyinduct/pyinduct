@@ -717,7 +717,53 @@ class ConstantComposedFunctionVector(ComposedFunctionVector):
         super().__init__(funcs, scalars)
 
 
-class Base:
+class ApproximationBasis:
+    """
+    Base class for an approximation basis.
+
+    An approximation basis is formed by some objects on which given distributed
+    variables may be projected.
+    """
+    def scalar_product_hint(self):
+        """
+        Hint that returns steps for scalar product calculation with elements of
+        this base.
+
+        Note:
+            Overwrite to implement custom functionality.
+        """
+        raise NotImplementedError()
+
+    def function_space_hint(self):
+        """
+        Hint that returns properties that characterize the functional
+        space of the fractions.
+        It can be used to determine if function spaces match.
+
+        Note:
+            Overwrite to implement custom functionality.
+        """
+        raise NotImplementedError()
+
+    def is_compatible_to(self, other):
+        """
+        Helper functions that checks compatibility between two approximation
+        bases.
+
+        In this case compatibility is given if the two bases live in the same
+        function space.
+
+        Args:
+             other (:py:class:`.Approximation Base`): Approximation basis to
+                compare with.
+
+        Returns: True if bases match, False if they do not.
+
+        """
+        return self.function_space_hint() == other.function_space_hint()
+
+
+class Base(ApproximationBasis):
     """
     Base class for approximation bases.
 
@@ -789,22 +835,6 @@ class Base:
             return np.dot(mat, weights)
 
         return handle
-
-    def is_compatible_to(self, other):
-        """
-        Check if the function spaces of the bases are compatible.
-
-        For now this is done by equating the function spaces of the bases.
-
-        Args:
-            other(pi.Base): Base to check compatibility for.
-
-        Returns:
-            bool: True if bases are compatible.
-        """
-        own_space = self.function_space_hint()
-        other_space = other.function_space_hint()
-        return own_space == other_space
 
     def transformation_hint(self, info):
         """
@@ -972,7 +1002,7 @@ class Base:
         if power == 1:
             return self
         else:
-            return self.__class__([f.raise_to(power) for f in self.fractions])
+            raise ValueError("This funcionality is deprecated.")
 
     def get_attribute(self, attr):
         """
@@ -989,7 +1019,7 @@ class Base:
         return np.array([getattr(frac, attr, None) for frac in self.fractions])
 
 
-class StackedBase:
+class StackedBase(ApproximationBasis):
     """
     Implementation of a basis vector that is obtained by stacking different
     bases onto each other. This typically occurs when the bases of coupled
@@ -1001,8 +1031,9 @@ class StackedBase:
             In detail, these Information must contain:
 
                 - sys_name (str): Name of the system the base is associated with.
-                - order (int): Highest temporal derivative order with which the base shall be represented in the stacked base.
-                - base (:py:class:`.Base`): The actual basis.
+                - order (int): Highest temporal derivative order with which the
+                    base shall be represented in the stacked base.
+                - base (:py:class:`.ApproximationBase`): The actual basis.
     """
 
     def __init__(self, base_info):
@@ -1031,24 +1062,17 @@ class StackedBase:
         self._size = self._cum_frac_idxs.pop(-1)
         self._weight_size = self._cum_weight_idxs.pop(-1)
 
-    def __len__(self):
-        return self._size
-
-    def __getitem__(self, item):
-        return self.fractions[item]
-
-    def is_compatible_to(self, other):
-        return self.function_space_hint() == other.function_space_hint()
-
     def scalar_product_hint(self):
         return NotImplemented
 
     def function_space_hint(self):
-        return [b.function_space_hint() for b in self._bases]
+        return hash(self)
+
+    def is_compatible_to(self, other):
+        return False
 
     def scale(self, factor):
-        return self.__class__({lbl: func.scale(factor)
-                               for lbl, func in self.members})
+        raise NotImplementedError("Stacked base should not be scaled.")
 
     def transformation_hint(self, info):
         """
@@ -1429,8 +1453,8 @@ def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
     :math:`a_{ij} = \langle \mathrm{a}_i\,,\: \mathrm{b}_j\rangle`.
 
     Args:
-        base_a (:py:class:`.Base`): Basis a
-        base_b (:py:class:`.Base`): Basis b
+        base_a (:py:class:`.ApproximationBase`): Basis a
+        base_b (:py:class:`.ApproximationBase`): Basis b
         scalar_product: (List of) function objects that are passed the members
             of the given bases as pairs. Defaults to the scalar product given by
             `base_a`
@@ -1485,15 +1509,13 @@ def project_on_base(state, base):
 
     Args:
         state (array_like): List of functions to approximate.
-        base (:py:class:`.Base`): Basis to project onto.
+        base (:py:class:`.ApproximationBase`): Basis to project onto.
 
     Return:
         numpy.ndarray: Weight vector in the given *base*
     """
-    if not isinstance(base, Base):
-        raise TypeError("Only pyinduct.core.Base accepted as base")
-
-    scalar_product = base.scalar_product_hint()
+    if not isinstance(base, ApproximationBasis):
+        raise TypeError("Projection only possible on approximation bases.")
 
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(base.__class__(state),
@@ -1537,7 +1559,7 @@ def back_project_from_base(weights, base):
 
     Args:
         weights (numpy.ndarray): Weight vector.
-        base (:py:class:`.Base`): Base to be used for the projection.
+        base (:py:class:`.ApproximationBase`): Base to be used for the projection.
 
     Return:
         evaluation handle
@@ -1563,8 +1585,8 @@ def change_projection_base(src_weights, src_base, dst_base):
 
     Args:
         src_weights (numpy.ndarray): Vector of numbers.
-        src_base (:py:class:`.Base`): The source Basis.
-        dst_base (:py:class:`.Base`): The destination Basis.
+        src_base (:py:class:`.ApproximationBase`): The source Basis.
+        dst_base (:py:class:`.ApproximationBase`): The destination Basis.
 
     Return:
         :obj:`numpy.ndarray`: target weights
@@ -1759,8 +1781,8 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base,
         :py:func:`.calculate_base_transformation_matrix` for further details.
 
     Args:
-        dst_base (:py:class:`.Base`): New projection base.
-        src_base (:py:class:`.Base`): Current projection base.
+        dst_base (:py:class:`.ApproximationBase`): New projection base.
+        src_base (:py:class:`.ApproximationBase`): Current projection base.
         src_order: Temporal derivative order available in *src_base*.
         dst_order: Temporal derivative order needed in *dst_base*.
         use_eye (bool): Use identity as base transformation matrix.
@@ -1813,8 +1835,8 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
             :py:func:`.scalar_product_hint` method.
 
     Args:
-        src_base (:py:class:`.Base`): Current projection base.
-        dst_base (:py:class:`.Base`): New projection base.
+        src_base (:py:class:`.ApproximationBase`): Current projection base.
+        dst_base (:py:class:`.ApproximationBase`): New projection base.
         scalar_product (list of callable): Callbacks for product calculation.
             Defaults to `scalar_product_hint` from `src_base`.
 
@@ -1836,7 +1858,7 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
 
 def normalize_base(b1, b2=None):
     r"""
-    Takes two :py:class:`.Base`'s :math:`\boldsymbol{b}_1` ,
+    Takes two :py:class:`.ApproximationBase`'s :math:`\boldsymbol{b}_1` ,
     :math:`\boldsymbol{b}_1` and normalizes them so that
     :math:`\langle\boldsymbol{b}_{1i}\,
     ,\:\boldsymbol{b}_{2i}\rangle = 1`.
@@ -1844,16 +1866,16 @@ def normalize_base(b1, b2=None):
     defaults to :math:`\boldsymbol{b}_1`.
 
     Args:
-        b1 (:py:class:`.Base`): :math:`\boldsymbol{b}_1`
-        b2 (:py:class:`.Base`): :math:`\boldsymbol{b}_2`
+        b1 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_1`
+        b2 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_2`
 
     Raises:
         ValueError: If :math:`\boldsymbol{b}_1`
             and :math:`\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        :py:class:`.Base` : if *b2* is None,
-        otherwise: Tuple of 2 :py:class:`.Base`'s.
+        :py:class:`.ApproximationBase` : if *b2* is None,
+        otherwise: Tuple of 2 :py:class:`.ApproximationBase`'s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1886,11 +1908,11 @@ def normalize_base(b1, b2=None):
 def generic_scalar_product(b1, b2=None, scalar_product=None):
     """
     Calculates the pairwise scalar product between the elements
-    of the :py:class:`.Base` *b1* and *b2*.
+    of the :py:class:`.ApproximationBase` *b1* and *b2*.
 
     Args:
-        b1 (:py:class:`.Base`): first basis
-        b2 (:py:class:`.Base`): second basis, if omitted
+        b1 (:py:class:`.ApproximationBase`): first basis
+        b2 (:py:class:`.ApproximationBase`): second basis, if omitted
             defaults to *b1*
         scalar_product (list of callable): Callbacks for product calculation.
             Defaults to `scalar_product_hint` from `b1`.

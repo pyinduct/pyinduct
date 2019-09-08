@@ -87,7 +87,7 @@ class ObserverFeedback(Feedback):
     Args:
         observer_law (:py:class:`.WeakFormulation`): Variational formulation of
             the Observer gain. (Projected on a set of test functions.)
-        output_error (:py:class:`.Controller`): Output error
+        output_error (:py:class:`.StateFeedback`): Output error
     """
 
     def __init__(self, observer_law, output_error):
@@ -206,7 +206,7 @@ def evaluate_transformations(ce, weight_label, vect_shape, is_observer=False):
     gain = np.zeros(vect_shape)
     identity = np.eye(max(vect_shape))
 
-    for lbl, law in ce.get_dynamic_terms().items():
+    for gain_label, law in ce.get_dynamic_terms().items():
         if "E" in law:
             # build eval vector
             vectors = _build_eval_vector(law)
@@ -214,22 +214,24 @@ def evaluate_transformations(ce, weight_label, vect_shape, is_observer=False):
                 raise NotImplementedError
 
             # collect information
-            org_base = get_base(lbl)
-            tar_base = get_base(weight_label)
-            org_order = int(next(iter(vectors.values())).size / org_base.fractions.size) - 1
-            tar_order = int(max(vect_shape) / len(tar_base)) - 1
+            gain_base = get_base(gain_label)
+            weight_base = get_base(weight_label)
+            gain_order = int(next(iter(vectors.values())).size
+                             / gain_base.fractions.size) - 1
+            weight_order = int(max(vect_shape) / weight_base.fractions.size) - 1
+
             if is_observer:
                 info = get_transformation_info(
-                    lbl,
+                    gain_label,
                     weight_label,
-                    org_order,
-                    tar_order)
+                    gain_order,
+                    weight_order)
             else:
                 info = get_transformation_info(
                     weight_label,
-                    lbl,
-                    tar_order,
-                    org_order)
+                    gain_label,
+                    weight_order,
+                    gain_order)
 
             # fetch handle
             transformation = get_weight_transformation(info)
@@ -238,10 +240,10 @@ def evaluate_transformations(ce, weight_label, vect_shape, is_observer=False):
             if is_observer:
                 # map the available projections to the origin weights
                 org_weights_trafo = calculate_scalar_product_matrix(
-                    org_base, org_base)
+                    gain_base, gain_base)
                 # map the desired projections to the target weights
                 tar_weights_trafo = calculate_scalar_product_matrix(
-                    tar_base, tar_base)
+                    weight_base, weight_base)
                 # map the available projections to the target projections
                 gain += tar_weights_trafo @ transformation(
                     np.linalg.inv(org_weights_trafo) @ vectors[1])
