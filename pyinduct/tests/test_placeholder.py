@@ -471,3 +471,4 @@ class EvaluatePlaceholderTestCase(unittest.TestCase):
 
     def tearDown(self):
         pi.deregister_base("funcs")
+

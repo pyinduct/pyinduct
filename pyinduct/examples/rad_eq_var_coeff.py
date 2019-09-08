@@ -17,7 +17,7 @@ if __name__ == "__main__" or test_examples:
 
     # original system parameters
     a2 = .5
-    a2_z = pi.Function.from_constant(a2)
+    a2_z = pi.ConstantFunction(a2)
     a1_z = pi.Function(lambda z: 0.1 * np.exp(4 * z),
                        derivative_handles=[lambda z: 0.4 * np.exp(4 * z)])
     a0_z = lambda z: 1 + 10 * z + 2 * np.sin(4 * np.pi / l * z)

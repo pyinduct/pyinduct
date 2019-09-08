@@ -4,7 +4,7 @@ from numbers import Number
 
 import numpy as np
 
-from ..control import Controller
+from ..feedback import StateFeedback
 from ..placeholder import ScalarTerm, IntegralTerm
 from ..simulation import SimulationInput, SimulationInputSum, WeakFormulation
 
@@ -188,7 +188,7 @@ def get_parabolic_robin_backstepping_controller(state,
             to scale the control law: :math:`u(t) = c \, (Kx)(t)`.
 
     Returns:
-        :py:class:`.Controller`: :math:`(Kx)(t)`
+        :py:class:`.StateFeedback`: :math:`(Kx)(t)`
 
     .. [WoiEtAl17] Frank Woittennek, Marcus Riesmeier and Stefan Ecklebe;
               On approximation and implementation of transformation based
@@ -233,7 +233,7 @@ def get_parabolic_robin_backstepping_controller(state,
         scaled_control_law = control_law
 
     c_name = "parabolic_robin_backstepping_controller"
-    return Controller(WeakFormulation(scaled_control_law, name=c_name))
+    return StateFeedback(WeakFormulation(scaled_control_law, name=c_name))
 
 
 # TODO: change to factory, rename: function_wrapper

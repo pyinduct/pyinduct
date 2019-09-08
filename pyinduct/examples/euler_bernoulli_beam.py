@@ -165,8 +165,8 @@ def run():
 
     # simulation
 
-    init_form = pi.Function.from_constant(0)
-    init_form_dt = pi.Function.from_constant(0)
+    init_form = pi.ConstantFunction(0)
+    init_form_dt = pi.ConstantFunction(0)
     initial_conditions = [init_form, init_form_dt]
 
     with np.errstate(under="ignore"):

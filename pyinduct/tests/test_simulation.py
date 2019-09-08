@@ -3,6 +3,7 @@ import unittest
 import copy
 
 import numpy as np
+from scipy.linalg import block_diag
 
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
@@ -74,8 +75,12 @@ class AlternatingInput(sim.SimulationInput):
 
     def __init__(self):
         super().__init__(self)
-        self.tr_up = pi.SmoothTransition(states=(0, 1), interval=(0, 1), method="poly")
-        self.tr_down = pi.SmoothTransition(states=(1, 0), interval=(1, 2), method="poly")
+        self.tr_up = pi.SmoothTransition(states=(0, 1),
+                                         interval=(0, 1),
+                                         method="poly")
+        self.tr_down = pi.SmoothTransition(states=(1, 0),
+                                           interval=(1, 2),
+                                           method="poly")
 
 
 class SimulationInputTest(unittest.TestCase):
@@ -94,7 +99,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = CorrectInput(output=1, limits=(0, 1))
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handles=u)
+        ss = sim.StateSpace({1: a}, {0: {1: b}}, input_handle=u)
 
         # if caller provides correct kwargs no exception should be raised
         res = sim.simulate_state_space(ss, ic, pi.Domain((0, 1), num=10))
@@ -104,7 +109,7 @@ class SimulationInputTest(unittest.TestCase):
         b = np.array([[0], [1]])
         u = MonotonousInput()
         ic = np.zeros((2, 1))
-        ss = sim.StateSpace(a, b, input_handles=u)
+        ss = sim.StateSpace(a, b, input_handle=u)
 
         # run simulation to fill the internal storage
         domain = pi.Domain((0, 10), num=11)
@@ -212,22 +217,24 @@ class ParseTest(unittest.TestCase):
 
         # callbacks
         self.u = pi.ConstantTrajectory(7)
-        self.u1 = CorrectInput(output=1)
-        self.u2 = CorrectInput(output=2)
+        u1 = CorrectInput(output=1)
+        u2 = CorrectInput(output=2)
+        self.u_vec = pi.SimulationInputVector([u1, u2])
         self.u_dt = CorrectInput(output=1, der_order=1)
-        self.u1_dt = CorrectInput(output=1, der_order=1)
-        self.u2_dt = CorrectInput(output=2, der_order=1)
+        u1_dt = CorrectInput(output=1, der_order=1)
+        u2_dt = CorrectInput(output=2, der_order=1)
+        self.u_vec_dt = pi.SimulationInputVector([u1_dt, u2_dt])
 
         # inputs
         self.input = pi.Input(self.u)
 
-        self.vec_input_1 = pi.Input(self.u1, index=0)
-        self.vec_input_2 = pi.Input(self.u2, index=1)
+        self.vec_input_1 = pi.Input(self.u_vec, index=0)
+        self.vec_input_2 = pi.Input(self.u_vec, index=1)
 
         self.input_dt = pi.Input(self.u_dt, order=1)
 
-        self.vec_input_dt_1 = pi.Input(self.u1_dt, index=0, order=1)
-        self.vec_input_dt_2 = pi.Input(self.u2_dt, index=1, order=1)
+        self.vec_input_dt_1 = pi.Input(self.u_vec_dt, index=0, order=1)
+        self.vec_input_dt_2 = pi.Input(self.u_vec_dt, index=1, order=1)
 
         # scale function
         def heavyside(z):
@@ -246,8 +253,13 @@ class ParseTest(unittest.TestCase):
         self.distributed_base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("distributed_base", self.distributed_base)
 
+        fractions = [pi.ComposedFunctionVector(f, s) for f, s in
+                     zip(self.distributed_base, nodes)]
+        self.composed_base = pi.Base(fractions)
+        pi.register_base("composed_base", self.composed_base)
+
         # lumped base
-        self.lumped_base = pi.Base([pi.Function.from_constant(1)])
+        self.lumped_base = pi.Base([pi.ConstantFunction(1)])
         pi.register_base("lumped_base", self.lumped_base)
 
         # Test Functions
@@ -256,6 +268,12 @@ class ParseTest(unittest.TestCase):
         self.test_funcs_at1 = self.test_funcs(1)
         self.test_funcs_dz = self.test_funcs.derive(1)
         self.test_funcs_dz_at1 = self.test_funcs_dz(1)
+
+        self.comp_test_funcs = pi.TestFunction("composed_base")
+        self.comp_test_funcs_at0 = self.comp_test_funcs(0)
+        self.comp_test_funcs_at1 = self.comp_test_funcs(1)
+        self.comp_test_funcs_dz = self.comp_test_funcs.derive(1)
+        self.comp_test_funcs_dz_at1 = self.comp_test_funcs_dz(1)
 
         # Scalar Functions
         self.scalar_func = pi.ScalarFunction("heavyside_base")
@@ -269,15 +287,21 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
 
+        self.comp_field_var = pi.FieldVariable("composed_base")
+        self.comp_field_var_at1 = self.comp_field_var(1)
+        self.comp_field_var_dz = self.comp_field_var.derive(spat_order=1)
+
         self.odd_weight_field_var = pi.FieldVariable(
             "distributed_base", weight_label="special_weights")
 
         # Field variable 2
         self.lumped_var = pi.FieldVariable("lumped_base")
 
+        # ---------------------------------------------------------------------
         # Construction of Equation Terms
+        # ---------------------------------------------------------------------
 
-        # input
+        # inputs
         self.input_term1 = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
                                                     self.input))
         self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input,
@@ -328,6 +352,11 @@ class ParseTest(unittest.TestCase):
                                                         self.test_funcs),
                                              limits=(0, 1))
 
+        self.comp_func_term = pi.ScalarTerm(self.comp_test_funcs_at1)
+        self.comp_func_term_int = pi.IntegralTerm(
+            pi.Product(self.comp_test_funcs, self.comp_test_funcs),
+            limits=(0, 1))
+
         # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
@@ -337,6 +366,13 @@ class ParseTest(unittest.TestCase):
         self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
+
+        self.comp_field_term_at1 = pi.ScalarTerm(self.comp_field_var_at1)
+
+        self.comp_field_int = pi.IntegralTerm(self.comp_field_var,
+                                              limits=(0, 1))
+        self.comp_field_dz_int = pi.IntegralTerm(self.comp_field_var,
+                                                 limits=(0, 1))
 
         # products
         self.prod_term_fs_at1 = pi.ScalarTerm(
@@ -483,6 +519,25 @@ class ParseTest(unittest.TestCase):
                                              np.array([[1 / 6],
                                                        [1 / 3],
                                                        [1 / 6]]))
+        if 0:
+            # composed
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[0, 0],
+                                                           [0, .5],
+                                                           [1, 1]]))
+
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term_int, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[1 / 6 + 0],
+                                                           [1 / 3 + .25],
+                                                           [1 / 6 + 1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
@@ -533,6 +588,23 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
         np.testing.assert_array_almost_equal(terms["E"][2][1],
                                              np.array([[.25, .5, .25]]))
+
+        # composed
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.comp_field_term_at1, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[1, 0], [0, .5], [0, 1]]))
+
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.comp_field_int, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[[.25, 0],
+        #                                                 [.5, .5],
+        #                                                 [.25, 1]]]))
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case
@@ -693,9 +765,70 @@ class ParseTest(unittest.TestCase):
                                                self.field_int],
                                               name=""))
 
+    def _test_composed_function_vector(self, N):
+        nf = 2
+        funcs0 = [pi.ConstantFunction(0, domain=(0, 1))] * nf
+        funcs1 = list(pi.LagrangeFirstOrder.cure_interval(pi.Domain((0, 1), nf)))
+        funcs01 = funcs0 + funcs1 + funcs0
+        funcs10 = funcs1 + funcs0 + funcs0
+        scalars01 = [0] * 2 * nf + [0, 1]
+        scalars10 = [0] * 2 * nf + [1, 0]
+
+        def register_cfv_test_base(n_fracs, n_funcs, n_scalars, label):
+            assert n_fracs <= min(len(funcs01), len(scalars01))
+            assert n_funcs <= 2
+            assert n_scalars <= 2
+
+            sel_funcs = [funcs10, funcs01][:n_funcs]
+            sel_scalars = [scalars10, scalars01][:n_scalars]
+            base = list()
+            for i in range(n_fracs):
+                base.append(pi.ComposedFunctionVector(
+                    [f[i] for f in sel_funcs],
+                    [s[i] for s in sel_scalars]))
+            pi.register_base(label, pi.Base(base))
+
+        register_cfv_test_base(N, 2, 2, "baseN22")
+        fv = pi.FieldVariable("baseN22")
+        tf = pi.TestFunction("baseN22")
+        wf = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(fv, tf), limits=(0, 1)),
+            pi.ScalarTerm(pi.Product(fv.derive(temp_order=1)(0), tf(1))),
+        ], name="wfN22")
+        cf = pi.parse_weak_formulation(wf)
+
+        scal_prod1 = pi.calculate_scalar_product_matrix(pi.Base(funcs1),
+                                                        pi.Base(funcs1))
+        scal_prod_mat = block_diag(scal_prod1, scal_prod1, 1, 1)
+        # print(scal_prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][0][1])
+        np.testing.assert_array_almost_equal(
+            scal_prod_mat[:N, :N],
+            cf.dynamic_forms["baseN22"].matrices["E"][0][1]
+        )
+        prod_mat = np.diag([1, 0, 1, 0, 0], -1) + np.diag([0] * 4 + [1] * 2)
+        # print(prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][1][1])
+        np.testing.assert_array_almost_equal(
+            prod_mat[:N, :N],
+            cf.dynamic_forms["baseN22"].matrices["E"][1][1]
+        )
+        pi.deregister_base("baseN22")
+
+    def test_composed_function_vector(self):
+        # todo: fix bug for i=1, at the moment there is no
+        #   way to distinguish (in _compute_product_of_scalars) between a
+        #   composed function vector with N entries + approximation order 1
+        #   and a pi.Function and approximation order N
+        # for i in [6, 5, 4, 3, 2, 1]:
+        for i in [6, 5, 4, 3, 2]:
+            print("i = ", i)
+            self._test_composed_function_vector(i)
+
     def tearDown(self):
         pi.deregister_base("heavyside_base")
         pi.deregister_base("distributed_base")
+        pi.deregister_base("composed_base")
         pi.deregister_base("lumped_base")
 
 
@@ -747,7 +880,7 @@ class StateSpaceTests(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             ss.B[0][1],
             np.array([[0], [0], [0], [0.125], [-1.75], [6.875]]))
-        self.assertEqual(self.ce.input_functions, self.u)
+        self.assertEqual(self.ce.input_function, self.u)
 
     def test_simulate_state_space(self):
         """
@@ -781,8 +914,9 @@ class StringMassTest(unittest.TestCase):
     def setUp(self):
         z_start = 0
         z_end = 1
+        z_bounds = (z_start, z_end)
         z_step = 0.1
-        self.dz = pi.Domain(bounds=(z_start, z_end), num=9)
+        self.dz = pi.Domain(bounds=z_bounds, num=9)
 
         t_start = 0
         t_end = 10
@@ -814,8 +948,8 @@ class StringMassTest(unittest.TestCase):
 
         # initial conditions
         self.ic = np.array([
-            pi.Function(lambda z: x(z, 0)),  # x(z, 0)
-            pi.Function(lambda z: x_dt(z, 0)),  # dx_dt(z, 0)
+            pi.Function(lambda z: x(z, 0), domain=z_bounds),  # x(z, 0)
+            pi.Function(lambda z: x_dt(z, 0), domain=z_bounds),  # dx_dt(z, 0)
         ])
 
     def test_fem(self):
@@ -1044,9 +1178,9 @@ class MultipleODETest(unittest.TestCase):
         dummy_point = 0
 
         pi.register_base("base_1", pi.Base(
-            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
+            pi.ConstantFunction(1, domain=dummy_domain.bounds)))
         pi.register_base("base_2", pi.Base(
-            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
+            pi.ConstantFunction(1, domain=dummy_domain.bounds)))
 
         x1 = pi.FieldVariable("base_1")(dummy_point)
         x2 = pi.FieldVariable("base_2")(dummy_point)
@@ -1108,11 +1242,15 @@ class MultiplePDETest(unittest.TestCase):
             return 0
 
         # initial conditions
-        fx = pi.Function(lambda z: x(z, 0))
-        self.ic1 = np.array([fx])
-        self.ic2 = np.array([fx])
-        self.ic3 = np.array([fx])
-        self.ic4 = np.array([fx, fx])
+        self.ic1 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz1.bounds)])
+        self.ic2 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz2.bounds)])
+        self.ic3 = np.array([pi.Function(lambda z: x(z, 0),
+                                         domain=self.dz3.bounds)])
+        self.ic4 = np.array([
+            pi.Function(lambda z: x(z, 0), domain=self.dz4.bounds),
+            pi.Function(lambda z: x(z, 0), domain=self.dz4.bounds)])
 
         # weak formulations
         nodes1 = pi.Domain(self.dz1.bounds, num=3)
@@ -1499,7 +1637,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         a_mat = np.diag(eig_values)
         b_mat = -a2 * np.atleast_2d(
             [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(
@@ -1578,7 +1716,7 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         # determine pair (A, B) by modal transformation
         a_mat = np.diag(np.real_if_close(eig_val))
         b_mat = a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.fractions]).T
-        ss_modal = sim.StateSpace(a_mat, b_mat, input_handles=u)
+        ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
         np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
@@ -1742,3 +1880,66 @@ class SetDominantLabel(unittest.TestCase):
         pi.deregister_base("base_1")
         pi.deregister_base("base_2")
         pi.deregister_base("base_3")
+
+
+class SimulationInputVectorTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.inputs = np.array(
+            [CorrectInput(output=i, der_order=i) for i in range(5)])
+
+    def test_init(self):
+        # empty arg
+        input_vector = sim.SimulationInputVector([])
+        self.assertTrue(input_vector._input_vector == [])
+
+        # single arg
+        input_vector = sim.SimulationInputVector(self.inputs[1])
+        self.assertEqual(input_vector._input_vector, [self.inputs[1]])
+
+        # iterable arg
+        input_vector = sim.SimulationInputVector(self.inputs)
+        self.assertTrue(all(input_vector._input_vector == self.inputs))
+
+    def test_iter(self):
+        input_vector = sim.SimulationInputVector(self.inputs[:2])
+        itr = iter(input_vector)
+        val = next(itr)
+        self.assertEqual(val, self.inputs[0])
+        val = next(itr)
+        self.assertEqual(val, self.inputs[1])
+        with self.assertRaises(StopIteration):
+            next(itr)
+
+    def test_getitem(self):
+        # single val
+        input_vector = sim.SimulationInputVector(self.inputs)
+        val = input_vector[1]
+        self.assertEqual(val, self.inputs[1])
+
+        # slice
+        val = input_vector[2:4]
+        self.assertTrue(all(val == self.inputs[2:4]))
+
+    def test_append(self):
+        input_vector = sim.SimulationInputVector([])
+        input_vector.append(self.inputs[:2])
+        self.assertTrue(all(input_vector._input_vector == self.inputs[:2]))
+
+        input_vector.append(self.inputs[2:])
+        self.assertTrue(all(input_vector._input_vector == self.inputs))
+
+    def test_output(self):
+        kwargs = dict(time=1, weights=[1, 2, 3], weight_lbl="test")
+        input_vector = sim.SimulationInputVector([])
+        # empty content
+        input_vector(**kwargs)
+
+        # full content
+        input_vector = sim.SimulationInputVector(self.inputs)
+        outputs = [inp(**kwargs) for inp in self.inputs]
+        vec_outputs = input_vector(**kwargs)
+        self.assertTrue(
+            all([all(a == b) for a, b in zip(outputs, vec_outputs)])
+        )
+

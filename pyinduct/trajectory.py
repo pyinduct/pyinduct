@@ -15,7 +15,6 @@ import sympy as sp
 
 from .core import Domain
 from .simulation import SimulationInput
-from .eigenfunctions import SecondOrderOperator
 
 __all__ = ["ConstantTrajectory", "InterpolationTrajectory",
            "SmoothTransition",  "SignalGenerator",
@@ -222,73 +221,6 @@ def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
     return phi, t_init
 
 
-def power_series_flat_out(z, t, n, param, y, bound_cond_type):
-    """
-    Provide the power series approximation for x(z,t) and x'(z,t).
-
-    Args:
-        z (numpy.ndarray): [0, ..., l]
-        t (numpy.ndarray): [0, ... , t_end]
-        n (int): Series termination index.
-        param (array_like): [a2, a1, a0, alpha, beta]
-        y (array_like): Flat output and derivatives np.array([[y],...,[y^(n/2)]]).
-
-    Return:
-        Field variable x(z,t) and spatial derivative x'(z,t).
-    """
-    # TODO: documentation
-    # TODO this is more a feedforward than a trajectory -> move
-
-    if isinstance(param, SecondOrderOperator):
-        a2 = param.a2
-        a1 = param.a1
-        a0 = param.a0
-        alpha = -param.alpha0
-        beta = param.beta0
-
-    else:
-        a2, a1, a0, alpha, beta = param
-
-    shape = (len(t), len(z))
-    x = np.nan * np.ones(shape)
-    d_x = np.nan * np.ones(shape)
-
-    # Actually power_series() is designed for robin boundary condition by z=0.
-    # With the following modification it can also used for dirichlet boundary condition by z=0.
-    if bound_cond_type is 'robin':
-        is_robin = 1.
-    elif bound_cond_type is 'dirichlet':
-        alpha = 1.
-        is_robin = 0.
-    else:
-        raise ValueError(
-            "Selected Boundary condition {0} not supported! Use 'robin' or 'dirichlet'".format(bound_cond_type))
-
-    # TODO: flip iteration order: z <--> t, result: one or two instead len(t) call's
-    for i in range(len(t)):
-        sum_x = np.zeros(len(z))
-        for j in range(n):
-            sum_b = np.zeros(len(z))
-            for k in range(j + 1):
-                sum_b += ss.comb(j, k) * (-a0) ** (j - k) * y[k, i]
-            sum_x += (is_robin + alpha * z / (2. * j + 1.)) * z ** (2 * j) / ss.factorial(2 * j) / a2 ** j * sum_b
-        x[i, :] = sum_x
-
-    for i in range(len(t)):
-        sum_x = np.zeros(len(z))
-        for j in range(n):
-            sum_b = np.zeros(len(z))
-            for k in range(j + 2):
-                sum_b += ss.comb(j + 1, k) * (-a0) ** (j - k + 1) * y[k, i]
-            if j == 0:
-                sum_x += alpha * y[0, i]
-            sum_x += (is_robin + alpha * z / (2. * (j + 1))) * z ** (2 * j + 1) / ss.factorial(2 * j + 1) / a2 ** (
-                j + 1) * sum_b
-        d_x[i, :] = sum_x
-
-    return x, d_x
-
-
 def coefficient_recursion(c0, c1, param):
     r"""
     Return to the recursion
@@ -310,7 +242,9 @@ def coefficient_recursion(c0, c1, param):
         c_3 = numpy.array&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\
         &\vdots                                          \\
         c_{2N-1} = numpy.array&([c_{2N-1}^{(0)}])                \\
-        c_{2N} = numpy.array&([c_{2N}^{(0)}])
+        c_{2N} = numpy.array&([c_{2N}^{(0)}]).
+
+    Only constant parameters :math:`a_2, a_1, a_0 \in \mathbb R` supported.
 
     Args:
         c0 (array_like): :math:`c_0`
@@ -320,11 +254,13 @@ def coefficient_recursion(c0, c1, param):
     Return:
         dict: :math:`C = \{0: c_0, 1: c_1, ..., 2N-1: c_{2N-1}, 2N: c_{2N}\}`
     """
-    # TODO: documentation: only constant coefficients
     if c0.shape != c1.shape:
         raise ValueError
 
     a2, a1, a0, _, _ = param
+    if not all([isinstance(p, Number) for p in (a2, a1, a0)]):
+        raise TypeError("Only constant coefficients supported.")
+
     N = c0.shape[0]
     C = dict()
 

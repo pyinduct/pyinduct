@@ -7,12 +7,45 @@ branches:
 
 language: python
 
+# Need to use python 3.7 (date: 20190707)
+dist: xenial
+
+# Maybe not needed, try it if you are interested
+sudo: true
+
+# Start x virtual framebuffer for gui
+services:
+  - xvfb
+
+addons:
+  apt:
+    packages:
+    # Needed to start x virtual framebuffer
+    - libxkbcommon-x11-0
+
 python:
-  - "3.5"
-  - "3.6"
+  - 3.5
+  - 3.6
+  - 3.7
+
 env:
-  - DIST=anaconda
   - DIST=pypi
+  - DIST=anaconda
+
+matrix:
+  fast_finish: true
+
+  # dont take care of anaconda or older python versions
+  allow_failures:
+  - env: DIST=anaconda
+  - python: 3.5
+
+  # dont test latest python version with anaconda
+  exclude:
+      - python: 3.7
+        env: anaconda
+        # Maybe not needed, try it if you are interested
+        sudo: true
 
 install:
   - >
@@ -36,13 +69,6 @@ install:
       pip install .;
       pip list;
     fi;
-
-before_script:
-  # Start x virtual framebuffer for gui
-  - export DISPLAY=:99.0
-  - sh -e /etc/init.d/xvfb start
-  # give xvfb some time to start
-  - sleep 3
 
 script:
   - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;

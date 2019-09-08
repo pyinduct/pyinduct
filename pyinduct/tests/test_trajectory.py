@@ -124,6 +124,11 @@ class FormalPowerSeriesTest(unittest.TestCase):
             pw.plot(self.t, u_b_t)
             pi.show(show_mpl=False)
 
+    def test_asserts_power_series_flat_out(self):
+        from pyinduct.parabolic.feedforward import power_series_flat_out
+        with self.assertRaises(ValueError):
+            power_series_flat_out([], [], 1, [0,2,0,0,0], [], "dirichlet")
+
 
 class InterpSignalGeneratorTest(unittest.TestCase):
     def setUp(self):

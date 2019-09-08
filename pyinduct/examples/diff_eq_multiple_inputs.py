@@ -50,7 +50,7 @@ def main():
                              name="diff_equation")
 
     # define initial state
-    t0 = pi.Function.from_constant(100)
+    t0 = pi.ConstantFunction(100)
 
     # simulate
     res = pi.simulate_system(pde, t0, temp_dom, spat_dom)

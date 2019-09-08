@@ -17,13 +17,14 @@ from scipy.linalg import block_diag
 from .core import (Domain, Parameters, Function,
                    domain_intersection, integrate_function,
                    calculate_scalar_product_matrix,
-                   dot_product_l2, sanitize_input,
+                   vectorize_scalar_product, sanitize_input,
                    StackedBase, get_weight_transformation,
                    get_transformation_info,
                    EvalData, project_on_bases)
 from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
                           EquationTerm, get_common_target, get_common_form,
-                          ObserverGain, ScalarTerm, IntegralTerm)
+                          ObserverGain, ScalarTerm, IntegralTerm,
+                          ScalarProductTerm)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
@@ -191,26 +192,30 @@ class StateSpace(object):
     Wrapper class that represents the state space form of a dynamic system where
 
     .. math::
-        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k} \boldsymbol{x}^{p_k}(t)
-        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k} \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
+        \boldsymbol{\dot{x}}(t) &= \sum\limits_{k=0}^{L}\boldsymbol{A}_{k}
+        \boldsymbol{x}^{p_k}(t)
+        + \sum\limits_{j=0}^{V} \sum\limits_{k=0}^{L}\boldsymbol{B}_{j, k}
+        \frac{\mathrm{d}^j u^{p_k}}{\mathrm{d}t^j}(t)
         + \boldsymbol{L}\tilde{\boldsymbol{y}}(t)\\
-        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t) + \boldsymbol{D}u(t)
+        \boldsymbol{y}(t) &= \boldsymbol{C}\boldsymbol{x}(t)
+        + \boldsymbol{D}u(t)
 
     which has been approximated by projection on a base given by weight_label.
 
     Args:
-        a_matrices (dict): State transition matrices :math:`\boldsymbol{A}_{p_k}`
-            for the corresponding powers of :math:`\boldsymbol{x}`
-        b_matrices (dict): Cascaded dictionary for the input matrices :math:`\boldsymbol{B}_{j, k}` in the sequence:
-            temporal derivative order, exponent .
-        input_handles (np.ndarray):  (Array of) callables for the the system
-            inputs :math:`u(t)`.
+        a_matrices (dict): State transition matrices
+            :math:`\boldsymbol{A}_{p_k}` for the corresponding powers of
+            :math:`\boldsymbol{x}`.
+        b_matrices (dict): Cascaded dictionary for the input matrices
+            :math:`\boldsymbol{B}_{j, k}` in the sequence: temporal derivative
+            order, exponent.
+        input_handle (:py:class:`.SimulationInput`): System input :math:`u(t)`.
         c_matrix: :math:`\boldsymbol{C}`
         d_matrix: :math:`\boldsymbol{D}`
     """
 
     def __init__(self, a_matrices, b_matrices, base_lbl=None,
-                 input_handles=None, c_matrix=None, d_matrix=None,
+                 input_handle=None, c_matrix=None, d_matrix=None,
                  obs_fb_handle=None):
         self.C = c_matrix
         self.D = d_matrix
@@ -242,10 +247,12 @@ class StateSpace(object):
         if self.D is None:
             self.D = np.zeros((self.C.shape[0], np.atleast_2d(self.B[0][available_power]).T.shape[1]))
 
-        if input_handles is None:
+        if input_handle is None:
             self.input = EmptyInput(self.B[0][available_power].shape[1])
+        elif isinstance(input_handle, SimulationInput):
+            self.input = input_handle
         else:
-            self.input = sanitize_input(input_handles, SimulationInput)
+            raise NotImplementedError
 
     # TODO export cython code?
     def rhs(self, _t, _q):
@@ -264,12 +271,12 @@ class StateSpace(object):
             state_part = state_part + a_mat @ np.power(_q, power)
 
         input_part = np.zeros_like(state_part)
-        inputs = np.atleast_2d([u(time=_t, weights=_q, weight_lbl=self.base_lbl)
-                                for u in self.input[0]])
+        inputs = np.atleast_2d(
+            self.input(time=_t, weights=_q, weight_lbl=self.base_lbl))
         for der_order, power_dict in self.B.items():
             for power, b_mat in power_dict.items():
                 for idx, col in enumerate(b_mat.T):
-                    input_part = input_part + col * inputs[idx, der_order]
+                    input_part = input_part + col * inputs[idx][der_order]
 
         q_t = state_part + input_part
 
@@ -425,19 +432,16 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
     """
     ss_base = get_base(state_space.base_lbl)
     if names is None:
-        # TODO: implement getter method in StackedBase or change function interface
         if isinstance(ss_base, StackedBase):
-            labels = [lbl for lbl in ss_base._info.keys()]
-            names = [ss_base._info[lbl]["sys_name"] for lbl in labels]
+            labels = ss_base.base_lbls
+            names = ss_base.system_names
         else:
             names = list(spat_domains)
             labels = [state_space.base_lbl]
     else:
         if isinstance(ss_base, StackedBase):
-            labels = list()
-            for nm in names:
-                labels = [key for key, val in ss_base._info.items()
-                          if val["sys_name"] is nm]
+            labels = [ss_base.base_lbls[ss_base.system_names.index(name)]
+                      for name in names]
         else:
             labels = [state_space.base_lbl]
 
@@ -454,9 +458,10 @@ def get_sim_results(temp_domain, spat_domains, weights, state_space, names=None,
             derivative_orders[nm][1] = 0
 
         # acquire a transformation into the original weights
+        src_order = int(weights.shape[1] / ss_base.fractions.size) - 1
         info = get_transformation_info(state_space.base_lbl,
                                        lbl,
-                                       int(weights.shape[1] / ss_base.fractions.size) - 1,
+                                       src_order,
                                        derivative_orders[nm][0])
         transformation = get_weight_transformation(info)
 
@@ -483,7 +488,7 @@ class CanonicalForm(object):
         self.matrices = {}
         # self._max_idx = dict(E=0, f=0, G=0)
         self._weights = None
-        self._input_functions = None
+        self._input_function = None
         self._observer_feedback = list()
         self._finalized = False
         self.powers = None
@@ -507,26 +512,17 @@ class CanonicalForm(object):
     #                 self._matrices[name][der][p] += pow
 
     @property
-    def input_functions(self):
-        return self._input_functions
+    def input_function(self):
+        return self._input_function
 
-    def set_input_function(self, func, index=0):
+    def set_input_function(self, func):
         if not isinstance(func, SimulationInput):
             raise TypeError("Inputs must be of type `SimulationInput`.")
 
-        if self._input_functions is None:
-            self._input_functions = np.atleast_1d(func)
-
-        # check whether the dimensions must be extended
-        if index >= self.input_functions.shape[0]:
-            old_len = self._input_functions.shape[0]
-            new_input_functions = np.empty(index + 1, dtype=object)
-            new_input_functions[:old_len] = self._input_functions
-            self._input_functions = new_input_functions
-            self._input_functions[index] = func
-        else:
-            if self._input_functions[index] != func:
-                raise ValueError("already defined input is overridden!")
+        if self._input_function is None:
+            self._input_function = func
+        elif not self._input_function is func:
+            raise ValueError("already defined input is overridden!")
 
     # @property
     # def weights(self):
@@ -597,8 +593,8 @@ class CanonicalForm(object):
                 new_target_matrix = np.zeros((target_matrix.shape[0],
                                               column + 1))
                 new_target_matrix[
-                    :target_matrix.shape[0],
-                    :target_matrix.shape[1]
+                :target_matrix.shape[0],
+                :target_matrix.shape[1]
                 ] = target_matrix
                 target_matrix = new_target_matrix
 
@@ -735,7 +731,7 @@ class CanonicalForm(object):
         a_matrices.update({0: f_mat})
 
         ss = StateSpace(a_matrices, b_matrices,
-                        input_handles=self.input_functions)
+                        input_handle=self.input_function)
         return ss
 
     def _build_feedback(self, entry, power, product_mat):
@@ -882,14 +878,14 @@ class CanonicalEquation(object):
         return {label: val.get_terms() for label, val in self.dynamic_forms.items()}
 
     @property
-    def input_functions(self):
+    def input_function(self):
         """
         The input handles for the equation.
         """
-        return self._static_form.input_functions
+        return self._static_form.input_function
 
-    def set_input_function(self, func, index=0):
-        self._static_form.set_input_function(func, index)
+    def set_input_function(self, func):
+        self._static_form.set_input_function(func)
 
 
 def create_state_space(canonical_equations):
@@ -966,19 +962,21 @@ def create_state_space(canonical_equations):
 
         # update input handles
         if state_space_props.input is None:
-            state_space_props.input = eq.input_functions
-        else:
-            if eq.input_functions is not None and state_space_props.input not in eq.input_functions:
+            state_space_props.input = eq.input_function
+        elif eq.input_function is not None:
+            if not state_space_props.input is eq.input_function:
                 raise ValueError("Only one input object allowed.")
 
     # build new basis by concatenating the dominant bases of every equation
     if len(canonical_equations) == 1:
         new_name = next(iter(canonical_equations)).dominant_lbl
     else:
-        members = state_space_props.parts.keys()
-        new_name = "_".join(members)
-        fracs = [frac for lbl in members for frac in get_base(lbl).fractions]
-        new_base = StackedBase(fracs, state_space_props.parts)
+        base_info = copy(state_space_props.parts)
+        base_lbls = state_space_props.parts.keys()
+        for lbl in base_lbls:
+            base_info[lbl].update({"base": get_base(lbl)})
+        new_base = StackedBase(base_info)
+        new_name = "_".join(base_lbls)
         register_base(new_name, new_base)
 
     # build new state transition matrices A_p_k for corresponding powers p_k of the state vector
@@ -1051,7 +1049,7 @@ def create_state_space(canonical_equations):
         return res
 
     dom_ss = StateSpace(a_matrices, b_matrices, base_lbl=new_name,
-                        input_handles=state_space_props.input,
+                        input_handle=state_space_props.input,
                         obs_fb_handle=observer_feedback)
     return dom_ss
 
@@ -1136,32 +1134,28 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 # is the integrand a product?
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
-                func = placeholders["functions"][0]
-                fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                # TODO: define interface for scalar product (see ComposedFunctionVector)
-                scalar_product = fractions[0].scalar_product_hint()[0]
-                result = calculate_scalar_product_matrix(scalar_product,
-                                                         fractions,
-                                                         shape_funcs)
+                func1 = placeholders["functions"][0]
+                base1 = get_base(func1.data["func_lbl"]).derive(func1.order[1])
+                result = calculate_scalar_product_matrix(base1, shape_funcs)
             else:
                 # extract constant term and compute integral
-                components = []
-                for func in shape_funcs.fractions:
+                part1 = []
+                for func1 in shape_funcs.fractions:
                     from pyinduct.core import ComposedFunctionVector
-                    if isinstance(func, ComposedFunctionVector):
+                    if isinstance(func1, ComposedFunctionVector):
                         res = 0
-                        for f in func.members["funcs"]:
+                        for f in func1.members["funcs"]:
                             area = domain_intersection(term.limits, f.nonzero)
                             r, err = integrate_function(f, area)
                             res += r
-                        for s in func.members["scalars"]:
+                        for s in func1.members["scalars"]:
                             res += s
                     else:
-                        area = domain_intersection(term.limits, func.nonzero)
-                        res, err = integrate_function(func, area)
-                    components.append(res)
+                        area = domain_intersection(term.limits, func1.nonzero)
+                        res, err = integrate_function(func1, area)
+                    part1.append(res)
 
-                a = Scalars(np.atleast_2d(components))
+                a = Scalars(np.atleast_2d(part1))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
@@ -1176,61 +1170,63 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
         # TestFunctions or pre evaluated terms, those can end up in E, f or G
         if placeholders["functions"]:
-            assert isinstance(term, IntegralTerm)
-
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
-            func = placeholders["functions"][0]
-            fractions = get_base(func.data["func_lbl"]
-                                 ).derive(func.order[1]).fractions
+            func1 = placeholders["functions"][0]
+            base1 = get_base(func1.data["func_lbl"]).derive(func1.order[1])
+            prod = base1.scalar_product_hint()
 
-            if len(placeholders["functions"]) == 2:
+            if len(placeholders["functions"]) == 1:
+                # product of one function and something else, solve integral
+                # first by faking 2nd factor
+                base2 = [f.mul_neutral_element() for f in base1]
+            else:
                 func2 = placeholders["functions"][1]
-                fractions2 = get_base(func2.data["func_lbl"]
-                                      ).derive(func2.order[1]).fractions
-                res = []
-                for frac, frac2 in zip(fractions, fractions2):
-                    scaled_frac = frac.scale(frac2)
-                    dom = domain_intersection(scaled_frac.domain, term.limits)
-                    _res, err = integrate_function(scaled_frac, dom)
-                    res.append(_res)
+                base2 = get_base(func2.data["func_lbl"]).derive(func2.order[1])
 
-                # create column vector
-                res = np.atleast_2d(res).T * term.scale
+            # resolve equation term
+            if isinstance(term, ScalarProductTerm):
+                int_res = vectorize_scalar_product(base1, base2, prod)
+            elif isinstance(term, IntegralTerm):
+                from pyinduct.core import Base, ComposedFunctionVector
+                # create base with multiplied fractions
+                s_base = Base([f1.scale(f2) for f1, f2 in zip(base1, base2)])
+
+                int_res = []
+                for frac in s_base:
+                    # WARN I don't think that this case actually makes sense.
+                    if isinstance(frac, ComposedFunctionVector):
+                        res = 0
+                        for f in frac.members["funcs"]:
+                            area = domain_intersection(term.limits, f.nonzero)
+                            r, err = integrate_function(f, area)
+                            res += r
+                        for s in frac.members["scalars"]:
+                            res += s
+                    else:
+                        area = domain_intersection(term.limits, frac.nonzero)
+                        res, err = integrate_function(frac, area)
+                    int_res.append(res)
+            else:
+                raise NotImplementedError()
+
+            # create column vector
+            int_res = np.atleast_2d(int_res).T * term.scale
+
+            # integral of the product of two functions
+            if len(placeholders["functions"]) == 2:
                 term_info = dict(name="f", exponent=0)
-                ce.add_to(weight_label=None, term=term_info, val=res)
+                ce.add_to(weight_label=None,
+                          term=term_info, val=int_res)
                 continue
-
-            components = []
-            for frac in fractions:
-                from pyinduct.core import ComposedFunctionVector
-                if isinstance(frac, ComposedFunctionVector):
-                    res = 0
-                    for f in frac.members["funcs"]:
-                        area = domain_intersection(term.limits, f.nonzero)
-                        r, err = integrate_function(f, area)
-                        res += r
-                    for s in frac.members["scalars"]:
-                        res += s
-                else:
-                    area = domain_intersection(term.limits, frac.nonzero)
-                    res, err = integrate_function(frac, area)
-                components.append(res)
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack(components))
-
+                b = Scalars(int_res)
                 result = _compute_product_of_scalars([a, b])
-
-                if is_observer:
-                    ce.add_to(weight_label=func.data["appr_lbl"],
-                              term=dict(name="E", order=0, exponent=1),
-                              val=result * term.scale)
-                else:
-                    ce.add_to(weight_label=a.target_form,
-                              term=get_common_target(placeholders["scalars"]),
-                              val=result * term.scale)
+                ce.add_to(weight_label=a.target_form,
+                          term=get_common_target(placeholders["scalars"]),
+                          val=result)
                 continue
 
             if placeholders["inputs"]:
@@ -1243,21 +1239,20 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 input_order = input_var.order[0]
                 term_info = dict(name="G", order=input_order, exponent=input_exp)
 
-                # create column vector
-                result = np.atleast_2d(components).T
-
-                ce.add_to(weight_label=None, term=term_info,
-                          val=result * term.scale, column=input_index)
-                ce.set_input_function(input_func, input_index)
+                ce.add_to(weight_label=None,
+                          term=term_info,
+                          val=int_res,
+                          column=input_index)
+                ce.set_input_function(input_func)
                 continue
 
             if is_observer:
-                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in fractions])
-                ce.add_to(weight_label=func.data["appr_lbl"],
+                result = np.vstack([integrate_function(func, func.nonzero)[0]
+                                    for func in base1])
+                ce.add_to(weight_label=func1.data["appr_lbl"],
                           term=dict(name="E", order=0, exponent=1),
                           val=result * term.scale)
                 continue
-
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
@@ -1286,7 +1281,7 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
                 ce.add_to(weight_label=None, term=term_info,
                           val=result * term.scale, column=input_index)
-                ce.set_input_function(input_func, input_index)
+                ce.set_input_function(input_func)
                 continue
 
             if is_observer:
@@ -1334,34 +1329,54 @@ def parse_weak_formulations(weak_forms):
 
 
 def _compute_product_of_scalars(scalars):
-    if len(scalars) > 2:
-        raise NotImplementedError
+    """
+    Compute products for scalar terms while paying attention to some  caveats
 
+    Depending on how the data (coefficients for the lumped equations) of the
+    terms were generated, it is either a column or a row vector.
+    Special cases contain a simple scaling of all equations shape = (1, 1)
+    and products of row and column vectors if two terms are provided.
+
+    Args:
+        scalars:
+
+    Returns:
+
+    """
+    data_shape1 = scalars[0].data.shape
+    if len(scalars) < 1 or len(scalars) > 2:
+        raise NotImplementedError()
     if len(scalars) == 1:
-        # distinguish between pi.Base and pi.ComposedFunctionVector
-        if sum(scalars[0].data.shape) > (max(scalars[0].data.shape) + 1):
-            res = np.transpose(
-                np.ones((1, scalars[0].data.shape[0])) @ scalars[0].data)
+        # simple scaling of all terms
+        if sum(data_shape1) > (max(data_shape1) + 1):
+            print("Workaround 1: Summing up all entries")
+            res = np.sum(scalars[0].data, axis=0, keepdims=True).T
         else:
-            # simple scaling of all terms
-            # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
+            assert data_shape1[0] == 1 or data_shape1[1] == 1
             res = scalars[0].data
-    elif scalars[0].data.shape == scalars[1].data.shape:
+        return res
+
+    # two arguments
+    data_shape2 = scalars[1].data.shape
+    if data_shape1 == data_shape2 and data_shape2[1] == 1:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    elif scalars[0].data.shape == (1, 1) or scalars[1].data.shape == (1, 1):
-        # a lumped terms is present
+    elif data_shape1 == (1, 1) or data_shape2 == (1, 1):
+        # a lumped term is present
         res = scalars[0].data * scalars[1].data
     else:
         # dyadic product
         try:
-            if scalars[0].data.shape[1] == 1:
+            if data_shape1[1] == 1:
                 res = scalars[0].data @ scalars[1].data
-            elif scalars[1].data.shape[1] == 1:
+            elif data_shape2[1] == 1:
                 res = scalars[1].data @ scalars[0].data
             # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
-            elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
+            elif data_shape1[1] == data_shape2[0]:
+                print("Workaround 2: Matrix product")
                 res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
+            else:
+                raise NotImplementedError
         except ValueError as e:
             raise ValueError("provided entries do not form a dyadic product")
 
@@ -1492,7 +1507,7 @@ def set_dominant_labels(canonical_equations, finalize=True):
                 (("max_order", ce.dynamic_forms[lbl].max_temp_order),
                  ("can_eqs", [ce])))
             if lbl not in max_orders or \
-                    max_orders[lbl]["max_order"] < max_order["max_order"]:
+                max_orders[lbl]["max_order"] < max_order["max_order"]:
                 max_orders[lbl] = max_order
             elif max_orders[lbl]["max_order"] == max_order["max_order"]:
                 max_orders[lbl]["can_eqs"].append(
@@ -1538,15 +1553,22 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
 class SimulationInputVector(SimulationInput):
     """
-    A simulation input which return a column vector as output.
-    The vector elements are :py:class:`SimulationInput`s.
+    A simulation input which combines :py:class:`SimulationInput`s into a column
+    vector.
 
-    input_vector (array-like): List of simulation inputs.
+    Args:
+        input_vector (array-like): Simulation inputs to stack.
     """
 
     def __init__(self, input_vector):
         SimulationInput.__init__(self)
-        self._input_vector = list(input_vector)
+        self._input_vector = self._sanitize_input_vector(input_vector)
+
+    def _sanitize_input_vector(self, input_vector):
+        if hasattr(input_vector, "__len__") and len(input_vector) == 0:
+            return list()
+        else:
+            return sanitize_input(input_vector, SimulationInput)
 
     def __iter__(self):
         return iter(self._input_vector)
@@ -1555,11 +1577,13 @@ class SimulationInputVector(SimulationInput):
         return self._input_vector[item]
 
     def append(self, input_vector):
-        [self._input_vector.append(input) for input in input_vector]
+        inputs = self._sanitize_input_vector(input_vector)
+        self._input_vector = np.hstack((self._input_vector, inputs))
 
     def _calc_output(self, **kwargs):
         output = list()
         for input in self._input_vector:
             output.append(input(**kwargs))
 
-        return dict(output=np.vstack(output))
+        return dict(output=output)
+

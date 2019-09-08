@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 from scipy.optimize import fsolve
 
-from ..core import Domain, Function, find_roots
+from ..core import Function, find_roots, ConstantFunction
 from ..eigenfunctions import SecondOrderOperator
 from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTerm,
                            IntegralTerm, Input, Product)
@@ -160,7 +160,7 @@ def eliminate_advection_term(param, domain_end):
 
     if isinstance(a1, Function):
         if not isinstance(a0, collections.Callable):
-            a0_z = Function.from_constant(a0)
+            a0_z = ConstantFunction(a0)
         else:
             a0_z = a0
 
@@ -335,11 +335,14 @@ def get_parabolic_robin_weak_form(shape_base_label, test_base_label,
 
 
 def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
-    """
-    Returns the transformation matrix M. M is one part of a transformation
+    r"""
+    Returns the transformation matrix M.
 
-    .. :math::
-        `x = My + Ty` ,
+    M is one part of a transformation
+
+    .. math::
+
+        x = My + Ty
 
     where x is the field variable of an interior point controlled parabolic system
     and y is the field variable of an boundary controlled parabolic system.
@@ -348,11 +351,13 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     Args:
         k1:
         k2:
-        mode: Available modes:
+        mode: Available modes
 
-            - 'n_plus_1': M.shape = (n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}
+            - `n_plus_1`:
+             M.shape = :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
 
-            - '2n': M.shape = (2n,2n), w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}
+            - `2n`:
+             M.shape = (2n,2n), :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
 
     Return:
         numpy.array: Transformation matrix M.
@@ -380,3 +385,4 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
     else:
         raise ValueError("String in variable 'mode' not understood.")
     return M * 0.5
+

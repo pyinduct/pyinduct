@@ -55,12 +55,12 @@ if __name__ == "__main__" or test_examples:
     xt_at_1 = pi.FieldVariable("eig_funcs_t",
                                weight_label="eig_funcs",
                                location=1)
-    controller = pi.Controller(pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
-                                                   pi.ScalarTerm(xt_at_1, -1)],
-                               name="backstepping_controller"))
+    controller = pi.StateFeedback(pi.WeakFormulation([pi.ScalarTerm(x_at_1, 1),
+                                                      pi.ScalarTerm(xt_at_1, -1)],
+                                                     name="backstepping_controller"))
 
     # derive initial field variable x(z,0) and weights
-    start_state = pi.Function(lambda z: init_profile)
+    start_state = pi.Function(lambda z: init_profile, domain=spatial_domain.bounds)
     initial_weights = pi.project_on_base(start_state, eig_funcs)
 
     # init trajectory
@@ -77,7 +77,7 @@ if __name__ == "__main__" or test_examples:
     A = np.diag(np.real_if_close(eig_values))
     B = -a2 * np.array([eig_funcs[i].derive()(l) for i in range(n)])
     B = np.reshape(B, (B.size, 1))
-    ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handles=control_law)
+    ss = pi.StateSpace(A, B, base_lbl="eig_funcs", input_handle=control_law)
 
     # evaluate desired output data
     z_d = np.linspace(0, l, len(spatial_domain))

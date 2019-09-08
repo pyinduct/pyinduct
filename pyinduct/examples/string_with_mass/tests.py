@@ -73,8 +73,8 @@ class StringWithMassTest(unittest.TestCase):
     def test_state_transform(self):
         ie = 1
         org_state = SwmBaseFraction(
-            [pi.Function.from_constant(ie, domain=(0, 1)),
-             pi.Function.from_constant(0, domain=(0, 1))],
+            [pi.ConstantFunction(ie, domain=(0, 1)),
+             pi.ConstantFunction(0, domain=(0, 1))],
             [ie, 0])
         ocf_state = ocf_inverse_state_transform(org_state)
 

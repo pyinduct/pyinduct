@@ -22,18 +22,18 @@ class ControllerObserverTestCase(unittest.TestCase):
         self.x = pi.FieldVariable(self.weight_label)
         self.psi = pi.TestFunction(self.weight_label)
         self.exp = pi.ScalarFunction(self.func_label)
-        self.out_err = pi.Controller(pi.WeakFormulation(
+        self.out_err = pi.StateFeedback(pi.WeakFormulation(
             [pi.ScalarTerm(self.x(0))], name="observer_error"))
 
     def _build_ctrl(self, term):
-        ctrl = pi.Controller(pi.WeakFormulation([term], name="test_ctrl"))
+        ctrl = pi.StateFeedback(pi.WeakFormulation([term], name="test_ctrl"))
 
         return ctrl._calc_output(weights=self.weights,
                                  weight_lbl=self.weight_label)["output"]
 
     def _build_obs(self, term):
-        obs = pi.ObserverFeedback(
-            pi.WeakFormulation([term], name="test_obs"), self.out_err)
+        obs = pi.ObserverFeedback(pi.WeakFormulation([term], name="test_obs"),
+                                  self.out_err)
 
         return obs._calc_output(time=0,
                                 weights=self.weights,
@@ -137,4 +137,5 @@ class TestControllerInExamplesModule(unittest.TestCase):
 
     def test_robin_in_domain(self):
         import pyinduct.examples.rad_eq_in_domain
+
 

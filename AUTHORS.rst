@@ -11,4 +11,5 @@ Development Lead
 Contributors
 ------------
 
-None yet. Why not be the first?
+* Jens Wurm <jens.wurm@umit.at>
+* Florian Alber <albflo@hotmail.de>

@@ -165,13 +165,14 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
     fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=5)
     fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=5)
-    zero_function = pi.Function.from_constant(0, domain=nodes1.bounds)
-    one_function = pi.Function.from_constant(1, domain=nodes1.bounds)
+    zero_function = pi.ConstantFunction(0, domain=nodes1.bounds)
+    one_function = pi.ConstantFunction(1, domain=nodes1.bounds)
 
     base1, base10, base12, base14_at_0 = [list() for _ in range(4)]
     for i, f in enumerate(fem_funcs1):
         if i == 0:
             base1.append(SwmBaseFraction([f, zero_function], [1, 0]))
+            # base1.append(pi.ComposedFunctionVector([f, zero_function], [1, 0]))
             base14_at_0.append(SwmBaseFraction([zero_function, zero_function], [0, f(0)]))
         else:
             base1.append(SwmBaseFraction([f, zero_function], [0, 0]))
@@ -186,9 +187,8 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
         base20.append(SwmBaseFraction([zero_function, zero_function], [0, 0]))
         base21.append(SwmBaseFraction([f, zero_function], [0, 0]))
         base44.append(SwmBaseFraction([zero_function, zero_function], [0, f(0)]))
-        base4_x1.append(SwmBaseFraction([pi.Function.from_constant(f(0), domain=(0, 1)),
+        base4_x1.append(SwmBaseFraction([pi.ConstantFunction(f(0), domain=(0, 1)),
                                          zero_function], [0, f(0)]))
-
 
     # bases for the system / weak formulation
     pi.register_base(base_lbl, pi.Base(base1 + base2))
@@ -196,7 +196,6 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     pi.register_base(base_lbl + "_21", pi.Base(base10 + base21))
     pi.register_base(base_lbl + "_1_xi2_at_0", pi.Base(base14_at_0 + base20))
     pi.register_base(base_lbl + "_4_x1", pi.Base(base10 + base4_x1))
-
 
     # bases for visualization
     fb1 = list(fem_funcs1.fractions)
@@ -219,7 +218,7 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
     # bases for the canonical form
     cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=10)
-    cf_zero_func = pi.Function.from_constant(0, domain=cf_nodes.bounds)
+    cf_zero_func = pi.ConstantFunction(0, domain=cf_nodes.bounds)
 
     cf_base1, cf_base22, cf_base33, cf_base21, cf_base3, cf_base30, cf_base32_at_m1, cf_base3_integrated, cf_base3_int_ip_scale = [
         list() for _ in range(9)]
@@ -233,9 +232,9 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
         cf_base33.append(SwmBaseCanonicalFraction([f], [0, 0]))
         cf_base30.append(SwmBaseCanonicalFraction([cf_zero_func], [0, 0]))
         cf_base32_at_m1.append(SwmBaseCanonicalFraction([cf_zero_func], [0, f(-1)]))
-        cf_base3_integrated.append(SwmBaseCanonicalFraction([pi.Function.from_constant(
+        cf_base3_integrated.append(SwmBaseCanonicalFraction([pi.ConstantFunction(
             float(integrate_function(f, [(-1, 1)])[0]), domain=cf_nodes.bounds)], [0, 0]))
-        cf_base3_int_ip_scale.append(SwmBaseCanonicalFraction([pi.Function.from_constant(
+        cf_base3_int_ip_scale.append(SwmBaseCanonicalFraction([pi.ConstantFunction(
             float(integrate_function(lambda z: 2 / param.m * z * f(z), [(-1, 0)])[0]),
             domain=cf_nodes.bounds)], [0, 0]))
 
@@ -254,9 +253,9 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
     # bases for visualization
     cf_base = pi.get_base(cf_base_lbl)
-    vis_1_base = [pi.Function.from_constant(f.members["scalars"][0], domain=(-1, 1))
+    vis_1_base = [pi.ConstantFunction(f.members["scalars"][0], domain=(-1, 1))
                   for f in cf_base]
-    vis_2_base = [pi.Function.from_constant(f.members["scalars"][1], domain=(-1, 1))
+    vis_2_base = [pi.ConstantFunction(f.members["scalars"][1], domain=(-1, 1))
                   for f in cf_base]
     vis_3_base = [f.members["funcs"][0] for f in cf_base]
     pi.register_base(cf_base_lbl + "_1_visu", pi.Base(vis_1_base))
@@ -272,6 +271,7 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
         def x1_handle(z, f=f, s1=s1):
             return -param.m / 2 * (f.derive(1)(z-1) + f.derive(1)(1-z) + s1)
+
         def x2_handle(z, f=f):
             return param.m / 2 * (f.derive(2)(z-1) + f.derive(2)(1-z))
 
@@ -285,6 +285,7 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
 
     pi.register_base(base_lbl + "_trafo", pi.Base(org_base))
     pi.register_base(base_lbl + "_1_trafo_visu", pi.Base(org_base_visu))
+
 
 def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
     # get eigenvectors
@@ -308,11 +309,11 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
             [ev.members["funcs"][1] for ev in pi.get_base(base_lbl)]))
     pi.register_base(
         base_lbl + "_3_ctrl", pi.Base(
-            [pi.Function.from_constant(ev.members["scalars"][0], domain=(0, 1))
+            [pi.ConstantFunction(ev.members["scalars"][0], domain=(0, 1))
              for ev in pi.get_base(base_lbl)]))
     pi.register_base(
         base_lbl + "_4_ctrl", pi.Base(
-            [pi.Function.from_constant(ev.members["scalars"][1], domain=(0, 1))
+            [pi.ConstantFunction(ev.members["scalars"][1], domain=(0, 1))
              for ev in pi.get_base(base_lbl)]))
 
     # this base is just for the test case of the approximated controller
@@ -349,11 +350,11 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
 
     pi.register_base(
         cf_base_lbl + "_1_visu", pi.Base(
-            [pi.Function.from_constant(ev.members["scalars"][0], domain=(-1, 1))
+            [pi.ConstantFunction(ev.members["scalars"][0], domain=(-1, 1))
              for ev in pi.get_base(cf_base_lbl)]))
     pi.register_base(
         cf_base_lbl + "_2_visu", pi.Base(
-            [pi.Function.from_constant(ev.members["scalars"][1], domain=(-1, 1))
+            [pi.ConstantFunction(ev.members["scalars"][1], domain=(-1, 1))
              for ev in pi.get_base(cf_base_lbl)]))
     pi.register_base(
         cf_base_lbl + "_3_visu", pi.Base(
@@ -369,6 +370,7 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
 
         def x1_handle(z, f=f, s1=s1):
             return -param.m / 2 * (f.derive(1)(z-1) + f.derive(1)(1-z) + s1)
+
         def x2_handle(z, f=f):
             return param.m / 2 * (f.derive(2)(z-1) + f.derive(2)(1-z))
 
@@ -389,7 +391,6 @@ def build_modal_bases(base_lbl, n, cf_base_lbl, ncf):
 def get_modal_base_for_ctrl_approximation():
     # TODO
     pass
-
 
 
 def register_evp_base(base_lbl, eigenvectors, sp_var, domain):

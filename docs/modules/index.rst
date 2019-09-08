@@ -22,7 +22,7 @@ access any PyInduct module, or use this table of contents:
     registry
     placeholder
     simulation
-    control
+    feedback
     trajectory
     visualization
     utils

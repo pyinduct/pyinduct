@@ -3,6 +3,8 @@ import unittest
 from pyinduct.tests import test_all_examples
 
 skip_msg = "Quick test of all examples, must be started manually."
+
+
 class TestAllExamples(unittest.TestCase):
     """
     Here you can check if all examples run fine again.

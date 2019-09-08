@@ -29,13 +29,15 @@ def register_base(label, base, overwrite=False):
     framework.
 
     Args:
-        base (:py:class:`.Base`): base to register
+        base (:py:class:`.ApproximationBase`): base to register
         label (str): String that will be used as label.
         overwrite: Force overwrite if a basis is already registered under this
             label.
     """
     if not isinstance(label, (str, bytes)):
         raise TypeError("Only strings allowed as labels!")
+    if not label:
+        raise ValueError("No empty bases labels allowed.")
 
     new_base = _registry.get(label, None)
 
@@ -81,3 +83,10 @@ def get_base(label):
         raise ValueError("No base registered under label '{0}'!".format(label))
     else:
         return base
+
+
+def clear_registry():
+    """
+    Deregister all bases.
+    """
+    _registry.clear()

@@ -10,4 +10,5 @@ ready to go feedback controllers.
 
     general
     control
+    feedforward
     trajectory

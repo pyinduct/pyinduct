@@ -11,12 +11,13 @@ import warnings
 
 import numpy as np
 
-from .core import sanitize_input, Base, Function
+from .core import sanitize_input, Base, Function, ConstantFunction
 from .registry import register_base, get_base, is_registered
 
 __all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
            "Input", "ObserverGain",
-           "Product", "ScalarTerm", "IntegralTerm",
+           "Product",
+           "ScalarTerm", "IntegralTerm", "ScalarProductTerm",
            "Placeholder"]
 
 
@@ -43,8 +44,8 @@ class Placeholder(object):
         self.data = data
 
         if (not isinstance(order, tuple)
-                or any([not isinstance(o, int)
-                or o < 0 for o in order])):
+            or any([not isinstance(o, int)
+                    or o < 0 for o in order])):
             raise ValueError("invalid derivative order.")
         self.order = order
 
@@ -197,7 +198,7 @@ class ScalarFunction(SpatialPlaceholder):
         over = kwargs.pop("overwrite", False)
 
         if isinstance(scalar, Number):
-            f = Function.from_constant(scalar, **kwargs)
+            f = ConstantFunction(scalar, **kwargs)
         elif isinstance(scalar, Function):
             f = scalar
         elif isinstance(scalar, collections.Callable):
@@ -261,13 +262,13 @@ class ObserverGain(Placeholder):
 
 class TestFunction(SpatialPlaceholder):
     """
-    Class that works as a placeholder for test-functions in an equation.
+    Class that works as a placeholder for test functions in an equation.
 
     Args:
-        function_label (str):
-        order (int):
-        location:
-        approx_label (str):
+        function_label (str): Label of the function test base.
+        order (int): Spatial derivative order.
+        location (Number): Point of evaluation / argument of the function.
+        approx_label (str): Label of the approximation test base.
     """
 
     def __init__(self, function_label, order=0, location=None,
@@ -434,7 +435,7 @@ class Product(object):
 
         # check for allowed terms
         if (not isinstance(a, Placeholder)
-                or (b is not None and not isinstance(b, Placeholder))):
+            or (b is not None and not isinstance(b, Placeholder))):
             raise TypeError("argument not allowed in product")
 
         a, b = self._simplify_product(a, b)
@@ -510,10 +511,10 @@ class Product(object):
                     approx_label=other_func.data["appr_lbl"])
 
             elif isinstance(other_func, ScalarFunction):
-                    a = other_func.__class__(
-                        function_label=new_name,
-                        order=0,
-                        location=other_func.location)
+                a = other_func.__class__(
+                    function_label=new_name,
+                    order=0,
+                    location=other_func.location)
 
             elif isinstance(other_func, FieldVariable):
                 a = copy.deepcopy(other_func)
@@ -601,6 +602,23 @@ class IntegralTerm(EquationTerm):
         self.limits = limits
 
 
+class ScalarProductTerm(EquationTerm):
+    """
+    Class that represents a scalar product in a weak equation.
+
+    Args:
+        arg1: Fieldvariable (Shapefunctions) to be projected.
+        arg2: Testfunctions to project on.
+        scale (Number): Scaling of expression.
+    """
+
+    def __init__(self, arg1, arg2,  scale=1.0):
+        if not any([isinstance(arg, (FieldVariable, TestFunction))
+                    for arg in (arg2, arg2)]):
+            raise ValueError("nothing to integrate")
+        EquationTerm.__init__(self, scale, (arg1, arg2))
+
+
 def _evaluate_placeholder(placeholder):
     """
     Evaluates a placeholder object and returns a Scalars object.
@@ -625,6 +643,18 @@ def _evaluate_placeholder(placeholder):
 
     values = np.atleast_2d([frac.raise_to(exponent)(location)
                             for frac in fractions])
+    # TODO full 2d output should be taken care of here but not all information
+    # is present for that
+    if values.shape[0] > 1 and values.shape[1] > 1 and False:
+        print("INFO: 2d input detected, probably some composed input "
+              "was used!")
+        zero_cnt = np.array([sum((row != 0).astype(int)) for row in values])
+        if any(zero_cnt > 1):
+            raise ValueError(
+                    "Invalid input detected when processing fractions: {} {}"
+                    "".format(fractions, zero_cnt))
+        print("WARNING: Summing up dimensions")
+        values = np.sum(values, axis=1, keepdims=True).T
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values,
@@ -711,3 +741,4 @@ def evaluate_placeholder_function(placeholder, input_values):
 
     base = get_base(placeholder.data["func_lbl"]).derive(placeholder.order[1])
     return np.array([func(input_values) for func in base.fractions])
+

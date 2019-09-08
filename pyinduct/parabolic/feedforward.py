@@ -1,11 +1,11 @@
 import numpy as np
+import scipy.special as ss
 
 from .general import eliminate_advection_term
-from ..trajectory import (
-    InterpolationTrajectory, gevrey_tanh, SecondOrderOperator,
-    power_series_flat_out)
+from ..eigenfunctions import SecondOrderOperator
+from ..trajectory import InterpolationTrajectory, gevrey_tanh
 
-__all__ = ["RadFeedForward"]
+__all__ = ["RadFeedForward", "power_series_flat_out"]
 
 
 class RadFeedForward(InterpolationTrajectory):
@@ -23,7 +23,7 @@ class RadFeedForward(InterpolationTrajectory):
               considered.
             - With :math:`x'(0,t) = y(t)` where :math:`y(t)` is the flat output.
 
-        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \alpha x(0,t)`
+        - :code:`bound_cond_type == "robin"`: :math:`x'(0,t) = \alpha \, x(0,t)`
 
             - A transition from :math:`x(0,0)=y0` to  :math:`x(0,T)=y1` is
               considered.
@@ -107,12 +107,117 @@ class RadFeedForward(InterpolationTrajectory):
         else:
             raise NotImplementedError
 
-        """
-        actually the algorithm only considers the pde
-        d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
-        but with the following back transformation also
-        pdes with advection term a_1 x'(z,t) can be considered
-        """
+        # actually the algorithm only considers the pde
+        # d/dt x(z,t) = a_2 x''(z,t) + a_0 x(z,t)
+        # but with the following back transformation also
+        # pdes with advection term a_1 x'(z,t) can be considered
         u *= np.exp(-self._a1_original / 2. / a2 * l)
 
         InterpolationTrajectory.__init__(self, t, u, **kwargs)
+
+
+def power_series_flat_out(z, t, n, param, y, bound_cond_type):
+    r"""
+    Provides the solution :math:`x(z,t)` (and the spatial derivative
+    :math:`x'(z,t)`) of the pde
+
+    .. math:: \dot x(z,t) = a_2 x''(z,t) + \underbrace{a_1 x'(z,t)}_{=0}
+        + a_0 x(z,t), \qquad a_1 = 0, \qquad z\in(0,l), \qquad t\in(0,T)
+
+    as power series approximation:
+
+        - for the boundary condition (:code:`bound_cond_type == "dirichlet"`)
+          :math:`x(0,t)=0` and the flat output :math:`y(t) = x'(0,t)` with
+
+          .. math:: x(z,t) = \sum_{n=0}^\infty \frac{z^{2n+1}}{a_2^n(2n+1)!}
+            \sum_{k=0}^n \binom{n}{k}(-a_0)^{n-k}y^{(k)}(t)
+
+        - for the boundary condition (:code:`bound_cond_type == "robin"`)
+          :math:`x'(0,t) = \alpha \, x(0,t)` and the flat output
+          :math:`y(t) = x(0,t)` with
+
+          .. math:: x(z,t) = \sum_{n=0}^\infty
+            \left( 1 + \alpha\frac{z}{2n+1}\right)
+            \frac{z^{2n}}{a_2^{n}(2n)!}
+            \sum_{k=0}^{n} \binom{n}{k}(-a_0)^{n-k}y^{(k)}(t).
+
+    Args:
+        z (array_like): :math:`[0, ..., l]`
+        t (array_like): :math:`[0, ... , T]`
+        n (int): Series termination index.
+        param (array_like): Parameters
+
+            .. math:: [a_2, a_1, a_0, \alpha, \beta]
+
+            - :math:`\alpha=\text{None}` for ``bound_cond_type == dirichlet``
+            - :math:`beta` is not used from this function
+              but has to be provided (for now)
+
+        y (array_like): Flat output :math:`y(t)` and derivatives:
+
+            .. math:: [[y(0), ..., y(T)],...,[y^{(n/2)}(0), ..., y^{(n/2)}(T)]].
+
+        bound_cond_type (str): ``dirichlet`` or ``robin``
+
+    Return:
+        tuple: Solution :math:`x(z,t)` of the pde and the spatial derivative
+        :math:`x'(z,t)`.
+    """
+
+    if isinstance(param, SecondOrderOperator):
+        a2 = param.a2
+        a1 = param.a1
+        a0 = param.a0
+        alpha = -param.alpha0
+        beta = param.beta0
+
+    else:
+        a2, a1, a0, alpha, beta = param
+
+    if not np.isclose(a1, 0):
+        raise ValueError("Power series_flat_out is designed for diffusion "
+                         "systems without convection term.")
+
+    shape = (len(t), len(z))
+    x = np.nan * np.ones(shape)
+    d_x = np.nan * np.ones(shape)
+
+    # Actually power_series() is designed for robin boundary condition by z=0.
+    # With the following modification it can also used for dirichlet boundary
+    # condition by z=0.
+    if bound_cond_type is 'robin':
+        is_robin = 1.
+    elif bound_cond_type is 'dirichlet':
+        alpha = 1.
+        is_robin = 0.
+    else:
+        raise ValueError(
+            "Selected boundary condition {0} not supported! "
+            "Use 'robin' or 'dirichlet'".format(bound_cond_type))
+
+    # TODO: flip iteration order: z <--> t,
+    #   result: one or two instead len(t) call's
+    for i in range(len(t)):
+        sum_x = np.zeros(len(z))
+        for j in range(n):
+            sum_b = np.zeros(len(z))
+            for k in range(j + 1):
+                sum_b += ss.comb(j, k) * (-a0) ** (j - k) * y[k, i]
+            sum_x += ((is_robin + alpha * z / (2. * j + 1.)) *
+                      z ** (2 * j) / ss.factorial(2 * j) / a2 ** j * sum_b)
+        x[i, :] = sum_x
+
+    for i in range(len(t)):
+        sum_x = np.zeros(len(z))
+        for j in range(n):
+            sum_b = np.zeros(len(z))
+            for k in range(j + 2):
+                sum_b += ss.comb(j + 1, k) * (-a0) ** (j - k + 1) * y[k, i]
+            if j == 0:
+                sum_x += alpha * y[0, i]
+            sum_x += ((is_robin + alpha * z / (2. * (j + 1))) *
+                      z ** (2 * j + 1) / ss.factorial(2 * j + 1) /
+                      a2 ** (j + 1) * sum_b)
+        d_x[i, :] = sum_x
+
+    return x, d_x
