@@ -16,16 +16,14 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, RegularGr
 
 from .registry import get_base
 
-__all__ = ["Domain", "EvalData", "Parameters",
-           "find_roots", "sanitize_input", "real",
-           "Base", "BaseFraction", "StackedBase",
-           "Function", "ComposedFunctionVector",
-           "normalize_base",
-           "project_on_base", "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
+__all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
+           "real", "Base", "BaseFraction", "StackedBase", "Function",
+           "ComposedFunctionVector", "normalize_base", "project_on_base",
+           "change_projection_base", "back_project_from_base",
+           "calculate_scalar_product_matrix", "dot_product_l2",
+           "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
-           "vectorize_scalar_product",
-           "generic_scalar_product"]
+           "dot_product_l2", "ConstantFunction"]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -135,6 +133,36 @@ class BaseFraction:
         """
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
+
+    def __call__(self, *args, **kwargs):
+        """
+        Spatial evaluation of the base fraction.
+
+        Args:
+            *args: Positional arguments.
+            **kwargs: Keyword arguments.
+
+        Returns:
+
+        """
+        raise NotImplementedError("This is an empty function."
+                                  " Overwrite it in your implementation to use this functionality.")
+
+    def add_neutral_element(self):
+        """
+        Return the neutral element of addition for this object.
+
+        In other words: `self + ret_val == self`.
+        """
+        raise NotImplementedError()
+
+    def mul_neutral_element(self):
+        """
+        Return the neutral element of multiplication for this object.
+
+        In other words: `self * ret_val == self`.
+        """
+        raise NotImplementedError()
 
 
 class Function(BaseFraction):
@@ -440,32 +468,6 @@ class Function(BaseFraction):
         return self.scalar_product_hint(), self.domain
 
     @staticmethod
-    def from_constant(constant, **kwargs):
-        """
-        Create a :py:class:`.Function` that returns a constant value.
-
-        Args:
-            constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`.Function`
-
-        Returns:
-            :py:class:`.Function`: A constant function
-        """
-        def f(z):
-            return constant
-
-        def f_dz(z):
-            return 0
-
-        if "eval_handle" in kwargs:
-            raise ValueError("'eval_handle' must not be provided")
-        if "derivative_handles" in kwargs:
-            raise ValueError("'derivative_handles' must not be provided")
-
-        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
-        return func
-
-    @staticmethod
     def from_data(x, y, **kwargs):
         """
         Create a :py:class:`.Function` based on discrete data by
@@ -502,6 +504,76 @@ class Function(BaseFraction):
 
         return func
 
+    def add_neutral_element(self):
+        return ConstantFunction(0, domain=self.domain)
+
+    def mul_neutral_element(self):
+        return ConstantFunction(1, domain=self.domain)
+
+
+class ConstantFunction(Function):
+    """
+    A :py:class:`.Function` that returns a constant value.
+
+    This function can be differentiated without limits.
+
+    Args:
+        constant (number): value to return
+
+    Keyword Args:
+        **kwargs: All other kwargs get passed to :py:class:`.Function`.
+
+    """
+
+    def __init__(self, constant, **kwargs):
+        self._constant = constant
+
+        func_kwargs = dict(eval_handle=self._constant_function_handle)
+        if "nonzero" in kwargs:
+            if constant == 0:
+                if kwargs["nonzero"] != set():
+                    raise ValueError("Constant Function with constant 0 must have an"
+                                     " empty set nonzero area.")
+            if "domain" in kwargs:
+                if kwargs["nonzero"] != kwargs["domain"]:
+                    raise ValueError(
+                        "Constant Function is expected to be constant on the complete "
+                        "domain. Nonzero argument is prohibited")
+            else:
+                func_kwargs["domain"] = kwargs["nonzero"]
+            func_kwargs["nonzero"] = kwargs["nonzero"]
+        else:
+            if "domain" in kwargs:
+                func_kwargs["domain"] = kwargs["domain"]
+                func_kwargs["nonzero"] = kwargs["domain"]
+            if constant == 0:
+                func_kwargs["nonzero"] = set()
+
+        if "derivative_handles" in kwargs:
+            warnings.warn(
+                "Derivative handles passed to ConstantFunction are discarded")
+
+        super().__init__( **func_kwargs)
+
+    def _constant_function_handle(self, z):
+        return self._constant * np.ones_like(z)
+
+    def derive(self, order=1):
+        if not isinstance(order, int):
+            raise TypeError("only integer allowed as derivation order")
+
+        if order == 0:
+            return self
+
+        if order < 0:
+            raise ValueError("only derivative order >= 0 supported")
+
+        zero_func = deepcopy(self)
+        zero_func._constant = 0
+        zero_func.nonzero = set()
+
+        return zero_func
+
 
 class ComposedFunctionVector(BaseFraction):
     r"""
@@ -523,6 +595,17 @@ class ComposedFunctionVector(BaseFraction):
         scals = sanitize_input(scalars, Number)
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
+
+    def __call__(self, arguments):
+        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]]).T
+        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
+        if f_res.shape[1] > 1:
+            s_res = np.broadcast_to(s_res.T, f_res.shape)
+            res = np.hstack((f_res, s_res))
+        else:
+            res = np.vstack((f_res, s_res))
+        res = res.squeeze()
+        return res
 
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
@@ -551,10 +634,87 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(
-            np.array([func.scale(factor) for func in self.members["funcs"]]),
-            np.array([scal * factor for scal in self.members["scalars"]])
-        )
+        if isinstance(factor, ComposedFunctionVector):
+            if not len(self.members["funcs"]) == len(factor.members["funcs"]):
+                raise ValueError
+
+            if not len(self.members["scalars"]) == len(factor.members["scalars"]):
+                raise ValueError
+
+            return self.__class__(np.array(
+                [func.scale(scale) for func, scale in
+                 zip(self.members["funcs"], factor.members["funcs"])]),
+                [scalar * scale for scalar, scale in
+                 zip(self.members["scalars"], factor.members["scalars"])],
+            )
+
+        elif isinstance(factor, Number):
+            return self.__class__(
+                np.array([func.scale(factor) for func in self.members["funcs"]]),
+                np.array([scal * factor for scal in self.members["scalars"]])
+            )
+
+        else:
+            raise TypeError("ComposedFunctionVector can only be scaled with "
+                            "compatible ComposedFunctionVector of with a"
+                            "constant scalar")
+
+    def mul_neutral_element(self):
+        """
+        Create neutral element of multiplication that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 1 and
+            scalars of value 1.
+
+        """
+        funcs = [f.mul_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [1 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
+
+    def add_neutral_element(self):
+        """
+        Create neutral element of addition that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 0 and
+            scalars of value 0.
+
+        """
+        funcs = [f.add_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [0 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
+
+
+class ConstantComposedFunctionVector(ComposedFunctionVector):
+    r"""
+    Constant composite function vector :math:`\boldsymbol{x}`.
+
+    .. math::
+        \boldsymbol{x} = \begin{pmatrix}
+            z \mapsto x_1(z) = c_1 \\
+            \vdots \\
+            z \mapsto x_n(z) = c_n \\
+            d_1 \\
+            \vdots \\
+            c_n \\
+        \end{pmatrix}
+
+
+    Args:
+        func_constants (array-like): Constants for the functions.
+        scalar_constants (array-like): The scalar constants.
+        **func_kwargs: Keyword args that are passed to the ConstantFunction.
+    """
+
+    def __init__(self, func_constants, scalar_constants, **func_kwargs):
+        func_constants = sanitize_input(func_constants, Number)
+        scalars = sanitize_input(scalar_constants, Number)
+
+        funcs = [ConstantFunction(c, **func_kwargs) for c in func_constants]
+        super().__init__(funcs, scalars)
 
 
 class Base:
@@ -1858,7 +2018,7 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Check provided function (see `visualize_roots`) or "
                          "try to increase the search area.".format(
-                            len(roots), n_roots))
+            len(roots), n_roots))
 
     valid_roots = np.array(roots)
 
@@ -2223,7 +2383,7 @@ class EvalData:
                 #     fill_val = None
                 # else:
                 #     Since the value has to be the same at every border
-                    # fill_val = 0
+                #     fill_val = 0
 
                 self._interpolator = interp2d(input_data[0],
                                               input_data[1],

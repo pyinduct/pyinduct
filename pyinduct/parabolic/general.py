@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 from scipy.optimize import fsolve
 
-from ..core import Domain, Function, find_roots
+from ..core import Function, find_roots, ConstantFunction
 from ..eigenfunctions import SecondOrderOperator
 from ..placeholder import (ScalarFunction, TestFunction, FieldVariable, ScalarTerm,
                            IntegralTerm, Input, Product)
@@ -160,7 +160,7 @@ def eliminate_advection_term(param, domain_end):
 
     if isinstance(a1, Function):
         if not isinstance(a0, collections.Callable):
-            a0_z = Function.from_constant(a0)
+            a0_z = ConstantFunction(a0)
         else:
             a0_z = a0
 

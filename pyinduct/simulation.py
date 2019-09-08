@@ -23,7 +23,8 @@ from .core import (Domain, Parameters, Function,
                    EvalData, project_on_bases)
 from .placeholder import (Scalars, TestFunction, Input, FieldVariable,
                           EquationTerm, get_common_target, get_common_form,
-                          ObserverGain, ScalarTerm, IntegralTerm)
+                          ObserverGain, ScalarTerm, IntegralTerm,
+                          ScalarProductTerm)
 from .registry import get_base, register_base
 
 __all__ = ["SimulationInput", "SimulationInputSum", "WeakFormulation",
@@ -1133,28 +1134,28 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 # is the integrand a product?
                 if len(placeholders["functions"]) != 1:
                     raise NotImplementedError
-                func = placeholders["functions"][0]
-                fractions = get_base(func.data["func_lbl"]).derive(func.order[1])
-                result = calculate_scalar_product_matrix(fractions, shape_funcs)
+                func1 = placeholders["functions"][0]
+                base1 = get_base(func1.data["func_lbl"]).derive(func1.order[1])
+                result = calculate_scalar_product_matrix(base1, shape_funcs)
             else:
                 # extract constant term and compute integral
-                components = []
-                for func in shape_funcs.fractions:
+                part1 = []
+                for func1 in shape_funcs.fractions:
                     from pyinduct.core import ComposedFunctionVector
-                    if isinstance(func, ComposedFunctionVector):
+                    if isinstance(func1, ComposedFunctionVector):
                         res = 0
-                        for f in func.members["funcs"]:
+                        for f in func1.members["funcs"]:
                             area = domain_intersection(term.limits, f.nonzero)
                             r, err = integrate_function(f, area)
                             res += r
-                        for s in func.members["scalars"]:
+                        for s in func1.members["scalars"]:
                             res += s
                     else:
-                        area = domain_intersection(term.limits, func.nonzero)
-                        res, err = integrate_function(func, area)
-                    components.append(res)
+                        area = domain_intersection(term.limits, func1.nonzero)
+                        res, err = integrate_function(func1, area)
+                    part1.append(res)
 
-                a = Scalars(np.atleast_2d(components))
+                a = Scalars(np.atleast_2d(part1))
 
                 if placeholders["scalars"]:
                     b = placeholders["scalars"][0]
@@ -1169,56 +1170,63 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
 
         # TestFunctions or pre evaluated terms, those can end up in E, f or G
         if placeholders["functions"]:
-            assert isinstance(term, IntegralTerm)
-
             if not 1 <= len(placeholders["functions"]) <= 2:
                 raise NotImplementedError
-            func = placeholders["functions"][0]
-            fractions = get_base(func.data["func_lbl"]
-                                 ).derive(func.order[1]).fractions
+            func1 = placeholders["functions"][0]
+            base1 = get_base(func1.data["func_lbl"]).derive(func1.order[1])
+            prod = base1.scalar_product_hint()
 
-            if len(placeholders["functions"]) == 2:
+            if len(placeholders["functions"]) == 1:
+                # product of one function and something else, solve integral
+                # first by faking 2nd factor
+                base2 = [f.mul_neutral_element() for f in base1]
+            else:
                 func2 = placeholders["functions"][1]
-                fractions2 = get_base(func2.data["func_lbl"]
-                                      ).derive(func2.order[1]).fractions
-                res = []
-                for frac, frac2 in zip(fractions, fractions2):
-                    scaled_frac = frac.scale(frac2)
-                    dom = domain_intersection(scaled_frac.domain, term.limits)
-                    _res, err = integrate_function(scaled_frac, dom)
-                    res.append(_res)
+                base2 = get_base(func2.data["func_lbl"]).derive(func2.order[1])
 
-                # create column vector
-                res = np.atleast_2d(res).T * term.scale
+            # resolve equation term
+            if isinstance(term, ScalarProductTerm):
+                int_res = vectorize_scalar_product(base1, base2, prod)
+            elif isinstance(term, IntegralTerm):
+                from pyinduct.core import Base, ComposedFunctionVector
+                # create base with multiplied fractions
+                s_base = Base([f1.scale(f2) for f1, f2 in zip(base1, base2)])
+
+                int_res = []
+                for frac in s_base:
+                    # WARN I don't think that this case actually makes sense.
+                    if isinstance(frac, ComposedFunctionVector):
+                        res = 0
+                        for f in frac.members["funcs"]:
+                            area = domain_intersection(term.limits, f.nonzero)
+                            r, err = integrate_function(f, area)
+                            res += r
+                        for s in frac.members["scalars"]:
+                            res += s
+                    else:
+                        area = domain_intersection(term.limits, frac.nonzero)
+                        res, err = integrate_function(frac, area)
+                    int_res.append(res)
+            else:
+                raise NotImplementedError()
+
+            # create column vector
+            int_res = np.atleast_2d(int_res).T * term.scale
+
+            # integral of the product of two functions
+            if len(placeholders["functions"]) == 2:
                 term_info = dict(name="f", exponent=0)
-                ce.add_to(weight_label=None, term=term_info, val=res)
+                ce.add_to(weight_label=None,
+                          term=term_info, val=int_res)
                 continue
-
-            components = []
-            for frac in fractions:
-                from pyinduct.core import ComposedFunctionVector
-                if isinstance(frac, ComposedFunctionVector):
-                    res = 0
-                    for f in frac.members["funcs"]:
-                        area = domain_intersection(term.limits, f.nonzero)
-                        r, err = integrate_function(f, area)
-                        res += r
-                    for s in frac.members["scalars"]:
-                        res += s
-                else:
-                    area = domain_intersection(term.limits, frac.nonzero)
-                    res, err = integrate_function(frac, area)
-                components.append(res)
 
             if placeholders["scalars"]:
                 a = placeholders["scalars"][0]
-                b = Scalars(np.vstack(components))
-
+                b = Scalars(int_res)
                 result = _compute_product_of_scalars([a, b])
-
                 ce.add_to(weight_label=a.target_form,
                           term=get_common_target(placeholders["scalars"]),
-                          val=result * term.scale)
+                          val=result)
                 continue
 
             if placeholders["inputs"]:
@@ -1231,21 +1239,20 @@ def parse_weak_formulation(weak_form, finalize=False, is_observer=False):
                 input_order = input_var.order[0]
                 term_info = dict(name="G", order=input_order, exponent=input_exp)
 
-                # create column vector
-                result = np.atleast_2d(components).T
-
-                ce.add_to(weight_label=None, term=term_info,
-                          val=result * term.scale, column=input_index)
+                ce.add_to(weight_label=None,
+                          term=term_info,
+                          val=int_res,
+                          column=input_index)
                 ce.set_input_function(input_func)
                 continue
 
             if is_observer:
-                result = np.vstack([integrate_function(func, func.nonzero)[0] for func in fractions])
-                ce.add_to(weight_label=func.data["appr_lbl"],
+                result = np.vstack([integrate_function(func, func.nonzero)[0]
+                                    for func in base1])
+                ce.add_to(weight_label=func1.data["appr_lbl"],
                           term=dict(name="E", order=0, exponent=1),
                           val=result * term.scale)
                 continue
-
 
         # pure scalar terms, sort into corresponding matrices
         if placeholders["scalars"]:
@@ -1322,34 +1329,54 @@ def parse_weak_formulations(weak_forms):
 
 
 def _compute_product_of_scalars(scalars):
-    if len(scalars) > 2:
-        raise NotImplementedError
+    """
+    Compute products for scalar terms while paying attention to some  caveats
 
+    Depending on how the data (coefficients for the lumped equations) of the
+    terms were generated, it is either a column or a row vector.
+    Special cases contain a simple scaling of all equations shape = (1, 1)
+    and products of row and column vectors if two terms are provided.
+
+    Args:
+        scalars:
+
+    Returns:
+
+    """
+    data_shape1 = scalars[0].data.shape
+    if len(scalars) < 1 or len(scalars) > 2:
+        raise NotImplementedError()
     if len(scalars) == 1:
-        # distinguish between pi.Base and pi.ComposedFunctionVector
-        if sum(scalars[0].data.shape) > (max(scalars[0].data.shape) + 1):
-            res = np.transpose(
-                np.ones((1, scalars[0].data.shape[0])) @ scalars[0].data)
+        # simple scaling of all terms
+        if sum(data_shape1) > (max(data_shape1) + 1):
+            print("Workaround 1: Summing up all entries")
+            res = np.sum(scalars[0].data, axis=0, keepdims=True).T
         else:
-            # simple scaling of all terms
-            # TODO: find reason why `res` is sometimes (1, n) and sometimes (n, 1)
+            assert data_shape1[0] == 1 or data_shape1[1] == 1
             res = scalars[0].data
-    elif scalars[0].data.shape == scalars[1].data.shape:
+        return res
+
+    # two arguments
+    data_shape2 = scalars[1].data.shape
+    if data_shape1 == data_shape2 and data_shape2[1] == 1:
         # element wise multiplication
         res = np.prod(np.array([scalars[0].data, scalars[1].data]), axis=0)
-    elif scalars[0].data.shape == (1, 1) or scalars[1].data.shape == (1, 1):
-        # a lumped terms is present
+    elif data_shape1 == (1, 1) or data_shape2 == (1, 1):
+        # a lumped term is present
         res = scalars[0].data * scalars[1].data
     else:
         # dyadic product
         try:
-            if scalars[0].data.shape[1] == 1:
+            if data_shape1[1] == 1:
                 res = scalars[0].data @ scalars[1].data
-            elif scalars[1].data.shape[1] == 1:
+            elif data_shape2[1] == 1:
                 res = scalars[1].data @ scalars[0].data
             # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
-            elif scalars[0].data.shape[1] == scalars[1].data.shape[0]:
+            elif data_shape1[1] == data_shape2[0]:
+                print("Workaround 2: Matrix product")
                 res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
+            else:
+                raise NotImplementedError
         except ValueError as e:
             raise ValueError("provided entries do not form a dyadic product")
 

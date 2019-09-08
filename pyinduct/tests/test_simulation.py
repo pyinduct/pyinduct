@@ -3,6 +3,7 @@ import unittest
 import copy
 
 import numpy as np
+from scipy.linalg import block_diag
 
 import pyinduct as pi
 import pyinduct.hyperbolic.feedforward as hff
@@ -252,8 +253,13 @@ class ParseTest(unittest.TestCase):
         self.distributed_base = pi.LagrangeFirstOrder.cure_interval(nodes)
         pi.register_base("distributed_base", self.distributed_base)
 
+        fractions = [pi.ComposedFunctionVector(f, s) for f, s in
+                     zip(self.distributed_base, nodes)]
+        self.composed_base = pi.Base(fractions)
+        pi.register_base("composed_base", self.composed_base)
+
         # lumped base
-        self.lumped_base = pi.Base([pi.Function.from_constant(1)])
+        self.lumped_base = pi.Base([pi.ConstantFunction(1)])
         pi.register_base("lumped_base", self.lumped_base)
 
         # Test Functions
@@ -262,6 +268,12 @@ class ParseTest(unittest.TestCase):
         self.test_funcs_at1 = self.test_funcs(1)
         self.test_funcs_dz = self.test_funcs.derive(1)
         self.test_funcs_dz_at1 = self.test_funcs_dz(1)
+
+        self.comp_test_funcs = pi.TestFunction("composed_base")
+        self.comp_test_funcs_at0 = self.comp_test_funcs(0)
+        self.comp_test_funcs_at1 = self.comp_test_funcs(1)
+        self.comp_test_funcs_dz = self.comp_test_funcs.derive(1)
+        self.comp_test_funcs_dz_at1 = self.comp_test_funcs_dz(1)
 
         # Scalar Functions
         self.scalar_func = pi.ScalarFunction("heavyside_base")
@@ -275,15 +287,21 @@ class ParseTest(unittest.TestCase):
         self.field_var_ddt_at0 = self.field_var_ddt(0)
         self.field_var_ddt_at1 = self.field_var_ddt(1)
 
+        self.comp_field_var = pi.FieldVariable("composed_base")
+        self.comp_field_var_at1 = self.comp_field_var(1)
+        self.comp_field_var_dz = self.comp_field_var.derive(spat_order=1)
+
         self.odd_weight_field_var = pi.FieldVariable(
             "distributed_base", weight_label="special_weights")
 
         # Field variable 2
         self.lumped_var = pi.FieldVariable("lumped_base")
 
+        # ---------------------------------------------------------------------
         # Construction of Equation Terms
+        # ---------------------------------------------------------------------
 
-        # input
+        # inputs
         self.input_term1 = pi.ScalarTerm(pi.Product(self.test_funcs_at1,
                                                     self.input))
         self.input_term1_swapped = pi.ScalarTerm(pi.Product(self.input,
@@ -334,6 +352,11 @@ class ParseTest(unittest.TestCase):
                                                         self.test_funcs),
                                              limits=(0, 1))
 
+        self.comp_func_term = pi.ScalarTerm(self.comp_test_funcs_at1)
+        self.comp_func_term_int = pi.IntegralTerm(
+            pi.Product(self.comp_test_funcs, self.comp_test_funcs),
+            limits=(0, 1))
+
         # pure field variable terms
         self.field_term_at1 = pi.ScalarTerm(self.field_var_at1)
         self.field_term_dz_at1 = pi.ScalarTerm(self.field_var_dz_at1)
@@ -343,6 +366,13 @@ class ParseTest(unittest.TestCase):
         self.field_int_half = pi.IntegralTerm(self.field_var, limits=(0, .5))
         self.field_dz_int = pi.IntegralTerm(self.field_var_dz, (0, 1))
         self.field_ddt_int = pi.IntegralTerm(self.field_var_ddt, (0, 1))
+
+        self.comp_field_term_at1 = pi.ScalarTerm(self.comp_field_var_at1)
+
+        self.comp_field_int = pi.IntegralTerm(self.comp_field_var,
+                                              limits=(0, 1))
+        self.comp_field_dz_int = pi.IntegralTerm(self.comp_field_var,
+                                                 limits=(0, 1))
 
         # products
         self.prod_term_fs_at1 = pi.ScalarTerm(
@@ -489,6 +519,25 @@ class ParseTest(unittest.TestCase):
                                              np.array([[1 / 6],
                                                        [1 / 3],
                                                        [1 / 6]]))
+        if 0:
+            # composed
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[0, 0],
+                                                           [0, .5],
+                                                           [1, 1]]))
+
+            terms = sim.parse_weak_formulation(
+                sim.WeakFormulation(self.comp_func_term_int, name="test"),
+                finalize=False).get_static_terms()
+            self.assertFalse(np.iscomplexobj(terms["f"]))
+            np.testing.assert_array_almost_equal(terms["f"],
+                                                 np.array([[1 / 6 + 0],
+                                                           [1 / 3 + .25],
+                                                           [1 / 6 + 1]]))
 
     def test_FieldVariable_term(self):
         terms = sim.parse_weak_formulation(
@@ -539,6 +588,23 @@ class ParseTest(unittest.TestCase):
         self.assertFalse(np.iscomplexobj(terms["E"][2][1]))
         np.testing.assert_array_almost_equal(terms["E"][2][1],
                                              np.array([[.25, .5, .25]]))
+
+        # composed
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.comp_field_term_at1, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[1, 0], [0, .5], [0, 1]]))
+
+        # terms = sim.parse_weak_formulation(
+        #     sim.WeakFormulation(self.comp_field_int, name="test"),
+        #     finalize=False).get_dynamic_terms()["composed_base"]
+        # self.assertFalse(np.iscomplexobj(terms["E"][0][1]))
+        # np.testing.assert_array_almost_equal(terms["E"][0][1],
+        #                                      np.array([[[.25, 0],
+        #                                                 [.5, .5],
+        #                                                 [.25, 1]]]))
 
     def test_Product_term(self):
         # TODO create test functionality that will automatically check if Case
@@ -699,9 +765,70 @@ class ParseTest(unittest.TestCase):
                                                self.field_int],
                                               name=""))
 
+    def _test_composed_function_vector(self, N):
+        nf = 2
+        funcs0 = [pi.ConstantFunction(0, domain=(0, 1))] * nf
+        funcs1 = list(pi.LagrangeFirstOrder.cure_interval(pi.Domain((0, 1), nf)))
+        funcs01 = funcs0 + funcs1 + funcs0
+        funcs10 = funcs1 + funcs0 + funcs0
+        scalars01 = [0] * 2 * nf + [0, 1]
+        scalars10 = [0] * 2 * nf + [1, 0]
+
+        def register_cfv_test_base(n_fracs, n_funcs, n_scalars, label):
+            assert n_fracs <= min(len(funcs01), len(scalars01))
+            assert n_funcs <= 2
+            assert n_scalars <= 2
+
+            sel_funcs = [funcs10, funcs01][:n_funcs]
+            sel_scalars = [scalars10, scalars01][:n_scalars]
+            base = list()
+            for i in range(n_fracs):
+                base.append(pi.ComposedFunctionVector(
+                    [f[i] for f in sel_funcs],
+                    [s[i] for s in sel_scalars]))
+            pi.register_base(label, pi.Base(base))
+
+        register_cfv_test_base(N, 2, 2, "baseN22")
+        fv = pi.FieldVariable("baseN22")
+        tf = pi.TestFunction("baseN22")
+        wf = pi.WeakFormulation([
+            pi.IntegralTerm(pi.Product(fv, tf), limits=(0, 1)),
+            pi.ScalarTerm(pi.Product(fv.derive(temp_order=1)(0), tf(1))),
+        ], name="wfN22")
+        cf = pi.parse_weak_formulation(wf)
+
+        scal_prod1 = pi.calculate_scalar_product_matrix(pi.Base(funcs1),
+                                                        pi.Base(funcs1))
+        scal_prod_mat = block_diag(scal_prod1, scal_prod1, 1, 1)
+        # print(scal_prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][0][1])
+        np.testing.assert_array_almost_equal(
+            scal_prod_mat[:N, :N],
+            cf.dynamic_forms["baseN22"].matrices["E"][0][1]
+        )
+        prod_mat = np.diag([1, 0, 1, 0, 0], -1) + np.diag([0] * 4 + [1] * 2)
+        # print(prod_mat[:N, :N])
+        # print(cf.dynamic_forms["baseN22"].matrices["E"][1][1])
+        np.testing.assert_array_almost_equal(
+            prod_mat[:N, :N],
+            cf.dynamic_forms["baseN22"].matrices["E"][1][1]
+        )
+        pi.deregister_base("baseN22")
+
+    def test_composed_function_vector(self):
+        # todo: fix bug for i=1, at the moment there is no
+        #   way to distinguish (in _compute_product_of_scalars) between a
+        #   composed function vector with N entries + approximation order 1
+        #   and a pi.Function and approximation order N
+        # for i in [6, 5, 4, 3, 2, 1]:
+        for i in [6, 5, 4, 3, 2]:
+            print("i = ", i)
+            self._test_composed_function_vector(i)
+
     def tearDown(self):
         pi.deregister_base("heavyside_base")
         pi.deregister_base("distributed_base")
+        pi.deregister_base("composed_base")
         pi.deregister_base("lumped_base")
 
 
@@ -1051,9 +1178,9 @@ class MultipleODETest(unittest.TestCase):
         dummy_point = 0
 
         pi.register_base("base_1", pi.Base(
-            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
+            pi.ConstantFunction(1, domain=dummy_domain.bounds)))
         pi.register_base("base_2", pi.Base(
-            pi.Function.from_constant(1, domain=dummy_domain.bounds)))
+            pi.ConstantFunction(1, domain=dummy_domain.bounds)))
 
         x1 = pi.FieldVariable("base_1")(dummy_point)
         x2 = pi.FieldVariable("base_2")(dummy_point)
@@ -1325,7 +1452,7 @@ class RadFemTrajectoryTest(unittest.TestCase):
         return t, q
 
     @unittest.skip  # needs border homogenization to work
-    def test_rd(self):
+    def test_dd(self):
         # TODO adopt this test case
         # trajectory
         bound_cond_type = 'robin'
@@ -1509,8 +1636,7 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
         # ------------- determine (A,B) with modal transformation
         a_mat = np.diag(eig_values)
         b_mat = -a2 * np.atleast_2d(
-            [fraction(l)
-             for fraction in adjoint_eig_base.derive(1).fractions]).T
+            [fraction(l) for fraction in adjoint_eig_base.derive(1).fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
@@ -1518,6 +1644,8 @@ class RadDirichletModalVsWeakFormulationTest(unittest.TestCase):
             np.sort(np.linalg.eigvals(ss_weak.A[1])),
             np.sort(np.linalg.eigvals(ss_modal.A[1])))
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
+
+        # TODO can the result be tested?
 
         # display results
         if show_plots:
@@ -1578,33 +1706,27 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
         initial_weights = pi.project_on_base(start_state, adjoint_eig_base)
 
         # init trajectory
-        u = parabolic.RadFeedForward(
-            l, t_end, param, bound_cond_type, actuation_type)
+        u = parabolic.RadFeedForward(l, t_end, param, bound_cond_type, actuation_type)
 
         # determine pair (A, B) by weak-formulation (pyinduct)
-        rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form(
-            "eig_base", "adjoint_eig_base", u, param, dz.bounds)
+        rad_pde, extra_labels = parabolic.get_parabolic_robin_weak_form("eig_base", "adjoint_eig_base", u, param, dz.bounds)
         ce = sim.parse_weak_formulation(rad_pde)
         ss_weak = sim.create_state_space(ce)
 
         # determine pair (A, B) by modal transformation
         a_mat = np.diag(np.real_if_close(eig_val))
-        b_mat = a2 * np.atleast_2d(
-            [fraction(l) for fraction in adjoint_eig_base.fractions]).T
+        b_mat = a2 * np.atleast_2d([fraction(l) for fraction in adjoint_eig_base.fractions]).T
         ss_modal = sim.StateSpace(a_mat, b_mat, input_handle=u)
 
         # check if ss_modal.(A,B) is close to ss_weak.(A,B)
-        np.testing.assert_array_almost_equal(
-            np.sort(np.linalg.eigvals(ss_weak.A[1])),
-            np.sort(np.linalg.eigvals(ss_modal.A[1])),
-            decimal=5)
+        np.testing.assert_array_almost_equal(np.sort(np.linalg.eigvals(ss_weak.A[1])), np.sort(np.linalg.eigvals(ss_modal.A[1])),
+                                             decimal=5)
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
         # display results
         if show_plots:
             t_end, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
-            eval_d = sim.evaluate_approximation(
-                "eig_base", q, t_end, dz, spat_order=1)
+            eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz, spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
             pi.show(show_mpl=False)
@@ -1762,7 +1884,7 @@ class SetDominantLabel(unittest.TestCase):
 
 class SimulationInputVectorTestCase(unittest.TestCase):
 
-    def setUp(self) -> None:
+    def setUp(self):
         self.inputs = np.array(
             [CorrectInput(output=i, der_order=i) for i in range(5)])
 
