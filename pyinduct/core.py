@@ -617,7 +617,8 @@ class ComposedFunctionVector(BaseFraction):
         Return the hint that this function is an element of the
         an scalar product space which is uniquely defined by
 
-            * the scalar product :py:meth:`.scalar_product`
+            * the scalar product
+              :py:meth:`.ComposedFunctionVector.scalar_product`
             * :code:`len(self.members["funcs"])` functions
             * and :code:`len(self.members["scalars"])` scalars.
         """

@@ -344,9 +344,10 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
 
         x = My + Ty
 
-    where x is the field variable of an interior point controlled parabolic system
-    and y is the field variable of an boundary controlled parabolic system.
-    T is a (Fredholm-) integral transformation (which can be approximated with M).
+    where x is the field variable of an interior point controlled parabolic
+    system and y is the field variable of an boundary controlled parabolic
+    system. T is a (Fredholm-) integral transformation (which can be
+    approximated with M).
 
     Args:
         k1:
@@ -354,10 +355,9 @@ def get_in_domain_transformation_matrix(k1, k2, mode='n_plus_1'):
         mode: Available modes
 
             - `n_plus_1`:
-             M.shape = :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
-
+              M.shape = :math:`(n+1,n+1), w = (w(0),...,w(n))^T, w \in {x,y}`
             - `2n`:
-             M.shape = (2n,2n), :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
+              M.shape = (2n,2n), :math:`w = (w(0),...,w(n),...,w(1))^T, w \in {x,y}`
 
     Return:
         numpy.array: Transformation matrix M.

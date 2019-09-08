@@ -1553,11 +1553,11 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
 class SimulationInputVector(SimulationInput):
     """
-    A simulation input which combines :py:class:`SimulationInput`s into a column
-    vector.
+    A simulation input which combines :py:class:`.SimulationInput`s into a
+    column vector.
 
     Args:
-        input_vector (array-like): Simulation inputs to stack.
+        input_vector (array_like): Simulation inputs to stack.
     """
 
     def __init__(self, input_vector):
