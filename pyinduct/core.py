@@ -1323,8 +1323,8 @@ def dot_product_l2(first, second):
     calculates
 
     .. math::
-        \left< \varphi(z) | \psi(z) \right|_{L2} =
-            \int\limits_{Gamma_0}^{Gamma_1}
+        \left< \varphi(z) | \psi(z) \right> =
+            \int\limits_{\Gamma_0}^{\Gamma_1}
             \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
