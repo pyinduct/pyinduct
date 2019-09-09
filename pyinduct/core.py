@@ -877,11 +877,9 @@ class Base(ApproximationBasis):
         if match_cond_src or match_cond_dst:
             # bases are a match
             if len(info.dst_base) != len(info.src_base):
-                raise ValueError(
-                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
-                    f"not be a matching base of '{info.dst_lbl}' (length "
-                    f"{len(info.dst_base)}), since the they have different "
-                    f"lengths.")
+                msg = "Base length mismatch: len({})={} != len({})={}"
+                raise ValueError(msg.format(info.src_lbl, len(info.src_base),
+                                            info.dst_lbl, len(info.dst_base)))
 
             if info.src_order >= info.dst_order:
                 # forward weights
