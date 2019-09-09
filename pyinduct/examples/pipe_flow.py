@@ -40,18 +40,18 @@ by the following equations:
         Simon Bachler, Johannes Huber and Frank Woittennek,
         at-Automatisierungstechnik, DE GRUYTER, 2017
 """
+import numpy as np
+import pyinduct as pi
+
 
 # (sphinx directive) start actual script
-from pyinduct.tests import test_examples
-
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-
+def run():
     v = 10
     c1, c2 = [1, 1]
     l = 5
     T = 5
-    spat_domain = pi.Domain(bounds=(0, l), num=51)
+    spat_bounds = (0, l)
+    spat_domain = pi.Domain(bounds=spat_bounds, num=51)
     temp_domain = pi.Domain(bounds=(0, T), num=100)
 
     init_funcs1 = pi.LagrangeSecondOrder.cure_interval(spat_domain)
@@ -73,17 +73,17 @@ if __name__ == "__main__" or test_examples:
     weak_form1 = pi.WeakFormulation(
         [
             pi.IntegralTerm(pi.Product(x1.derive(temp_order=1), psi1),
-                            limits=spat_domain.bounds),
+                            limits=spat_bounds),
             pi.IntegralTerm(pi.Product(x1, psi1.derive(1)),
-                            limits=spat_domain.bounds,
+                            limits=spat_bounds,
                             scale=-v),
             pi.ScalarTerm(pi.Product(x1(l), psi1(l)), scale=v),
             pi.ScalarTerm(pi.Product(pi.Input(u), psi1(0)), scale=-v),
             pi.IntegralTerm(pi.Product(x1, psi1),
-                            limits=spat_domain.bounds,
+                            limits=spat_bounds,
                             scale=c1),
             pi.IntegralTerm(pi.Product(x2, psi1),
-                            limits=spat_domain.bounds,
+                            limits=spat_bounds,
                             scale=-c1),
         ],
         name="fluid temperature"
@@ -91,19 +91,20 @@ if __name__ == "__main__" or test_examples:
     weak_form2 = pi.WeakFormulation(
         [
             pi.IntegralTerm(pi.Product(x2.derive(temp_order=1), psi2),
-                            limits=spat_domain.bounds),
+                            limits=spat_bounds),
             pi.IntegralTerm(pi.Product(x1, psi2),
-                            limits=spat_domain.bounds,
+                            limits=spat_bounds,
                             scale=-c2),
             pi.IntegralTerm(pi.Product(x2, psi2),
-                            limits=spat_domain.bounds,
+                            limits=spat_bounds,
                             scale=c2 + c1),
         ],
         name="wall temperature"
     )
 
-    ics = {weak_form1.name: [pi.Function(lambda z: 0)],
-           weak_form2.name: [pi.Function(lambda z: 0)]}
+    ics = {weak_form1.name: [pi.Function(lambda z: np.sin(z/2),
+                                         domain=spat_bounds)],
+           weak_form2.name: [pi.Function(lambda z: 0, domain=spat_bounds)]}
     spat_domains = {weak_form1.name: spat_domain, weak_form2.name: spat_domain}
     evald1, evald2 = pi.simulate_systems([weak_form1, weak_form2],
                                          ics,
@@ -114,3 +115,8 @@ if __name__ == "__main__" or test_examples:
     win3 = pi.PgSurfacePlot(evald1, title=weak_form1.name)
     win4 = pi.PgSurfacePlot(evald2, title=weak_form2.name)
     pi.show()
+    pi.tear_down(["x1_funcs", "x2_funcs"], [win1, win3, win4])
+
+
+if __name__ == "__main__":
+    run()

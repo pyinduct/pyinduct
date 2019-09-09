@@ -97,7 +97,9 @@ class PlotTestCase(unittest.TestCase):
         # test plotting of data sets with unequal length and spatial
         # discretization
         pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
-                                title="Test Plot")
+                                title="Test Plot",
+                                labels={"left": "string deflection",
+                                        "bottom": "time"})
         if show_plots:
             pi.show(show_mpl=False)
 

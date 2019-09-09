@@ -521,7 +521,7 @@ class CanonicalForm(object):
 
         if self._input_function is None:
             self._input_function = func
-        elif not self._input_function is func:
+        elif self._input_function is not func:
             raise ValueError("already defined input is overridden!")
 
     # @property
@@ -1349,7 +1349,7 @@ def _compute_product_of_scalars(scalars):
     if len(scalars) == 1:
         # simple scaling of all terms
         if sum(data_shape1) > (max(data_shape1) + 1):
-            print("Workaround 1: Summing up all entries")
+            # print("Workaround 1: Summing up all entries")
             res = np.sum(scalars[0].data, axis=0, keepdims=True).T
         else:
             assert data_shape1[0] == 1 or data_shape1[1] == 1
@@ -1373,7 +1373,7 @@ def _compute_product_of_scalars(scalars):
                 res = scalars[1].data @ scalars[0].data
             # TODO: handle dyadic product ComposedFunctionVector and Base in the same way
             elif data_shape1[1] == data_shape2[0]:
-                print("Workaround 2: Matrix product")
+                # print("Workaround 2: Matrix product")
                 res = np.transpose(scalars[1].data) @ np.transpose(scalars[0].data)
             else:
                 raise NotImplementedError
@@ -1553,11 +1553,11 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
 class SimulationInputVector(SimulationInput):
     """
-    A simulation input which combines :py:class:`SimulationInput`s into a column
-    vector.
+    A simulation input which combines :py:class:`.SimulationInput`s into a
+    column vector.
 
     Args:
-        input_vector (array-like): Simulation inputs to stack.
+        input_vector (array_like): Simulation inputs to stack.
     """
 
     def __init__(self, input_vector):

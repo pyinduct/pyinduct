@@ -54,7 +54,7 @@ def plot_eigenvalues(eigenvalues):
     plt.show()
 
 
-def check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss, ):
+def check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss):
     # check eigenvalues of the approximation
     A_sys = (-ceq[0].dynamic_forms[sys_fem_lbl].e_n_pb_inv @
              ceq[0].dynamic_forms[sys_fem_lbl].matrices["E"][0][1])

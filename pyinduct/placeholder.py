@@ -305,17 +305,14 @@ class FieldVariable(Placeholder):
         Assuming some shapefunctions have been registered under the label
         ``"phi"`` the following expressions hold:
 
-        - :math:`\frac{\partial^{2}}{\partial t \partial z}x(z, t)`
+        - :math:`\frac{\partial^{3}}{\partial t \partial z^2}x(z, t)`
 
-        >>> x_dtdz = FieldVariable("phi", order=(1, 1))
+        >>> x_dt_dzz = FieldVariable("phi", order=(1, 2))
 
         - :math:`\frac{\partial^2}{\partial t^2}x(3, t)`
 
-        >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
+        >>> x_dtt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
 
-        - :math:`\frac{\partial}{\partial t}x^2(z, t)`
-
-        >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
     """
 
     def __init__(self, function_label, order=(0, 0),

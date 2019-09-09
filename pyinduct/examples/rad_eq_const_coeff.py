@@ -1,5 +1,5 @@
 r"""
-Implementation of the approximation scheme presented in [RW2018]_.
+Implementation of the approximation scheme presented in [RW2018b]_.
 The system
 
 .. math::
@@ -26,7 +26,7 @@ and the observer
 are approximated with :py:class:`.LagrangeFirstOrder` (FEM) shapefunctions
 and the backstepping controller and observer are approximated with
 the eigenfunctions respectively the adjoint eigenfunction of the system
-operator, see [RW2018]_.
+operator, see [RW2018b]_.
 
 Note:
     For now, only :code:`a0 = 0` and :code:`a0_t_o = 0` are supported, because
@@ -35,7 +35,7 @@ Note:
 
 References:
 
-    .. [RW2018] Marcus Riesmeier and Frank Woittennek;
+    .. [RW2018b] Marcus Riesmeier and Frank Woittennek;
           On approximation of backstepping observers for parabolic systems with
           robin boundary conditions; In: Proceedings of the 57th IEEE,
           International Conference on Decision and Control (CDC), Miami,
@@ -117,7 +117,7 @@ class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
             _param, l, n_roots, show_plot=show_plot)
 
 
-def main():
+def run():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -334,7 +334,7 @@ def main():
                  plots)
 
 
-if __name__ == "__main__" or test_examples:
-    main()
+if __name__ == "__main__":
+    run()
 
 

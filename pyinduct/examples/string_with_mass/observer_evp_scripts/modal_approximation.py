@@ -1,7 +1,6 @@
 from pyinduct.examples.string_with_mass.utils import sym, param, obs_gain
 from sympy.utilities import lambdify
 from scipy.integrate import quad
-from tqdm import tqdm
 import numpy as np
 import sympy as sp
 
@@ -169,15 +168,15 @@ def build_bases_for_modal_observer_approximation(m):
 
 
     # print bases
-    print("\n primal base")
-    _pprint(primal_base, discard_sv=False)
-    print("\n dual base")
-    _pprint(dual_base, discard_sv=False)
-    print("\n primal normal form base")
-    _pprint(primal_base_nf, discard_sv=False)
-    print("\n dual normal form base")
-    _pprint(dual_base_nf, discard_sv=False)
-
+    if 0:
+        print("\n primal base")
+        _pprint(primal_base, discard_sv=False)
+        print("\n dual base")
+        _pprint(dual_base, discard_sv=False)
+        print("\n primal normal form base")
+        _pprint(primal_base_nf, discard_sv=False)
+        print("\n dual normal form base")
+        _pprint(dual_base_nf, discard_sv=False)
 
     return primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals
 
@@ -264,11 +263,11 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     if 1:
         observer_projections = [
             (_inner_product_nf(l, ftf, coef) + l_bc * ftf3.subs(sym.theta, -1)) * sym.yt(sym.t)
-            for ftf, ftf3 in tqdm(zip(nu, nu3), total=n * 2)]
+            for ftf, ftf3 in zip(nu, nu3)]
     else:
         observer_projections = [
             (-_inner_product_nf(a_desired, ftf, coef) - a_bc_desired * ftf3.subs(sym.theta, -1) - ftf3.subs(sym.theta, 1)) * sym.yt(sym.t)
-            for ftf, ftf3 in tqdm(zip(nu, nu3), total=n * 2)]
+            for ftf, ftf3 in zip(nu, nu3)]
 
 
     # just the unbounded part
@@ -285,7 +284,7 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
         - _l2_ip(sp.diff(x1, sym.z), sp.diff(tf2, sym.z), coef)
         + xi2 * t1 + sp.diff(x1, sym.z).subs(sym.z, 0) * t2
         for tf, tf1, tf2, t1, t2
-        in tqdm(zip(psi, psi1, psi2, tau1, tau2), total=n * 2)
+        in zip(psi, psi1, psi2, tau1, tau2)
     ]
     C.append(sp.linear_eq_to_matrix([xi1], coef)[0])
     system_projections_nf = [
@@ -299,7 +298,7 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
            + 2 / param.m * ftf2
            + _l2_ip_nf(-2 / param.m * sym.theta, ftf3, coef, lb=-1, ub=0)) * sym.u(sym.t)
         for ftf, ftf1, ftf2, ftf3
-        in tqdm(zip(nu, nu1, nu2, nu3), total=n * 2)
+        in zip(nu, nu1, nu2, nu3)
     ]
     C.append(sp.linear_eq_to_matrix([eta3.subs(sym.theta, 1)], coef)[0])
 

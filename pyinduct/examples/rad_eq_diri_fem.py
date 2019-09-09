@@ -1,10 +1,9 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import numpy as np
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
 
+def run():
     n_fem = 17
     T = 1
     l = 1
@@ -147,3 +146,7 @@ if __name__ == "__main__" or test_examples:
     pi.show()
 
     pi.tear_down(("act_base", "sim_base", "vis_base"), plots + [win1, win2])
+
+
+if __name__ == "__main__":
+    run()

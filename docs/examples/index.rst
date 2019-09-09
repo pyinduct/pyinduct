@@ -9,5 +9,8 @@ For more examples, which might not be part of the documentation, have a look at 
 
     transport_system
     rad_dirichlet_fem
-    multiple_pde_example
+    pipe_flow
     euler_bernoulli_beam
+    rad_eq_const_coef
+    string_with_mass
+    pipe_flow

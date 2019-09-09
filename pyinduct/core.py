@@ -39,7 +39,7 @@ def sanitize_input(input_object, allowed_type):
     """
     input_object = np.atleast_1d(input_object)
     for obj in np.nditer(input_object, flags=["refs_ok"]):
-        if not isinstance(np.asscalar(obj), allowed_type):
+        if not isinstance(obj.item(), allowed_type):
             raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
 
     return input_object
@@ -617,7 +617,8 @@ class ComposedFunctionVector(BaseFraction):
         Return the hint that this function is an element of the
         an scalar product space which is uniquely defined by
 
-            * the scalar product :py:meth:`.scalar_product`
+            * the scalar product
+              :py:meth:`.ComposedFunctionVector.scalar_product`
             * :code:`len(self.members["funcs"])` functions
             * and :code:`len(self.members["scalars"])` scalars.
         """
@@ -876,11 +877,9 @@ class Base(ApproximationBasis):
         if match_cond_src or match_cond_dst:
             # bases are a match
             if len(info.dst_base) != len(info.src_base):
-                raise ValueError(
-                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
-                    f"not be a matching base of '{info.dst_lbl}' (length "
-                    f"{len(info.dst_base)}), since the they have different "
-                    f"lengths.")
+                msg = "Base length mismatch: len({})={} != len({})={}"
+                raise ValueError(msg.format(info.src_lbl, len(info.src_base),
+                                            info.dst_lbl, len(info.dst_base)))
 
             if info.src_order >= info.dst_order:
                 # forward weights
@@ -1322,8 +1321,8 @@ def dot_product_l2(first, second):
     calculates
 
     .. math::
-        \left< \varphi(z) | \psi(z) \right|_{L2} =
-            \int\limits_{Gamma_0}^{Gamma_1}
+        \left< \varphi(z) | \psi(z) \right> =
+            \int\limits_{\Gamma_0}^{\Gamma_1}
             \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:

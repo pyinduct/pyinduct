@@ -2,7 +2,6 @@ from pyinduct.examples.string_with_mass.utils import *
 from pyinduct.core import integrate_function
 import collections
 import pyinduct as pi
-from tqdm import tqdm
 
 
 def build_canonical_weak_formulation(obs_lbl, spatial_domain, u,

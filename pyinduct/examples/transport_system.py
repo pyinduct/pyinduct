@@ -1,18 +1,18 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import pyinduct as pi
+import pyqtgraph as pg
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import numpy as np
-    import pyqtgraph as pg
 
+def run():
     sys_name = 'transport system'
     v = 10
     l = 5
     T = 5
-    spat_domain = pi.Domain(bounds=(0, l), num=51)
-    temp_domain = pi.Domain(bounds=(0, T), num=1e2)
+    spat_bounds = (0, l)
+    spat_domain = pi.Domain(bounds=spat_bounds, num=51)
+    temp_domain = pi.Domain(bounds=(0, T), num=100)
 
-    init_x = pi.Function(lambda z: 0)
+    init_x = pi.Function(lambda z: 0, domain=spat_bounds)
 
     init_funcs = pi.LagrangeFirstOrder.cure_interval(spat_domain)
     func_label = 'init_funcs'
@@ -35,9 +35,9 @@ if __name__ == "__main__" or test_examples:
     phi = pi.TestFunction(func_label)
     weak_form = pi.WeakFormulation([
         pi.IntegralTerm(pi.Product(x.derive(temp_order=1), phi),
-                        spat_domain.bounds),
+                        spat_bounds),
         pi.IntegralTerm(pi.Product(x, phi.derive(1)),
-                        spat_domain.bounds,
+                        spat_bounds,
                         scale=-v),
         pi.ScalarTerm(pi.Product(x(l), phi(l)), scale=v),
         pi.ScalarTerm(pi.Product(pi.Input(u), phi(0)), scale=-v),
@@ -58,3 +58,6 @@ if __name__ == "__main__" or test_examples:
     pi.show()
     pi.tear_down((func_label,), (win0, win1))
 
+
+if __name__ == "__main__":
+    run()
