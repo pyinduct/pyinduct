@@ -1,5 +1,5 @@
 """
-Simulation of a simple heat diffusion equation given by:
+Simulation of a diffusion system using multiple inputs
 """
 import pyinduct as pi
 
@@ -38,7 +38,7 @@ def run():
     left_input = pi.Input(input_traj, index=0)
     right_input = pi.Input(input_traj, index=1)
 
-    # enter string with mass equations
+    # system dynamics
     temp_int = pi.IntegralTerm(pi.Product(field_var_dt, psi),
                                limits=spat_bounds)
     spat_int = pi.IntegralTerm(pi.Product(field_var_dz, psi_dz),
@@ -61,6 +61,7 @@ def run():
     win = pi.PgAnimatedPlot(res, title="fem approx and derivative")
     win2 = pi.PgSurfacePlot(res)
     pi.show()
+    pi.tear_down(["fem_base"], [win, win2])
 
 
 if __name__ == "__main__":

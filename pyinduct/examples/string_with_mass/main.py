@@ -1,7 +1,6 @@
 """
 Main script file for the simulation of the string with mass example.
 """
-from pyinduct.tests import test_examples
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
 import pyinduct as pi
