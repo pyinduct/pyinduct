@@ -1,5 +1,5 @@
 """
-A few helper functions for users and developer.
+A few helper functions for users and developers.
 """
 import os
 from subprocess import call
@@ -7,8 +7,8 @@ from subprocess import call
 
 def create_dir(dir_name):
     """
-    Create a directory with name :py:obj:`dir_name` relative to the current path if it doesn't already exist and
-    return its full path.
+    Create a directory with name :py:obj:`dir_name` relative to the current
+    path if it doesn't already exist and return its full path.
 
     Args:
         dir_name (str): Directory name.
