@@ -61,10 +61,10 @@ def create_colormap(cnt):
     Create a colormap containing cnt values.
 
     Args:
-        cnt (int):
+        cnt (int): Number of colors in the map.
 
     Return:
-        Colormap ...
+        List of `QColor` instances.
     """
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
@@ -188,35 +188,41 @@ class PgAnimatedPlot(PgDataPlot):
     """
     Wrapper that shows an updating one dimensional plot of n-curves discretized
     in t time steps and z spatial steps. It is assumed that time propagates
-    along axis0 and and location along axis1 of values. Values are therefore
+    along axis 0 and and location along axis 1 of values. Values are therefore
     expected to be a array of shape (n, t, z).
 
     Args:
         data ((iterable of) :py:class:`.EvalData`): results to animate
-        title (basestring): window title
-        refresh_time (int): time in msec to refresh the window must be greater
+        title (basestring): Window title.
+        refresh_time (int): Time in msec to refresh the window must be greater
             than zero
-        replay_gain (float): values above 1 acc- and below 1 decelerate the
+        replay_gain (float): Values above 1 acc- and below 1 decelerate the
             playback process, must be greater than zero
-        save_pics (bool):
-        labels: ??
+        save_pics (bool): Export snapshots for animation purposes.
+        labels (dict): Axis labels for the plot that are passed to
+            :py:class:`pyqtgraph.PlotItem` .
 
-    Return:
     """
 
     _res_path = "animation_output"
 
-    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, create_video=False,
-                 labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1,
+                 save_pics=False, create_video=False, labels=None):
         PgDataPlot.__init__(self, data)
 
-        self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
-        self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
+        self.time_data = [np.atleast_1d(data_set.input_data[0])
+                          for data_set in self._data]
+        self.spatial_data = [np.atleast_1d(data_set.input_data[1])
+                             for data_set in self._data]
         self.state_data = [data_set.output_data for data_set in self._data]
 
         self._time_stamp = time.strftime("%H:%M:%S")
 
-        self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
+        self._pw = pg.plot(title="-".join([self._time_stamp,
+                                           title,
+                                           "at",
+                                           str(replay_gain)]),
+                           labels=labels)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
@@ -747,7 +753,7 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
         return_window (bool): If True the graphics window is not shown directly.
             In this case, a reference to the plot window is returned.
 
-    Returns: A PgPlotWindow if *delay_exec* is True.
+    Returns: A PgPlotWindow if `delay_exec` is True.
     """
     if roots is not None:
         roots = np.atleast_1d(roots)
