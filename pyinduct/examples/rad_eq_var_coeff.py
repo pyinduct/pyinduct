@@ -54,12 +54,13 @@ def run():
                                                        init_adjoint_eig_base_t)
 
     # transformed original eigenfunctions
-    eig_base = pi.Base(np.array([pi.TransformedSecondOrderEigenfunction(
+    eig_base = pi.Base([pi.TransformedSecondOrderEigenfunction(
         eig_val_t[i],
         [eig_base_t[i](0), alpha * eig_base_t[i](0), 0, 0],
-        [a2_z, a1_z, a0_z], pi.Domain((0, l), 1e4))
+        [a2_z, a1_z, a0_z],
+        pi.Domain((0, l), 100))
         for i in range(n)]
-    ))
+    )
 
     # create testfunctions
     fem_base = pi.LagrangeFirstOrder.cure_interval(spatial_domain)
