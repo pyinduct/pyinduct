@@ -1,5 +1,15 @@
 """
-Main script file for the simulation of the string with mass example.
+Simulation of the string with mass example,
+with flatness based state feedback and flatness based state observer
+(design + approximation), presented in [RW2018a]_.
+
+References:
+
+    .. [RW2018a] Marcus Riesmeier and Frank Woittennek;
+          Modale Approximation eines verteiltparametrischen Beobachters
+          für das Modell der Saite mit Last. GMA Fachausschuss 1.40
+          „Systemtheorie und Regelungstechnik“, Salzburg, Austria,
+          September 17-20, 2018.
 """
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.hyperbolic.feedforward import FlatString
