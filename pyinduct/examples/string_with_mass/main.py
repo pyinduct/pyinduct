@@ -9,7 +9,7 @@ import pickle
 import time
 
 
-def main():
+def run():
 
     # control mode
     control_mode = ["open_loop",
@@ -109,7 +109,7 @@ def main():
     ceq, ss, init_weights, weights = intermediate_results
 
     # print some stuff for debugging
-    check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss)
+    # check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss)
 
     # visualization data
     split_indizes = [n1 + n2 ,
@@ -125,12 +125,12 @@ def main():
     weights_fem_obs = weights[:, split_indizes[0]: split_indizes[1]]
     fem_obs_ed = pi.get_sim_result(sys_fem_lbl + "_1_trafo_visu", weights_fem_obs,
                                      temporal_domain, spatial_domain, 0, 0,
-                                     name="\hat x1_fem(z,t)")[0]
+                                     name=r"\hat x1_fem(z,t)")[0]
     #  modal observer
     weights_modal_obs = weights[:, split_indizes[1]: split_indizes[2]]
     modal_obs_ed = pi.get_sim_result(sys_modal_lbl + "_1_trafo_visu", weights_modal_obs,
                                      temporal_domain, spatial_domain, 0, 0,
-                                     name="\hat x1_modal(z,t)")[0]
+                                     name=r"\hat x1_modal(z,t)")[0]
 
     # create plots
     plots = list()
@@ -149,6 +149,8 @@ def main():
         pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
         file.close()
 
+    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl], plots)
 
-if __name__ == "__main__" or test_examples:
-    main()
+
+if __name__ == "__main__":
+    run()

@@ -169,15 +169,15 @@ def build_bases_for_modal_observer_approximation(m):
 
 
     # print bases
-    print("\n primal base")
-    _pprint(primal_base, discard_sv=False)
-    print("\n dual base")
-    _pprint(dual_base, discard_sv=False)
-    print("\n primal normal form base")
-    _pprint(primal_base_nf, discard_sv=False)
-    print("\n dual normal form base")
-    _pprint(dual_base_nf, discard_sv=False)
-
+    if 0:
+        print("\n primal base")
+        _pprint(primal_base, discard_sv=False)
+        print("\n dual base")
+        _pprint(dual_base, discard_sv=False)
+        print("\n primal normal form base")
+        _pprint(primal_base_nf, discard_sv=False)
+        print("\n dual normal form base")
+        _pprint(dual_base_nf, discard_sv=False)
 
     return primal_base, primal_base_nf, dual_base, dual_base_nf, eig_vals
 
