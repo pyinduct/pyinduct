@@ -867,16 +867,16 @@ class StackedBaseTestCase(unittest.TestCase):
             pi.Function(lambda x: np.cos(2 ** 2 * x), domain=(1, 2)),
         ])
         pi.register_base("b2", self.b2)
-        self.base_info = OrderedDict(
-            b1={"base": self.b1, "sys_name": "sys1", "order": 1},
-            b2={"base": self.b2, "sys_name": "sys2", "order": 0},
-        )
+        self.base_info = OrderedDict([
+            ("b1", {"base": self.b1, "sys_name": "sys1", "order": 1}),
+            ("b2", {"base": self.b2, "sys_name": "sys2", "order": 0}),
+        ])
 
     def test_error_raises(self):
-        base_info = OrderedDict(
-            b1={"base": self.b1, "sys_name": "sys1", "order": 0},
-            b2={"base": self.b1, "sys_name": "sys2", "order": 0},
-        )
+        base_info = OrderedDict([
+            ("b1", {"base": self.b1, "sys_name": "sys1", "order": 0}),
+            ("b2", {"base": self.b1, "sys_name": "sys2", "order": 0}),
+        ])
         s = pi.StackedBase(base_info)
         with self.assertRaises(TypeError):
             pi.Base(s)
@@ -891,8 +891,11 @@ class StackedBaseTestCase(unittest.TestCase):
         s = pi.StackedBase(self.base_info)
         self.assertEqual(s.fractions.size, 6)
         self.assertEqual(s.fractions[0], self.b1[0])
+        self.assertEqual(s.fractions[1], self.b1[1])
         self.assertEqual(s.fractions[2], self.b1[2])
+        self.assertEqual(s.fractions[3], self.b2[0])
         self.assertEqual(s.fractions[4], self.b2[1])
+        self.assertEqual(s.fractions[5], self.b2[2])
         self.assertEqual(s.fractions[-1], self.b2[-1])
 
         self.assertEqual(s.base_lbls, ["b1", "b2"])
@@ -988,10 +991,10 @@ class TransformationTestCase(unittest.TestCase):
             intermediate_base_lbls="comp1")
         pi.register_base("comp2", self.comp_base2)
 
-        info1 = OrderedDict(
-            fem1={"base": self.base1, "sys_name": "sys1", "order": 0},
-            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 1},
-        )
+        info1 = OrderedDict([
+            ("fem1", {"base": self.base1, "sys_name": "sys1", "order": 0}),
+            ("comp1", {"base": self.comp_base1, "sys_name": "sys2", "order": 1}),
+        ])
         self.stacked_base1 = core.StackedBase(info1)
         pi.register_base("stacked1", self.stacked_base1)
 

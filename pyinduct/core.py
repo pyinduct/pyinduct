@@ -39,7 +39,7 @@ def sanitize_input(input_object, allowed_type):
     """
     input_object = np.atleast_1d(input_object)
     for obj in np.nditer(input_object, flags=["refs_ok"]):
-        if not isinstance(np.asscalar(obj), allowed_type):
+        if not isinstance(obj.item(), allowed_type):
             raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
 
     return input_object
