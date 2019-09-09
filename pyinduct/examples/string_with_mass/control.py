@@ -3,7 +3,6 @@ from pyinduct.examples.string_with_mass.system import *
 from pyinduct.parabolic.control import scale_equation_term_list
 
 
-
 class SwmObserverError(pi.StateFeedback):
     """
     For a smooth fade-in of the observer error.
