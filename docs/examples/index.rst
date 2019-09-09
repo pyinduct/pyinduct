@@ -13,3 +13,4 @@ For more examples, which might not be part of the documentation, have a look at 
     euler_bernoulli_beam
     rad_eq_const_coef
     string_with_mass
+    pipe_flow

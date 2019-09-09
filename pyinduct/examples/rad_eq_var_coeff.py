@@ -1,11 +1,10 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import scipy.integrate as si
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
-    import numpy as np
-    import scipy.integrate as si
 
+def run():
     # system/simulation parameters
     actuation_type = 'robin'
     bound_cond_type = 'robin'
@@ -162,3 +161,7 @@ if __name__ == "__main__" or test_examples:
                   "eig_funcs",
                   "fem_funcs") + base_labels,
                  plots)
+
+
+if __name__ == "__main__":
+    run()

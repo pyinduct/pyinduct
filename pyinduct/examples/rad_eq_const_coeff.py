@@ -117,7 +117,7 @@ class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
             _param, l, n_roots, show_plot=show_plot)
 
 
-def main():
+def run():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -334,7 +334,7 @@ def main():
                  plots)
 
 
-if __name__ == "__main__" or test_examples:
-    main()
+if __name__ == "__main__":
+    run()
 
 

@@ -1,21 +1,20 @@
 """
 Simulation of a simple heat diffusion equation given by:
 """
-from pyinduct.tests import test_examples
+import pyinduct as pi
 
 
-def main():
-
+def run():
     # physical constants
     alpha = .1
 
     # define domains
     temp_dom = pi.Domain(bounds=(0, 10), num=100)
-    gamma = (0, 1)
-    spat_dom = pi.Domain(bounds=gamma, num=100)
+    spat_bounds = (0, 1)
+    spat_dom = pi.Domain(bounds=spat_bounds, num=100)
 
     # create approximation basis
-    nodes = pi.Domain(gamma, num=11)
+    nodes = pi.Domain(spat_bounds, num=11)
     if 0:
         # old interface
         _, fem_funcs = pi.LagrangeSecondOrder.cure_hint(nodes)
@@ -33,24 +32,27 @@ def main():
     psi = pi.TestFunction("fem_base")
     psi_dz = psi.derive(1)
 
-    input1 = pi.Input(pi.ConstantTrajectory(10), index=0)
-    input2 = pi.Input(pi.ConstantTrajectory(-10), index=1)
+    # define inputs
+    input_traj = pi.SimulationInputVector([pi.ConstantTrajectory(10),
+                                          pi.ConstantTrajectory(-10)])
+    left_input = pi.Input(input_traj, index=0)
+    right_input = pi.Input(input_traj, index=1)
 
     # enter string with mass equations
     temp_int = pi.IntegralTerm(pi.Product(field_var_dt, psi),
-                               limits=gamma)
+                               limits=spat_bounds)
     spat_int = pi.IntegralTerm(pi.Product(field_var_dz, psi_dz),
-                               limits=gamma,
+                               limits=spat_bounds,
                                scale=alpha)
-    input_term1 = pi.ScalarTerm(pi.Product(input1, psi(gamma[0])))
-    input_term2 = pi.ScalarTerm(pi.Product(input2, psi(gamma[1])), scale=-1)
+    input_term1 = pi.ScalarTerm(pi.Product(left_input, psi(spat_bounds[0])))
+    input_term2 = pi.ScalarTerm(pi.Product(right_input, psi(spat_bounds[1])), scale=-1)
 
     # derive sate-space system
     pde = pi.WeakFormulation([temp_int, spat_int, input_term1, input_term2],
                              name="diff_equation")
 
     # define initial state
-    t0 = pi.ConstantFunction(100)
+    t0 = pi.ConstantFunction(100, domain=spat_bounds)
 
     # simulate
     res = pi.simulate_system(pde, t0, temp_dom, spat_dom)
@@ -61,6 +63,5 @@ def main():
     pi.show()
 
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    main()
+if __name__ == "__main__":
+    run()

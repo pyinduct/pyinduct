@@ -1,10 +1,9 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
-    import numpy as np
 
+def run():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -295,3 +294,7 @@ if __name__ == "__main__" or test_examples:
                   "eig_funcs_ti",
                   "fem_funcs") + base_labels,
                  plots)
+
+
+if __name__ == "__main__":
+    run()
