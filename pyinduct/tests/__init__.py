@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 import sys
 
+# since this is a serious toolbox
+import numpy as np
+np.seterr(all="raise")
+
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     test_examples = True
     test_timings = True
