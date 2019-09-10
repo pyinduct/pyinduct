@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# try:
-from setuptools import setup, find_packages
-import os
-# except ImportError:
-#     from distutils.core import setup
+from setuptools import setup
 
 
 with open('README.rst') as readme_file:
@@ -23,14 +19,14 @@ with open('test_requirements.txt') as f:
 
 setup(
     name='pyinduct',
-    version='0.4.0',
-    description="The aim of this project is to provide a toolbox to automate the backstepping based design of "
-                "controllers for boundary actuated infinite dimensional systems.",
+    version='0.5.0',
+    description="The aim of this project is to provide a toolbox to automate "
+                "the backstepping based design of controllers for boundary "
+                "actuated infinite dimensional systems.",
     long_description=readme + '\n\n' + history,
     author="Stefan Ecklebe, Marcus Riesmeier",
     author_email='stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at',
     url='https://github.com/pyinduct/pyinduct/',
-    # packages=find_packages(),
     packages=[
         'pyinduct',
     ],
@@ -42,12 +38,13 @@ setup(
     zip_safe=False,
     keywords='pyinduct',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     test_suite='pyinduct.tests',
     tests_require=test_requirements
