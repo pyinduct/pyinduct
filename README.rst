@@ -4,8 +4,8 @@ PyInduct
 .. image:: https://img.shields.io/travis/pyinduct/pyinduct.svg
     :target: https://travis-ci.org/pyinduct/pyinduct
 
-.. image:: https://readthedocs.org/projects/pyinduct/badge/?version=stable
-    :target: http://pyinduct.readthedocs.io/en/latest/?badge=stable
+.. image:: https://readthedocs.org/projects/pyinduct/badge
+    :target: http://pyinduct.rtfd.io
 
 .. image:: https://codecov.io/gh/pyinduct/pyinduct/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/pyinduct/pyinduct
