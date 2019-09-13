@@ -284,8 +284,8 @@ texinfo_documents = [
      'PyInduct Documentation',
      'Stefan Ecklebe, Marcus Riesmeier',
      'pyinduct',
-     'One line description of project.',
-     'Miscellaneous'),
+     'Python toolbox for simulation and control design of infinite dimensional systems',
+     'Control Engineering'),
 ]
 
 # Documents to append as an appendix to all manuals.

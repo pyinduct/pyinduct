@@ -45,7 +45,6 @@ import numpy as np
 
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-from pyinduct.tests import test_examples
 
 
 def approximate_observer(obs_params, sys_params, sys_domain, sys_lbl,
