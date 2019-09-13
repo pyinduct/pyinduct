@@ -22,9 +22,4 @@ else:
     # Then force it and uncomment the respective line:
     # test_timings = False
     # test_all_examples = False
-    # show_plots = False
-
-if not show_plots:
-    # monkey-patch show() call to do nothing
-    import pyinduct.visualization as vi
-    vi.show = lambda: None
+    show_plots = False

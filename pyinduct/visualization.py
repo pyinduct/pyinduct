@@ -25,6 +25,7 @@ from mpl_toolkits.mplot3d import axes3d
 from .registry import deregister_base
 from .core import complex_wrapper, EvalData, Domain, Function
 from .utils import create_animation, create_dir
+from .tests import show_plots
 
 __all__ = ["show", "tear_down",
            "PgAnimatedPlot", "PgSurfacePlot",
@@ -46,11 +47,11 @@ def show(show_pg=True, show_mpl=True):
         show_pg (bool): Show matplotlib plots? Default: True
         show_mpl (bool): Show pyqtgraph plots? Default: True
     """
-    if show_pg:
-        pg.QAPP.exec_()
-
-    if show_mpl:
-        plt.show()
+    if show_plots:
+        if show_pg:
+            pg.QAPP.exec_()
+        if show_mpl:
+            plt.show()
 
 
 def tear_down(labels, plots=None):
