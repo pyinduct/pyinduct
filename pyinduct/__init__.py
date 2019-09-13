@@ -20,7 +20,6 @@ from .placeholder import *
 from .simulation import *
 from .shapefunctions import *
 from .visualization import *
-from .examples import *
 
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"

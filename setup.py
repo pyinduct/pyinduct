@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 with open('README.rst') as readme_file:
@@ -33,8 +33,7 @@ setup(
         "Source Code": "https://github.com/pyinduct/pyinduct/",
         "Bug Tracker": "https://github.com/pyinduct/pyinduct/issues",
     },
-    packages=["pyinduct"],
-    package_dir={'pyinduct': 'pyinduct'},
+    packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
     license="BSD 3-Clause License",
@@ -54,5 +53,5 @@ setup(
     ],
     test_suite='pyinduct.tests',
     tests_require=test_requirements,
-    python_requieres=">=3.5",
+    python_requires=">=3.5",
 )

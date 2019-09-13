@@ -28,7 +28,7 @@ Each :class:`CanonicalEquation` object hold one dominant :class:`CanonicalForm` 
     :nowrap:
 
     \begin{align*}
-    \text{1'st CanonicalForms object} \\
+    1\text{st CanonicalForms object} \\
     \left. E_{1,n_1} \boldsymbol x_1^{*(n_1)}(t) + \cdots + E_{1,0}\boldsymbol x_1^{*(0)}(t) + \boldsymbol f_1 + G_1 \boldsymbol u(t) = 0 \right\}&\text{dynamic CanonicalForm} \\
     \left.\begin{array}{rl}
         H_{1:2,n_2-1} \boldsymbol x_2^{*(n_2-1)}(t) + \cdots + H_{1:2,0}\boldsymbol x_2^{*(0)}(t) & = 0 \\
@@ -38,7 +38,7 @@ Each :class:`CanonicalEquation` object hold one dominant :class:`CanonicalForm` 
     \vdots \hphantom{dddddddddddd} \\
     \vdots \hphantom{dddddddddddd} \\
     \vdots \hphantom{dddddddddddd} \\
-    \text{N'th CanonicalForms object} \\
+    N\text{th CanonicalForms object} \\
     \left. E_{N,n_N} \boldsymbol x_N^{*(n_N)}(t) + \cdots + E_{N,0}\boldsymbol x_N^{*(0)}(t) + \boldsymbol f_N + G_N \boldsymbol u(t) = 0 \right\}&\text{dynamic CanonicalForm} \\
     \left.\begin{array}{rl}
         H_{N:1,n_1-1} \boldsymbol x_1^{*(n_1-1)}(t) + \cdots + H_{N:1,0}\boldsymbol x_1^{*(0)}(t) & = 0 \\
@@ -76,7 +76,7 @@ with the weights vector
 
 .. math::
 
-    \boldsymbol x^{*^T} = \Big(\underbrace{0^T}_{\mathbb{R}^{\text{dim}(\boldsymbol x_1^*)(n_1-1)}}, \boldsymbol x_1^{*^T},
+    \boldsymbol x^{*^T} = \Big(\underbrace{0^T}_{\mathbb{R}^{\text{dim}(\boldsymbol x_1^*)\times (n_1-1)}}, \boldsymbol x_1^{*^T},
     \quad ... \quad,
-    \underbrace{0^T}_{\mathbb{R}^{\text{dim}(\boldsymbol x_{N}^*)(n_{N}-1)}}, \boldsymbol x_{N}^{*^T}\Big).
+    \underbrace{0^T}_{\mathbb{R}^{\text{dim}(\boldsymbol x_{N}^*) \times (n_{N}-1)}}, \boldsymbol x_{N}^{*^T}\Big).
 
