@@ -143,7 +143,7 @@ def run():
 
     # create plots
     plots = list()
-    plots.append(pi.PgSurfacePlot([eval_data1, modal_obs_ed]))
+    plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
     plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
     pi.show()
 

@@ -885,6 +885,8 @@ def surface_plot(data, **kwargs):
         raise ValueError("Provided kwargs are ambigous")
     if pg_wanted:
         if os == "Windows" and FORCE_MPL_ON_WINDOWS:
+            warnings.warn("Compatibility wrapper: Enforcing use of "
+                          "MplSurfacePlot")
             for arg in pg_kwargs:
                 if arg in kwargs:
                     warnings.warn("Ignoring argument '{}'".format(arg))

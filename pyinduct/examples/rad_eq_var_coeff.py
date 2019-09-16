@@ -149,7 +149,7 @@ def run():
     plots.append(pi.PgAnimatedPlot([evald_x],
                                    title="animation",
                                    replay_gain=.25))
-    plots.append(pi.PgSurfacePlot(evald_x, title=evald_x.name))
+    plots.append(pi.surface_plot(evald_x, title=evald_x.name))
 
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([evald_x], time_point=1,

@@ -278,8 +278,8 @@ def run():
                                     evald_appr_xi,
                                     evald_xd,
                                     evald_xi_desired]))
-    plots.append(pi.PgSurfacePlot(evald_xd, title=evald_xd.name))
-    plots.append(pi.PgSurfacePlot(evald_fem_x, title=evald_fem_x.name))
+    plots.append(pi.surface_plot(evald_xd, title=evald_xd.name))
+    plots.append(pi.surface_plot(evald_fem_x, title=evald_fem_x.name))
     # matplotlib visualization
     plots.append(pi.MplSurfacePlot(evald_fem_x))
     plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x],

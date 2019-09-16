@@ -135,8 +135,8 @@ def run():
                              labels=dict(left='x\'(z,t)', bottom='z'),
                              save_pics=save_pics))
 
-    win1 = pi.PgSurfacePlot(eval_d, title="x(z,t)")
-    win2 = pi.PgSurfacePlot(der_eval_d, title="x'(z,t)")
+    win1 = pi.surface_plot(eval_d, title="x(z,t)")
+    win2 = pi.surface_plot(der_eval_d, title="x'(z,t)")
 
     # save pics
     if save_pics:
