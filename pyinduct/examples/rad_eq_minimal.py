@@ -98,8 +98,8 @@ def run():
 
     # pyqtgraph visualization
     plots.append(pi.PgAnimatedPlot([evald_x, evald_traj], title="animation"))
-    plots.append(pi.PgSurfacePlot(evald_x, title=evald_x.name))
-    plots.append(pi.PgSurfacePlot(evald_traj, title=evald_traj.name))
+    plots.append(pi.surface_plot(evald_x, title=evald_x.name))
+    plots.append(pi.surface_plot(evald_traj, title=evald_traj.name))
     # matplotlib visualization
     plots.append(pi.MplSlicePlot(
         [evald_x, evald_traj], time_point=1,

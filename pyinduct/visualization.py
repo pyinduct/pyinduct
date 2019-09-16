@@ -8,6 +8,8 @@ data. The function :py:func:`pyinduct.simulation.simulate_system` for example
 already provide the simulation result as EvalData object.
 """
 
+import platform
+import warnings
 import numpy as np
 import time
 import os
@@ -27,13 +29,15 @@ from .core import complex_wrapper, EvalData, Domain, Function
 from .utils import create_animation, create_dir
 from .tests import show_plots
 
-__all__ = ["show", "tear_down",
+__all__ = ["show", "tear_down", "surface_plot",
            "PgAnimatedPlot", "PgSurfacePlot",
            "MplSurfacePlot", "MplSlicePlot",
            "create_colormap", "visualize_roots", "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
+
+FORCE_MPL_ON_WINDOWS = True
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -863,3 +867,32 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
         pg.QAPP.exec_()
     else:
         return pw
+
+
+def surface_plot(data, **kwargs):
+    """
+    Compatibility wrapper for PgSurfacePLot and MplSurfacePlot
+
+    Since OpenGL suffers under some problems in current windows versions,
+    the matplotlib implementation is used there.
+    """
+    pg_kwargs = ["scales", "animation_axis", "title"]
+    mpl_kwargs = ["keep_aspect", "fig_size", "zlabel"]
+    os = platform.system()
+    pg_wanted = any([arg in kwargs for arg in pg_kwargs])
+    mpl_wanted = any([arg in kwargs for arg in mpl_kwargs])
+    if pg_wanted and mpl_wanted:
+        raise ValueError("Provided kwargs are ambigous")
+    if pg_wanted:
+        if os == "Windows" and FORCE_MPL_ON_WINDOWS:
+            for arg in pg_kwargs:
+                if arg in kwargs:
+                    warnings.warn("Ignoring argument '{}'".format(arg))
+                    kwargs.pop(arg)
+            p = MplSurfacePlot(data, **kwargs)
+        else:
+            p = PgSurfacePlot(data, **kwargs)
+    else:
+        p = MplSurfacePlot(data, **kwargs)
+
+    return p
