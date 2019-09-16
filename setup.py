@@ -19,7 +19,7 @@ with open('test_requirements.txt') as f:
 
 setup(
     name='pyinduct',
-    version='0.5.0rc1',
+    version='0.5.0rc2',
     description="Toolbox for control and observer design for "
                 "infinite dimensional systems.",
     long_description=readme,

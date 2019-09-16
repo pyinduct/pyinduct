@@ -59,7 +59,7 @@ def run():
 
     # display results
     win = pi.PgAnimatedPlot(res, title="fem approx and derivative")
-    win2 = pi.PgSurfacePlot(res)
+    win2 = pi.surface_plot(res)
     pi.show()
     pi.tear_down(["fem_base"], [win, win2])
 

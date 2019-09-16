@@ -22,4 +22,4 @@ else:
     # Then force it and uncomment the respective line:
     # test_timings = False
     # test_all_examples = False
-    show_plots = False
+    # show_plots = False

@@ -112,8 +112,8 @@ def run():
                                          spat_domains)
 
     win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'))
-    win3 = pi.PgSurfacePlot(evald1, title=weak_form1.name)
-    win4 = pi.PgSurfacePlot(evald2, title=weak_form2.name)
+    win3 = pi.surface_plot(evald1, title=weak_form1.name)
+    win4 = pi.surface_plot(evald2, title=weak_form2.name)
     pi.show()
     pi.tear_down(["x1_funcs", "x2_funcs"], [win1, win3, win4])
 
