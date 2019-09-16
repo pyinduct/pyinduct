@@ -154,7 +154,6 @@ def run():
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([evald_x], time_point=1,
                                  legend_label=["$x(z,1)$"], legend_location=1))
-    plots.append(pi.MplSurfacePlot(evald_x))
     pi.show()
 
     pi.tear_down(("eig_funcs_t",

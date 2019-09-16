@@ -5,6 +5,7 @@ import time
 import os
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
+from pyinduct.visualization import PgDataPlot
 
 # matplotlib configuration
 plt.rcParams.update({'text.usetex': True})
@@ -100,7 +101,6 @@ def sort_eigenvalues(eigenvalues):
     return np.array(eig_vals)
 
 
-from pyinduct.visualization import PgDataPlot
 class SwmPgAnimatedPlot(PgDataPlot):
     """
     Animation for the string with mass example.
@@ -195,7 +195,6 @@ class SwmPgAnimatedPlot(PgDataPlot):
             self._plot_indexes.append(0)
             self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2)))
             self._pw.addItem(self._plot_data_items[-1])
-
 
         self._curr_frame = 0
         self._t = self._start_time

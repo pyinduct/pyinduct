@@ -279,9 +279,8 @@ def run():
                                     evald_xd,
                                     evald_xi_desired]))
     plots.append(pi.surface_plot(evald_xd, title=evald_xd.name))
-    plots.append(pi.surface_plot(evald_fem_x, title=evald_fem_x.name))
+    plots.append(pi.surface_plot(evald_fem_x))
     # matplotlib visualization
-    plots.append(pi.MplSurfacePlot(evald_fem_x))
     plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x],
                                  spatial_point=0,
                                  legend_label=[evald_xd.name,
