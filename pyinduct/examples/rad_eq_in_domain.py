@@ -1,10 +1,9 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
-    import numpy as np
 
+def run():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -279,10 +278,9 @@ if __name__ == "__main__" or test_examples:
                                     evald_appr_xi,
                                     evald_xd,
                                     evald_xi_desired]))
-    plots.append(pi.PgSurfacePlot(evald_xd, title=evald_xd.name))
-    plots.append(pi.PgSurfacePlot(evald_fem_x, title=evald_fem_x.name))
+    plots.append(pi.surface_plot(evald_xd, title=evald_xd.name))
+    plots.append(pi.surface_plot(evald_fem_x))
     # matplotlib visualization
-    plots.append(pi.MplSurfacePlot(evald_fem_x))
     plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x],
                                  spatial_point=0,
                                  legend_label=[evald_xd.name,
@@ -295,3 +293,7 @@ if __name__ == "__main__" or test_examples:
                   "eig_funcs_ti",
                   "fem_funcs") + base_labels,
                  plots)
+
+
+if __name__ == "__main__":
+    run()

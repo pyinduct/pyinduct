@@ -1,11 +1,10 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import scipy.integrate as si
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
-    import numpy as np
-    import scipy.integrate as si
 
+def run():
     # system/simulation parameters
     actuation_type = 'robin'
     bound_cond_type = 'robin'
@@ -17,7 +16,7 @@ if __name__ == "__main__" or test_examples:
 
     # original system parameters
     a2 = .5
-    a2_z = pi.Function.from_constant(a2)
+    a2_z = pi.ConstantFunction(a2)
     a1_z = pi.Function(lambda z: 0.1 * np.exp(4 * z),
                        derivative_handles=[lambda z: 0.4 * np.exp(4 * z)])
     a0_z = lambda z: 1 + 10 * z + 2 * np.sin(4 * np.pi / l * z)
@@ -55,12 +54,13 @@ if __name__ == "__main__" or test_examples:
                                                        init_adjoint_eig_base_t)
 
     # transformed original eigenfunctions
-    eig_base = pi.Base(np.array([pi.TransformedSecondOrderEigenfunction(
+    eig_base = pi.Base([pi.TransformedSecondOrderEigenfunction(
         eig_val_t[i],
         [eig_base_t[i](0), alpha * eig_base_t[i](0), 0, 0],
-        [a2_z, a1_z, a0_z], pi.Domain((0, l), 1e4))
+        [a2_z, a1_z, a0_z],
+        pi.Domain((0, l), 100))
         for i in range(n)]
-    ))
+    )
 
     # create testfunctions
     fem_base = pi.LagrangeFirstOrder.cure_interval(spatial_domain)
@@ -149,12 +149,11 @@ if __name__ == "__main__" or test_examples:
     plots.append(pi.PgAnimatedPlot([evald_x],
                                    title="animation",
                                    replay_gain=.25))
-    plots.append(pi.PgSurfacePlot(evald_x, title=evald_x.name))
+    plots.append(pi.surface_plot(evald_x, title=evald_x.name))
 
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([evald_x], time_point=1,
                                  legend_label=["$x(z,1)$"], legend_location=1))
-    plots.append(pi.MplSurfacePlot(evald_x))
     pi.show()
 
     pi.tear_down(("eig_funcs_t",
@@ -162,3 +161,7 @@ if __name__ == "__main__" or test_examples:
                   "eig_funcs",
                   "fem_funcs") + base_labels,
                  plots)
+
+
+if __name__ == "__main__":
+    run()

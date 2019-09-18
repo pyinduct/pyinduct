@@ -8,8 +8,9 @@ data. The function :py:func:`pyinduct.simulation.simulate_system` for example
 already provide the simulation result as EvalData object.
 """
 
+import platform
+import warnings
 import numpy as np
-from collections import Callable
 import time
 import os
 import scipy.interpolate as si
@@ -23,37 +24,53 @@ from numbers import Number
 # axes3d not explicit used but needed
 from mpl_toolkits.mplot3d import axes3d
 
+from .registry import deregister_base
 from .core import complex_wrapper, EvalData, Domain, Function
 from .utils import create_animation, create_dir
 from .tests import show_plots
 
-__all__ = ["show", "create_colormap", "PgAnimatedPlot", "PgSurfacePlot",
-           "MplSurfacePlot", "MplSlicePlot", "visualize_roots",
-           "visualize_functions"]
+__all__ = ["show", "tear_down", "surface_plot",
+           "PgAnimatedPlot", "PgSurfacePlot",
+           "MplSurfacePlot", "MplSlicePlot",
+           "create_colormap", "visualize_roots", "visualize_functions"]
 
 colors = ["g", "c", "m", "b", "y", "k", "w", "r"]
 color_map = "viridis"
+
+FORCE_MPL_ON_WINDOWS = True
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 
 
-def show(show_pg=True, show_mpl=True, force=False):
+def show(show_pg=True, show_mpl=True):
     """
     Shortcut to show all pyqtgraph and matplotlib plots / animations.
 
     Args:
         show_pg (bool): Show matplotlib plots? Default: True
         show_mpl (bool): Show pyqtgraph plots? Default: True
-        force (bool): Show plots even during unittest discover, setup
-            and so on? Default: False
     """
-    if show_plots or force:
+    if show_plots:
         if show_pg:
-            pg.QtGui.QApplication.instance().exec_()
-
+            pg.QAPP.exec_()
         if show_mpl:
             plt.show()
+
+
+def tear_down(labels, plots=None):
+    """
+    Deregister labels and delete plots.
+
+    Args:
+        labels (array-like): All labels to deregister.
+        plots (array-like): All plots to delete.
+    """
+
+    for label in labels:
+        deregister_base(label)
+
+    del plots
 
 
 def create_colormap(cnt):
@@ -61,10 +78,10 @@ def create_colormap(cnt):
     Create a colormap containing cnt values.
 
     Args:
-        cnt (int):
+        cnt (int): Number of colors in the map.
 
     Return:
-        Colormap ...
+        List of `QColor` instances.
     """
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
@@ -188,35 +205,41 @@ class PgAnimatedPlot(PgDataPlot):
     """
     Wrapper that shows an updating one dimensional plot of n-curves discretized
     in t time steps and z spatial steps. It is assumed that time propagates
-    along axis0 and and location along axis1 of values. Values are therefore
+    along axis 0 and and location along axis 1 of values. Values are therefore
     expected to be a array of shape (n, t, z).
 
     Args:
         data ((iterable of) :py:class:`.EvalData`): results to animate
-        title (basestring): window title
-        refresh_time (int): time in msec to refresh the window must be greater
+        title (basestring): Window title.
+        refresh_time (int): Time in msec to refresh the window must be greater
             than zero
-        replay_gain (float): values above 1 acc- and below 1 decelerate the
+        replay_gain (float): Values above 1 acc- and below 1 decelerate the
             playback process, must be greater than zero
-        save_pics (bool):
-        labels: ??
+        save_pics (bool): Export snapshots for animation purposes.
+        labels (dict): Axis labels for the plot that are passed to
+            :py:class:`pyqtgraph.PlotItem` .
 
-    Return:
     """
 
     _res_path = "animation_output"
 
-    def __init__(self, data, title="", refresh_time=40, replay_gain=1, save_pics=False, create_video=False,
-                 labels=None):
+    def __init__(self, data, title="", refresh_time=40, replay_gain=1,
+                 save_pics=False, create_video=False, labels=None):
         PgDataPlot.__init__(self, data)
 
-        self.time_data = [np.atleast_1d(data_set.input_data[0]) for data_set in self._data]
-        self.spatial_data = [np.atleast_1d(data_set.input_data[1]) for data_set in self._data]
+        self.time_data = [np.atleast_1d(data_set.input_data[0])
+                          for data_set in self._data]
+        self.spatial_data = [np.atleast_1d(data_set.input_data[1])
+                             for data_set in self._data]
         self.state_data = [data_set.output_data for data_set in self._data]
 
         self._time_stamp = time.strftime("%H:%M:%S")
 
-        self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
+        self._pw = pg.plot(title="-".join([self._time_stamp,
+                                           title,
+                                           "at",
+                                           str(replay_gain)]),
+                           labels=labels)
         self._pw.addLegend()
         self._pw.showGrid(x=True, y=True, alpha=0.5)
 
@@ -747,7 +770,7 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
         return_window (bool): If True the graphics window is not shown directly.
             In this case, a reference to the plot window is returned.
 
-    Returns: A PgPlotWindow if *delay_exec* is True.
+    Returns: A PgPlotWindow if `delay_exec` is True.
     """
     if roots is not None:
         roots = np.atleast_1d(roots)
@@ -844,3 +867,34 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
         pg.QAPP.exec_()
     else:
         return pw
+
+
+def surface_plot(data, **kwargs):
+    """
+    Compatibility wrapper for PgSurfacePLot and MplSurfacePlot
+
+    Since OpenGL suffers under some problems in current windows versions,
+    the matplotlib implementation is used there.
+    """
+    pg_kwargs = ["scales", "animation_axis", "title"]
+    mpl_kwargs = ["keep_aspect", "fig_size", "zlabel"]
+    os = platform.system()
+    pg_wanted = any([arg in kwargs for arg in pg_kwargs])
+    mpl_wanted = any([arg in kwargs for arg in mpl_kwargs])
+    if pg_wanted and mpl_wanted:
+        raise ValueError("Provided kwargs are ambigous")
+    if pg_wanted:
+        if os == "Windows" and FORCE_MPL_ON_WINDOWS:
+            warnings.warn("Compatibility wrapper: Enforcing use of "
+                          "MplSurfacePlot")
+            for arg in pg_kwargs:
+                if arg in kwargs:
+                    warnings.warn("Ignoring argument '{}'".format(arg))
+                    kwargs.pop(arg)
+            p = MplSurfacePlot(data, **kwargs)
+        else:
+            p = PgSurfacePlot(data, **kwargs)
+    else:
+        p = MplSurfacePlot(data, **kwargs)
+
+    return p

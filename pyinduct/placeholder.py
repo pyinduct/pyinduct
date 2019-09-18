@@ -11,12 +11,13 @@ import warnings
 
 import numpy as np
 
-from .core import sanitize_input, Base, Function
+from .core import sanitize_input, Base, Function, ConstantFunction
 from .registry import register_base, get_base, is_registered
 
 __all__ = ["Scalars", "ScalarFunction", "TestFunction", "FieldVariable",
            "Input", "ObserverGain",
-           "Product", "ScalarTerm", "IntegralTerm",
+           "Product",
+           "ScalarTerm", "IntegralTerm", "ScalarProductTerm",
            "Placeholder"]
 
 
@@ -197,7 +198,7 @@ class ScalarFunction(SpatialPlaceholder):
         over = kwargs.pop("overwrite", False)
 
         if isinstance(scalar, Number):
-            f = Function.from_constant(scalar, **kwargs)
+            f = ConstantFunction(scalar, **kwargs)
         elif isinstance(scalar, Function):
             f = scalar
         elif isinstance(scalar, collections.Callable):
@@ -304,17 +305,14 @@ class FieldVariable(Placeholder):
         Assuming some shapefunctions have been registered under the label
         ``"phi"`` the following expressions hold:
 
-        - :math:`\frac{\partial^{2}}{\partial t \partial z}x(z, t)`
+        - :math:`\frac{\partial^{3}}{\partial t \partial z^2}x(z, t)`
 
-        >>> x_dtdz = FieldVariable("phi", order=(1, 1))
+        >>> x_dt_dzz = FieldVariable("phi", order=(1, 2))
 
         - :math:`\frac{\partial^2}{\partial t^2}x(3, t)`
 
-        >>> x_ddt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
+        >>> x_dtt_at_3 = FieldVariable("phi", order=(2, 0), location=3)
 
-        - :math:`\frac{\partial}{\partial t}x^2(z, t)`
-
-        >>> x_dt_squared = FieldVariable("phi", order=(1, 0), exponent=2)
     """
 
     def __init__(self, function_label, order=(0, 0),
@@ -601,6 +599,23 @@ class IntegralTerm(EquationTerm):
         self.limits = limits
 
 
+class ScalarProductTerm(EquationTerm):
+    """
+    Class that represents a scalar product in a weak equation.
+
+    Args:
+        arg1: Fieldvariable (Shapefunctions) to be projected.
+        arg2: Testfunctions to project on.
+        scale (Number): Scaling of expression.
+    """
+
+    def __init__(self, arg1, arg2,  scale=1.0):
+        if not any([isinstance(arg, (FieldVariable, TestFunction))
+                    for arg in (arg2, arg2)]):
+            raise ValueError("nothing to integrate")
+        EquationTerm.__init__(self, scale, (arg1, arg2))
+
+
 def _evaluate_placeholder(placeholder):
     """
     Evaluates a placeholder object and returns a Scalars object.
@@ -625,6 +640,18 @@ def _evaluate_placeholder(placeholder):
 
     values = np.atleast_2d([frac.raise_to(exponent)(location)
                             for frac in fractions])
+    # TODO full 2d output should be taken care of here but not all information
+    # is present for that
+    if values.shape[0] > 1 and values.shape[1] > 1 and False:
+        print("INFO: 2d input detected, probably some composed input "
+              "was used!")
+        zero_cnt = np.array([sum((row != 0).astype(int)) for row in values])
+        if any(zero_cnt > 1):
+            raise ValueError(
+                    "Invalid input detected when processing fractions: {} {}"
+                    "".format(fractions, zero_cnt))
+        print("WARNING: Summing up dimensions")
+        values = np.sum(values, axis=1, keepdims=True).T
 
     if isinstance(placeholder, FieldVariable):
         return Scalars(values,

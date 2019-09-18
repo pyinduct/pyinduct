@@ -1,10 +1,9 @@
-from pyinduct.tests import test_examples
+import numpy as np
+import pyinduct as pi
+import pyinduct.parabolic as parabolic
 
-if __name__ == "__main__" or test_examples:
-    import numpy as np
-    import pyinduct as pi
-    import pyinduct.parabolic as parabolic
 
+def run():
     n_fem = 17
     T = 1
     l = 1
@@ -136,8 +135,8 @@ if __name__ == "__main__" or test_examples:
                              labels=dict(left='x\'(z,t)', bottom='z'),
                              save_pics=save_pics))
 
-    win1 = pi.PgSurfacePlot(eval_d, title="x(z,t)")
-    win2 = pi.PgSurfacePlot(der_eval_d, title="x'(z,t)")
+    win1 = pi.surface_plot(eval_d, title="x(z,t)")
+    win2 = pi.surface_plot(der_eval_d, title="x'(z,t)")
 
     # save pics
     if save_pics:
@@ -147,3 +146,7 @@ if __name__ == "__main__" or test_examples:
     pi.show()
 
     pi.tear_down(("act_base", "sim_base", "vis_base"), plots + [win1, win2])
+
+
+if __name__ == "__main__":
+    run()

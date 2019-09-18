@@ -188,7 +188,7 @@ def get_parabolic_robin_backstepping_controller(state,
             to scale the control law: :math:`u(t) = c \, (Kx)(t)`.
 
     Returns:
-        :py:class:`.Controller`: :math:`(Kx)(t)`
+        :py:class:`.StateFeedback`: :math:`(Kx)(t)`
 
     .. [WoiEtAl17] Frank Woittennek, Marcus Riesmeier and Stefan Ecklebe;
               On approximation and implementation of transformation based

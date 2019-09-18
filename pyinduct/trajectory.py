@@ -223,7 +223,7 @@ def gevrey_tanh(T, n, sigma=1.1, K=2, length_t=None):
 
 def coefficient_recursion(c0, c1, param):
     r"""
-    Return to the recursion
+    Return the recursion
 
     .. math:: c_k(t) = \frac{ \dot c_{k-2}(t) - a_1 c_{k-1}(t)
         - a_0 c_{k-2}(t) }{ a_2 }
@@ -231,18 +231,18 @@ def coefficient_recursion(c0, c1, param):
     with initial values
 
     .. math::
-        c_0 = numpy.array([c_0^{(0)}, ... , c_0^{(N)}]) \\
-        c_1 = numpy.array([c_1^{(0)}, ... , c_1^{(N)}])
+        c_0 = \texttt{numpy.array}([c_0^{(0)}, ... , c_0^{(N)}]) \\
+        c_1 = \texttt{numpy.array}([c_1^{(0)}, ... , c_1^{(N)}])
 
-    as much as computable subsequent coefficients
+    with as much computable subsequent coefficients as possible
 
     .. math::
 
-        c_2 = numpy.array&([c_2^{(0)}, ... , c_2^{(N-1)}])   \\
-        c_3 = numpy.array&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\
+        c_2 = \texttt{numpy.array}&([c_2^{(0)}, ... , c_2^{(N-1)}])   \\
+        c_3 = \texttt{numpy.array}&([c_3^{(0)}, ... , c_3^{(N-1)}])   \\
         &\vdots                                          \\
-        c_{2N-1} = numpy.array&([c_{2N-1}^{(0)}])                \\
-        c_{2N} = numpy.array&([c_{2N}^{(0)}]).
+        c_{2N-1} = \texttt{numpy.array}&([c_{2N-1}^{(0)}])                \\
+        c_{2N} = \texttt{numpy.array}&([c_{2N}^{(0)}]).
 
     Only constant parameters :math:`a_2, a_1, a_0 \in \mathbb R` supported.
 

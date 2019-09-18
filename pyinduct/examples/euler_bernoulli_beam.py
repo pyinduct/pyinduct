@@ -3,8 +3,10 @@ This example simulates an euler-bernoulli beam, please refer to the
 documentation for an exhaustive explanation.
 """
 
+import numpy as np
+import sympy as sp
 import pyinduct as pi
-from pyinduct.tests import test_examples
+from matplotlib import pyplot as plt
 
 
 class ImpulseExcitation(pi.SimulationInput):
@@ -106,7 +108,8 @@ def run():
     sys_name = 'euler bernoulli beam'
 
     # domains
-    spat_domain = pi.Domain(bounds=(0, 1), num=101)
+    spat_bounds = (0, 1)
+    spat_domain = pi.Domain(bounds=spat_bounds, num=101)
     temp_domain = pi.Domain(bounds=(0, 10), num=1000)
 
     if 0:
@@ -140,35 +143,29 @@ def run():
     phi = pi.TestFunction(approx_lbl)
 
     weak_form = pi.WeakFormulation([
-        pi.ScalarTerm(pi.Product(pi.Input(u),
-                                 phi(1)), scale=EI),
-        pi.ScalarTerm(pi.Product(x.derive(spat_order=3)(0),
-                                 phi(0)), scale=-EI),
-
-        pi.ScalarTerm(pi.Product(x.derive(spat_order=2)(0),
-                                 phi.derive(1)(0)), scale=EI),
-
-        pi.ScalarTerm(pi.Product(x.derive(spat_order=1)(1),
-                                 phi.derive(2)(1)), scale=EI),
-
-        pi.ScalarTerm(pi.Product(x(1),
-                                 phi.derive(3)(1)), scale=-EI),
-
-        pi.IntegralTerm(pi.Product(x,
-                                   phi.derive(4)),
-                        spat_domain.bounds,
+        pi.ScalarTerm(pi.Product(pi.Input(u), phi(1)), scale=EI),
+        pi.ScalarTerm(pi.Product(x.derive(spat_order=3)(0), phi(0)),
+                      scale=-EI),
+        pi.ScalarTerm(pi.Product(x.derive(spat_order=2)(0), phi.derive(1)(0)),
+                      scale=EI),
+        pi.ScalarTerm(pi.Product(x.derive(spat_order=1)(1), phi.derive(2)(1)),
+                      scale=EI),
+        pi.ScalarTerm(pi.Product(x(1), phi.derive(3)(1)),
+                      scale=-EI),
+        pi.IntegralTerm(pi.Product(x, phi.derive(4)),
+                        spat_bounds,
                         scale=EI),
         pi.IntegralTerm(pi.Product(x.derive(temp_order=2), phi),
-                        spat_domain.bounds,
+                        spat_bounds,
                         scale=mu),
     ], name=sys_name)
 
-    # simulation
-
-    init_form = pi.Function.from_constant(0)
-    init_form_dt = pi.Function.from_constant(0)
+    # initial conditions
+    init_form = pi.ConstantFunction(0, domain=spat_bounds)
+    init_form_dt = pi.ConstantFunction(0, domain=spat_bounds)
     initial_conditions = [init_form, init_form_dt]
 
+    # simulation
     with np.errstate(under="ignore"):
         eval_data = pi.simulate_system(weak_form,
                                        initial_conditions,
@@ -182,20 +179,14 @@ def run():
 
     # visualization
 
-    # input trajectory
+    # recover the input trajectory
     u_data = u.get_results(eval_data[0].input_data[0], as_eval_data=True)
     plt.plot(u_data.input_data[0], u_data.output_data)
 
     win1 = pi.PgAnimatedPlot(eval_data, labels=dict(left='x(z,t)', bottom='z'))
     pi.show()
-
-    pi.tear_down((approx_lbl,),
-                 (win1, ))
+    pi.tear_down([approx_lbl], win1)
 
 
-if __name__ == "__main__" or test_examples:
-    import numpy as np
-    import sympy as sp
-    from matplotlib import pyplot as plt
-
+if __name__ == "__main__":
     run()

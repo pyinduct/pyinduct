@@ -10,9 +10,6 @@ language: python
 # Need to use python 3.7 (date: 20190707)
 dist: xenial
 
-# Maybe not needed, try it if you are interested
-sudo: true
-
 # Start x virtual framebuffer for gui
 services:
   - xvfb
@@ -38,7 +35,6 @@ matrix:
   # dont take care of anaconda or older python versions
   allow_failures:
   - env: DIST=anaconda
-  - python: 3.5
 
   # dont test latest python version with anaconda
   exclude:
@@ -74,6 +70,6 @@ script:
   - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
 
 after_success:
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" && "$DIST" == "pypi" ]]; then
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.7" && "$DIST" == "pypi" ]]; then
       codecov;
     fi

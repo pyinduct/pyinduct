@@ -1,5 +1,5 @@
 r"""
-Implementation of the approximation scheme presented in [RW2018]_.
+Implementation of the approximation scheme presented in [RW2018b]_.
 The system
 
 .. math::
@@ -26,7 +26,7 @@ and the observer
 are approximated with :py:class:`.LagrangeFirstOrder` (FEM) shapefunctions
 and the backstepping controller and observer are approximated with
 the eigenfunctions respectively the adjoint eigenfunction of the system
-operator, see [RW2018]_.
+operator, see [RW2018b]_.
 
 Note:
     For now, only :code:`a0 = 0` and :code:`a0_t_o = 0` are supported, because
@@ -35,19 +35,16 @@ Note:
 
 References:
 
-    .. [RW2018] Marcus Riesmeier and Frank Woittennek;
+    .. [RW2018b] Marcus Riesmeier and Frank Woittennek;
           On approximation of backstepping observers for parabolic systems with
           robin boundary conditions; In: Proceedings of the 57th IEEE,
           International Conference on Decision and Control (CDC), Miami,
           Florida, USA, December 17-19, 2018.
 """
 import numpy as np
-import matplotlib.pyplot as plt
 
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
-from pyinduct.simulation import get_sim_result
-from pyinduct.tests import test_examples
 
 
 def approximate_observer(obs_params, sys_params, sys_domain, sys_lbl,
@@ -119,7 +116,7 @@ class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
             _param, l, n_roots, show_plot=show_plot)
 
 
-def main():
+def run():
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -131,7 +128,7 @@ def main():
     spat_bounds = (0, z_end)
     spatial_domain = pi.Domain(bounds=(0, z_end), num=n_fem)
     trans_time = 1
-    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2e3)
+    temporal_domain = pi.Domain(bounds=(0, 1.5), num=2000)
     actuation_type = 'robin'
     bound_cond_type = 'robin'
     n = n_modal
@@ -319,13 +316,14 @@ def main():
     plots.append(pi.PgAnimatedPlot(
         [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
     # matplotlib visualization
+    import matplotlib.pyplot as plt
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
-                                 legend_label=["$x(0,t)$",
-                                               "$\hat x(0,t)$"]))
+                                 legend_label=[r"$x(0,t)$",
+                                               r"$\hat x(0,t)$"]))
     plt.legend(loc=4)
     plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=1,
-                                 legend_label=["$x(1,t)$",
-                                               "$\hat x(1,t)$"]))
+                                 legend_label=[r"$x(1,t)$",
+                                               r"$\hat x(1,t)$"]))
     plt.legend(loc=1)
     pi.show()
 
@@ -335,7 +333,7 @@ def main():
                  plots)
 
 
-if __name__ == "__main__" or test_examples:
-    main()
+if __name__ == "__main__":
+    run()
 
 

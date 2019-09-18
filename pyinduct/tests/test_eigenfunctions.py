@@ -447,9 +447,9 @@ class TestSecondOrderEigenvalueProblemFunctions(unittest.TestCase):
 
     def spatially_varying_coefficient(self, boundary_check):
         a2, a1, a0, _, _ = self.param
-        a2_z = pi.Function.from_constant(a2)
-        a1_z = pi.Function.from_constant(a1)
-        a0_z = pi.Function.from_constant(a0)
+        a2_z = pi.ConstantFunction(a2)
+        a1_z = pi.ConstantFunction(a1)
+        a0_z = pi.ConstantFunction(a0)
 
         transformed_eig_funcs = [pi.TransformedSecondOrderEigenfunction(
             self.eig_val[i],

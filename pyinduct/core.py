@@ -16,16 +16,14 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, RegularGr
 
 from .registry import get_base
 
-__all__ = ["Domain", "EvalData", "Parameters",
-           "find_roots", "sanitize_input", "real",
-           "Base", "BaseFraction", "StackedBase",
-           "Function", "ComposedFunctionVector",
-           "normalize_base",
-           "project_on_base", "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix", "calculate_base_transformation_matrix",
+__all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
+           "real", "Base", "BaseFraction", "StackedBase", "Function",
+           "ComposedFunctionVector", "normalize_base", "project_on_base",
+           "change_projection_base", "back_project_from_base",
+           "calculate_scalar_product_matrix", "dot_product_l2",
+           "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
-           "vectorize_scalar_product",
-           "generic_scalar_product"]
+           "dot_product_l2", "ConstantFunction"]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -41,7 +39,7 @@ def sanitize_input(input_object, allowed_type):
     """
     input_object = np.atleast_1d(input_object)
     for obj in np.nditer(input_object, flags=["refs_ok"]):
-        if not isinstance(np.asscalar(obj), allowed_type):
+        if not isinstance(obj.item(), allowed_type):
             raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
 
     return input_object
@@ -135,6 +133,36 @@ class BaseFraction:
         """
         raise NotImplementedError("This is an empty function."
                                   " Overwrite it in your implementation to use this functionality.")
+
+    def __call__(self, *args, **kwargs):
+        """
+        Spatial evaluation of the base fraction.
+
+        Args:
+            *args: Positional arguments.
+            **kwargs: Keyword arguments.
+
+        Returns:
+
+        """
+        raise NotImplementedError("This is an empty function."
+                                  " Overwrite it in your implementation to use this functionality.")
+
+    def add_neutral_element(self):
+        """
+        Return the neutral element of addition for this object.
+
+        In other words: `self + ret_val == self`.
+        """
+        raise NotImplementedError()
+
+    def mul_neutral_element(self):
+        """
+        Return the neutral element of multiplication for this object.
+
+        In other words: `self * ret_val == self`.
+        """
+        raise NotImplementedError()
 
 
 class Function(BaseFraction):
@@ -440,32 +468,6 @@ class Function(BaseFraction):
         return self.scalar_product_hint(), self.domain
 
     @staticmethod
-    def from_constant(constant, **kwargs):
-        """
-        Create a :py:class:`.Function` that returns a constant value.
-
-        Args:
-            constant (number): value to return
-            **kwargs: all kwargs get passed to :py:class:`.Function`
-
-        Returns:
-            :py:class:`.Function`: A constant function
-        """
-        def f(z):
-            return constant
-
-        def f_dz(z):
-            return 0
-
-        if "eval_handle" in kwargs:
-            raise ValueError("'eval_handle' must not be provided")
-        if "derivative_handles" in kwargs:
-            raise ValueError("'derivative_handles' must not be provided")
-
-        func = Function(eval_handle=f, derivative_handles=[f_dz], **kwargs)
-        return func
-
-    @staticmethod
     def from_data(x, y, **kwargs):
         """
         Create a :py:class:`.Function` based on discrete data by
@@ -502,6 +504,76 @@ class Function(BaseFraction):
 
         return func
 
+    def add_neutral_element(self):
+        return ConstantFunction(0, domain=self.domain)
+
+    def mul_neutral_element(self):
+        return ConstantFunction(1, domain=self.domain)
+
+
+class ConstantFunction(Function):
+    """
+    A :py:class:`.Function` that returns a constant value.
+
+    This function can be differentiated without limits.
+
+    Args:
+        constant (number): value to return
+
+    Keyword Args:
+        **kwargs: All other kwargs get passed to :py:class:`.Function`.
+
+    """
+
+    def __init__(self, constant, **kwargs):
+        self._constant = constant
+
+        func_kwargs = dict(eval_handle=self._constant_function_handle)
+        if "nonzero" in kwargs:
+            if constant == 0:
+                if kwargs["nonzero"] != set():
+                    raise ValueError("Constant Function with constant 0 must have an"
+                                     " empty set nonzero area.")
+            if "domain" in kwargs:
+                if kwargs["nonzero"] != kwargs["domain"]:
+                    raise ValueError(
+                        "Constant Function is expected to be constant on the complete "
+                        "domain. Nonzero argument is prohibited")
+            else:
+                func_kwargs["domain"] = kwargs["nonzero"]
+            func_kwargs["nonzero"] = kwargs["nonzero"]
+        else:
+            if "domain" in kwargs:
+                func_kwargs["domain"] = kwargs["domain"]
+                func_kwargs["nonzero"] = kwargs["domain"]
+            if constant == 0:
+                func_kwargs["nonzero"] = set()
+
+        if "derivative_handles" in kwargs:
+            warnings.warn(
+                "Derivative handles passed to ConstantFunction are discarded")
+
+        super().__init__( **func_kwargs)
+
+    def _constant_function_handle(self, z):
+        return self._constant * np.ones_like(z)
+
+    def derive(self, order=1):
+        if not isinstance(order, int):
+            raise TypeError("only integer allowed as derivation order")
+
+        if order == 0:
+            return self
+
+        if order < 0:
+            raise ValueError("only derivative order >= 0 supported")
+
+        zero_func = deepcopy(self)
+        zero_func._constant = 0
+        zero_func.nonzero = set()
+
+        return zero_func
+
 
 class ComposedFunctionVector(BaseFraction):
     r"""
@@ -524,6 +596,17 @@ class ComposedFunctionVector(BaseFraction):
 
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
+    def __call__(self, arguments):
+        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]]).T
+        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
+        if f_res.shape[1] > 1:
+            s_res = np.broadcast_to(s_res.T, f_res.shape)
+            res = np.hstack((f_res, s_res))
+        else:
+            res = np.vstack((f_res, s_res))
+        res = res.squeeze()
+        return res
+
     def scalar_product_hint(self):
         func_hints = [f.scalar_product_hint() for f in self.members["funcs"]]
         scalar_hints = [dot_product for s in self.members["scalars"]]
@@ -534,7 +617,8 @@ class ComposedFunctionVector(BaseFraction):
         Return the hint that this function is an element of the
         an scalar product space which is uniquely defined by
 
-            * the scalar product :py:meth:`.scalar_product`
+            * the scalar product
+              :py:meth:`.ComposedFunctionVector.scalar_product`
             * :code:`len(self.members["funcs"])` functions
             * and :code:`len(self.members["scalars"])` scalars.
         """
@@ -551,13 +635,136 @@ class ComposedFunctionVector(BaseFraction):
             raise ValueError("wrong index")
 
     def scale(self, factor):
-        return self.__class__(
-            np.array([func.scale(factor) for func in self.members["funcs"]]),
-            np.array([scal * factor for scal in self.members["scalars"]])
-        )
+        if isinstance(factor, ComposedFunctionVector):
+            if not len(self.members["funcs"]) == len(factor.members["funcs"]):
+                raise ValueError
+
+            if not len(self.members["scalars"]) == len(factor.members["scalars"]):
+                raise ValueError
+
+            return self.__class__(np.array(
+                [func.scale(scale) for func, scale in
+                 zip(self.members["funcs"], factor.members["funcs"])]),
+                [scalar * scale for scalar, scale in
+                 zip(self.members["scalars"], factor.members["scalars"])],
+            )
+
+        elif isinstance(factor, Number):
+            return self.__class__(
+                np.array([func.scale(factor) for func in self.members["funcs"]]),
+                np.array([scal * factor for scal in self.members["scalars"]])
+            )
+
+        else:
+            raise TypeError("ComposedFunctionVector can only be scaled with "
+                            "compatible ComposedFunctionVector of with a"
+                            "constant scalar")
+
+    def mul_neutral_element(self):
+        """
+        Create neutral element of multiplication that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 1 and
+            scalars of value 1.
+
+        """
+        funcs = [f.mul_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [1 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
+
+    def add_neutral_element(self):
+        """
+        Create neutral element of addition that is compatible to this
+        object.
+
+        Returns: Comp. Function Vector with constant functions returning 0 and
+            scalars of value 0.
+
+        """
+        funcs = [f.add_neutral_element() for f in self.members["funcs"]]
+        scalar_constants = [0 for f in self.members["scalars"]]
+        neut = ComposedFunctionVector(funcs, scalar_constants)
+        return neut
 
 
-class Base:
+class ConstantComposedFunctionVector(ComposedFunctionVector):
+    r"""
+    Constant composite function vector :math:`\boldsymbol{x}`.
+
+    .. math::
+        \boldsymbol{x} = \begin{pmatrix}
+            z \mapsto x_1(z) = c_1 \\
+            \vdots \\
+            z \mapsto x_n(z) = c_n \\
+            d_1 \\
+            \vdots \\
+            c_n \\
+        \end{pmatrix}
+
+
+    Args:
+        func_constants (array-like): Constants for the functions.
+        scalar_constants (array-like): The scalar constants.
+        **func_kwargs: Keyword args that are passed to the ConstantFunction.
+    """
+
+    def __init__(self, func_constants, scalar_constants, **func_kwargs):
+        func_constants = sanitize_input(func_constants, Number)
+        scalars = sanitize_input(scalar_constants, Number)
+
+        funcs = [ConstantFunction(c, **func_kwargs) for c in func_constants]
+        super().__init__(funcs, scalars)
+
+
+class ApproximationBasis:
+    """
+    Base class for an approximation basis.
+
+    An approximation basis is formed by some objects on which given distributed
+    variables may be projected.
+    """
+    def scalar_product_hint(self):
+        """
+        Hint that returns steps for scalar product calculation with elements of
+        this base.
+
+        Note:
+            Overwrite to implement custom functionality.
+        """
+        raise NotImplementedError()
+
+    def function_space_hint(self):
+        """
+        Hint that returns properties that characterize the functional
+        space of the fractions.
+        It can be used to determine if function spaces match.
+
+        Note:
+            Overwrite to implement custom functionality.
+        """
+        raise NotImplementedError()
+
+    def is_compatible_to(self, other):
+        """
+        Helper functions that checks compatibility between two approximation
+        bases.
+
+        In this case compatibility is given if the two bases live in the same
+        function space.
+
+        Args:
+             other (:py:class:`.Approximation Base`): Approximation basis to
+                compare with.
+
+        Returns: True if bases match, False if they do not.
+
+        """
+        return self.function_space_hint() == other.function_space_hint()
+
+
+class Base(ApproximationBasis):
     """
     Base class for approximation bases.
 
@@ -630,22 +837,6 @@ class Base:
 
         return handle
 
-    def is_compatible_to(self, other):
-        """
-        Check if the function spaces of the bases are compatible.
-
-        For now this is done by equating the function spaces of the bases.
-
-        Args:
-            other(pi.Base): Base to check compatibility for.
-
-        Returns:
-            bool: True if bases are compatible.
-        """
-        own_space = self.function_space_hint()
-        other_space = other.function_space_hint()
-        return own_space == other_space
-
     def transformation_hint(self, info):
         """
         Method that provides a information about how to transform weights from
@@ -686,11 +877,9 @@ class Base:
         if match_cond_src or match_cond_dst:
             # bases are a match
             if len(info.dst_base) != len(info.src_base):
-                raise ValueError(
-                    f"Base '{info.src_lbl}' (length {len(info.src_base)}) can "
-                    f"not be a matching base of '{info.dst_lbl}' (length "
-                    f"{len(info.dst_base)}), since the they have different "
-                    f"lengths.")
+                msg = "Base length mismatch: len({})={} != len({})={}"
+                raise ValueError(msg.format(info.src_lbl, len(info.src_base),
+                                            info.dst_lbl, len(info.dst_base)))
 
             if info.src_order >= info.dst_order:
                 # forward weights
@@ -812,7 +1001,7 @@ class Base:
         if power == 1:
             return self
         else:
-            return self.__class__([f.raise_to(power) for f in self.fractions])
+            raise ValueError("This funcionality is deprecated.")
 
     def get_attribute(self, attr):
         """
@@ -829,7 +1018,7 @@ class Base:
         return np.array([getattr(frac, attr, None) for frac in self.fractions])
 
 
-class StackedBase:
+class StackedBase(ApproximationBasis):
     """
     Implementation of a basis vector that is obtained by stacking different
     bases onto each other. This typically occurs when the bases of coupled
@@ -841,8 +1030,9 @@ class StackedBase:
             In detail, these Information must contain:
 
                 - sys_name (str): Name of the system the base is associated with.
-                - order (int): Highest temporal derivative order with which the base shall be represented in the stacked base.
-                - base (:py:class:`.Base`): The actual basis.
+                - order (int): Highest temporal derivative order with which the
+                    base shall be represented in the stacked base.
+                - base (:py:class:`.ApproximationBase`): The actual basis.
     """
 
     def __init__(self, base_info):
@@ -871,24 +1061,17 @@ class StackedBase:
         self._size = self._cum_frac_idxs.pop(-1)
         self._weight_size = self._cum_weight_idxs.pop(-1)
 
-    def __len__(self):
-        return self._size
-
-    def __getitem__(self, item):
-        return self.fractions[item]
-
-    def is_compatible_to(self, other):
-        return self.function_space_hint() == other.function_space_hint()
-
     def scalar_product_hint(self):
         return NotImplemented
 
     def function_space_hint(self):
-        return [b.function_space_hint() for b in self._bases]
+        return hash(self)
+
+    def is_compatible_to(self, other):
+        return False
 
     def scale(self, factor):
-        return self.__class__({lbl: func.scale(factor)
-                               for lbl, func in self.members})
+        raise NotImplementedError("Stacked base should not be scaled.")
 
     def transformation_hint(self, info):
         """
@@ -1138,8 +1321,8 @@ def dot_product_l2(first, second):
     calculates
 
     .. math::
-        \left< \varphi(z) | \psi(z) \right|_{L2} =
-            \int\limits_{Gamma_0}^{Gamma_1}
+        \left< \varphi(z) | \psi(z) \right> =
+            \int\limits_{\Gamma_0}^{\Gamma_1}
             \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
@@ -1269,8 +1452,8 @@ def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
     :math:`a_{ij} = \langle \mathrm{a}_i\,,\: \mathrm{b}_j\rangle`.
 
     Args:
-        base_a (:py:class:`.Base`): Basis a
-        base_b (:py:class:`.Base`): Basis b
+        base_a (:py:class:`.ApproximationBase`): Basis a
+        base_b (:py:class:`.ApproximationBase`): Basis b
         scalar_product: (List of) function objects that are passed the members
             of the given bases as pairs. Defaults to the scalar product given by
             `base_a`
@@ -1325,15 +1508,13 @@ def project_on_base(state, base):
 
     Args:
         state (array_like): List of functions to approximate.
-        base (:py:class:`.Base`): Basis to project onto.
+        base (:py:class:`.ApproximationBase`): Basis to project onto.
 
     Return:
         numpy.ndarray: Weight vector in the given *base*
     """
-    if not isinstance(base, Base):
-        raise TypeError("Only pyinduct.core.Base accepted as base")
-
-    scalar_product = base.scalar_product_hint()
+    if not isinstance(base, ApproximationBasis):
+        raise TypeError("Projection only possible on approximation bases.")
 
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(base.__class__(state),
@@ -1377,7 +1558,7 @@ def back_project_from_base(weights, base):
 
     Args:
         weights (numpy.ndarray): Weight vector.
-        base (:py:class:`.Base`): Base to be used for the projection.
+        base (:py:class:`.ApproximationBase`): Base to be used for the projection.
 
     Return:
         evaluation handle
@@ -1403,8 +1584,8 @@ def change_projection_base(src_weights, src_base, dst_base):
 
     Args:
         src_weights (numpy.ndarray): Vector of numbers.
-        src_base (:py:class:`.Base`): The source Basis.
-        dst_base (:py:class:`.Base`): The destination Basis.
+        src_base (:py:class:`.ApproximationBase`): The source Basis.
+        dst_base (:py:class:`.ApproximationBase`): The destination Basis.
 
     Return:
         :obj:`numpy.ndarray`: target weights
@@ -1599,8 +1780,8 @@ def calculate_expanded_base_transformation_matrix(src_base, dst_base,
         :py:func:`.calculate_base_transformation_matrix` for further details.
 
     Args:
-        dst_base (:py:class:`.Base`): New projection base.
-        src_base (:py:class:`.Base`): Current projection base.
+        dst_base (:py:class:`.ApproximationBase`): New projection base.
+        src_base (:py:class:`.ApproximationBase`): Current projection base.
         src_order: Temporal derivative order available in *src_base*.
         dst_order: Temporal derivative order needed in *dst_base*.
         use_eye (bool): Use identity as base transformation matrix.
@@ -1653,8 +1834,8 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
             :py:func:`.scalar_product_hint` method.
 
     Args:
-        src_base (:py:class:`.Base`): Current projection base.
-        dst_base (:py:class:`.Base`): New projection base.
+        src_base (:py:class:`.ApproximationBase`): Current projection base.
+        dst_base (:py:class:`.ApproximationBase`): New projection base.
         scalar_product (list of callable): Callbacks for product calculation.
             Defaults to `scalar_product_hint` from `src_base`.
 
@@ -1676,7 +1857,7 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
 
 def normalize_base(b1, b2=None):
     r"""
-    Takes two :py:class:`.Base`'s :math:`\boldsymbol{b}_1` ,
+    Takes two :py:class:`.ApproximationBase`'s :math:`\boldsymbol{b}_1` ,
     :math:`\boldsymbol{b}_1` and normalizes them so that
     :math:`\langle\boldsymbol{b}_{1i}\,
     ,\:\boldsymbol{b}_{2i}\rangle = 1`.
@@ -1684,16 +1865,16 @@ def normalize_base(b1, b2=None):
     defaults to :math:`\boldsymbol{b}_1`.
 
     Args:
-        b1 (:py:class:`.Base`): :math:`\boldsymbol{b}_1`
-        b2 (:py:class:`.Base`): :math:`\boldsymbol{b}_2`
+        b1 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_1`
+        b2 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_2`
 
     Raises:
         ValueError: If :math:`\boldsymbol{b}_1`
             and :math:`\boldsymbol{b}_2` are orthogonal.
 
     Return:
-        :py:class:`.Base` : if *b2* is None,
-        otherwise: Tuple of 2 :py:class:`.Base`'s.
+        :py:class:`.ApproximationBase` : if *b2* is None,
+        otherwise: Tuple of 2 :py:class:`.ApproximationBase`'s.
     """
     auto_normalization = False
     if b2 is None:
@@ -1726,11 +1907,11 @@ def normalize_base(b1, b2=None):
 def generic_scalar_product(b1, b2=None, scalar_product=None):
     """
     Calculates the pairwise scalar product between the elements
-    of the :py:class:`.Base` *b1* and *b2*.
+    of the :py:class:`.ApproximationBase` *b1* and *b2*.
 
     Args:
-        b1 (:py:class:`.Base`): first basis
-        b2 (:py:class:`.Base`): second basis, if omitted
+        b1 (:py:class:`.ApproximationBase`): first basis
+        b2 (:py:class:`.ApproximationBase`): second basis, if omitted
             defaults to *b1*
         scalar_product (list of callable): Callbacks for product calculation.
             Defaults to `scalar_product_hint` from `b1`.
@@ -1858,7 +2039,7 @@ def find_roots(function, grid, n_roots=None, rtol=1.e-5, atol=1.e-8,
         raise ValueError("Insufficient number of roots detected. ({0} < {1}) "
                          "Check provided function (see `visualize_roots`) or "
                          "try to increase the search area.".format(
-                            len(roots), n_roots))
+            len(roots), n_roots))
 
     valid_roots = np.array(roots)
 
@@ -2223,7 +2404,7 @@ class EvalData:
                 #     fill_val = None
                 # else:
                 #     Since the value has to be the same at every border
-                    # fill_val = 0
+                #     fill_val = 0
 
                 self._interpolator = interp2d(input_data[0],
                                               input_data[1],

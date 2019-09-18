@@ -9,7 +9,8 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from pyinduct.tests import show_plots
+from pyinduct.core import vectorize_scalar_product
+from pyinduct.tests import show_plots, test_timings
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
 
@@ -109,25 +110,6 @@ class FunctionTestCase(unittest.TestCase):
                          domain=(0, 3))
         self.assertEqual(f4.function_space_hint(),
                          (core.dot_product_l2, {(0, 3)}))
-
-    def test_from_scalar(self):
-        ord_func = pi.Function(lambda x: 1)
-        func = pi.Function.from_constant(1)
-
-        # standard values should be used
-        self.assertEqual(ord_func.domain, func.domain)
-        self.assertEqual(ord_func.nonzero, func.nonzero)
-
-        # specific parameters should be passed on
-        func = pi.Function.from_constant(1, domain=(3, 19), nonzero=(6, 7))
-        self.assertEqual(func.domain, {(3, 19)})
-        self.assertEqual(func.nonzero, {(6, 7)})
-
-        # passing explicit handles is prohibited
-        with self.assertRaises(ValueError):
-            pi.Function.from_constant(7, eval_handle=lambda x: 2*x)
-        with self.assertRaises(ValueError):
-            pi.Function.from_constant(7, derivative_handles=lambda x: 2)
 
     def test_derivation(self):
         f = pi.Function(np.sin, derivative_handles=[np.cos, np.sin])
@@ -297,6 +279,52 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
 
+class ConstantFunctionTestCase(unittest.TestCase):
+
+    def test_init(self):
+        # no default value for constant
+        with self.assertRaises(TypeError):
+            c = core.ConstantFunction()
+
+        c = core.ConstantFunction(7)
+        self.assertEqual(c.domain, {(-np.inf, np.inf)})
+
+        # no complex values -> fix tis in function
+        # with self.assertRaises(ValueError):
+        #     c1 = core.ConstantFunction(1+2j)
+
+        # if domain is given, nonzero area should automatically match
+        c = core.ConstantFunction(7, domain=(1, 4))
+        self.assertEqual(c.nonzero, c.domain)
+
+        # except for the case that the value is actually zero
+        c = core.ConstantFunction(0, domain=(1, 4))
+        self.assertEqual(c.nonzero, set())
+
+        # if nonzero is given, domain should be matched
+        c = core.ConstantFunction(1, nonzero=(1, 2))
+        self.assertEqual(c.nonzero, c.domain)
+
+        # except for zero where nonzero is not allowed
+        with self.assertRaises(ValueError):
+            c = core.ConstantFunction(0, nonzero=(1, 2))
+
+        # and it should match
+        with self.assertRaises(ValueError):
+            c = core.ConstantFunction(1, domain=(0, 3), nonzero=(1, 2))
+
+        c = core.ConstantFunction(1, domain=(1, 2), nonzero=(1, 2))
+
+    def test_derivation(self):
+        c = core.ConstantFunction(7, domain=(-1, 1))
+        c_dz = c.derive()
+        res = c_dz(np.random.rand(100))
+        self.assertTrue(all(res == 0))
+
+        self.assertEqual(c_dz.domain, {(-1, 1)})
+        self.assertEqual(c_dz.nonzero, set())
+
+
 class ComposedFunctionVectorTestCase(unittest.TestCase):
     def setUp(self):
         self.functions = [pi.Function(lambda x: 2),
@@ -387,6 +415,19 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         # g = pi.Function(lambda x: 2, domain=(0, 10))
         # self.assertEqual(f4.function_space_hint(),
         #                  (core.dot_product_l2, {(0, 3)}))
+
+    def test_call(self):
+        v1 = pi.ComposedFunctionVector(self.functions[:2], self.scalars[:2])
+
+        # scalar case
+        res = v1(10)
+        np.testing.assert_array_equal(res, np.array([2, 20, 2, 14]))
+
+        # vectorial case
+        inp = np.array(range(100))
+        ret = np.array([ [2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)]).T
+        res = v1(inp)
+        np.testing.assert_array_equal(res, ret)
 
 
 def check_compatibility_and_scalar_product(b1, b2):
@@ -515,10 +556,12 @@ class BaseTestCase(unittest.TestCase):
                                       cos_func.raise_to(1)(numbers))
 
         # power 4
-        np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
-                                      sin_func.raise_to(4)(numbers))
-        np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
-                                      cos_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[0](numbers),
+                                          sin_func.raise_to(4)(numbers))
+        with self.assertRaises(ValueError):
+            np.testing.assert_array_equal(f.raise_to(4).fractions[1](numbers),
+                                          cos_func.raise_to(4)(numbers))
 
     def test_derive(self):
         sin_func = pi.Function(np.sin, derivative_handles=[np.cos])
@@ -824,19 +867,36 @@ class StackedBaseTestCase(unittest.TestCase):
             pi.Function(lambda x: np.cos(2 ** 2 * x), domain=(1, 2)),
         ])
         pi.register_base("b2", self.b2)
-        self.base_info = OrderedDict(
-            b1={"base": self.b1, "sys_name": "sys1", "order": 1},
-            b2={"base": self.b2, "sys_name": "sys2", "order": 0},
-        )
+        self.base_info = OrderedDict([
+            ("b1", {"base": self.b1, "sys_name": "sys1", "order": 1}),
+            ("b2", {"base": self.b2, "sys_name": "sys2", "order": 0}),
+        ])
+
+    def test_error_raises(self):
+        base_info = OrderedDict([
+            ("b1", {"base": self.b1, "sys_name": "sys1", "order": 0}),
+            ("b2", {"base": self.b1, "sys_name": "sys2", "order": 0}),
+        ])
+        s = pi.StackedBase(base_info)
+        with self.assertRaises(TypeError):
+            pi.Base(s)
+
+    def test_registration(self):
+        s = pi.StackedBase(self.base_info)
+        pi.register_base("Stacked-Basis", s)
+        sr = pi.get_base("Stacked-Basis")
+        self.assertEqual(s, sr)
 
     def test_defaults(self):
         s = pi.StackedBase(self.base_info)
-        self.assertEqual(len(s), 6)
         self.assertEqual(s.fractions.size, 6)
-        self.assertEqual(s[2], self.b1[2])
-        self.assertEqual(s[4], self.b2[1])
-        self.assertEqual(s[0], self.b1[0])
-        self.assertEqual(s[-1], self.b2[-1])
+        self.assertEqual(s.fractions[0], self.b1[0])
+        self.assertEqual(s.fractions[1], self.b1[1])
+        self.assertEqual(s.fractions[2], self.b1[2])
+        self.assertEqual(s.fractions[3], self.b2[0])
+        self.assertEqual(s.fractions[4], self.b2[1])
+        self.assertEqual(s.fractions[5], self.b2[2])
+        self.assertEqual(s.fractions[-1], self.b2[-1])
 
         self.assertEqual(s.base_lbls, ["b1", "b2"])
         self.assertEqual(s.system_names, ["sys1", "sys2"])
@@ -848,12 +908,9 @@ class StackedBaseTestCase(unittest.TestCase):
         self.assertFalse(self.b2.is_compatible_to(s))
 
         self.assertEqual(s.scalar_product_hint(), NotImplemented)
+        self.assertEqual(s.function_space_hint(), hash(s))
 
-        self.assertEqual(s.function_space_hint(),
-                         [self.b1.function_space_hint(),
-                          self.b2.function_space_hint()])
-
-    def test_transfomration_hint(self):
+    def test_transformation_hint(self):
         s1 = pi.StackedBase(self.base_info)
         pi.register_base("s1", s1)
         pi.register_base("unknown", self.b2)
@@ -934,10 +991,10 @@ class TransformationTestCase(unittest.TestCase):
             intermediate_base_lbls="comp1")
         pi.register_base("comp2", self.comp_base2)
 
-        info1 = OrderedDict(
-            fem1={"base": self.base1, "sys_name": "sys1", "order": 0},
-            comp1={"base": self.comp_base1, "sys_name": "sys2", "order": 1},
-        )
+        info1 = OrderedDict([
+            ("fem1", {"base": self.base1, "sys_name": "sys1", "order": 0}),
+            ("comp1", {"base": self.comp_base1, "sys_name": "sys2", "order": 1}),
+        ])
         self.stacked_base1 = core.StackedBase(info1)
         pi.register_base("stacked1", self.stacked_base1)
 
@@ -1185,12 +1242,12 @@ class DotProductL2TestCase(unittest.TestCase):
 
     def test_length(self):
         with self.assertRaises(ValueError):
-            pi.vectorize_scalar_product(
+            vectorize_scalar_product(
                 self.fem_base[2:4], self.fem_base[4:8],
                 self.fem_base.scalar_product_hint())
 
     def test_output(self):
-        res = pi.vectorize_scalar_product(self.fem_base.fractions,
+        res = vectorize_scalar_product(self.fem_base.fractions,
                                           self.fem_base.fractions,
                                           self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
@@ -1255,41 +1312,43 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
 
     def quadratic_case1(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def quadratic_case2(self):
         # result is quadratic
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_1(self):
         # rect1
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions2,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
     def rectangular_case_2(self):
         # rect2
-        t0 = time.clock()
+        t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions1,
                                                  optimize=self.optimization)
-        t_calc = time.clock() - t0
+        t_calc = time.process_time() - t0
         return mat, t_calc
 
-    def compare_timings(self):
+    @unittest.skipIf(not test_timings,
+                     "`test_timings` was deactivated")
+    def test_timings(self):
         """
         # run different versions of the code
         """
@@ -1503,13 +1562,13 @@ class NormalizeBaseTestCase(unittest.TestCase):
 
     def test_self_scale(self):
         f = pi.normalize_base(self.base_f)
-        prod = pi.vectorize_scalar_product(
+        prod = vectorize_scalar_product(
             f.fractions, f.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
     def test_scale(self):
         f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = pi.vectorize_scalar_product(
+        prod = vectorize_scalar_product(
             f.fractions, l.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
@@ -1562,6 +1621,17 @@ class FindRootsTestCase(unittest.TestCase):
         roots = pi.find_roots(function=self.no_roots,
                               grid=[self.grid, self.grid], cmplx=True)
         self.assertEqual(len(roots), 0)
+        pi.find_roots(function=self.no_roots,
+                      n_roots=0, grid=self.grid, cmplx=False)
+        pi.find_roots(function=self.no_roots,
+                      n_roots=0, grid=[self.grid, self.grid], cmplx=True)
+
+        # function has roots but no roots requested
+        pi.find_roots(function=self.char_eq, grid=self.grid,
+                      n_roots=0, cmplx=False)
+        # TODO take care of this case
+        # pi.find_roots(function=self.char_eq, grid=[self.grid, self.grid],
+        #               n_roots=0, cmplx=True)
 
     def test_all_roots(self):
         grid = np.linspace(np.pi/20, 3*np.pi/2, num=20)
