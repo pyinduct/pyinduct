@@ -1,28 +1,75 @@
 # Config file for automatic testing at travis-ci.org
 
+branches:
+  # Exclude some branches (whose names start with WIP) from travis
+  except:
+    - /^(WIP).*$/
+
 language: python
 
+# Need to use python 3.7 (date: 20190707)
+dist: xenial
+
+# Start x virtual framebuffer for gui
+services:
+  - xvfb
+
+addons:
+  apt:
+    packages:
+    # Needed to start x virtual framebuffer
+    - libxkbcommon-x11-0
+
 python:
-  - "3.5"
-  #- "2.7"
+  - 3.5
+  - 3.6
+  - 3.7
+
+env:
+  - DIST=pypi
+  - DIST=anaconda
+
+matrix:
+  fast_finish: true
+
+  # dont take care of anaconda or older python versions
+  allow_failures:
+  - env: DIST=anaconda
+
+  # dont test latest python version with anaconda
+  exclude:
+      - python: 3.7
+        env: anaconda
+        # Maybe not needed, try it if you are interested
+        sudo: true
 
 install:
-  - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
+  - >
+    if [ "$DIST" == "anaconda" ]; then
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file requirements.txt
-  - source activate test-environment
-  - python setup.py install
+      bash miniconda.sh -b -p $HOME/miniconda;
+      export PATH="$HOME/miniconda/bin:$PATH";
+      hash -r;
+      conda config --set always_yes yes --set changeps1 no;
+      conda update -q conda;
+      conda info -a;
+      sed -i s/PyQt5\>/pyqt\>/g requirements.txt;
+      conda create -q -n pyinductcondaenv python=$TRAVIS_PYTHON_VERSION --file requirements.txt;
+      sed -i s/pyqt\>/PyQt5\>/g requirements.txt;
+      source activate pyinductcondaenv;
+      python setup.py install;
+      pip install codecov;
+      conda list;
+    else
+      pip install -r test_requirements.txt;
+      pip install .;
+      pip list;
+    fi;
 
-script: python setup.py test
+script:
+  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
+
+after_success:
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.7" && "$DIST" == "pypi" ]]; then
+      codecov;
+    fi

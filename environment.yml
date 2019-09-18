@@ -1,0 +1,13 @@
+# pyinduct.readthedocs.io configuration, see readthedocs.yml
+name: latest
+dependencies:
+- python=3.5
+- numpy>=1.10.2
+- scipy>=0.16.1
+- sympy>=1.0
+- wheel>=0.23.0
+- pyqtgraph>=0.9.10
+- PyOpenGL>=3.1.0
+- matplotlib>=1.5.0
+- pip:
+  - sphinx

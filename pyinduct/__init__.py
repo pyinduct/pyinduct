@@ -1,25 +1,27 @@
 # -*- coding: utf-8 -*-
-# noinspection PyUnresolvedReferences
-from .registry import register_base, deregister_base, get_base, is_registered
-# noinspection PyUnresolvedReferences
-from .core import Function, normalize_function
-# noinspection PyUnresolvedReferences
-from .control import ControlLaw, Controller
-# noinspection PyUnresolvedReferences
-from .placeholder import (Scalars, ScalarTerm, IntegralTerm, FieldVariable, SpatialDerivedFieldVariable,
-                          TemporalDerivedFieldVariable, Product, TestFunction, Input)
-# noinspection PyUnresolvedReferences
-from .simulation import (Domain, EvalData, SimulationInput, SimulationInputSum, WeakFormulation, simulate_system,
-                         process_sim_data, evaluate_approximation)
-# noinspection PyUnresolvedReferences
-from .shapefunctions import cure_interval, LagrangeFirstOrder, LagrangeSecondOrder
-# noinspection PyUnresolvedReferences
-from .visualization import PgAnimatedPlot, PgSurfacePlot
-# noinspection PyUnresolvedReferences
-from .trajectory import SmoothTransition
-# noinspection PyUnresolvedReferences
-from .utils import find_roots
+import os
+import matplotlib as mpl
+
+# make everybody use the same qt version, try Qt5 first
+try:
+    __import__("PyQt5")
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+    mpl.use("Qt5Agg")
+except ImportError:
+    os.environ["PYQTGRAPH_QT_LIB"] = "PyQt4"
+    mpl.use("Qt4Agg")
+
+from .core import *
+from .feedback import *
+from .eigenfunctions import *
+from .trajectory import *
+from .registry import *
+from .placeholder import *
+from .simulation import *
+from .shapefunctions import *
+from .visualization import *
+
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
-__email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@tu-dresden.de"
-__version__ = '0.3.0'
+__email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
+__version__ = '0.5.0rc2'

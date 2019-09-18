@@ -2,6 +2,7 @@
 Usage
 ========
 
-To use PyInduct in a project::
+To use PyInduct in a project we recommend::
 
-    import pyinduct
+    import pyinduct as pi
+

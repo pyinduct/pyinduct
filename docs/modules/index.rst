@@ -11,19 +11,22 @@ Most of the things are already documented though in this document, that is
 automatically generated using PyInduct's docstrings.
 
 Click the  "modules" (:ref:`modindex`) link in the top right corner to easily
-access any PyInduct module, or use this contens:
+access any PyInduct module, or use this table of contents:
 
 .. toctree::
     :maxdepth: 2
 
     core
-    placeholder
-    simulation
     shapefunctions
     eigenfunctions
-    visualization
+    registry
+    placeholder
+    simulation
+    feedback
     trajectory
+    visualization
     utils
+    parabolic/index
 
 Contributions to docs
 ---------------------
@@ -31,4 +34,4 @@ Contributions to docs
 All contributions are welcome. If you'd like to improve something, look into
 the sources if they contain the information you need (if not, please fix them),
 otherwise the documentation generation needs to be improved (look in the
-``doc/`` directory).
+`docs/ <https://github.com/pyinduct/pyinduct/tree/master/docs>`_ directory).
