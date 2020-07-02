@@ -5,6 +5,7 @@ import warnings
 import numbers
 
 import numpy as np
+import numpy.ma as ma
 import collections
 from copy import copy, deepcopy
 from numbers import Number
@@ -2834,6 +2835,7 @@ class EvalData:
                 [a.flatten() for a in np.meshgrid(*interp_axis, indexing="ij")])
             interpolated_output = self._interpolator(coords.T).reshape(dims)
 
+        out_arr = ma.masked_invalid(interpolated_output).squeeze()
         return EvalData(input_data=domains,
-                        output_data=np.squeeze(interpolated_output),
+                        output_data=out_arr,
                         name=self.name)
