@@ -1300,7 +1300,8 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def dot_product(first, second):
     """
-    Calculate the inner product of two vectors.
+    Calculate the inner product of two vectors. Uses numpy.inner but with
+    complex conjugation of the first argument.
 
     Args:
         first (:obj:`numpy.ndarray`): first vector
@@ -1309,7 +1310,7 @@ def dot_product(first, second):
     Return:
         inner product
     """
-    return np.inner(first, second)
+    return np.inner(np.conj(first), second)
 
 
 def dot_product_l2(first, second):

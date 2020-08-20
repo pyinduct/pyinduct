@@ -9,7 +9,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from pyinduct.core import vectorize_scalar_product
+from pyinduct.core import vectorize_scalar_product, dot_product
 from pyinduct.tests import show_plots, test_timings
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
@@ -1233,6 +1233,15 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         res = core.dot_product_l2(s, self.g2)
         part = core.dot_product_l2(self.g1, self.g2)
         np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
+
+
+class DotProductTestCase(unittest.TestCase):
+    def test_product(self):
+        self.assertEqual(dot_product(2, 3), 6)
+
+    def test_sesquilinear(self):
+        self.assertEqual(dot_product(2j, 3), -6j)
+        self.assertEqual(dot_product(2, 3j), 6j)
 
 
 class DotProductL2TestCase(unittest.TestCase):
