@@ -1876,32 +1876,32 @@ def normalize_base(b1, b2=None):
         :py:class:`.ApproximationBase` : if *b2* is None,
         otherwise: Tuple of 2 :py:class:`.ApproximationBase`'s.
     """
+    res = generic_scalar_product(b1, b2)
+
+    if any(np.abs(res) < np.finfo(float).eps):
+        raise ValueError("given base fractions are orthogonal. "
+                         "no normalization possible.")
+
     auto_normalization = False
     if b2 is None:
         auto_normalization = True
-
-    res = generic_scalar_product(b1, b2)
-
-    if any(res < np.finfo(float).eps):
-        if any(np.isclose(res, 0)):
-            raise ValueError("given base fractions are orthogonal. "
-                             "no normalization possible.")
-        else:
+        res = np.real_if_close(res)
+        if any(res < 0) or np.imag(res) != 0:
             raise ValueError("imaginary scale required. "
                              "no normalization possible.")
 
-    scale_factors = np.sqrt(1 / res)
-    b1_scaled = b1.__class__(
-        [frac.scale(factor)
-         for frac, factor in zip(b1.fractions, scale_factors)])
-
     if auto_normalization:
+        scale_factors = np.sqrt(1 / res)
+        b1_scaled = b1.__class__(
+            [frac.scale(factor)
+             for frac, factor in zip(b1.fractions, scale_factors)])
         return b1_scaled
     else:
+        scale_factors = 1 / res
         b2_scaled = b2.__class__(
             [frac.scale(factor)
              for frac, factor in zip(b2.fractions, scale_factors)])
-        return b1_scaled, b2_scaled
+        return b1, b2_scaled
 
 
 def generic_scalar_product(b1, b2=None, scalar_product=None):

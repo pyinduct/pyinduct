@@ -1588,10 +1588,13 @@ class NormalizeBaseTestCase(unittest.TestCase):
             f.fractions, l.fractions, f.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
 
-    def test_culprits(self):
-        # not possible
-        self.assertRaises(ValueError, pi.normalize_base, self.base_g, self.base_l)
+    def test_complex(self):
+        g, l = pi.normalize_base(self.base_g, self.base_l)
+        prod = vectorize_scalar_product(
+            g.fractions, l.fractions, g.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
 
+    def test_culprits(self):
         # orthogonal
         self.assertRaises(ValueError, pi.normalize_base, self.base_f, self.base_g)
 
