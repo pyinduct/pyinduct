@@ -1576,27 +1576,47 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.base_g = pi.Base(self.g)
         self.base_l = pi.Base(self.l)
 
-    def test_self_scale(self):
-        f = pi.normalize_base(self.base_f)
+    def generic_test_function_single_base(self, b):
+        bn = pi.normalize_base(b)
         prod = vectorize_scalar_product(
-            f.fractions, f.fractions, f.scalar_product_hint())[0]
+            bn.fractions, bn.fractions, bn.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
+
+    def test_self_scale(self):
+        self.generic_test_function_single_base(self.base_f)
+        self.generic_test_function_single_base(self.base_g)
+        self.generic_test_function_single_base(self.base_l)
+        self.generic_test_function_single_base(self.base_l.scale(-1))
+
+    def generic_test_function(self, b1, b2, mode):
+        b1n, b2n = pi.normalize_base(b1, b2, mode)
+        prod = vectorize_scalar_product(
+            b1n.fractions, b2n.fractions, b1n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+        b1n, b2n = pi.normalize_base(b2, b1, mode)
+        prod = vectorize_scalar_product(
+            b1n.fractions, b2n.fractions, b2n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+    def generic_test_wrapper(self, b1, b2):
+        self.generic_test_function(b1, b2, mode="right")
+        self.generic_test_function(b1, b2, mode="left")
+        self.generic_test_function(b1, b2, mode="both")
 
     def test_scale(self):
-        f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = vectorize_scalar_product(
-            f.fractions, l.fractions, f.scalar_product_hint())[0]
-        self.assertAlmostEqual(prod, 1)
+        self.generic_test_wrapper(self.base_f, self.base_l)
 
     def test_complex(self):
-        g, l = pi.normalize_base(self.base_g, self.base_l)
-        prod = vectorize_scalar_product(
-            g.fractions, l.fractions, g.scalar_product_hint())[0]
-        self.assertAlmostEqual(prod, 1)
+        self.generic_test_wrapper(self.base_g, self.base_l)
+        self.generic_test_wrapper(self.base_g, self.base_l.scale(1j))
+        self.generic_test_wrapper(self.base_g.scale(1 + 2j),
+                                  self.base_l.scale(1j))
 
     def test_culprits(self):
         # orthogonal
-        self.assertRaises(ValueError, pi.normalize_base, self.base_f, self.base_g)
+        with self.assertRaises(ValueError):
+            pi.normalize_base(self.base_f, self.base_g)
 
 
 class FindRootsTestCase(unittest.TestCase):

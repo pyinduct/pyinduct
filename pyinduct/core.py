@@ -1855,7 +1855,7 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
     return v_mat
 
 
-def normalize_base(b1, b2=None):
+def normalize_base(b1, b2=None, mode="right"):
     r"""
     Takes two :py:class:`.ApproximationBase`'s :math:`\boldsymbol{b}_1` ,
     :math:`\boldsymbol{b}_1` and normalizes them so that
@@ -1867,6 +1867,10 @@ def normalize_base(b1, b2=None):
     Args:
         b1 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_1`
         b2 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_2`
+        mode (str): If *mode* is
+            * *right* (default): b2 will be scaled
+            * *left*: b1 will be scaled
+            * *both*: b1 and b2 will be scaled
 
     Raises:
         ValueError: If :math:`\boldsymbol{b}_1`
@@ -1884,24 +1888,32 @@ def normalize_base(b1, b2=None):
 
     auto_normalization = False
     if b2 is None:
-        auto_normalization = True
         res = np.real_if_close(res)
         if any(res < 0) or np.imag(res) != 0:
+            # from calculus: these conditions can not be true
             raise ValueError("imaginary scale required. "
                              "no normalization possible.")
+        auto_normalization = True
+
+    def scale_base_elementwise(base, scales):
+        return base.__class__(
+            [frac.scale(scale) for frac, scale in zip(base.fractions, scales)])
 
     if auto_normalization:
         scale_factors = np.sqrt(1 / res)
-        b1_scaled = b1.__class__(
-            [frac.scale(factor)
-             for frac, factor in zip(b1.fractions, scale_factors)])
-        return b1_scaled
-    else:
+        return scale_base_elementwise(b1, scale_factors)
+    elif mode == "right":
         scale_factors = 1 / res
-        b2_scaled = b2.__class__(
-            [frac.scale(factor)
-             for frac, factor in zip(b2.fractions, scale_factors)])
-        return b1, b2_scaled
+        return b1, scale_base_elementwise(b2, scale_factors)
+    elif mode == "left":
+        scale_factors = 1 / res
+        return scale_base_elementwise(b1, np.conj(scale_factors)), b2
+    elif mode == "both":
+        scale_factors = np.real_if_close(np.sqrt(1 / res.astype(complex)))
+        return (scale_base_elementwise(b1, np.conj(scale_factors)),
+                scale_base_elementwise(b2, scale_factors))
+    else:
+        raise NotImplementedError
 
 
 def generic_scalar_product(b1, b2=None, scalar_product=None):
