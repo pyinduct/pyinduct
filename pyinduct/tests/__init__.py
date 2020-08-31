@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys
-
+import warnings
 # since this is a serious toolbox
 import numpy as np
+
+warnings.warn("Test Mode: Treating all numerical warnings as errors")
 np.seterr(all="raise")
+
 
 if any([arg in {'discover', 'setup.py', 'test'} for arg in sys.argv]):
     test_examples = True
