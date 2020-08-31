@@ -1899,16 +1899,40 @@ def normalize_base(b1, b2=None, mode="right"):
         return scale_base_elementwise(b1, scale_factors)
     elif mode == "right":
         scale_factors = 1 / res
-        return b1, scale_base_elementwise(b2, np.conj(scale_factors))
+        ret1 = b1
+        ret2 = scale_base_elementwise(b2, np.conj(scale_factors))
     elif mode == "left":
         scale_factors = 1 / res
-        return scale_base_elementwise(b1, scale_factors), b2
+        ret1 = scale_base_elementwise(b1, scale_factors)
+        ret2 = b2
     elif mode == "both":
         scale_factors = np.real_if_close(np.sqrt(1 / res.astype(complex)))
-        return (scale_base_elementwise(b1, scale_factors),
-                scale_base_elementwise(b2, np.conj(scale_factors)))
+        ret1 = scale_base_elementwise(b1, scale_factors)
+        ret2 = scale_base_elementwise(b2, np.conj(scale_factors))
     else:
         raise NotImplementedError
+
+    # since one can define a inner product where the first argument will be
+    # complex conjugated (instead of the second) this will be checked
+    try:
+        np.testing.assert_array_almost_equal(
+            generic_scalar_product(ret1, ret2), np.ones(res.shape))
+    except AssertionError:
+        if mode == "right":
+            ret1 = b1
+            ret2 = scale_base_elementwise(b2, scale_factors)
+        elif mode == "left":
+            ret1 = scale_base_elementwise(b1, np.conj(scale_factors))
+            ret2 = b2
+        else:
+            ret1 = scale_base_elementwise(b1, np.conj(scale_factors))
+            ret2 = scale_base_elementwise(b2, scale_factors)
+
+        # but now it should work
+        np.testing.assert_array_almost_equal(
+            generic_scalar_product(ret1, ret2), np.ones(res.shape))
+
+    return ret1, ret2
 
 
 def generic_scalar_product(b1, b2=None, scalar_product=None):

@@ -1613,6 +1613,35 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_wrapper(self.base_g.scale(1 + 2j),
                                   self.base_l.scale(1j))
 
+    def test_user_inner_product(self):
+        def my_dot_product_l2(first, second):
+            from pyinduct.core import domain_intersection
+            nonzero = domain_intersection(first.nonzero, second.nonzero)
+            areas = domain_intersection(first.domain, nonzero)
+
+            def func(z):
+                return np.conj(first(z)) * second(z)
+
+            from pyinduct.core import integrate_function
+            result, error = integrate_function(func, areas)
+            return result
+
+        class MyFunction(pi.Function):
+            def scalar_product_hint(self):
+                return my_dot_product_l2
+
+        g = MyFunction(np.cos, domain=(0, np.pi))
+        l = MyFunction(np.exp, domain=(0, np.pi))
+
+        base_g = pi.Base(g)
+        base_l = pi.Base(l)
+
+        self.generic_test_wrapper(base_g, base_l)
+        self.generic_test_wrapper(base_g, base_l.scale(1j))
+        self.generic_test_wrapper(base_g.scale(1 + 2j),
+                                  base_l.scale(1j))
+
+
     def test_culprits(self):
         # orthogonal
         with self.assertRaises(ValueError):
