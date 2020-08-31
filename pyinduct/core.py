@@ -184,6 +184,33 @@ class BaseFraction:
         """
         return self(values)
 
+    def apply_operator(self, operator):
+        """
+        Return a new base fraction with the given operator applied.
+
+        Args:
+            operator: Object that can be applied to the base fraction.
+        """
+        raise NotImplementedError()
+
+    def real(self):
+        """
+        Return the real part of the base fraction.
+        """
+        return self.apply_operator(np.real)
+
+    def imag(self):
+        """
+        Return the imaginary port of the base fraction.
+        """
+        return self.apply_operator(np.imag)
+
+    def conj(self):
+        """
+        Return the complex conjugated base fraction.
+        """
+        return self.apply_operator(np.conj)
+
 
 class Function(BaseFraction):
     """
@@ -512,6 +539,21 @@ class Function(BaseFraction):
     def mul_neutral_element(self):
         return ConstantFunction(1, domain=self.domain)
 
+    def apply_operator(self, operator):
+        """
+        Return a new function with the given operator applied.
+        """
+        def apply(func):
+            def handle(z):
+                return operator(func(z))
+            return handle
+
+        new_obj = deepcopy(self)
+        new_obj.function_handle = apply(self.function_handle)
+        new_obj.derivative_handles = [apply(f) for f in self.derivative_handles]
+
+        return new_obj
+
 
 class ConstantFunction(Function):
     """
@@ -686,6 +728,15 @@ class ComposedFunctionVector(BaseFraction):
         scalar_constants = [0 for f in self.members["scalars"]]
         neut = ComposedFunctionVector(funcs, scalar_constants)
         return neut
+
+    def apply_operator(self, operator):
+        """
+        Return a new composed function vector with the given operator applied.
+        """
+        funcs = [f.apply_operator(operator) for f in self.members["funcs"]]
+        scalar_constants = [operator(s) for s in self.members["scalars"]]
+        new_obj = ComposedFunctionVector(funcs, scalar_constants)
+        return new_obj
 
 
 class ConstantComposedFunctionVector(ComposedFunctionVector):

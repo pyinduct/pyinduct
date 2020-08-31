@@ -278,6 +278,32 @@ class FunctionTestCase(unittest.TestCase):
         g = pi.Function(np.sin, domain=(-17, 10))
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
+    def test_apply_operator(self):
+        lam = 2 + 3j
+        lam_r = np.real(lam)
+        lam_i = np.imag(lam)
+        f = pi.Function(lambda z: np.exp(lam * z), domain=(0, 7),
+                        derivative_handles=[
+                            lambda z: lam * np.exp(lam * z),
+                            lambda z: lam ** 2 * np.exp(lam * z)])
+        fr = f.real()
+        fr_d = lambda z: np.exp(lam_r*z) * np.cos(lam_i*z)
+        d_fr_d = lambda z: np.real(lam * np.exp(lam * z))
+        dd_fr_d = lambda z: np.real(lam ** 2 * np.exp(lam * z))
+        fi = f.imag()
+        fi_d = lambda z: np.exp(lam_r*z) * np.sin(lam_i*z)
+        fc = f.conj()
+        fc_d = lambda z: np.exp(np.conj(lam) * z)
+
+        z_test = np.linspace(0, 7)
+        np.testing.assert_array_almost_equal(fr(z_test), fr_d(z_test))
+        np.testing.assert_array_almost_equal(
+            fr.derive()(z_test), d_fr_d(z_test))
+        np.testing.assert_array_almost_equal(
+            fr.derive(2)(z_test), dd_fr_d(z_test))
+        np.testing.assert_array_almost_equal(fi(z_test), fi_d(z_test))
+        np.testing.assert_array_almost_equal(fc(z_test), fc_d(z_test))
+
 
 class ConstantFunctionTestCase(unittest.TestCase):
 
@@ -333,6 +359,14 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
                           pi.Function(lambda x: np.sin(x))
                           ]
         self.scalars = [f(7) for f in self.functions]
+
+        self.lam = 3 + 4j
+        self.functions_complex = [pi.Function(lambda x: self.lam),
+                                  pi.Function(lambda x: self.lam * x),
+                                  pi.Function(lambda x: (self.lam * x) ** 2),
+                                  pi.Function(lambda x: np.sin(self.lam * x))
+                                  ]
+        self.scalars_complex = [self.lam ** i for i in range(3)]
 
     def test_init(self):
         with self.assertRaises(TypeError):
@@ -428,6 +462,18 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         ret = np.array([[2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)])
         res = v1(inp)
         np.testing.assert_array_equal(res, ret)
+
+    def test_apply_operator(self):
+        vect = pi.ComposedFunctionVector(self.functions_complex,
+                                         self.scalars_complex)
+        for z in np.linspace(0, 20):
+            np.testing.assert_array_almost_equal(
+                vect.real()(z), np.real(vect(z)))
+            np.testing.assert_array_almost_equal(
+                vect.imag()(z), np.imag(vect(z)))
+            np.testing.assert_array_almost_equal(
+                vect.conj()(z), np.conj(vect(z)))
+
 
 
 def check_compatibility_and_scalar_product(b1, b2):
