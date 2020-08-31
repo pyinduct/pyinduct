@@ -1310,7 +1310,7 @@ def dot_product(first, second):
     Return:
         inner product
     """
-    return np.inner(np.conj(first), second)
+    return np.inner(first, np.conj(second))
 
 
 def dot_product_l2(first, second):
@@ -1353,7 +1353,7 @@ def dot_product_l2(first, second):
         Take the complex conjugate of the first element and multiply it
         by the second.
         """
-        return np.conj(first(z)) * second(z)
+        return first(z) * np.conj(second(z))
 
     result, error = integrate_function(func, areas)
     return result
@@ -1899,14 +1899,14 @@ def normalize_base(b1, b2=None, mode="right"):
         return scale_base_elementwise(b1, scale_factors)
     elif mode == "right":
         scale_factors = 1 / res
-        return b1, scale_base_elementwise(b2, scale_factors)
+        return b1, scale_base_elementwise(b2, np.conj(scale_factors))
     elif mode == "left":
         scale_factors = 1 / res
-        return scale_base_elementwise(b1, np.conj(scale_factors)), b2
+        return scale_base_elementwise(b1, scale_factors), b2
     elif mode == "both":
         scale_factors = np.real_if_close(np.sqrt(1 / res.astype(complex)))
-        return (scale_base_elementwise(b1, np.conj(scale_factors)),
-                scale_base_elementwise(b2, scale_factors))
+        return (scale_base_elementwise(b1, scale_factors),
+                scale_base_elementwise(b2, np.conj(scale_factors)))
     else:
         raise NotImplementedError
 

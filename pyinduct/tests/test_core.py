@@ -1222,16 +1222,16 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
 
     def test_complex(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), -40j)
+        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), 40j)
         # swapping of args will return the conjugated expression
         self.assertAlmostEqual(core.dot_product_l2(self.g2, self.g1),
-                               np.conj(-40j))
+                               np.conj(40j))
 
     def test_linearity(self):
         factor = 2+1j
         s = self.g1.scale(factor)
-        res = core.dot_product_l2(s, self.g2)
-        part = core.dot_product_l2(self.g1, self.g2)
+        res = core.dot_product_l2(self.g2, s)
+        part = core.dot_product_l2(self.g2, self.g1)
         np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
 
 
@@ -1240,8 +1240,8 @@ class DotProductTestCase(unittest.TestCase):
         self.assertEqual(dot_product(2, 3), 6)
 
     def test_sesquilinear(self):
-        self.assertEqual(dot_product(2j, 3), -6j)
-        self.assertEqual(dot_product(2, 3j), 6j)
+        self.assertEqual(dot_product(3, 2j), -6j)
+        self.assertEqual(dot_product(3j, 2), 6j)
 
 
 class DotProductL2TestCase(unittest.TestCase):
