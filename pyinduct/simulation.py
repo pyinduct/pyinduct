@@ -567,7 +567,7 @@ class CanonicalForm(object):
         if term["name"] == "f":
             if ("order" in term) \
                 or ("exponent" in term
-                    and term["exponent"] is not 0):
+                    and term["exponent"] != 0):
                 warnings.warn("order and exponent are ignored for f_vector!")
             f_vector = self.matrices.get("f", np.zeros_like(value))
             self.matrices["f"] = value + f_vector

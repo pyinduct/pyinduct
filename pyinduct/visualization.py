@@ -317,7 +317,7 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
-        self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
+        self._pw.setWindowTitle('t= {0:.2f}'.format(self._t))
 
         if self._t > self._end_time:
             self._t = self._start_time
