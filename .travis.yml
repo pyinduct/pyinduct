@@ -62,12 +62,14 @@ install:
       pip install codecov;
       conda list;
     else
+      pip install --upgrade pip
       pip install -r test_requirements.txt;
       pip install .;
       pip list;
     fi;
 
 script:
+  - export QT_DEBUG_PLUGINS=1
   - coverage run --omit=pyinduct/tests/* -m unittest discover -b -v;
 
 after_success:
