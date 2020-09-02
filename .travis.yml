@@ -24,6 +24,7 @@ python:
   - 3.5
   - 3.6
   - 3.7
+  - 3.8
 
 env:
   - DIST=pypi
@@ -32,11 +33,11 @@ env:
 matrix:
   fast_finish: true
 
-  # dont take care of anaconda or older python versions
+  # do not take care of anaconda or older python versions
   allow_failures:
   - env: DIST=anaconda
 
-  # dont test latest python version with anaconda
+  # do not test latest python version with anaconda
   exclude:
       - python: 3.7
         env: anaconda
@@ -67,9 +68,9 @@ install:
     fi;
 
 script:
-  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
+  - coverage run --omit=pyinduct/tests/* -m unittest discover -b -v;
 
 after_success:
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.7" && "$DIST" == "pypi" ]]; then
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.8" && "$DIST" == "pypi" ]]; then
       codecov;
     fi
