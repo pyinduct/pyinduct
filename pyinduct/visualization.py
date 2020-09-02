@@ -71,6 +71,24 @@ def tear_down(labels, plots=None):
     del plots
 
 
+def get_colors(cnt, scheme="tab10", samples=10):
+    """
+    Create a list of colors.
+
+    Args:
+        cnt (int): Number of colors in the list.
+        scheme (str): Mpl color scheme to use.
+        samples (cnt): Number of samples to take from the scheme before starting
+            from the beginning.
+
+    Return:
+        List of `np.Array` holding the rgb values.
+    """
+    s_colors = cm.get_cmap(scheme)(np.linspace(0, 1, samples), bytes=True)
+    clrs = [s_colors[idx % len(s_colors)] for idx in range(cnt)]
+    return clrs
+
+
 def create_colormap(cnt):
     """
     Create a colormap containing cnt values.
@@ -84,7 +102,7 @@ def create_colormap(cnt):
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
-    return col_map.map(indexes, mode="qcolor")
+    return col_map.mapToQColor(indexes)
 
 
 def visualize_functions(functions, points=100, return_window=False):
@@ -287,10 +305,12 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._plot_data_items = []
         self._plot_indexes = []
-        cls = create_colormap(len(self._data))
+        clrs = get_colors(len(self._data))
         for idx, data_set in enumerate(self._data):
             self._plot_indexes.append(0)
-            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2), name=data_set.name))
+            self._plot_data_items.append(
+                pg.PlotDataItem(pen=pg.mkPen(clrs[idx], width=2),
+                                name=data_set.name))
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0

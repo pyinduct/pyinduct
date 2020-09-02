@@ -907,7 +907,7 @@ class StringMassTest(unittest.TestCase):
     def create_test_data(self):
         if self.example_data is None:
             self.setUp()
-            self.test_fem()
+            self.test_fem(show=False)
             self.tearDown()
         return copy.copy(self.example_data)
 
@@ -952,7 +952,7 @@ class StringMassTest(unittest.TestCase):
             pi.Function(lambda z: x_dt(z, 0), domain=z_bounds),  # dx_dt(z, 0)
         ])
 
-    def test_fem(self):
+    def test_fem(self, show=True):
         """
         use best documented fem case to test all steps in simulation process
         """
@@ -1008,7 +1008,7 @@ class StringMassTest(unittest.TestCase):
         pi.deregister_base("fem_base")
 
         # display results
-        if show_plots:
+        if show_plots and show:
             win = pi.PgAnimatedPlot(eval_data[:2],
                                     title="fem approx and derivative")
             win2 = pi.PgSurfacePlot(eval_data[0])
