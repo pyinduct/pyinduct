@@ -239,7 +239,7 @@ class PgAnimatedPlot(PgDataPlot):
                                            str(replay_gain)]),
                            labels=labels)
         self._pw.addLegend()
-        self._pw.showGrid(x=True, y=True, alpha=0.5)
+        self._pw.showGrid(x=True, y=True, alpha=1)
 
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
@@ -313,7 +313,8 @@ class PgAnimatedPlot(PgDataPlot):
             # TODO draw grey line if value is outdated
 
             # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx],
+                                               y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
@@ -619,7 +620,8 @@ class MplSurfacePlot(DataPlot):
     Plot as 3d surface.
     """
 
-    def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
+    def __init__(self, data, keep_aspect=False, fig_size=(12, 8),
+                 zlabel='$\quad x(z,t)$'):
         DataPlot.__init__(self, data)
 
         for i in range(len(self._data)):
@@ -635,9 +637,9 @@ class MplSurfacePlot(DataPlot):
             ax = fig.gca(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
-            ax.w_xaxis.set_pane_color((1, 1, 1, 1))
-            ax.w_yaxis.set_pane_color((1, 1, 1, 1))
-            ax.w_zaxis.set_pane_color((1, 1, 1, 1))
+            ax.xaxis.set_pane_color((1, 1, 1, 1))
+            ax.yaxis.set_pane_color((1, 1, 1, 1))
+            ax.zaxis.set_pane_color((1, 1, 1, 1))
 
             # labels
             ax.set_ylabel('$t$')
@@ -645,7 +647,8 @@ class MplSurfacePlot(DataPlot):
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
 
-            ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
+            ax.plot_surface(xx, yy, z, rstride=2, cstride=2,
+                            cmap=plt.cm.cool, antialiased=False)
 
 
 class MplSlicePlot(PgDataPlot):
