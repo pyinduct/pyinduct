@@ -117,8 +117,8 @@ class StringWithMassTest(unittest.TestCase):
 
     def test_xtract_and_plot_results(self):
         # the name is needed to make sure that the test date is already created
-        from tkinter import Tk
-        Tk().withdraw()
+        # from tkinter import Tk
+        # Tk().withdraw()
 
         with open(self.res_file, "rb") as f:
             raw_data = pickle.load(f)

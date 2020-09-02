@@ -179,8 +179,8 @@ def visualize_functions(functions, points=100, return_window=False):
                             pen=c)
         pw.addItem(p_imag)
 
-    pw.show()
     if not return_window:
+        pw.show()
         pg.QAPP.exec_()
     else:
         return pw
