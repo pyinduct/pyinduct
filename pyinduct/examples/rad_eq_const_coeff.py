@@ -46,6 +46,8 @@ import numpy as np
 import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
+import matplotlib.pyplot as plt
+
 
 def approximate_observer(obs_params, sys_params, sys_domain, sys_lbl,
                          obs_sys_lbl, test_lbl, tar_test_lbl, system_input):
@@ -311,27 +313,25 @@ def run(show_plots):
     evald_traj = pi.EvalData([t_d, np.array(spatial_domain)], x_l,
                              name="x(z,t) desired")
 
-    plots = list()
-    # pyqtgraph visualization
-    plots.append(pi.PgAnimatedPlot(
-        [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
-    # matplotlib visualization
-    import matplotlib.pyplot as plt
-    plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
-                                 legend_label=[r"$x(0,t)$",
-                                               r"$\hat x(0,t)$"]))
-    plt.legend(loc=4)
-    plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=1,
-                                 legend_label=[r"$x(1,t)$",
-                                               r"$\hat x(1,t)$"]))
-    plt.legend(loc=1)
     if show_plots:
+        plots = list()
+        # pyqtgraph visualization
+        plots.append(pi.PgAnimatedPlot(
+            [sys_ed, obs_ed, evald_traj], title="animation", replay_gain=.05))
+        # matplotlib visualization
+        plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=0,
+                                     legend_label=[r"$x(0,t)$",
+                                                   r"$\hat x(0,t)$"]))
+        plt.legend(loc=4)
+        plots.append(pi.MplSlicePlot([sys_ed, obs_ed], spatial_point=1,
+                                     legend_label=[r"$x(1,t)$",
+                                                   r"$\hat x(1,t)$"]))
+        plt.legend(loc=1)
         pi.show()
 
     pi.tear_down((sys_lbl, obs_sys_lbl, ctrl_lbl, ctrl_target_lbl,
-                  obs_lbl, obs_target_lbl) + \
-                 base_labels + obs_base_labels + tar_obs_base_labels,
-                 plots)
+                  obs_lbl, obs_target_lbl)
+                 + base_labels + obs_base_labels + tar_obs_base_labels )
 
 
 if __name__ == "__main__":

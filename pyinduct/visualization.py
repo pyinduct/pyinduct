@@ -883,8 +883,8 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
             p_abs.plot(roots[:, 0], roots[:, 1],
                        pen=None, symbolPen=pg.mkPen("g"))
 
-    pw.show()
     if not return_window:
+        pw.show()
         pg.QAPP.exec_()
     else:
         return pw

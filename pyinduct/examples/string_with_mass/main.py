@@ -144,12 +144,13 @@ def run(show_plots):
                                      temporal_domain, spatial_domain,
                                      0, 0,
                                      name=r"\hat x1_modal(z,t)")[0]
+    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl])
 
-    # create plots
-    plots = list()
-    plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
-    # plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
     if show_plots:
+        # create plots
+        plots = list()
+        plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
+        plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
         pi.show()
 
     # save results
@@ -162,8 +163,6 @@ def run(show_plots):
         file = open(path + timestamp + conf + description + ".pkl", "wb")
         pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
         file.close()
-
-    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl], plots)
 
 
 if __name__ == "__main__":

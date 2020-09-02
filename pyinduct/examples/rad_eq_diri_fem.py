@@ -128,25 +128,25 @@ def run(show_plots):
                                            spat_domain,
                                            spat_order=1)
 
-    plots.append(pi.PgAnimatedPlot(eval_d,
-                             labels=dict(left='x(z,t)', bottom='z'),
-                             save_pics=save_pics))
-    plots.append(pi.PgAnimatedPlot(der_eval_d,
-                             labels=dict(left='x\'(z,t)', bottom='z'),
-                             save_pics=save_pics))
-
-    win1 = pi.surface_plot(eval_d, title="x(z,t)")
-    win2 = pi.surface_plot(der_eval_d, title="x'(z,t)")
-
-    # save pics
-    if save_pics:
-        path = pi.save_2d_pg_plot(u.get_plot(), 'rad_dirichlet_traj')[1]
-        win1.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_x.png')
-        win2.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_dx.png')
     if show_plots:
+        plots.append(pi.PgAnimatedPlot(eval_d,
+                                 labels=dict(left='x(z,t)', bottom='z'),
+                                 save_pics=save_pics))
+        plots.append(pi.PgAnimatedPlot(der_eval_d,
+                                 labels=dict(left='x\'(z,t)', bottom='z'),
+                                 save_pics=save_pics))
+
+        win1 = pi.surface_plot(eval_d, title="x(z,t)")
+        win2 = pi.surface_plot(der_eval_d, title="x'(z,t)")
+
+        # save pics
+        if save_pics:
+            path = pi.save_2d_pg_plot(u.get_plot(), 'rad_dirichlet_traj')[1]
+            win1.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_x.png')
+            win2.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_dx.png')
         pi.show()
 
-    pi.tear_down(("act_base", "sim_base", "vis_base"), plots + [win1, win2])
+    pi.tear_down(("act_base", "sim_base", "vis_base"))
 
 
 if __name__ == "__main__":

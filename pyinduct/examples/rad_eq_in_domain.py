@@ -211,7 +211,6 @@ def run(show_plots):
     def int_kernel_zz(z):
         return alpha_ti - alpha_i + (a0_i - a0_ti) / 2 / a2 * z
 
-
     scale = np.exp(-a1 / 2 / a2 * b)
     controller = parabolic.control.get_parabolic_robin_backstepping_controller(
         state=sh_x_fem_i_at_l, approx_state=x_i_at_l,
@@ -270,29 +269,28 @@ def run(show_plots):
     evald_fem_x = pi.evaluate_approximation("fem_funcs", q, t, spatial_domain,
                                             name="x(z,t) simulation")
 
-    plots = list()
-    # pyqtgraph visualisations
-    plots.append(pi.PgAnimatedPlot([evald_fem_x,
-                                    evald_modal_xi,
-                                    evald_appr_xi,
-                                    evald_xd,
-                                    evald_xi_desired]))
-    plots.append(pi.surface_plot(evald_xd, title=evald_xd.name))
-    plots.append(pi.surface_plot(evald_fem_x))
-    # matplotlib visualization
-    plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x],
-                                 spatial_point=0,
-                                 legend_label=[evald_xd.name,
-                                               evald_fem_x.name]))
     if show_plots:
+        plots = list()
+        # pyqtgraph visualisations
+        plots.append(pi.PgAnimatedPlot([evald_fem_x,
+                                        evald_modal_xi,
+                                        evald_appr_xi,
+                                        evald_xd,
+                                        evald_xi_desired]))
+        plots.append(pi.surface_plot(evald_xd, title=evald_xd.name))
+        plots.append(pi.surface_plot(evald_fem_x))
+        # matplotlib visualization
+        plots.append(pi.MplSlicePlot([evald_xd, evald_fem_x],
+                                     spatial_point=0,
+                                     legend_label=[evald_xd.name,
+                                                   evald_fem_x.name]))
         pi.show()
 
     pi.tear_down(("adjoint_eig_funcs",
                   "eig_funcs",
                   "eig_funcs_i",
                   "eig_funcs_ti",
-                  "fem_funcs") + base_labels,
-                 plots)
+                  "fem_funcs") + base_labels)
 
 
 if __name__ == "__main__":

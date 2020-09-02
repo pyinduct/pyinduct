@@ -56,13 +56,13 @@ def run(show_plots):
 
     # simulate
     res = pi.simulate_system(pde, t0, temp_dom, spat_dom)
+    pi.tear_down(["fem_base"])
 
-    # display results
-    win = pi.PgAnimatedPlot(res, title="fem approx and derivative")
-    win2 = pi.surface_plot(res)
     if show_plots:
+        # display results
+        win = pi.PgAnimatedPlot(res, title="fem approx and derivative")
+        win2 = pi.surface_plot(res)
         pi.show()
-    pi.tear_down(["fem_base"], [win, win2])
 
 
 if __name__ == "__main__":

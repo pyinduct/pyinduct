@@ -89,25 +89,25 @@ def run(show_plots):
     t, q = pi.simulate_state_space(ss, initial_weights, temporal_domain)
 
     # visualization
-    plots = list()
     evald_x = pi.evaluate_approximation(
         "eig_funcs",
         q,
         t, spatial_domain,
         name="x(z,t) with x(z,0)=" + str(init_profile))
+    pi.tear_down(("eig_funcs", "eig_funcs_t"))
 
-    # pyqtgraph visualization
-    plots.append(pi.PgAnimatedPlot([evald_x, evald_traj], title="animation"))
-    plots.append(pi.surface_plot(evald_x, title=evald_x.name))
-    plots.append(pi.surface_plot(evald_traj, title=evald_traj.name))
-    # matplotlib visualization
-    plots.append(pi.MplSlicePlot(
-        [evald_x, evald_traj], time_point=1,
-        legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2))
     if show_plots:
+        plots = list()
+        # pyqtgraph visualization
+        plots.append(pi.PgAnimatedPlot([evald_x, evald_traj], title="animation"))
+        plots.append(pi.surface_plot(evald_x, title=evald_x.name))
+        plots.append(pi.surface_plot(evald_traj, title=evald_traj.name))
+        # matplotlib visualization
+        plots.append(pi.MplSlicePlot(
+            [evald_x, evald_traj], time_point=1,
+            legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2))
         pi.show()
 
-    pi.tear_down(("eig_funcs", "eig_funcs_t"), plots)
 
 
 if __name__ == "__main__":

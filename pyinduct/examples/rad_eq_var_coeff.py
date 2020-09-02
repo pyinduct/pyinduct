@@ -139,29 +139,27 @@ def run(show_plots):
                                    temporal_domain)
 
     # visualization
-    plots = list()
     evald_x = pi.evaluate_approximation("fem_funcs", q, t, spatial_domain,
                                         name="x(z,t)")
 
-    # pyqtgraph visualization
-    plots.append(pi.evaluate_approximation("fem_funcs", q, t, spatial_domain,
-                                           name="x(z,t)"))
-    plots.append(pi.PgAnimatedPlot([evald_x],
-                                   title="animation",
-                                   replay_gain=.25))
-    plots.append(pi.surface_plot(evald_x, title=evald_x.name))
-
-    # matplotlib visualization
-    plots.append(pi.MplSlicePlot([evald_x], time_point=1,
-                                 legend_label=["$x(z,1)$"], legend_location=1))
     if show_plots:
+        plots = list()
+        # pyqtgraph visualization
+        plots.append(pi.PgAnimatedPlot([evald_x],
+                                       title="animation",
+                                       replay_gain=.25))
+        plots.append(pi.surface_plot(evald_x, title=evald_x.name))
+
+        # matplotlib visualization
+        plots.append(pi.MplSlicePlot([evald_x], time_point=1,
+                                     legend_label=["$x(z,1)$"],
+                                     legend_location=1))
         pi.show()
 
     pi.tear_down(("eig_funcs_t",
                   "adjoint_eig_funcs_t",
                   "eig_funcs",
-                  "fem_funcs") + base_labels,
-                 plots)
+                  "fem_funcs") + base_labels)
 
 
 if __name__ == "__main__":

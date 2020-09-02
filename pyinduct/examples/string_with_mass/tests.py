@@ -4,7 +4,7 @@ import pickle
 import unittest
 import pyqtgraph as pg
 
-from pyinduct.tests import show
+from pyinduct.tests import show_plots
 from pyinduct.examples.string_with_mass.control import *
 
 
@@ -26,7 +26,9 @@ class StringWithMassTest(unittest.TestCase):
         eig_om, eig_vals = find_eigenvalues(4)
         f = plot_eigenvalues(eig_vals, return_figure=True)
         pprint(eig_vals)
-        show(show_pg=False)
+        if show_plots:
+            f.show()
+            pi.show(show_pg=False)
 
     @unittest.skip("Test is broken")
     def test_observer_evp_scripts(self):
@@ -70,7 +72,9 @@ class StringWithMassTest(unittest.TestCase):
             frac.members["funcs"][1]
             for frac in pi.get_base("primal_base")],
             return_window=True))
-        show()
+        if show_plots:
+            [p.show() for p in plots]
+            pi.show()
 
     @unittest.skip("Test case is incomplete and broken")
     def test_modal_cf_wf(self):
@@ -99,9 +103,11 @@ class StringWithMassTest(unittest.TestCase):
         ocf_state = ocf_inverse_state_transform(org_state)
         pprint(ocf_state.members["scalars"])
 
-        _ = pi.visualize_functions(ocf_state.members["funcs"],
+        f = pi.visualize_functions(ocf_state.members["funcs"],
                                    return_window=True)
-        show()
+        if show_plots:
+            f.show()
+            pi.show()
 
     def test_save_results(self):
         data = [pi.EvalData([[0, 1], [0, 1]], np.eye(2))] * 3
@@ -127,9 +133,10 @@ class StringWithMassTest(unittest.TestCase):
                 continue
             data.append(item)
 
-        # _ = SwmPgAnimatedPlot(data, save_pics=True, create_video=True, labels={'bottom': ("z")})
-        _ = SwmPgAnimatedPlot(data, labels={'bottom': ("z")})
-        show()
+        if show_plots:
+            # _ = SwmPgAnimatedPlot(data, save_pics=True, create_video=True, labels={'bottom': ("z")})
+            _ = SwmPgAnimatedPlot(data, labels={'bottom': ("z")})
+            pi.show()
 
     def test_modal_ctrl_bases(self):
         sys_modal_lbl = "modal_system"
