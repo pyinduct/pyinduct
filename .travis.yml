@@ -22,6 +22,7 @@ addons:
     - libxcb-icccm4
     - libxcb-image0
     - libxcb-keysyms1
+    - libxcb-randr0
 
 python:
   - 3.5
@@ -65,7 +66,8 @@ install:
       pip install codecov;
       conda list;
     else
-      pip install --upgrade pip
+      ldd /home/travis/virtualenv/python3.5.6/lib/python3.5/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so;
+      pip install --upgrade pip;
       pip install -r test_requirements.txt;
       pip install .;
       pip list;
