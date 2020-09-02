@@ -4,7 +4,7 @@ import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
 
-def run():
+def run(show_plots):
     # system/simulation parameters
     actuation_type = 'robin'
     bound_cond_type = 'robin'
@@ -154,7 +154,8 @@ def run():
     # matplotlib visualization
     plots.append(pi.MplSlicePlot([evald_x], time_point=1,
                                  legend_label=["$x(z,1)$"], legend_location=1))
-    pi.show()
+    if show_plots:
+        pi.show()
 
     pi.tear_down(("eig_funcs_t",
                   "adjoint_eig_funcs_t",
@@ -164,4 +165,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

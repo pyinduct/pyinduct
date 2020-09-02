@@ -3,7 +3,7 @@ import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
 
-def run():
+def run(show_plots):
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -23,7 +23,6 @@ def run():
     spatial_domain = pi.Domain(bounds=(0, l), num=n_fem)
     temporal_domain = pi.Domain(bounds=(0, T), num=100)
     n = n_modal
-    show_plots = False
 
     # original system parameters
     a2 = .5
@@ -285,7 +284,8 @@ def run():
                                  spatial_point=0,
                                  legend_label=[evald_xd.name,
                                                evald_fem_x.name]))
-    pi.show()
+    if show_plots:
+        pi.show()
 
     pi.tear_down(("adjoint_eig_funcs",
                   "eig_funcs",
@@ -296,4 +296,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

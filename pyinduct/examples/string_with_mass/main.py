@@ -18,7 +18,7 @@ import pickle
 import time
 
 
-def run():
+def run(show_plots):
 
     # control mode
     control_mode = ["open_loop",
@@ -149,7 +149,8 @@ def run():
     plots = list()
     plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
     # plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
-    pi.show()
+    if show_plots:
+        pi.show()
 
     # save results
     if 0:
@@ -166,4 +167,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

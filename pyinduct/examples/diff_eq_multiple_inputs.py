@@ -4,7 +4,7 @@ Simulation of a diffusion system using multiple inputs
 import pyinduct as pi
 
 
-def run():
+def run(show_plots):
     # physical constants
     alpha = .1
 
@@ -60,9 +60,10 @@ def run():
     # display results
     win = pi.PgAnimatedPlot(res, title="fem approx and derivative")
     win2 = pi.surface_plot(res)
-    pi.show()
+    if show_plots:
+        pi.show()
     pi.tear_down(["fem_base"], [win, win2])
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

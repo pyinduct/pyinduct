@@ -3,7 +3,7 @@ import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
 
-def run():
+def run(show_plots):
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -104,10 +104,11 @@ def run():
     plots.append(pi.MplSlicePlot(
         [evald_x, evald_traj], time_point=1,
         legend_label=["$x(z,1)$", "$x_d(z,1)$"], legend_location=2))
-    pi.show()
+    if show_plots:
+        pi.show()
 
     pi.tear_down(("eig_funcs", "eig_funcs_t"), plots)
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

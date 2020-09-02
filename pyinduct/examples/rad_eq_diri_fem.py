@@ -3,7 +3,7 @@ import pyinduct as pi
 import pyinduct.parabolic as parabolic
 
 
-def run():
+def run(show_plots):
     n_fem = 17
     T = 1
     l = 1
@@ -143,10 +143,11 @@ def run():
         path = pi.save_2d_pg_plot(u.get_plot(), 'rad_dirichlet_traj')[1]
         win1.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_x.png')
         win2.gl_widget.grabFrameBuffer().save(path + 'rad_dirichlet_3d_dx.png')
-    pi.show()
+    if show_plots:
+        pi.show()
 
     pi.tear_down(("act_base", "sim_base", "vis_base"), plots + [win1, win2])
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

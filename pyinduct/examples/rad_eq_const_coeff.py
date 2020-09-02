@@ -116,7 +116,7 @@ class ReversedRobinEigenfunction(pi.SecondOrderRobinEigenfunction):
             _param, l, n_roots, show_plot=show_plot)
 
 
-def run():
+def run(show_plots):
     # PARAMETERS TO VARY
     # number of eigenfunctions, used for control law approximation
     n_modal = 10
@@ -325,7 +325,8 @@ def run():
                                  legend_label=[r"$x(1,t)$",
                                                r"$\hat x(1,t)$"]))
     plt.legend(loc=1)
-    pi.show()
+    if show_plots:
+        pi.show()
 
     pi.tear_down((sys_lbl, obs_sys_lbl, ctrl_lbl, ctrl_target_lbl,
                   obs_lbl, obs_target_lbl) + \
@@ -334,6 +335,6 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(True)
 
 
