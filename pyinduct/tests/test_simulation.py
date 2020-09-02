@@ -1756,7 +1756,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
 
     def test_eval_simple(self):
         pi.register_base("fe_base", self.fe_funcs)
-        eval_data = sim.evaluate_approximation("approx_funcs",
+        eval_data = sim.evaluate_approximation("fe_base",
                                                self.weights,
                                                self.dates,
                                                self.spat_dom,
@@ -1778,7 +1778,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         # split the results into separate ED instances
         evs = [pi.EvalData(ev.input_data, ev.output_data[..., i])
                for i in range(ev.output_data.shape[-1])]
-        self.p = pi.PgAnimatedPlot(evs[0])
+        self.p = pi.PgAnimatedPlot(evs)
 
     def tearDown(self):
         if self.p is not None:

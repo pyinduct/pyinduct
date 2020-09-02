@@ -1457,15 +1457,15 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
     """
     funcs = get_base(base_label).derive(spat_order).fractions
     if weights.shape[1] != funcs.shape[0]:
-        raise ValueError("weights (len={0}) have to fit provided functions (len={1})!".format(weights.shape[1],
-                                                                                              funcs.size))
+        raise ValueError("weights (len={0}) have to fit provided functions "
+                         "(len={1})!".format(weights.shape[1], funcs.size))
 
     # evaluate shape functions at given points
     shape_vals = np.array([func.evaluation_hint(spat_domain)
                            for func in funcs]).T
 
     if shape_vals.ndim == 2:
-        res = weights @ shape_vals
+        res = weights @ shape_vals.T
     else:
         # get extra dims to the front in both arrays
         extra_axes = range(1, shape_vals.ndim - 1)
