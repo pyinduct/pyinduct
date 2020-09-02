@@ -1776,7 +1776,7 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         pi.deregister_base("fe_comp_base")
 
         # split the results into separate ED instances
-        evs = [pi.EvalData(ev.input_data, ev.output_data[..., i])
+        evs = [pi.EvalData(ev.input_data[:-1], ev.output_data[..., i])
                for i in range(ev.output_data.shape[-1])]
         self.p = pi.PgAnimatedPlot(evs)
 
