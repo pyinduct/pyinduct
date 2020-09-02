@@ -18,12 +18,14 @@ addons:
   apt:
     packages:
     # Needed to start x virtual framebuffer
+    - libxcb1
     - libxkbcommon-x11-0
     - libxcb-icccm4
     - libxcb-image0
     - libxcb-keysyms1
     - libxcb-randr0
     - libxcb-render-util0
+    - libxcb-xinerama0
 
 python:
   - 3.5
@@ -67,7 +69,7 @@ install:
       pip install codecov;
       conda list;
     else
-      ldd /home/travis/virtualenv/python3.5.6/lib/python3.5/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so;
+      ldd /home/travis/virtualenv/python3.5.6/lib/python3.5/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so.1;
       pip install --upgrade pip;
       pip install -r test_requirements.txt;
       pip install .;
