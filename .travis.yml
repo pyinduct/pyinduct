@@ -17,7 +17,7 @@ services:
 addons:
   apt:
     packages:
-    # Needed to start x virtual framebuffer
+    # Needed to start x virtual framebuffer this is not right
     - libxcb1
     - libxkbcommon-x11-0
     - libxcb-icccm4
@@ -29,9 +29,9 @@ addons:
 
 python:
   - 3.5
-#  - 3.6
-#  - 3.7
-#  - 3.8
+  - 3.6
+  - 3.7
+  - 3.8
 
 env:
   - DIST=pypi
@@ -69,7 +69,6 @@ install:
       pip install codecov;
       conda list;
     else
-      ldd /home/travis/virtualenv/python3.5.6/lib/python3.5/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so.1;
       pip install --upgrade pip;
       pip install -r test_requirements.txt;
       pip install .;
@@ -77,7 +76,7 @@ install:
     fi;
 
 script:
-  - export QT_DEBUG_PLUGINS=1
+  #- export QT_DEBUG_PLUGINS=1
   - coverage run --omit=pyinduct/tests/* -m unittest discover -b -v;
 
 after_success:
