@@ -480,13 +480,13 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
         """
         return [self.scalar_product]
 
-    def __call__(self, z):
-        return np.array([f(z) for f in self.members["funcs"]] +
-                        [self.members["scalars"][0]] +
-                        [self.members["scalars"][1]])
+    # def __call__(self, z):
+    #     return np.array([f(z) for f in self.members["funcs"]] +
+    #                     [self.members["scalars"][0]] +
+    #                     [self.members["scalars"][1]])
 
     def evaluation_hint(self, values):
-        return self(values)[0]
+        return self(values)
 
     def derive(self, order):
         if order == 0:
