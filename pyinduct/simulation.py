@@ -1477,7 +1477,8 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
         b_res = b_weights @ b_shape_vals
         res = np.moveaxis(b_res, axes_idxs-1, axes_idxs+1)
 
-    ed = EvalData([temp_domain.points, spat_domain.points], res, name=name)
+    ed = EvalData([temp_domain.points, spat_domain.points], res,
+                  name=name, fill_axes=True)
     return ed
 
 
