@@ -165,6 +165,23 @@ class BaseFraction:
         """
         raise NotImplementedError()
 
+    def evaluation_hint(self, values):
+        """
+        If evaluation can be accelerated by using special properties of a function, this function can be
+        overwritten to performs that computation. It gets passed an array of places where the caller
+        wants to evaluate the function and should return an array of the same length, containing the results.
+
+        Note:
+            This implementation just calls the normal evaluation hook.
+
+        Args:
+            values: places to be evaluated at
+
+        Returns:
+            numpy.ndarray: Evaluation results.
+        """
+        return self(values)
+
 
 class Function(BaseFraction):
     """
@@ -430,23 +447,6 @@ class Function(BaseFraction):
         new_obj.function_handle = new_obj.derivative_handles.pop(0)
         return new_obj
 
-    def evaluation_hint(self, values):
-        """
-        If evaluation can be accelerated by using special properties of a function, this function can be
-        overwritten to performs that computation. It gets passed an array of places where the caller
-        wants to evaluate the function and should return an array of the same length, containing the results.
-
-        Note:
-            This implementation just calls the normal evaluation hook.
-
-        Args:
-            values: places to be evaluated at
-
-        Returns:
-            numpy.ndarray: Evaluation results.
-        """
-        return self(values)
-
     def scalar_product_hint(self):
         """
         Return the hint that the :py:func:`._dot_product_l2` has to
@@ -598,14 +598,11 @@ class ComposedFunctionVector(BaseFraction):
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
     def __call__(self, arguments):
-        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]]).T
-        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
-        if f_res.shape[1] > 1:
-            s_res = np.broadcast_to(s_res.T, f_res.shape)
-            res = np.hstack((f_res, s_res))
-        else:
-            res = np.vstack((f_res, s_res))
-        res = res.squeeze()
+        f_res = np.array([f(arguments) for f in self.members["funcs"]])
+        s_res = self.members["scalars"]
+        if f_res.ndim > 1:
+            s_res = s_res[:, None] * np.ones_like(f_res)
+        res = np.concatenate((f_res, s_res))
         return res
 
     def scalar_product_hint(self):
