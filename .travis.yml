@@ -44,6 +44,9 @@ matrix:
         # Maybe not needed, try it if you are interested
         sudo: true
 
+before install:
+  - sudo apt-get -y install libxcb-icccm4
+
 install:
   - >
     if [ "$DIST" == "anaconda" ]; then
@@ -70,7 +73,6 @@ install:
 
 script:
   - export QT_DEBUG_PLUGINS=1
-  - ldd /home/travis/virtualenv/python3.5.6/lib/python3.5/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so:
   - coverage run --omit=pyinduct/tests/* -m unittest discover -b -v;
 
 after_success:
