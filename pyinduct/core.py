@@ -2361,8 +2361,8 @@ class EvalData:
                 input_labels.append("")
                 input_units.append("")
 
-        # output_data has to contain len(input_data) dimensions
-        assert len(input_data) == output_data.ndim
+        # output_data has to contain at least len(input_data) dimensions
+        assert len(input_data) <= output_data.ndim
 
         for dim in range(len(input_data)):
             assert len(input_data[dim]) == output_data.shape[dim]

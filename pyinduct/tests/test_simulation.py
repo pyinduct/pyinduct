@@ -1742,31 +1742,49 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.node_cnt = 5
         self.time_step = 1e-1
         self.dates = pi.Domain((0, 10), step=self.time_step)
-        self.spat_dom = pi.Domain((0, 1), num=self.node_cnt)
+        self.spat_dom = pi.Domain((0, 1), num=50)
 
-        # create initial functions
+        # create bases functions
         self.nodes = pi.Domain(self.spat_dom.bounds, num=self.node_cnt)
-        self.funcs = pi.LagrangeSecondOrder.cure_interval(self.nodes)
-        pi.register_base("approx_funcs", self.funcs, overwrite=True)
+        self.fe_funcs = pi.LagrangeSecondOrder.cure_interval(self.nodes)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(list(range(
             self.node_cnt * self.dates.points.size))).reshape(
             (self.dates.points.size, len(self.nodes)))
+        self.p = None
 
-    def test_eval_helper(self):
+    def test_eval_simple(self):
+        pi.register_base("fe_base", self.fe_funcs)
         eval_data = sim.evaluate_approximation("approx_funcs",
                                                self.weights,
                                                self.dates,
                                                self.spat_dom,
                                                1)
-        if show_plots:
-            p = pi.PgAnimatedPlot(eval_data)
-            pi.show(show_mpl=False)
-            del p
+        pi.deregister_base("fe_base")
+        self.p = pi.PgAnimatedPlot(eval_data)
+
+    def test_eval_composed(self):
+        c_base = pi.Base([pi.ComposedFunctionVector(f, f(0))
+                          for f in self.fe_funcs])
+        pi.register_base("fe_comp_base", c_base)
+        ev = sim.evaluate_approximation("fe_comp_base",
+                                        self.weights,
+                                        self.dates,
+                                        self.spat_dom,
+                                        0)
+        pi.deregister_base("fe_comp_base")
+
+        # split the results into separate ED instances
+        evs = [pi.EvalData(ev.input_data, ev.output_data[..., i])
+               for i in range(ev.output_data.shape[-1])]
+        self.p = pi.PgAnimatedPlot(evs[0])
 
     def tearDown(self):
-        pass
+        if self.p is not None:
+            if show_plots:
+                pi.show(show_mpl=False)
+            del self.p
 
 
 class SetDominantLabel(unittest.TestCase):

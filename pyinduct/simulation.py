@@ -1461,13 +1461,24 @@ def evaluate_approximation(base_label, weights, temp_domain, spat_domain, spat_o
                                                                                               funcs.size))
 
     # evaluate shape functions at given points
-    shape_vals = np.array([func.evaluation_hint(spat_domain) for func in funcs])
+    shape_vals = np.array([func.evaluation_hint(spat_domain)
+                           for func in funcs]).T
 
-    def eval_spatially(weight_vector):
-        return np.real_if_close(np.dot(weight_vector, shape_vals), 1000)
+    if shape_vals.ndim == 2:
+        res = weights @ shape_vals
+    else:
+        # get extra dims to the front in both arrays
+        extra_axes = range(1, shape_vals.ndim - 1)
+        axes_idxs = np.array(extra_axes)
+        b_shape_vals = np.swapaxes(shape_vals, 0, -1)
+        b_shape_vals = np.moveaxis(b_shape_vals, axes_idxs, axes_idxs-1)
+        w_shape = (*np.array(shape_vals.shape)[axes_idxs], *weights.shape)
+        b_weights = np.broadcast_to(weights, w_shape)
+        b_res = b_weights @ b_shape_vals
+        res = np.moveaxis(b_res, axes_idxs-1, axes_idxs+1)
 
-    data = np.apply_along_axis(eval_spatially, 1, weights)
-    return EvalData([temp_domain.points, spat_domain.points], data, name=name)
+    ed = EvalData([temp_domain.points, spat_domain.points], res, name=name)
+    return ed
 
 
 def set_dominant_labels(canonical_equations, finalize=True):
