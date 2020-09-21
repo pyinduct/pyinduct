@@ -5,6 +5,7 @@ import warnings
 import numbers
 
 import numpy as np
+import numpy.ma as ma
 import collections
 from copy import copy, deepcopy
 from numbers import Number
@@ -163,6 +164,23 @@ class BaseFraction:
         In other words: `self * ret_val == self`.
         """
         raise NotImplementedError()
+
+    def evaluation_hint(self, values):
+        """
+        If evaluation can be accelerated by using special properties of a function, this function can be
+        overwritten to performs that computation. It gets passed an array of places where the caller
+        wants to evaluate the function and should return an array of the same length, containing the results.
+
+        Note:
+            This implementation just calls the normal evaluation hook.
+
+        Args:
+            values: places to be evaluated at
+
+        Returns:
+            numpy.ndarray: Evaluation results.
+        """
+        return self(values)
 
 
 class Function(BaseFraction):
@@ -429,23 +447,6 @@ class Function(BaseFraction):
         new_obj.function_handle = new_obj.derivative_handles.pop(0)
         return new_obj
 
-    def evaluation_hint(self, values):
-        """
-        If evaluation can be accelerated by using special properties of a function, this function can be
-        overwritten to performs that computation. It gets passed an array of places where the caller
-        wants to evaluate the function and should return an array of the same length, containing the results.
-
-        Note:
-            This implementation just calls the normal evaluation hook.
-
-        Args:
-            values: places to be evaluated at
-
-        Returns:
-            numpy.ndarray: Evaluation results.
-        """
-        return self(values)
-
     def scalar_product_hint(self):
         """
         Return the hint that the :py:func:`._dot_product_l2` has to
@@ -597,14 +598,11 @@ class ComposedFunctionVector(BaseFraction):
         BaseFraction.__init__(self, {"funcs": funcs, "scalars": scals})
 
     def __call__(self, arguments):
-        f_res = np.atleast_2d([f(arguments) for f in self.members["funcs"]]).T
-        s_res = np.atleast_2d([s for s in self.members["scalars"]]).T
-        if f_res.shape[1] > 1:
-            s_res = np.broadcast_to(s_res.T, f_res.shape)
-            res = np.hstack((f_res, s_res))
-        else:
-            res = np.vstack((f_res, s_res))
-        res = res.squeeze()
+        f_res = np.array([f(arguments) for f in self.members["funcs"]])
+        s_res = self.members["scalars"]
+        if f_res.ndim > 1:
+            s_res = s_res[:, None] * np.ones_like(f_res)
+        res = np.concatenate((f_res, s_res))
         return res
 
     def scalar_product_hint(self):
@@ -2266,6 +2264,8 @@ class EvalData:
         enable_extrapolation (bool): If True, internal interpolators will allow
             extrapolation. Otherwise, the last giben value will be repeated for
             1D cases and the result will be padded with zeros for cases > 1D.
+        fill_value: If invalid data is encountered, it will be replaced with
+            this value before interpolation is performed.
 
     Examples:
         When instantiating 1d EvalData objects, the list can be omitted
@@ -2320,7 +2320,8 @@ class EvalData:
     def __init__(self, input_data, output_data,
                  input_labels=None, input_units=None,
                  enable_extrapolation=False,
-                 fill_axes=False, name=None):
+                 fill_axes=False, fill_value=None,
+                 name=None):
         # check type and dimensions
         if isinstance(input_data, np.ndarray) and input_data.ndim == 1:
             # accept single array for single dimensional input
@@ -2371,8 +2372,8 @@ class EvalData:
 
         self.input_data = input_data
         self.output_data = output_data
-        self.min = output_data.min()
-        self.max = output_data.max()
+        self.min = np.nanmin(output_data)
+        self.max = np.nanmax(output_data)
 
         if len(input_data) == 1:
             if enable_extrapolation:
@@ -2380,22 +2381,25 @@ class EvalData:
             else:
                 fill_val = (output_data[0], output_data[-1])
 
-            self._interpolator = interp1d(input_data[0],
-                                          output_data,
-                                          axis=-1,
-                                          bounds_error=False,
-                                          fill_value=fill_val)
+            self._interpolator = interp1d(
+                input_data[0],
+                np.ma.fix_invalid(output_data, fill_value=fill_value),
+                axis=-1,
+                bounds_error=False,
+                fill_value=fill_val)
         elif len(input_data) == 2 and output_data.ndim == 2:
             # pure 2d case
             if enable_extrapolation:
                 raise ValueError("Extrapolation not supported for 2d data. See "
                                  "https://github.com/scipy/scipy/issues/8099"
                                  "for details.")
-            if len(input_data[0]) > 3 and len(input_data[1]) > 3:
+            if len(input_data[0]) > 3 and len(input_data[1]) > 3 and False:
                 # special treatment for very common case (faster than interp2d)
                 # boundary values are used as fill values
-                self._interpolator = RectBivariateSpline(*input_data,
-                                                         output_data)
+                self._interpolator = RectBivariateSpline(
+                    *input_data,
+                    np.ma.fix_invalid(output_data, fill_value=fill_value)
+                )
             else:
                 # this will trigger nearest neighbour interpolation
                 fill_val = None
@@ -2406,11 +2410,12 @@ class EvalData:
                 #     Since the value has to be the same at every border
                 #     fill_val = 0
 
-                self._interpolator = interp2d(input_data[0],
-                                              input_data[1],
-                                              output_data.T,
-                                              bounds_error=False,
-                                              fill_value=fill_val)
+                self._interpolator = interp2d(
+                    input_data[0],
+                    input_data[1],
+                    np.ma.fix_invalid(output_data.T, fill_value=fill_value),
+                    bounds_error=False,
+                    fill_value=fill_val)
         else:
             if enable_extrapolation:
                 fill_val = None
@@ -2418,10 +2423,11 @@ class EvalData:
                 # Since the value has to be the same at every border
                 fill_val = 0
 
-            self._interpolator = RegularGridInterpolator(input_data,
-                                                         output_data,
-                                                         bounds_error=False,
-                                                         fill_value=fill_val)
+            self._interpolator = RegularGridInterpolator(
+                input_data,
+                np.ma.fix_invalid(output_data, fill_value=fill_value),
+                bounds_error=False,
+                fill_value=fill_val)
 
         # handle names and units
         self.input_labels = input_labels
@@ -2453,6 +2459,9 @@ class EvalData:
                 - (numpy.ndarray) - Interpolated other output_data array.
         """
         assert len(self.input_data) == len(other.input_data)
+
+        if self.input_data == other.input_data:
+            return self.input_data, self.output_data, other.output_data
 
         input_data = []
         for idx in range(len(self.input_data)):
@@ -2834,6 +2843,7 @@ class EvalData:
                 [a.flatten() for a in np.meshgrid(*interp_axis, indexing="ij")])
             interpolated_output = self._interpolator(coords.T).reshape(dims)
 
+        out_arr = ma.masked_invalid(interpolated_output).squeeze()
         return EvalData(input_data=domains,
-                        output_data=np.squeeze(interpolated_output),
+                        output_data=out_arr,
                         name=self.name)

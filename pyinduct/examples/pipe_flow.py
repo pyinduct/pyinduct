@@ -45,7 +45,7 @@ import pyinduct as pi
 
 
 # (sphinx directive) start actual script
-def run():
+def run(show_plots):
     v = 10
     c1, c2 = [1, 1]
     l = 5
@@ -110,13 +110,14 @@ def run():
                                          ics,
                                          temp_domain,
                                          spat_domains)
+    pi.tear_down(["x1_funcs", "x2_funcs"])
 
-    win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'))
-    win3 = pi.surface_plot(evald1, title=weak_form1.name)
-    win4 = pi.surface_plot(evald2, title=weak_form2.name)
-    pi.show()
-    pi.tear_down(["x1_funcs", "x2_funcs"], [win1, win3, win4])
+    if show_plots:
+        win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'))
+        win3 = pi.surface_plot(evald1, title=weak_form1.name)
+        win4 = pi.surface_plot(evald2, title=weak_form2.name)
+        pi.show()
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

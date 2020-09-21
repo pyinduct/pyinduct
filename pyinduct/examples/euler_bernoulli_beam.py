@@ -104,7 +104,7 @@ def calc_eigen(order, l_value, EI, mu, der_order=4, debug=False):
     return normed_eig_base
 
 
-def run():
+def run(show_plots):
     sys_name = 'euler bernoulli beam'
 
     # domains
@@ -176,17 +176,18 @@ def run():
                                                      order=5,
                                                      nsteps=1e8,
                                                      max_step=temp_domain.step))
-
-    # visualization
+    pi.tear_down([approx_lbl])
 
     # recover the input trajectory
     u_data = u.get_results(eval_data[0].input_data[0], as_eval_data=True)
-    plt.plot(u_data.input_data[0], u_data.output_data)
 
-    win1 = pi.PgAnimatedPlot(eval_data, labels=dict(left='x(z,t)', bottom='z'))
-    pi.show()
-    pi.tear_down([approx_lbl], win1)
+    # visualization
+    if show_plots:
+        plt.plot(u_data.input_data[0], u_data.output_data)
+        win1 = pi.PgAnimatedPlot(eval_data,
+                                 labels=dict(left='x(z,t)', bottom='z'))
+        pi.show()
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

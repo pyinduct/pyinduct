@@ -27,7 +27,6 @@ from mpl_toolkits.mplot3d import axes3d
 from .registry import deregister_base
 from .core import complex_wrapper, EvalData, Domain, Function
 from .utils import create_animation, create_dir
-from .tests import show_plots
 
 __all__ = ["show", "tear_down", "surface_plot",
            "PgAnimatedPlot", "PgSurfacePlot",
@@ -51,11 +50,10 @@ def show(show_pg=True, show_mpl=True):
         show_pg (bool): Show matplotlib plots? Default: True
         show_mpl (bool): Show pyqtgraph plots? Default: True
     """
-    if show_plots:
-        if show_pg:
-            pg.QAPP.exec_()
-        if show_mpl:
-            plt.show()
+    if show_pg:
+        pg.mkQApp().exec_()
+    if show_mpl:
+        plt.show()
 
 
 def tear_down(labels, plots=None):
@@ -73,6 +71,24 @@ def tear_down(labels, plots=None):
     del plots
 
 
+def get_colors(cnt, scheme="tab10", samples=10):
+    """
+    Create a list of colors.
+
+    Args:
+        cnt (int): Number of colors in the list.
+        scheme (str): Mpl color scheme to use.
+        samples (cnt): Number of samples to take from the scheme before starting
+            from the beginning.
+
+    Return:
+        List of `np.Array` holding the rgb values.
+    """
+    s_colors = cm.get_cmap(scheme)(np.linspace(0, 1, samples), bytes=True)
+    clrs = [s_colors[idx % len(s_colors)] for idx in range(cnt)]
+    return clrs
+
+
 def create_colormap(cnt):
     """
     Create a colormap containing cnt values.
@@ -86,7 +102,7 @@ def create_colormap(cnt):
     col_map = pg.ColorMap(np.array([0, .5, 1]),
                           np.array([[0, 0, 1., 1.], [0, 1., 0, 1.], [1., 0, 0, 1.]]))
     indexes = np.linspace(0, 1, cnt)
-    return col_map.map(indexes, mode="qcolor")
+    return col_map.mapToQColor(indexes)
 
 
 def visualize_functions(functions, points=100, return_window=False):
@@ -163,8 +179,8 @@ def visualize_functions(functions, points=100, return_window=False):
                             pen=c)
         pw.addItem(p_imag)
 
-    pw.show()
     if not return_window:
+        pw.show()
         pg.QAPP.exec_()
     else:
         return pw
@@ -241,7 +257,7 @@ class PgAnimatedPlot(PgDataPlot):
                                            str(replay_gain)]),
                            labels=labels)
         self._pw.addLegend()
-        self._pw.showGrid(x=True, y=True, alpha=0.5)
+        self._pw.showGrid(x=True, y=True, alpha=1)
 
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
@@ -289,10 +305,12 @@ class PgAnimatedPlot(PgDataPlot):
 
         self._plot_data_items = []
         self._plot_indexes = []
-        cls = create_colormap(len(self._data))
+        clrs = get_colors(len(self._data))
         for idx, data_set in enumerate(self._data):
             self._plot_indexes.append(0)
-            self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2), name=data_set.name))
+            self._plot_data_items.append(
+                pg.PlotDataItem(pen=pg.mkPen(clrs[idx], width=2),
+                                name=data_set.name))
             self._pw.addItem(self._plot_data_items[-1])
 
         self._curr_frame = 0
@@ -315,11 +333,12 @@ class PgAnimatedPlot(PgDataPlot):
             # TODO draw grey line if value is outdated
 
             # update data
-            self._plot_data_items[idx].setData(x=self.spatial_data[idx], y=self.state_data[idx][t_idx])
+            self._plot_data_items[idx].setData(x=self.spatial_data[idx],
+                                               y=self.state_data[idx][t_idx])
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
-        self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
+        self._pw.setWindowTitle('t= {0:.2f}'.format(self._t))
 
         if self._t > self._end_time:
             self._t = self._start_time
@@ -377,7 +396,8 @@ class PgSurfacePlot(PgDataPlot):
         """
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
-        self.gl_widget.setWindowTitle(time.strftime("%H:%M:%S") + ' - ' + title)
+        self.title = time.strftime("%H:%M:%S") + ' - ' + title
+        self.gl_widget.setWindowTitle(self.title)
 
         self.grid_size = 20
 
@@ -443,38 +463,27 @@ class PgSurfacePlot(PgDataPlot):
                     self._data[idx].output_data,
                     animation_axis,
                     -1)
-                x_data = np.atleast_1d(self._data[idx].input_data[0])
-                y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
                 z_data = self._data[idx].output_data[..., 0]
-                mapped_colors = self.mapping.to_rgba(z_data)
-                plot_item = gl.GLSurfacePlotItem(x_data,
-                                                 y_data,
-                                                 z_data,
-                                                 computeNormals=False,
-                                                 colors=mapped_colors)
             else:
                 # 1d system over time -> static
-                x_data = np.atleast_1d(self._data[idx].input_data[0])
-                y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
+                animation_axis = None
                 z_data = self._data[idx].output_data
-                mapped_colors = self.mapping.to_rgba(z_data)
-                plot_item = gl.GLSurfacePlotItem(x_data,
-                                                 y_data,
-                                                 z_data,
-                                                 computeNormals=False,
-                                                 colors=mapped_colors)
+
+            x_data = np.atleast_1d(self._data[idx].input_data[0])
+            y_data = np.flipud(np.atleast_1d(self._data[idx].input_data[1]))
+            masked_arr = np.ma.masked_invalid(z_data)
+            mapped_colors = self.mapping.to_rgba(masked_arr)
+            plot_item = gl.GLSurfacePlotItem(x_data,
+                                             y_data,
+                                             z_data,
+                                             computeNormals=False,
+                                             colors=mapped_colors)
 
             plot_item.scale(*self.scales)
             plot_item.translate(*[-self.extrema[0][i]*self.scales[i]
                                   for i in range(3)])
             self.gl_widget.addItem(plot_item)
             self.plot_items.append(plot_item)
-
-        if animation_axis is not None:
-            self.t_idx = 0
-            self._timer = pg.QtCore.QTimer(self)
-            self._timer.timeout.connect(self._update_plot)
-            self._timer.start(100)
 
         # setup grids
         sc_deltas = self.deltas * self.scales
@@ -518,22 +527,35 @@ class PgSurfacePlot(PgDataPlot):
                                          )
         # This fixes Issue #481 of pyqtgraph
         self.gl_widget.opts["center"] = center_point
+
+        if animation_axis is not None:
+            self.t_idx = 0
+            self._timer = pg.QtCore.QTimer(self)
+            self._timer.timeout.connect(self._update_plot)
+            self._timer.start(100)
+
         self.gl_widget.show()
 
     def _update_plot(self):
         """
         Update the rendering
         """
+        self.gl_widget.setWindowTitle("{} t={}s".format(
+            self.title,
+            self._data[0].input_data[-1][self.t_idx]
+        ))
         for idx, item in enumerate(self.plot_items):
             z_data = self._data[idx].output_data[..., self.t_idx]
-            mapped_colors = self.mapping.to_rgba(z_data)
+            masked_arr = np.ma.masked_invalid(z_data)
+            mapped_colors = self.mapping.to_rgba(masked_arr)
             item.setData(z=z_data, colors=mapped_colors)
 
         self.t_idx += 1
 
         # TODO check if every array has enough timestamps in it
-        if self.t_idx >= len(self._data[0].input_data[0]):
+        if self.t_idx >= len(self._data[0].input_data[-1]):
             self.t_idx = 0
+
 
 # TODO: alpha
 class PgSlicePlot(PgDataPlot):
@@ -621,25 +643,27 @@ class MplSurfacePlot(DataPlot):
     Plot as 3d surface.
     """
 
-    def __init__(self, data, keep_aspect=False, fig_size=(12, 8), zlabel='$\quad x(z,t)$'):
+    def __init__(self, data, keep_aspect=False, fig_size=(12, 8),
+                 zlabel='$\quad x(z,t)$', title=""):
         DataPlot.__init__(self, data)
+        name = time.strftime("%H:%M:%S") + ' - ' + title
 
         for i in range(len(self._data)):
-
             # data
             x = self._data[i].input_data[1]
             y = self._data[i].input_data[0]
-            z = self._data[i].output_data
+            z = np.ma.fix_invalid(self._data[i].output_data, fill_value=0)
             xx, yy = np.meshgrid(x, y)
 
             # figure
             fig = plt.figure(figsize=fig_size, facecolor='white')
+            fig.canvas.set_window_title(name)
             ax = fig.gca(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
-            ax.w_xaxis.set_pane_color((1, 1, 1, 1))
-            ax.w_yaxis.set_pane_color((1, 1, 1, 1))
-            ax.w_zaxis.set_pane_color((1, 1, 1, 1))
+            ax.xaxis.set_pane_color((1, 1, 1, 1))
+            ax.yaxis.set_pane_color((1, 1, 1, 1))
+            ax.zaxis.set_pane_color((1, 1, 1, 1))
 
             # labels
             ax.set_ylabel('$t$')
@@ -647,7 +671,17 @@ class MplSurfacePlot(DataPlot):
             ax.zaxis.set_rotate_label(False)
             ax.set_zlabel(zlabel, rotation=0)
 
-            ax.plot_surface(xx, yy, z, rstride=2, cstride=2, cmap=plt.cm.cool, antialiased=False)
+            # ax.plot_wireframe(
+            ax.plot_surface(
+                xx,
+                yy,
+                z,
+                rcount=len(x), ccount=len(y),
+                # rstride=len(x), cstride=len(y),
+                # rstride=2, cstride=2,
+                cmap=mpl.cm.get_cmap("viridis"),
+                antialiased=False
+            )
 
 
 class MplSlicePlot(PgDataPlot):
@@ -862,8 +896,8 @@ def visualize_roots(roots, grid, func, cmplx=False, return_window=False):
             p_abs.plot(roots[:, 0], roots[:, 1],
                        pen=None, symbolPen=pg.mkPen("g"))
 
-    pw.show()
     if not return_window:
+        pw.show()
         pg.QAPP.exec_()
     else:
         return pw

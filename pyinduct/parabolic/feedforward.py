@@ -100,9 +100,9 @@ class RadFeedForward(InterpolationTrajectory):
             a2, a1, a0, alpha, beta = self._param
             self._a1_original = param_original[1]
 
-        if self._actuation_type is 'dirichlet':
+        if self._actuation_type == 'dirichlet':
             u = x[:, -1]
-        elif self._actuation_type is 'robin':
+        elif self._actuation_type == 'robin':
             u = d_x[:, -1] + beta * x[:, -1]
         else:
             raise NotImplementedError
@@ -185,9 +185,9 @@ def power_series_flat_out(z, t, n, param, y, bound_cond_type):
     # Actually power_series() is designed for robin boundary condition by z=0.
     # With the following modification it can also used for dirichlet boundary
     # condition by z=0.
-    if bound_cond_type is 'robin':
+    if bound_cond_type == 'robin':
         is_robin = 1.
-    elif bound_cond_type is 'dirichlet':
+    elif bound_cond_type == 'dirichlet':
         alpha = 1.
         is_robin = 0.
     else:

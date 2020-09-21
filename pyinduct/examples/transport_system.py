@@ -3,7 +3,7 @@ import pyinduct as pi
 import pyqtgraph as pg
 
 
-def run():
+def run(show_plots):
     sys_name = 'transport system'
     v = 10
     l = 5
@@ -44,20 +44,21 @@ def run():
     ], name=sys_name)
 
     eval_data = pi.simulate_system(weak_form, init_x, temp_domain, spat_domain)
+    pi.tear_down(labels=(func_label,))
 
-    # pyqtgraph visualization
-    win0 = pg.plot(np.array(eval_data[0].input_data[0]).flatten(),
-                   u.get_results(eval_data[0].input_data[0]).flatten(),
-                   labels=dict(left='u(t)', bottom='t'), pen='b')
-    win0.showGrid(x=False, y=True, alpha=0.5)
-    # vis.save_2d_pg_plot(win0, 'transport_system')
-    win1 = pi.PgAnimatedPlot(eval_data,
-                             title=eval_data[0].name,
-                             save_pics=False,
-                             labels=dict(left='x(z,t)', bottom='z'))
-    pi.show()
-    pi.tear_down((func_label,), (win0, win1))
+    if show_plots:
+        # pyqtgraph visualization
+        win0 = pg.plot(np.array(eval_data[0].input_data[0]).flatten(),
+                       u.get_results(eval_data[0].input_data[0]).flatten(),
+                       labels=dict(left='u(t)', bottom='t'), pen='b')
+        win0.showGrid(x=False, y=True, alpha=0.5)
+        # vis.save_2d_pg_plot(win0, 'transport_system')
+        win1 = pi.PgAnimatedPlot(eval_data,
+                                 title=eval_data[0].name,
+                                 save_pics=False,
+                                 labels=dict(left='x(z,t)', bottom='z'))
+        pi.show()
 
 
 if __name__ == "__main__":
-    run()
+    run(True)

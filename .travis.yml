@@ -17,13 +17,21 @@ services:
 addons:
   apt:
     packages:
-    # Needed to start x virtual framebuffer
+    # Needed to start x virtual framebuffer this is not right
+    - libxcb1
     - libxkbcommon-x11-0
+    - libxcb-icccm4
+    - libxcb-image0
+    - libxcb-keysyms1
+    - libxcb-randr0
+    - libxcb-render-util0
+    - libxcb-xinerama0
 
 python:
   - 3.5
   - 3.6
   - 3.7
+  - 3.8
 
 env:
   - DIST=pypi
@@ -32,11 +40,11 @@ env:
 matrix:
   fast_finish: true
 
-  # dont take care of anaconda or older python versions
+  # do not take care of anaconda or older python versions
   allow_failures:
   - env: DIST=anaconda
 
-  # dont test latest python version with anaconda
+  # do not test latest python version with anaconda
   exclude:
       - python: 3.7
         env: anaconda
@@ -61,15 +69,17 @@ install:
       pip install codecov;
       conda list;
     else
+      pip install --upgrade pip;
       pip install -r test_requirements.txt;
       pip install .;
       pip list;
     fi;
 
 script:
-  - coverage run --omit=pyinduct/tests/*,setup.py setup.py test;
+  #- export QT_DEBUG_PLUGINS=1
+  - coverage run --omit=pyinduct/tests/* -m unittest discover -b -v;
 
 after_success:
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.7" && "$DIST" == "pypi" ]]; then
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "3.8" && "$DIST" == "pypi" ]]; then
       codecov;
     fi

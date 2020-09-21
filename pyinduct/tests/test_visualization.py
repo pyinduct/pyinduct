@@ -26,6 +26,8 @@ class VisualizeRootsTestCase(unittest.TestCase):
                                 self.funcs.frequent_eq,
                                 return_window=True)
         if show_plots:
+            p1.show()
+            p2.show()
             pi.show(show_mpl=False)
 
     def test_complex_function(self):
@@ -46,6 +48,8 @@ class VisualizeRootsTestCase(unittest.TestCase):
                                 cmplx=True,
                                 return_window=True)
         if show_plots:
+            p1.show()
+            p2.show()
             pi.show(show_mpl=False)
 
 
@@ -62,13 +66,20 @@ class VisualizeFunctionsTestCase(unittest.TestCase):
                                             (np.pi/2+1e-2, np.pi)})
 
     def test_cont_dom(self):
-        pi.visualize_functions(self.cos_func, return_window=True)
-        pi.visualize_functions(self.sin_func, return_window=True)
-        pi.visualize_functions(self.complex_func, return_window=True)
-        pi.visualize_functions(self.vectorial_funcs, return_window=True)
+        p1 = pi.visualize_functions(self.cos_func, return_window=True)
+        p2 = pi.visualize_functions(self.sin_func, return_window=True)
+        p3 = pi.visualize_functions(self.complex_func, return_window=True)
+        p4 = pi.visualize_functions(self.vectorial_funcs, return_window=True)
+        p5 = pi.visualize_functions(self.tan_func, return_window=True)
+        if show_plots:
+            [p.show() for p in (p1, p2, p3, p4, p5)]
+            pi.show(show_mpl=False)
 
     def test_disc_dom(self):
-        pi.visualize_functions(self.tan_func, return_window=True)
+        p = pi.visualize_functions(self.tan_func, return_window=True)
+        if show_plots:
+            p.show()
+            pi.show(show_mpl=False)
 
 
 class PlotTestCase(unittest.TestCase):
@@ -84,41 +95,42 @@ class PlotTestCase(unittest.TestCase):
             name="short set")
 
     def test_slice_plot(self):
-        pt = vis.PgSlicePlot(self.test_data[0])
         if show_plots:
+            pt = vis.PgSlicePlot(self.test_data[0])
             pi.show(show_mpl=False)
 
     def test_3d_line_plot(self):
-        pt = vis.PgLinePlot3d(self.test_data)
         if show_plots:
+            pt = vis.PgLinePlot3d(self.test_data)
             pi.show(show_mpl=False)
 
     def test_animated_plot_unequal(self):
         # test plotting of data sets with unequal length and spatial
         # discretization
-        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
-                                title="Test Plot",
-                                labels={"left": "string deflection",
-                                        "bottom": "time"})
         if show_plots:
+            pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
+                                    title="Test Plot",
+                                    labels={"left": "string deflection",
+                                            "bottom": "time"})
             pi.show(show_mpl=False)
 
     @unittest.skip("PyQtgraph raises an error here")
     def test_animated_plot_export(self):
-        # test export
-        pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
-                                title="Test Plot",
-                                save_pics=True)
         if show_plots:
+            # test export
+            pt = vis.PgAnimatedPlot(self.test_data + [self.short_data],
+                                    title="Test Plot",
+                                    save_pics=True)
             pi.show(show_mpl=False)
 
-        self.assertTrue(os.path.isdir(os.sep.join([os.getcwd(), pt._res_path])))
+            self.assertTrue(os.path.isdir(os.sep.join([os.getcwd(),
+                                                       pt._res_path])))
 
     def test_surface_plot(self):
-        pt = vis.PgSurfacePlot(self.test_data,
-                               scales=(.1, 1, .1)
-                               )
         if show_plots:
+            pt = vis.PgSurfacePlot(self.test_data,
+                                   scales=(.1, 1, .1)
+                                   )
             pi.show(show_mpl=False)
 
     def test_animated_surface_plot(self):
@@ -144,22 +156,30 @@ class PlotTestCase(unittest.TestCase):
         # animation axis has to be provided for 3d data
         self.assertRaises(ValueError, pi.PgSurfacePlot, data_set_0)
 
-        pt0 = pi.PgSurfacePlot(data_set_0, animation_axis=0)
-        pt1 = pi.PgSurfacePlot(data_set_1, animation_axis=1)
-        pt2 = pi.PgSurfacePlot(data_set_2, animation_axis=2)
-
         if show_plots:
+            pt0 = pi.PgSurfacePlot(data_set_0, animation_axis=0)
+            pt1 = pi.PgSurfacePlot(data_set_1, animation_axis=1)
+            pt2 = pi.PgSurfacePlot(data_set_2, animation_axis=2)
+
             pi.show(show_mpl=False)
 
     def test_mpl_surface_plot(self):
-        vis.MplSurfacePlot(self.test_data[1], keep_aspect=False)
+        if show_plots:
+            vis.MplSurfacePlot(self.test_data[1], keep_aspect=False)
+            pi.show(show_pg=False)
+
+    def test_mpl_surface_plot_nan(self):
+        nan_data = self.test_data[1].output_data.copy()
+        nan_data[100:200, :] = np.nan
+        tricky_data = pi.EvalData(self.test_data[1].input_data, nan_data)
+        vis.MplSurfacePlot(tricky_data, keep_aspect=False)
         if show_plots:
             pi.show(show_pg=False)
 
     def test_mpl_slice_plot(self):
-        vis.MplSlicePlot(self.test_data + self.test_data + self.test_data,
-                         spatial_point=0.5,
-                         ylabel='$x(0,t)$',
-                         legend_label=['1', '2', '3', '4', '5', '6'])
         if show_plots:
+            vis.MplSlicePlot(self.test_data + self.test_data + self.test_data,
+                             spatial_point=0.5,
+                             ylabel='$x(0,t)$',
+                             legend_label=['1', '2', '3', '4', '5', '6'])
             pi.show(show_pg=False)

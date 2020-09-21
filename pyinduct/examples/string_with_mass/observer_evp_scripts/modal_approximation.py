@@ -81,7 +81,7 @@ def build_bases_for_modal_observer_approximation(m):
         raise ValueError("Only even number of eigenvalues supported.")
 
     n = int(m / 2)
-    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2), cls=sp.Function)]
+    coef = [sp.Function(f"c_{i}")(sym.t) for i in range(n * 2)]
 
     # solve eigenvalue problems in  normal form coordinates by hand: manual = 1
     # or derive from the solutions in original coordinates: manual = 0
@@ -217,7 +217,7 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     n = int(m / 2)
     assert all([len(it_) == m for it_ in (primal_base_nf, dual_base, dual_base_nf, eig_vals)])
 
-    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2))]
+    coef = [sp.Function(f"c_{i}")(sym.t) for i in range(n * 2)]
 
     # approximate state
     x = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base)])
@@ -226,13 +226,11 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     xi1 = np.sum([c * f[2] for c, f in zip(coef, primal_base)])
     xi2 = np.sum([c * f[3] for c, f in zip(coef, primal_base)])
 
-
     # approximate normal form state
     eta = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base_nf)])
     eta1 = np.sum([c * f[0] for c, f in zip(coef, primal_base_nf)])
     eta2 = np.sum([c * f[1] for c, f in zip(coef, primal_base_nf)])
     eta3 = np.sum([c * f[2] for c, f in zip(coef, primal_base_nf)])
-
 
     # test functions
     psi = [sp.Matrix(tf) for tf in dual_base]
@@ -241,13 +239,11 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     tau1 = [tf[2] for tf in dual_base]
     tau2 = [tf[3] for tf in dual_base]
 
-
     # normal form test functions
     nu = [sp.Matrix(tf) for tf in dual_base_nf]
     nu1 = [tf[0] for tf in dual_base_nf]
     nu2 = [tf[1] for tf in dual_base_nf]
     nu3 = [tf[2] for tf in dual_base_nf]
-
 
     # choose kind of desired dynamic
     spring_damper = 0
@@ -262,17 +258,19 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     # observer projections
     if 1:
         observer_projections = [
-            (_inner_product_nf(l, ftf, coef) + l_bc * ftf3.subs(sym.theta, -1)) * sym.yt(sym.t)
+            (_inner_product_nf(l, ftf, coef)
+             + l_bc * ftf3.subs(sym.theta, -1)) * sym.yt(sym.t)
             for ftf, ftf3 in zip(nu, nu3)]
     else:
         observer_projections = [
-            (-_inner_product_nf(a_desired, ftf, coef) - a_bc_desired * ftf3.subs(sym.theta, -1) - ftf3.subs(sym.theta, 1)) * sym.yt(sym.t)
+            (-_inner_product_nf(a_desired, ftf, coef)
+             - a_bc_desired * ftf3.subs(sym.theta, -1)
+             - ftf3.subs(sym.theta, 1)) * sym.yt(sym.t)
             for ftf, ftf3 in zip(nu, nu3)]
 
-
     # just the unbounded part
-    L_unbounded = sp.Matrix([[l_bc[0] * ftf3.subs(sym.theta, -1)] for ftf3 in nu3])
-
+    L_unbounded = sp.Matrix([[l_bc[0] * ftf3.subs(sym.theta, -1)]
+                             for ftf3 in nu3])
 
     # project test functions on state space
     C = list()
@@ -302,13 +300,11 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     ]
     C.append(sp.linear_eq_to_matrix([eta3.subs(sym.theta, 1)], coef)[0])
 
-
     # add observer projections to the system projections
     projections = [sp + op for sp, op in zip(system_projections,
                                              observer_projections)]
     projections_nf = [sp + op for sp, op in zip(system_projections_nf,
                                                 observer_projections)]
-
 
     # parse matrices
     E1, E0, G, J, A, B, L = [[None, None] for _ in range(7)]
@@ -332,7 +328,6 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
         B[i] = G[i]
         L[i] = J[i]
 
-
     # display matrices
     print("\n A")
     np.testing.assert_array_almost_equal(A[0], A[1])
@@ -348,7 +343,6 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     print("\n L")
     np.testing.assert_array_almost_equal(L[0], L[1])
     _pprint((L[0], L[1]))
-
 
     # compare eigenvalue
     print("\n open loop eigenvalues")

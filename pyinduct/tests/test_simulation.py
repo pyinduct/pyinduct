@@ -907,7 +907,7 @@ class StringMassTest(unittest.TestCase):
     def create_test_data(self):
         if self.example_data is None:
             self.setUp()
-            self.test_fem()
+            self.test_fem(show=False)
             self.tearDown()
         return copy.copy(self.example_data)
 
@@ -952,7 +952,7 @@ class StringMassTest(unittest.TestCase):
             pi.Function(lambda z: x_dt(z, 0), domain=z_bounds),  # dx_dt(z, 0)
         ])
 
-    def test_fem(self):
+    def test_fem(self, show=True):
         """
         use best documented fem case to test all steps in simulation process
         """
@@ -1008,7 +1008,7 @@ class StringMassTest(unittest.TestCase):
         pi.deregister_base("fem_base")
 
         # display results
-        if show_plots:
+        if show_plots and show:
             win = pi.PgAnimatedPlot(eval_data[:2],
                                     title="fem approx and derivative")
             win2 = pi.PgSurfacePlot(eval_data[0])
@@ -1309,8 +1309,8 @@ class MultiplePDETest(unittest.TestCase):
 
     def test_single_system(self):
         results = pi.simulate_system(self.weak_form_1, self.ic1, self.dt, self.dz1)
-        win = pi.PgAnimatedPlot(results)
         if show_plots:
+            win = pi.PgAnimatedPlot(results)
             pi.show(show_mpl=False)
 
     def test_coupled_system(self):
@@ -1323,11 +1323,10 @@ class MultiplePDETest(unittest.TestCase):
         derivatives = {self.weak_form_1.name: (0, 0), self.weak_form_2.name: (0, 0)}
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
-        win = pi.PgAnimatedPlot(res)
 
         if show_plots:
+            win = pi.PgAnimatedPlot(res)
             pi.show(show_mpl=False)
-            del win
 
     def test_triple_system(self):
         """
@@ -1345,11 +1344,10 @@ class MultiplePDETest(unittest.TestCase):
                        self.weak_form_3.name: (0, 0)}
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
-        win = pi.PgAnimatedPlot(res)
 
         if show_plots:
+            win = pi.PgAnimatedPlot(res)
             pi.show(show_mpl=False)
-            del win
 
     def test_triple_system_with_swm(self):
         """
@@ -1372,11 +1370,10 @@ class MultiplePDETest(unittest.TestCase):
                        self.weak_form_4.name: (1, 1)}
 
         res = pi.simulate_systems(weak_forms, ics, self.dt, spat_domains, derivatives)
-        win = pi.PgAnimatedPlot(res)
 
         if show_plots:
+            win = pi.PgAnimatedPlot(res)
             pi.show(show_mpl=False)
-            del win
 
     def tearDown(self):
         pi.deregister_base("base_1")
@@ -1436,14 +1433,14 @@ class RadFemTrajectoryTest(unittest.TestCase):
         t, q = sim.simulate_state_space(ss,
                                         np.zeros(self.base_2.shape),
                                         self.dt)
+        eval_d = sim.evaluate_approximation("base_1",
+                                            q,
+                                            t,
+                                            self.dz,
+                                            spat_order=1)
 
         # display results
         if show_plots:
-            eval_d = sim.evaluate_approximation("base_1",
-                                                q,
-                                                t,
-                                                self.dz,
-                                                spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
             pi.show(show_mpl=False)
@@ -1723,10 +1720,11 @@ class RadRobinModalVsWeakFormulationTest(unittest.TestCase):
                                              decimal=5)
         np.testing.assert_array_almost_equal(ss_weak.B[0][1], ss_modal.B[0][1])
 
+        t_end, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
+        eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz,
+                                            spat_order=1)
         # display results
         if show_plots:
-            t_end, q = sim.simulate_state_space(ss_modal, initial_weights, dt)
-            eval_d = sim.evaluate_approximation("eig_base", q, t_end, dz, spat_order=1)
             win1 = pi.PgAnimatedPlot([eval_d], title="Test")
             win2 = pi.PgSurfacePlot(eval_d)
             pi.show(show_mpl=False)
@@ -1742,31 +1740,47 @@ class EvaluateApproximationTestCase(unittest.TestCase):
         self.node_cnt = 5
         self.time_step = 1e-1
         self.dates = pi.Domain((0, 10), step=self.time_step)
-        self.spat_dom = pi.Domain((0, 1), num=self.node_cnt)
+        self.spat_dom = pi.Domain((0, 1), num=50)
 
-        # create initial functions
+        # create bases functions
         self.nodes = pi.Domain(self.spat_dom.bounds, num=self.node_cnt)
-        self.funcs = pi.LagrangeSecondOrder.cure_interval(self.nodes)
-        pi.register_base("approx_funcs", self.funcs, overwrite=True)
+        self.fe_funcs = pi.LagrangeSecondOrder.cure_interval(self.nodes)
 
         # create a slow rising, nearly horizontal line
         self.weights = np.array(list(range(
             self.node_cnt * self.dates.points.size))).reshape(
             (self.dates.points.size, len(self.nodes)))
+        self.p = None
 
-    def test_eval_helper(self):
-        eval_data = sim.evaluate_approximation("approx_funcs",
+    def test_eval_simple(self):
+        pi.register_base("fe_base", self.fe_funcs)
+        eval_data = sim.evaluate_approximation("fe_base",
                                                self.weights,
                                                self.dates,
                                                self.spat_dom,
                                                1)
+        pi.deregister_base("fe_base")
         if show_plots:
             p = pi.PgAnimatedPlot(eval_data)
             pi.show(show_mpl=False)
-            del p
 
-    def tearDown(self):
-        pass
+    def test_eval_composed(self):
+        c_base = pi.Base([pi.ComposedFunctionVector(f, f(0))
+                          for f in self.fe_funcs])
+        pi.register_base("fe_comp_base", c_base)
+        ev = sim.evaluate_approximation("fe_comp_base",
+                                        self.weights,
+                                        self.dates,
+                                        self.spat_dom,
+                                        0)
+        pi.deregister_base("fe_comp_base")
+
+        # split the results into separate ED instances
+        evs = [pi.EvalData(ev.input_data[:-1], ev.output_data[..., i])
+               for i in range(ev.output_data.shape[-1])]
+        if show_plots:
+            p = pi.PgAnimatedPlot(evs)
+            pi.show(show_mpl=False)
 
 
 class SetDominantLabel(unittest.TestCase):

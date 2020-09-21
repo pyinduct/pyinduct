@@ -5,7 +5,7 @@ import time
 import os
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
-from pyinduct.visualization import PgDataPlot
+from pyinduct.visualization import PgDataPlot, get_colors
 
 # matplotlib configuration
 plt.rcParams.update({'text.usetex': True})
@@ -46,13 +46,16 @@ def get_primal_eigenvector(according_paper=False):
     return phi
 
 
-def plot_eigenvalues(eigenvalues):
+def plot_eigenvalues(eigenvalues, return_figure=False):
     plt.figure(facecolor="white")
     plt.scatter(np.real(eigenvalues), np.imag(eigenvalues))
     ax = plt.gca()
     ax.set_xlabel(r"$Re(\lambda)$")
     ax.set_ylabel(r"$Im(\lambda)$")
-    plt.show()
+    if return_figure:
+        return ax.get_figure()
+    else:
+        plt.show()
 
 
 def check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss):
@@ -133,7 +136,7 @@ class SwmPgAnimatedPlot(PgDataPlot):
 
         self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
         self._pw.addLegend()
-        self._pw.showGrid(x=True, y=True, alpha=0.5)
+        self._pw.showGrid(x=True, y=True, alpha=1)
 
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
@@ -182,7 +185,7 @@ class SwmPgAnimatedPlot(PgDataPlot):
 
         self._plot_data_items = []
         self._plot_indexes = []
-        cls = pi.create_colormap(len(self._data))
+        cls = get_colors(len(self._data))
         for idx, data_set in enumerate(self._data):
             self._plot_indexes.append(0)
             self._plot_data_items.append(pg.PlotDataItem(pen=pg.mkPen(cls[idx], width=2), name=data_set.name))
@@ -225,7 +228,7 @@ class SwmPgAnimatedPlot(PgDataPlot):
 
         self._time_text.setText('t= {0:.2f}'.format(self._t))
         self._t += self._t_step
-        self._pw.win.setWindowTitle('t= {0:.2f}'.format(self._t))
+        self._pw.setWindowTitle('t= {0:.2f}'.format(self._t))
 
         if self._t > self._end_time:
             self._t = self._start_time
@@ -275,6 +278,7 @@ ctrl_gain.alpha = 0
 
 # symbols
 sym = Parameters()
-sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt, sym.tau, sym.sigma = [
-    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}", r"tau", r"sigma")]
+sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.tau, sym.sigma = [
+    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"sigma")]
+sym.u, sym.yt = [sp.Function(f) for f in (r"\tilde{y}", r"tau")]
 subs_list = [(sym.m, param.m)]

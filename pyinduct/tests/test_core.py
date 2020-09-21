@@ -410,7 +410,7 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         self.assertEqual(v1.function_space_hint(),
                          [f.function_space_hint() for f in self.functions]
                          + [core.dot_product for s in self.scalars]
-                        )
+                         )
         # v2 = pi.ComposedFunctionVector(self.functions[], self.scalars)
         # g = pi.Function(lambda x: 2, domain=(0, 10))
         # self.assertEqual(f4.function_space_hint(),
@@ -425,7 +425,7 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
 
         # vectorial case
         inp = np.array(range(100))
-        ret = np.array([ [2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)]).T
+        ret = np.array([[2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)])
         res = v1(inp)
         np.testing.assert_array_equal(res, ret)
 

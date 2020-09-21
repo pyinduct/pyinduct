@@ -18,7 +18,7 @@ import pickle
 import time
 
 
-def run():
+def run(show_plots):
 
     # control mode
     control_mode = ["open_loop",
@@ -121,7 +121,7 @@ def run():
     # check_eigenvalues(sys_fem_lbl, obs_fem_lbl, obs_modal_lbl, ceq, ss)
 
     # visualization data
-    split_indizes = [n1 + n2 ,
+    split_indizes = [n1 + n2,
                      n1 + n2 + n_obs_fem,
                      n1 + n2 + n_obs_fem + n_obs_modal]
     #  system
@@ -132,20 +132,26 @@ def run():
 
     #  fem observer
     weights_fem_obs = weights[:, split_indizes[0]: split_indizes[1]]
-    fem_obs_ed = pi.get_sim_result(sys_fem_lbl + "_1_trafo_visu", weights_fem_obs,
-                                     temporal_domain, spatial_domain, 0, 0,
-                                     name=r"\hat x1_fem(z,t)")[0]
+    fem_obs_ed = pi.get_sim_result(sys_fem_lbl + "_1_trafo_visu",
+                                   weights_fem_obs,
+                                   temporal_domain, spatial_domain,
+                                   0, 0,
+                                   name=r"\hat x1_fem(z,t)")[0]
     #  modal observer
     weights_modal_obs = weights[:, split_indizes[1]: split_indizes[2]]
-    modal_obs_ed = pi.get_sim_result(sys_modal_lbl + "_1_trafo_visu", weights_modal_obs,
-                                     temporal_domain, spatial_domain, 0, 0,
+    modal_obs_ed = pi.get_sim_result(sys_modal_lbl + "_1_trafo_visu",
+                                     weights_modal_obs,
+                                     temporal_domain, spatial_domain,
+                                     0, 0,
                                      name=r"\hat x1_modal(z,t)")[0]
+    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl])
 
-    # create plots
-    plots = list()
-    plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
-    plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
-    pi.show()
+    if show_plots:
+        # create plots
+        plots = list()
+        plots.append(SwmPgAnimatedPlot([eval_data1, modal_obs_ed]))
+        plots.append(pi.surface_plot([eval_data1, modal_obs_ed]))
+        pi.show()
 
     # save results
     if 0:
@@ -158,8 +164,6 @@ def run():
         pickle.dump([eval_data1, fem_obs_ed, modal_obs_ed], file)
         file.close()
 
-    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl], plots)
-
 
 if __name__ == "__main__":
-    run()
+    run(True)

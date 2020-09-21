@@ -162,8 +162,8 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     cf_nodes = pi.Domain((-1, 1), ncf)
     assert nodes1.bounds == nodes2.bounds
 
-    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=5)
-    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=5)
+    fem_funcs1 = pi.LagrangeNthOrder.cure_interval(nodes1, order=2)
+    fem_funcs2 = pi.LagrangeNthOrder.cure_interval(nodes2, order=2)
     zero_function = pi.ConstantFunction(0, domain=nodes1.bounds)
     one_function = pi.ConstantFunction(1, domain=nodes1.bounds)
 
@@ -216,7 +216,7 @@ def build_fem_bases(base_lbl, n1, n2, cf_base_lbl, ncf, modal_base_lbl):
     pi.register_base(base_lbl + "_4_ctrl", pi.Base(zb1 + ob4))
 
     # bases for the canonical form
-    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=10)
+    cf_fem_funcs = pi.LagrangeNthOrder.cure_interval(cf_nodes, order=2)
     cf_zero_func = pi.ConstantFunction(0, domain=cf_nodes.bounds)
 
     cf_base1, cf_base22, cf_base33, cf_base21, cf_base3, cf_base30, cf_base32_at_m1, cf_base3_integrated, cf_base3_int_ip_scale = [
@@ -480,13 +480,13 @@ class SwmBaseFraction(pi.ComposedFunctionVector):
         """
         return [self.scalar_product]
 
-    def __call__(self, z):
-        return np.array([f(z) for f in self.members["funcs"]] +
-                        [self.members["scalars"][0]] +
-                        [self.members["scalars"][1]])
+    # def __call__(self, z):
+    #     return np.array([f(z) for f in self.members["funcs"]] +
+    #                     [self.members["scalars"][0]] +
+    #                     [self.members["scalars"][1]])
 
     def evaluation_hint(self, values):
-        return self(values)[0]
+        return self(values)
 
     def derive(self, order):
         if order == 0:
