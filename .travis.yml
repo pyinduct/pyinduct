@@ -70,8 +70,7 @@ install:
       conda list;
     else
       pip install --upgrade pip;
-      pip install -r test_requirements.txt;
-      pip install .;
+      pip install ".[tests]";
       pip list;
     fi;
 

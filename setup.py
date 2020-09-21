@@ -57,6 +57,9 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     test_suite='pyinduct.tests',
-    tests_require=test_requirements,
+    extras_require={
+        "tests": ["codecov>=2.0.15"],
+        "docs": ["sphinx>=3.2.1", "sphinx-rtd-theme>=0.5.0"],
+    },
     python_requires=">=3.5",
 )
