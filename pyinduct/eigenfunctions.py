@@ -882,14 +882,15 @@ class SecondOrderRobinEigenfunction(SecondOrderEigenfunction):
     problem given by
 
     .. math::
-        a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) = \lambda\varphi(z) \\
-        \varphi'(0) &= \alpha \varphi(0) \\
-        \varphi'(l) &= -\beta \varphi(l).
+
+        a_2\varphi''(z) + a_1&\varphi'(z) + a_0\varphi(z) = \lambda\varphi(z)
+
+        \varphi'(0) &= \alpha \varphi(0)
+
+        \varphi'(l) &= -\beta \varphi(l) .
 
     The eigenfrequency
-
-    .. math:: \omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}
-
+    :math:`\omega = \sqrt{-\frac{a_1^2}{4a_2^2}+\frac{a_0-\lambda}{a_2}}`
     must be provided (for example with the :py:meth:`.eigfreq_eigval_hint` of
     this class).
 
@@ -1211,24 +1212,22 @@ class FiniteTransformFunction(Function):
     r"""
     This class provides a transformed :py:class:`.Function` :math:`\bar x(z)`
     through the transformation
-    :math:`\bar{\boldsymbol{\xi}} = T * \boldsymbol \xi`, with the function
+    :math:`\bar{\boldsymbol{\xi}} = T * \boldsymbol \xi` , with the function
     vector :math:`\boldsymbol \xi\in\mathbb R^{2n}` and with a given matrix
     :math:`T\in\mathbb R^{2n\times 2n}`. The operator :math:`*` denotes the
     matrix (of scalars) vector (of functions) product. The interim result
     :math:`\bar{\boldsymbol{\xi}}` is a vector
-
-    .. math:: \bar{\boldsymbol{\xi}} = (\bar\xi_{1,0},...,\bar\xi_{1,n-1},
-        \bar\xi_{2,0},...,\bar\xi_{2,n-1})^T.
-
+    :math:`\bar{\boldsymbol{\xi}} = (\bar\xi_{1,0},...,\bar\xi_{1,n-1}, \bar\xi_{2,0},...,\bar\xi_{2,n-1})^T`
     of functions
 
     .. math::
-        &\bar\xi_{1,j} = \bar x(jl_0 + z),
-        \qquad j=0,...,n-1, \quad l_0=l/n, \quad z\in[0,l_0] \\
+
+        &\bar\xi_{1,j} = \bar x(jl_0 + z), \qquad j=0,...,n-1, \quad l_0=l/n, \quad z\in[0,l_0]
+
         &\bar\xi_{2,j} = \bar x(l - jl_0 + z).
 
     Finally, the provided function :math:`\bar x(z)` is given through
-    :math:`\bar\xi_{1,0},...,\bar\xi_{1,n-1}`.
+    :math:`\bar\xi_{1,0},...,\bar\xi_{1,n-1}` .
 
     Note:
         For a more extensive documentation see section 4.2 in:
@@ -1241,22 +1240,11 @@ class FiniteTransformFunction(Function):
     Args:
         function (callable):
             Function :math:`x(z)` that will act as start for the generation of
-            :math:`2n` Functions :math:`\xi_{i,j}`
-
-            .. math::
-                &\bar\xi_{1,j} = x(z + jl_0),
-                \qquad j=0,...,n-1, \quad l_0=l/n, \quad z\in[0,l_0] \\
-                &\bar\xi_{2,j} = x(z + l - jl_0 ).
-
-            The vector of functions :math:`\boldsymbol\xi` will then be
-            constituted as follows:
-
-            .. math:: \boldsymbol\xi = (\xi_{1,0},...,\xi_{1,n-1},
-                \xi_{2,0},...,\xi_{2,n-1})^T .
-
+            :math:`2n` Functions :math:`\xi_{i,j}` in
+            :math:`\boldsymbol\xi = (\xi_{1,0},...,\xi_{1,n-1}, \xi_{2,0},...,\xi_{2,n-1})^T` .
         M (numpy.ndarray): Matrix :math:`T\in\mathbb R^{2n\times 2n}` of
             scalars.
-        l (numbers.Number): Length of the domain (:math:`z\in [0,l]`).
+        l (numbers.Number): Length of the domain (:math:`z\in [0,l]` ).
     """
 
     def __init__(self, function, M, l, scale_func=None, nested_lambda=False):

@@ -17,14 +17,16 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline, RegularGr
 
 from .registry import get_base
 
-__all__ = ["Domain", "EvalData", "Parameters", "find_roots", "sanitize_input",
-           "real", "Base", "BaseFraction", "StackedBase", "Function",
-           "ComposedFunctionVector", "normalize_base", "project_on_base",
-           "change_projection_base", "back_project_from_base",
-           "calculate_scalar_product_matrix", "dot_product_l2",
+__all__ = ["Domain", "EvalData", "Parameters",
+           "Base", "BaseFraction", "StackedBase",
+           "Function", "ConstantFunction", "ComposedFunctionVector",
+           "find_roots", "sanitize_input", "real", "dot_product_l2",
+           "normalize_base", "project_on_base", "change_projection_base",
+           "back_project_from_base",
+           "calculate_scalar_product_matrix",
            "calculate_base_transformation_matrix",
            "calculate_expanded_base_transformation_matrix",
-           "dot_product_l2", "ConstantFunction"]
+           ]
 
 
 def sanitize_input(input_object, allowed_type):
@@ -201,20 +203,19 @@ class Function(BaseFraction):
     or directly provide a callable *eval_handle* and callable
     *derivative_handles* if spatial derivatives are required for the
     application.
+
+    Args:
+        eval_handle (callable): Callable object that can be evaluated.
+        domain((list of) tuples): Domain on which the eval_handle is defined.
+        nonzero(tuple): Region in which the eval_handle will return
+        nonzero output. Must be a subset of *domain*
+        derivative_handles (list): List of callable(s) that contain
+        derivatives of eval_handle
     """
 
     # TODO: overload add and mul operators
 
     def __init__(self, eval_handle, domain=(-np.inf, np.inf), nonzero=(-np.inf, np.inf), derivative_handles=None):
-        """
-        Args:
-            eval_handle (callable): Callable object that can be evaluated.
-            domain((list of) tuples): Domain on which the eval_handle is defined.
-            nonzero(tuple): Region in which the eval_handle will return
-                nonzero output. Must be a subset of *domain*
-            derivative_handles (list): List of callable(s) that contain
-                derivatives of eval_handle
-        """
         super().__init__(None)
         self._vectorial = False
         self._function_handle = None

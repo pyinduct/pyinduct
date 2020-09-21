@@ -1565,8 +1565,8 @@ def set_dominant_labels(canonical_equations, finalize=True):
 
 class SimulationInputVector(SimulationInput):
     """
-    A simulation input which combines :py:class:`.SimulationInput`s into a
-    column vector.
+    A simulation input which combines :py:class:`.SimulationInput` objects into
+    a column vector.
 
     Args:
         input_vector (array_like): Simulation inputs to stack.
@@ -1589,6 +1589,9 @@ class SimulationInputVector(SimulationInput):
         return self._input_vector[item]
 
     def append(self, input_vector):
+        """
+        Add an input to the vector.
+        """
         inputs = self._sanitize_input_vector(input_vector)
         self._input_vector = np.hstack((self._input_vector, inputs))
 

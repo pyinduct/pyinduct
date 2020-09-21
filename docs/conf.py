@@ -124,7 +124,7 @@ pygments_style = 'sphinx'
 # documents.
 # keep_warnings = False
 
-autoclass_content = "both"
+autoclass_content = "class"
 
 # -- Options for HTML output -------------------------------------------
 
