@@ -24,4 +24,4 @@ from .visualization import *
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
-__version__ = '0.5.0'
+__version__ = '0.5.1'

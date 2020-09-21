@@ -3,7 +3,6 @@
 
 from setuptools import setup, find_packages
 
-
 with open('README.rst') as readme_file:
     readme = readme_file.read()
 
@@ -16,10 +15,15 @@ with open('requirements.txt') as f:
 with open('test_requirements.txt') as f:
     test_requirements = f.read().splitlines()
 
+MAJOR = 0
+MINOR = 5
+MICRO = 1
+ISRELEASED = False
+VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 setup(
     name='pyinduct',
-    version='0.5.0',
+    version=VERSION,
     description="Toolbox for control and observer design for "
                 "infinite dimensional systems.",
     long_description=readme[21:],
@@ -50,6 +54,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     test_suite='pyinduct.tests',
     tests_require=test_requirements,

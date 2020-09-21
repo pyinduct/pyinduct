@@ -74,7 +74,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'PyInduct'
-copyright = u'2015, Stefan Ecklebe, Marcus Riesmeier'
+copyright = u'2015-2020, Stefan Ecklebe, Marcus Riesmeier'
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
