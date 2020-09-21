@@ -224,7 +224,7 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     n = int(m / 2)
     assert all([len(it_) == m for it_ in (primal_base_nf, dual_base, dual_base_nf, eig_vals)])
 
-    coef = sp.Array([sp.Function(f"c_{i}")(sym.t) for i in range(n * 2)])
+    coef = sp.Array([sp.Function("c_{}".format(i))(sym.t) for i in range(n * 2)])
 
     # approximate state
     x = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base)])
