@@ -28,7 +28,6 @@ class StringWithMassTest(unittest.TestCase):
             f.show()
             pi.show(show_pg=False)
 
-    @unittest.skip("Test is broken")
     def test_observer_evp_scripts(self):
         from pyinduct.examples.string_with_mass.observer_evp_scripts.modal_approximation \
             import build_bases_for_modal_observer_approximation, validate_modal_bases
@@ -188,3 +187,6 @@ class StringWithMassTest(unittest.TestCase):
         # controller
         controller = build_controller(sys_modal_lbl, sys_modal_lbl)
         approx_ctrl = approximate_controller(sys_modal_lbl, sys_modal_lbl)
+
+    def tearDown(self) -> None:
+        clear_registry()

@@ -278,6 +278,7 @@ ctrl_gain.alpha = 0
 
 # symbols
 sym = Parameters()
-sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.u, sym.yt, sym.tau, sym.sigma = [
-    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"\tilde{y}", r"tau", r"sigma")]
+sym.m, sym.lam, sym.tau, sym.om, sym.theta, sym.z, sym.t, sym.tau, sym.sigma = [
+    sp.Symbol(sym, real=True) for sym in (r"m", r"lambda", r"tau", r"omega", r"theta", r"z", r"t", r"u", r"sigma")]
+sym.u, sym.yt = [sp.Function(f) for f in (r"\tilde{y}", r"tau")]
 subs_list = [(sym.m, param.m)]

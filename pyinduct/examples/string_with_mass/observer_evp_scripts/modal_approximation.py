@@ -81,7 +81,7 @@ def build_bases_for_modal_observer_approximation(m):
         raise ValueError("Only even number of eigenvalues supported.")
 
     n = int(m / 2)
-    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2), cls=sp.Function)]
+    coef = [sp.Function(f"c_{i}")(sym.t) for i in range(n * 2)]
 
     # solve eigenvalue problems in  normal form coordinates by hand: manual = 1
     # or derive from the solutions in original coordinates: manual = 0
@@ -217,7 +217,7 @@ def validate_modal_bases(primal_base, primal_base_nf, dual_base, dual_base_nf,
     n = int(m / 2)
     assert all([len(it_) == m for it_ in (primal_base_nf, dual_base, dual_base_nf, eig_vals)])
 
-    coef = [c(sym.t) for c in sp.symbols("c_:{}".format(n*2), cls=sp.Function)]
+    coef = [sp.Function(f"c_{i}")(sym.t) for i in range(n * 2)]
 
     # approximate state
     x = _sum([c * sp.Matrix(f) for c, f in zip(coef, primal_base)])
