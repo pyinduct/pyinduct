@@ -1,11 +1,9 @@
-import os
-import time
+from pyinduct.examples.string_with_mass.control import *
+from pyinduct.registry import clear_registry
+from pyinduct.tests import show_plots
 import pickle
 import unittest
-import pyqtgraph as pg
 
-from pyinduct.tests import show_plots
-from pyinduct.examples.string_with_mass.control import *
 
 
 class StringWithMassTest(unittest.TestCase):
@@ -76,23 +74,65 @@ class StringWithMassTest(unittest.TestCase):
             [p.show() for p in plots]
             pi.show()
 
-    @unittest.skip("Test case is incomplete and broken")
     def test_modal_cf_wf(self):
-        # TODO fix these calls and add an actual test
+        # domains
+        z_end = 1
+        spatial_discretization = 100
+        spatial_domain = pi.Domain((0, z_end), spatial_discretization)
+        spat_domain_cf = pi.Domain((-z_end, z_end), spatial_discretization)
 
-        n = 4
-        n_cf = 4  # HACK added n_cf since interface of build_modal_base_changed
-        base_label = "base"
-        base_label_cf = "base_cf"
-        build_modal_bases(base_label, n,  base_label_cf, n_cf)
-        # It seems like a call to the function below is missing
-        # init_observer_gain(sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl)
-        wf = build_canonical_weak_formulation(base_label_cf,
-                                              pi.Domain((-1, 1), 2),
-                                              pi.ConstantTrajectory(0), "")
-        ce = pi.parse_weak_formulation(wf)
-        pprint(ce.dynamic_forms[base_label_cf].matrices["E"][1][1])
-        pprint(ce.dynamic_forms[base_label_cf].matrices["E"][0][1])
+        # set up bases
+        sys_fem_lbl = "fem_system"
+        sys_modal_lbl = "modal_system"
+        obs_fem_lbl = "fem_observer"
+        obs_modal_lbl = "modal_observer"
+        n1 = 11
+        n2 = 11
+        n_obs_fem = 23
+        n_obs_modal = 12
+        build_fem_bases(sys_fem_lbl, n1, n2, obs_fem_lbl, n_obs_fem,
+                        sys_modal_lbl)
+        build_modal_bases(sys_modal_lbl, n_obs_modal, obs_modal_lbl,
+                          n_obs_modal)
+
+        # controller
+        input_ = pi.SimulationInputSum([pi.ConstantTrajectory(0)])
+
+        # observer error
+        obs_fem_error, obs_modal_error = init_observer_gain(
+            sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl)
+
+        # input / observer error vector
+        input_vector = pi.SimulationInputVector(
+            [input_, obs_fem_error, obs_modal_error])
+        control = pi.Input(input_vector, index=0)
+        yt_fem = pi.Input(input_vector, index=1)
+        yt_modal = pi.Input(input_vector, index=2)
+
+        # system approximation
+        wf = build_original_weak_formulation(
+            sys_fem_lbl, spatial_domain, control, sys_fem_lbl)
+        obs_fem_wf = build_canonical_weak_formulation(
+            obs_fem_lbl, spat_domain_cf, control, yt_fem, obs_fem_lbl)
+        obs_modal_wf = build_canonical_weak_formulation(
+            obs_modal_lbl, spat_domain_cf, control, yt_modal, obs_modal_lbl)
+
+        def calc_eigvals(wf, label):
+            ce = pi.parse_weak_formulation(wf)
+            dyn_matrix = (
+                -np.linalg.inv(
+                    ce.dynamic_forms[label].matrices["E"][1][1]) @
+                ce.dynamic_forms[label].matrices["E"][0][1])
+            return np.sort(
+                [np.imag(ev) for ev in np.linalg.eigvals(dyn_matrix)
+                 if (0.1 < np.imag(ev) < 15) and np.abs(np.real(ev)) < 0.001])
+
+        imag_ev_sys = calc_eigvals(wf, sys_fem_lbl)
+        imag_ev_obs = calc_eigvals(obs_fem_wf, obs_fem_lbl)
+        imag_ev_obs_modal = calc_eigvals(obs_modal_wf, obs_modal_lbl)
+
+        self.assertTrue(np.linalg.norm(imag_ev_sys - imag_ev_obs) < 1)
+        self.assertTrue(np.linalg.norm(imag_ev_sys - imag_ev_obs_modal) < 1)
 
     def test_state_transform(self):
         ie = 1
