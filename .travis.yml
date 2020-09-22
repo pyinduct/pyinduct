@@ -66,7 +66,11 @@ install:
 
 script:
   #- export QT_DEBUG_PLUGINS=1;
-  - coverage run --omit="pyinduct/tests/*" -m pyinduct.tests.run_tests --no-plots;
+  # create temporal directory to prevent running the tests on the source
+  # directly instead of testing the installed version
+  - mkdir tmp;
+  - cd tmp;
+  - coverage run --omit="pyinduct/tests/*" -m pyinduct.run_tests --no-plots;
 
 after_success:
   - if [[ "$TRAVIS_PYTHON_VERSION" == "3.8" && "$DIST" == "pypi" ]]; then
