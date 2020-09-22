@@ -20,8 +20,9 @@ from .placeholder import *
 from .simulation import *
 from .shapefunctions import *
 from .visualization import *
+from .version import version
 
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
-__version__ = '0.5.1'
+__version__ = version
