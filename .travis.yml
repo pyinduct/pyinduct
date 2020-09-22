@@ -60,7 +60,7 @@ install:
       conda list;
     else
       pip install --upgrade pip;
-      pip install --user ".[tests]";
+      pip install ".[tests]";
       pip list;
     fi;
 
