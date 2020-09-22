@@ -19,6 +19,7 @@ lib
 lib64
 *resources*
 examples_*
+pyinduct/version.py
 
 # Installer logs
 pip-log.txt
