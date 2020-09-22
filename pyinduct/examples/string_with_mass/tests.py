@@ -1,9 +1,9 @@
-from pyinduct.examples.string_with_mass.control import *
-from pyinduct.registry import clear_registry
-from pyinduct.tests import show_plots
 import pickle
 import unittest
 
+from pyinduct.examples.string_with_mass.control import *
+from pyinduct.registry import clear_registry
+from pyinduct.tests import show_plots
 
 
 class StringWithMassTest(unittest.TestCase):

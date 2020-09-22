@@ -1,7 +1,7 @@
 Multiple pde example / pipe model
 ---------------------------------
 
-.. automodule:: pyinduct.examples.pipe_flow
+.. autoapimodule:: pyinduct.examples.pipe_flow
 
 
 .. literalinclude:: /../pyinduct/examples/pipe_flow.py

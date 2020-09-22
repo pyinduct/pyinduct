@@ -2,7 +2,8 @@
 Simulation environment
 ----------------------
 
-.. automodule:: pyinduct.examples.string_with_mass.main
+.. autoapimodule:: pyinduct.examples.string_with_mass.main
+    :noindex:
     :members:
     :undoc-members:
     :show-inheritance:
@@ -11,7 +12,8 @@ Simulation environment
 Weak formulations and definition of the bases
 ---------------------------------------------
 
-.. automodule:: pyinduct.examples.string_with_mass.system
+.. autoapimodule:: pyinduct.examples.string_with_mass.system
+    :noindex:
     :members:
     :undoc-members:
     :show-inheritance:
@@ -20,7 +22,8 @@ Weak formulations and definition of the bases
 State feedback control
 ----------------------
 
-.. automodule:: pyinduct.examples.string_with_mass.control
+.. autoapimodule:: pyinduct.examples.string_with_mass.control
+    :noindex:
     :members:
     :undoc-members:
     :show-inheritance:
@@ -29,7 +32,8 @@ State feedback control
 Definition of the system parameters and some example related useful tools
 -------------------------------------------------------------------------
 
-.. automodule:: pyinduct.examples.string_with_mass.utils
+.. autoapimodule:: pyinduct.examples.string_with_mass.utils
+    :noindex:
     :members:
     :undoc-members:
     :show-inheritance:

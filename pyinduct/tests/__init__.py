@@ -7,6 +7,9 @@ import numpy as np
 warnings.warn("Test Mode: Treating all numerical warnings as errors")
 np.seterr(all="raise")
 
+test_examples = None
+test_timings = None
+show_plots = None
 if any([arg in {"discover"} for arg in sys.argv]):
     warnings.warn("Operating in global test mode, no windows will be shown.")
     # global run of all tests
