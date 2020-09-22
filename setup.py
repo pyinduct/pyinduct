@@ -12,9 +12,6 @@ with open('HISTORY.rst') as history_file:
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
-with open('test_requirements.txt') as f:
-    test_requirements = f.read().splitlines()
-
 MAJOR = 0
 MINOR = 5
 MICRO = 1
