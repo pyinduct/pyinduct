@@ -3,7 +3,7 @@ import unittest
 
 from pyinduct.examples.string_with_mass.control import *
 from pyinduct.registry import clear_registry
-from pyinduct.tests import show_plots
+from pyinduct.tests import show_plots, get_test_resource_path
 
 
 class StringWithMassTest(unittest.TestCase):
@@ -14,11 +14,7 @@ class StringWithMassTest(unittest.TestCase):
     can easily executed via a keyboard shortcut .
     """
     def setUp(self) -> None:
-        file_path = os.path.dirname(os.path.abspath(__file__))
-        res_dir = os.path.join(file_path, "results")
-        if not os.path.isdir(res_dir):
-            os.mkdir(res_dir)
-        self.res_file = os.path.join(res_dir, "swm_results.pkl")
+        self.res_file = get_test_resource_path("swm_results.pkl")
 
     def test_find_eigenvalues(self):
         eig_om, eig_vals = find_eigenvalues(4)
@@ -154,10 +150,13 @@ class StringWithMassTest(unittest.TestCase):
         with open(self.res_file, "wb") as f:
            pickle.dump(data, f)
 
-    def test_xtract_and_plot_results(self):
+    def test_extract_and_plot_results(self):
         # the name is needed to make sure that the test date is already created
         # from tkinter import Tk
         # Tk().withdraw()
+
+        if not os.path.exists(self.res_file):
+            self.test_save_results()
 
         with open(self.res_file, "rb") as f:
             raw_data = pickle.load(f)

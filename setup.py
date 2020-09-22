@@ -38,9 +38,12 @@ release = %(isrelease)s
 if not release:
     version = full_version
 """
+    project_root = os.path.dirname(os.path.abspath(__file__))
     filenames = [
-        os.path.join("pyinduct", "version.py"),     # for access when installed
-        os.path.join("__version__.py")              # for access from docs
+        # for access when installed
+        os.path.join(project_root, "pyinduct", "version.py"),
+        # for access from docs
+        os.path.join(project_root, "__version__.py")
     ]
     for f in filenames:
         a = open(f, 'w')
@@ -57,9 +60,6 @@ def setup_package():
 
     with open('README.rst') as readme_file:
         readme = readme_file.read()
-
-    with open('HISTORY.rst') as history_file:
-        history = history_file.read().replace('.. :changelog:', '')
 
     with open('requirements.txt') as f:
         requirements = f.read().splitlines()
