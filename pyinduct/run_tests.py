@@ -11,4 +11,6 @@ if __name__ == '__main__':
     suite = loader.discover(start_dir)
 
     runner = unittest.TextTestRunner(buffer=True)
-    runner.run(suite)
+    res = runner.run(suite)
+    if not res.wasSuccessful():
+        raise ValueError("Test Suite failed")
