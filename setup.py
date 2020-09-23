@@ -22,7 +22,7 @@ MAJOR = 0
 MINOR = 5
 MICRO = 1
 RC_INDEX = 0
-IS_RELEASED = False
+IS_RELEASED = True
 VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 FULL_VERSION = '%d.%d.%drc%d' % (MAJOR, MINOR, MICRO, RC_INDEX)
 
