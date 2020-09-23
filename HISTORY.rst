@@ -75,7 +75,7 @@ Bugfixes:
 * Fixed typos in various docstrings
 
 
-0.5.1 (2020-09-XX)
+0.5.1 (2020-09-23)
 ---------------------
 
 Bugfixes:
@@ -93,11 +93,17 @@ Bugfixes:
 * Added support for nan values in SurfacePlot
 * Removed strict type check to supply different systems for simulation
 * Added correct handling an NaN to spline interpolator of EvalData
-* Bug in PgSurfacePlot
+* Several issues in PgSurfacePlot
 * Introduced fill value for EvalData objects
 * Deactivated SplineInterpolator due to bad performance
 * Cleanup in SWM example tests
 * Suppressed plots in examples for global test run
 * Complete weak formulation test case for swm example
 * Updated test command since call via setup.py got deprecated
-* CI setup
+
+CI related changes:
+
+* Solved issues with screen buffer
+* restructured test suite
+* test now run on the installed package instead of the source tree
+* updated rtd config to enable building the documentation again
