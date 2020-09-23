@@ -2,7 +2,8 @@
 General
 =======
 
-.. automodule:: pyinduct.parabolic.general
+.. autoapimodule:: pyinduct.parabolic.general
     :members:
+    :no-imported-members:
     :undoc-members:
     :show-inheritance:

@@ -2,8 +2,9 @@
 Trajectory
 ==========
 
-.. automodule:: pyinduct.trajectory
+.. autoapimodule:: pyinduct.trajectory
     :members:
     :undoc-members:
+    :no-imported-members:
     :show-inheritance:
 

@@ -2,16 +2,17 @@
 Placeholder
 ===========
 
-.. automodule:: pyinduct.placeholder
+.. autoapimodule:: pyinduct.placeholder
     :members:
+    :no-imported-members:
     :undoc-members:
     :show-inheritance:
     :exclude-members: FieldVariable, TestFunction
 
-    .. autoclass:: FieldVariable
+    .. autoapiclass:: FieldVariable
         :undoc-members:
         :show-inheritance:
 
-    .. autoclass:: TestFunction
+    .. autoapiclass:: TestFunction
         :undoc-members:
         :show-inheritance:

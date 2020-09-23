@@ -2,14 +2,15 @@
 Shapefunctions
 ==============
 
-.. automodule:: pyinduct.shapefunctions
+.. autoapimodule:: pyinduct.shapefunctions
+    :no-imported-members:
 
-.. autoclass:: pyinduct.shapefunctions.ShapeFunction
+.. autoapiclass:: pyinduct.shapefunctions.ShapeFunction
     :members:
 
 Shapefunction Types
 -------------------
-.. autoclass:: pyinduct.shapefunctions.LagrangeFirstOrder
+.. autoapiclass:: pyinduct.shapefunctions.LagrangeFirstOrder
     :members:
     :undoc-members:
     :show-inheritance:
@@ -22,7 +23,7 @@ Shapefunction Types
         :scale: 70 %
         :align: center
 
-.. autoclass:: pyinduct.shapefunctions.LagrangeSecondOrder
+.. autoapiclass:: pyinduct.shapefunctions.LagrangeSecondOrder
     :members:
     :undoc-members:
     :show-inheritance:
@@ -35,7 +36,7 @@ Shapefunction Types
         :scale: 70 %
         :align: center
 
-.. autoclass:: pyinduct.shapefunctions.LagrangeNthOrder
+.. autoapiclass:: pyinduct.shapefunctions.LagrangeNthOrder
     :members:
     :undoc-members:
     :show-inheritance:
@@ -48,18 +49,6 @@ Shapefunction Types
         :scale: 70 %
         :align: center
 
-Curing an Interval
-------------------
-All classes contained in this module can easily be used to cure a given interval.
-For example let's approximate the interval from :math:`z=0` to :math:`z=1` with 3
-piecewise linear functions::
 
-    >>> from pyinduct import Domain, LagrangeFirstOder
-    >>> nodes = Domain(bounds0(0, 1), num=3)
-    >>> list(nodes)
-    [0.0, 0.5, 1.0]
-    >>> funcs = LagrangeFirstOrder.cure_interval(nodes)
-
-.. autofunction:: pyinduct.shapefunctions.cure_interval
 
 

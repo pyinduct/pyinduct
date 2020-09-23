@@ -144,7 +144,7 @@ def run(show_plots):
                                      temporal_domain, spatial_domain,
                                      0, 0,
                                      name=r"\hat x1_modal(z,t)")[0]
-    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl,obs_modal_lbl])
+    pi.tear_down([sys_fem_lbl, sys_modal_lbl, obs_fem_lbl, obs_modal_lbl])
 
     if show_plots:
         # create plots

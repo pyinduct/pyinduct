@@ -390,10 +390,6 @@ class PgSurfacePlot(PgDataPlot):
     """
 
     def __init__(self, data, scales=None, animation_axis=None, title=""):
-        """
-
-        :type data: object
-        """
         PgDataPlot.__init__(self, data)
         self.gl_widget = gl.GLViewWidget()
         self.title = time.strftime("%H:%M:%S") + ' - ' + title

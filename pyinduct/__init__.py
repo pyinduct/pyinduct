@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 import os
 import matplotlib as mpl
 
@@ -24,4 +25,7 @@ from .visualization import *
 
 __author__ = "Stefan Ecklebe, Marcus Riesmeier"
 __email__ = "stefan.ecklebe@tu-dresden.de, marcus.riesmeier@umit.at"
-__version__ = '0.5.0'
+try:
+    from .version import version as __version__
+except ModuleNotFoundError:
+    sys.stderr.write('Running from pyinduct source directory.\n')

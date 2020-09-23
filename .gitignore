@@ -20,6 +20,10 @@ lib64
 *resources*
 examples_*
 
+# setup metadata
+__version__.py
+pyinduct/version.py
+
 # Installer logs
 pip-log.txt
 
