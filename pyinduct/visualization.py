@@ -40,6 +40,7 @@ FORCE_MPL_ON_WINDOWS = True
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
+pg.setConfigOptions(antialias=True)
 
 
 def show(show_pg=True, show_mpl=True):
@@ -139,7 +140,7 @@ def visualize_functions(functions, points=100, return_window=False):
     data = np.array(_data)
 
     # plot
-    cmap = cm.get_cmap(color_map)
+    clrs = get_colors(len(data))
     pg.mkQApp()
     pw = pg.GraphicsLayoutWidget()
     pw.setWindowTitle("function set visualization")
@@ -153,11 +154,11 @@ def visualize_functions(functions, points=100, return_window=False):
     p_real = pg.PlotItem()
     p_real.addLegend()
     for idx, func_data in enumerate(data):
-        c = cmap(idx/len(functions), bytes=True)
+        pen = pg.mkPen(clrs[idx], width=2)
         for x_vals, y_vals in zip(func_data[0], func_data[1]):
             p_real.plot(x_vals, y_vals,
                         name="vector {}".format(idx),
-                        pen=c)
+                        pen=pen)
     pw.addItem(p_real)
 
     if not np.allclose(data[:, 2, :], 0):
@@ -172,11 +173,11 @@ def visualize_functions(functions, points=100, return_window=False):
         p_imag = pg.PlotItem()
         # p_imag.addLegend()
         for idx, func_data in enumerate(data):
-            c = cmap(idx/len(functions), bytes=True)
+            pen = pg.mkPen(clrs[idx], width=2)
             for x_vals, y_vals in zip(func_data[0], func_data[1]):
                 p_imag.plot(x_vals, y_vals,
                             name="vector {}".format(idx),
-                            pen=c)
+                            pen=pen)
         pw.addItem(p_imag)
 
     if not return_window:
@@ -257,7 +258,8 @@ class PgAnimatedPlot(PgDataPlot):
                                            str(replay_gain)]),
                            labels=labels)
         self._pw.addLegend()
-        self._pw.showGrid(x=True, y=True, alpha=1)
+        self._pw.showGrid(x=True, y=True, alpha=.5)
+        # self._pw.setAntialiasing(False)
 
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]

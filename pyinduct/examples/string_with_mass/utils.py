@@ -136,7 +136,7 @@ class SwmPgAnimatedPlot(PgDataPlot):
 
         self._pw = pg.plot(title="-".join([self._time_stamp, title, "at", str(replay_gain)]), labels=labels)
         self._pw.addLegend()
-        self._pw.showGrid(x=True, y=True, alpha=1)
+        self._pw.showGrid(x=True, y=True, alpha=.5)
 
         min_times = [min(data) for data in self.time_data]
         max_times = [max(data) for data in self.time_data]
