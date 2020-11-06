@@ -1386,6 +1386,9 @@ class ProjectionTest(unittest.TestCase):
         interval = (0, 10)
         node_cnt = 11
         self.nodes = pi.Domain(interval, num=node_cnt)
+        self.scalar_base = pi.Base([
+            pi.ConstantFunction(1, domain=self.nodes.bounds)
+        ])
         self.lag_base = pi.LagrangeFirstOrder.cure_interval(self.nodes)
         pi.register_base("lag_base", self.lag_base, overwrite=True)
 
@@ -1412,6 +1415,10 @@ class ProjectionTest(unittest.TestCase):
     def test_types_projection(self):
         self.assertRaises(TypeError, pi.project_on_base, 1, 2)
         self.assertRaises(TypeError, pi.project_on_base, np.sin, np.sin)
+
+    def test_scalar_projection(self):
+        w = pi.project_on_base(self.functions[0], self.scalar_base)
+        np.testing.assert_array_almost_equal(w, [2])
 
     def test_projection_on_lag1st(self):
         weights = [pi.project_on_base(self.functions[1], self.lag_base),

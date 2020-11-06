@@ -1517,12 +1517,12 @@ def project_on_base(state, base):
 
     # compute <x(z, t), phi_i(z)> (vector)
     projections = calculate_scalar_product_matrix(base.__class__(state),
-                                                  base).squeeze()
+                                                  base)
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(base, base)
 
-    res = np.linalg.inv(scale_mat) @ projections
+    res = np.linalg.inv(scale_mat) @ projections.T
     return np.reshape(res, (scale_mat.shape[0],))
 
 
