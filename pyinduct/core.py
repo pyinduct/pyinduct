@@ -1301,7 +1301,7 @@ def complex_quadrature(func, a, b, **kwargs):
 def dot_product(first, second):
     """
     Calculate the inner product of two vectors. Uses numpy.inner but with
-    complex conjugation of the first argument.
+    complex conjugation of the second argument.
 
     Args:
         first (:obj:`numpy.ndarray`): first vector
@@ -1317,17 +1317,17 @@ def dot_product_l2(first, second):
     r"""
     Calculate the inner product on L2.
 
-    Given two functions :math:`\varphi(z)` and :math:`\psi(z)` this functions
-    calculates
+    Given two functions :math:`\varphi(z)` (*first*) and :math:`\psi(z)`
+    (*second*) this functions calculates
 
     .. math::
         \left< \varphi(z) | \psi(z) \right> =
             \int\limits_{\Gamma_0}^{\Gamma_1}
-            \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
+            \varphi(\zeta) \bar\psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
-        first (:py:class:`.Function`): first function
-        second (:py:class:`.Function`): second function
+        first (:py:class:`.Function`): first function :math:`\varphi(z)`
+        second (:py:class:`.Function`): second function :math:`\psi(z)`
 
     Return:
         inner product
@@ -1350,10 +1350,20 @@ def dot_product_l2(first, second):
     # standard case
     def func(z):
         """
-        Take the complex conjugate of the first element and multiply it
-        by the second.
+        Take the complex conjugate of the second element and multiply it
+        by the first.
         """
         return first(z) * np.conj(second(z))
+
+    for area in areas:
+        test_points = np.linspace(area[0], area[1])
+        first_num = first(test_points)
+        second_num = second(test_points)
+        if np.iscomplexobj(first_num) or np.iscomplexobj(second_num):
+            warnings.warn("Relevant if you used pyinduct<=0.5.* before:\n"
+            "The built-in l2 dot product (dot_product_l2) of pyinduct no \n"
+            "longer takes complex conjugation of the first argument but of\n"
+            "the second.")
 
     result, error = integrate_function(func, areas)
     return result

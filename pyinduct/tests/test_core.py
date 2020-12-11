@@ -1261,6 +1261,12 @@ class DotProductL2TestCase(unittest.TestCase):
                                           self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
 
+    def test_complex(self):
+        res = vectorize_scalar_product(self.fem_base.fractions,
+                                       self.fem_base.scale(1j).fractions,
+                                       self.fem_base.scalar_product_hint())
+        np.testing.assert_almost_equal(res, [-1j/3] + [-2j/3]*9 + [-1j/3])
+
 
 class CalculateScalarProductMatrixTestCase(unittest.TestCase):
     def setUp(self, dim1=10, dim2=20):
