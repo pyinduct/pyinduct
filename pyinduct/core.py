@@ -1884,6 +1884,41 @@ def normalize_base(b1, b2=None, mode="right"):
     Return:
         :py:class:`.ApproximationBase` : if *b2* is None,
         otherwise: Tuple of 2 :py:class:`.ApproximationBase`'s.
+
+    Examples:
+        Consider the following two bases with only one finite
+        dimensional vector/fraction
+
+        >>> import pyinduct as pi
+        >>> b1 = pi.Base(pi.ComposedFunctionVector([], [2]))
+        >>> b2 = pi.Base(pi.ComposedFunctionVector([], [2j]))
+
+        depending on the *mode* kwarg the result of the normalization
+
+        >>> from pyinduct.core import generic_scalar_product
+        ... def print_normalized_bases(mode):
+        ...     b1n, b2n = pi.normalize_base(b1, b2, mode=mode)
+        ...     print("b1 normalized: ", b1n[0].get_member(0))
+        ...     print("b2 normalized: ", b2n[0].get_member(0))
+        ...     print("dot product: ", generic_scalar_product(b1n, b2n))
+
+        is different by means of the normalized base *b1n* and *b2n*
+        but coinsides by the value of dot product:
+
+        >>> print_normalized_bases("right")
+        ... # b1 normalized:  2
+        ... # b2 normalized:  (0.5-0j)
+        ... # dot product:  [1.]
+
+        >>> print_normalized_bases("left")
+        ... # b1 normalized:  (-0+0.5j)
+        ... # b2 normalized:  2j
+        ... # dot product:  [1.]
+
+        >>> print_normalized_bases("both")
+        ... # b1 normalized:  (0.7071067811865476+0.7071067811865476j)
+        ... # b2 normalized:  (0.7071067811865476+0.7071067811865476j)
+        ... # dot product:  [1.]
     """
     res = generic_scalar_product(b1, b2)
 
