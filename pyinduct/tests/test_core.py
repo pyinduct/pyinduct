@@ -540,6 +540,15 @@ class BaseTestCase(unittest.TestCase):
         for a, b in zip(f.fractions, g2.fractions):
             np.testing.assert_array_equal(10 * a(values), b(values))
 
+        # if factors is iterable, then it has to match the number of fractions
+        with self.assertRaises(ValueError):
+            f.scale([1, 2])
+
+        factors = list(range(5))
+        g3 = f.scale(factors)
+        for a, b, s in zip(f.fractions, g3.fractions, factors):
+            np.testing.assert_array_equal(s * a(values), b(values))
+
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
 
@@ -1662,7 +1671,6 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_wrapper(base_g, base_l.scale(1j))
         self.generic_test_wrapper(base_g.scale(1 + 2j),
                                   base_l.scale(1j))
-
 
     def test_culprits(self):
         # orthogonal

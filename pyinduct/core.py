@@ -980,15 +980,30 @@ class Base(ApproximationBasis):
 
     def scale(self, factor):
         """
-        Factory method to obtain instances of this base, scaled by the given factor.
+        Return a scaled instance of this base.
+
+        If factor is iterable, each element will be scaled independently.
+        Otherwise, a common scaling is applied to all fractions.
 
         Args:
-            factor: factor or function to scale this base with.
+            factor: Single factor or iterable of factors (float or callable) to
+                scale this base with.
         """
-        if factor == 1:
-            return self
-        else:
-            return self.__class__([f.scale(factor) for f in self.fractions])
+        try:
+            if len(factor) != len(self.fractions):
+                raise ValueError("If factor is an iterable, its length has to"
+                                 "match the number of base fractions. "
+                                 "len(factor)={} but len(fractions)={}"
+                                 .format(len(factor), len(self.fractions)))
+            return self.__class__([
+                f.scale(s) for f, s in zip(self.fractions, factor)
+            ])
+        except TypeError:
+            # factor is not iterable
+            if factor == 1:
+                return self
+            else:
+                return self.__class__([f.scale(factor) for f in self.fractions])
 
     def raise_to(self, power):
         """
