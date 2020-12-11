@@ -1371,8 +1371,12 @@ def dot_product_l2(first, second):
         return first(z) * np.conj(second(z))
 
     for area in areas:
-        test_points = np.linspace(area[0], area[1])
-        first_num = first(test_points)
+        test_point = area[0]
+        if test_point == -np.inf:
+            test_point = area[1]
+        if test_point == np.inf:
+            test_point = 0
+        first_num = first(test_point)
         if np.iscomplexobj(first_num):
             warnings.warn(
                 "The built-in l2 dot product (dot_product_l2) of pyinduct no \n"
