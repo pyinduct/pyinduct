@@ -21,6 +21,9 @@ class SanitizeInputTestCase(unittest.TestCase):
         pi.sanitize_input(1, int)
         pi.sanitize_input(1.0, float)
 
+    def test_zerosize(self):
+        pi.sanitize_input([], int)
+
 
 class BaseFractionTestCase(unittest.TestCase):
     def setUp(self):
@@ -350,6 +353,11 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         v = pi.ComposedFunctionVector(self.functions[0], self.scalars[0])
         self.assertEqual(v.members["funcs"], [self.functions[0]])
         self.assertEqual(v.members["scalars"], [self.scalars[0]])
+
+        # test degenerated cases
+        pi.ComposedFunctionVector(self.functions[0], [])
+        # and also the more important one
+        pi.ComposedFunctionVector([], self.scalars[0])
 
     def test_get_member(self):
         v = pi.ComposedFunctionVector(self.functions, self.scalars)
