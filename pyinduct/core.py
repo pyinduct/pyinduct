@@ -1940,61 +1940,45 @@ def normalize_base(b1, b2=None, mode="right"):
         ... # dot product:  [1.]
     """
     res = generic_scalar_product(b1, b2)
-
     if any(np.abs(res) < np.finfo(float).eps):
-        raise ValueError("given base fractions are orthogonal. "
+        raise ValueError("Given base fractions are orthogonal, "
                          "no normalization possible.")
-
-    auto_normalization = False
     if b2 is None:
-        res = np.real_if_close(res)
-        if any(res < 0) or np.imag(res) != 0:
-            # from calculus: these conditions can not be true
-            raise ValueError("imaginary scale required. "
-                             "no normalization possible.")
-        auto_normalization = True
-
-    def scale_base_elementwise(base, scales):
-        return base.__class__(
-            [frac.scale(scale) for frac, scale in zip(base.fractions, scales)])
-
-    if auto_normalization:
-        scale_factors = np.sqrt(1 / res)
-        return scale_base_elementwise(b1, scale_factors)
-    elif mode == "right":
-        scale_factors = 1 / res
-        ret1 = b1
-        ret2 = scale_base_elementwise(b2, np.conj(scale_factors))
-    elif mode == "left":
-        scale_factors = 1 / res
-        ret1 = scale_base_elementwise(b1, scale_factors)
-        ret2 = b2
-    elif mode == "both":
         scale_factors = np.real_if_close(np.sqrt(1 / res.astype(complex)))
-        ret1 = scale_base_elementwise(b1, scale_factors)
-        ret2 = scale_base_elementwise(b2, np.conj(scale_factors))
+        return b1.scale(scale_factors)
+
+    # test provided scalar product
+    factor = 1 + 1j
+    conj_factor = np.conj(factor)
+    sc_1c = generic_scalar_product(b1.scale(factor), b2)
+    sc_2c = generic_scalar_product(b1, b2.scale(factor))
+    if np.isclose(sc_1c, factor * res) and np.isclose(sc_2c, conj_factor * res):
+        variant = "second_conjugated"
+    elif np.isclose(sc_1c, conj_factor * res) \
+            and np.isclose(sc_2c, factor * res):
+        variant = "first_conjugated"
     else:
-        raise NotImplementedError
+        raise ValueError("Provided bases defines irregular scalar product")
 
-    # since one can define a inner product where the first argument will be
-    # complex conjugated (instead of the second) this will be checked
-    try:
-        np.testing.assert_array_almost_equal(
-            generic_scalar_product(ret1, ret2), np.ones(res.shape))
-    except AssertionError:
-        if mode == "right":
-            ret1 = b1
-            ret2 = scale_base_elementwise(b2, scale_factors)
-        elif mode == "left":
-            ret1 = scale_base_elementwise(b1, np.conj(scale_factors))
-            ret2 = b2
-        else:
-            ret1 = scale_base_elementwise(b1, np.conj(scale_factors))
-            ret2 = scale_base_elementwise(b2, scale_factors)
+    # compute scaling
+    scale_factors = 1 / res
+    if mode == "both":
+        scale_factors = np.real_if_close(np.sqrt(scale_factors.astype(complex)))
+    if variant == "first_conjugated":
+        scale_factors = np.conj(scale_factors)
 
-        # but now it should work
-        np.testing.assert_array_almost_equal(
-            generic_scalar_product(ret1, ret2), np.ones(res.shape))
+    # scale the bases
+    if mode == "left":
+        ret1 = b1.scale(scale_factors)
+        ret2 = b2
+    elif mode == "right":
+        ret1 = b1
+        ret2 = b2.scale(np.conj(scale_factors))
+    elif mode == "both":
+        ret1 = b1.scale(scale_factors)
+        ret2 = b2.scale(np.conj(scale_factors))
+    else:
+        raise ValueError("Unknown mode '{}'".format(mode))
 
     return ret1, ret2
 

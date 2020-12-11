@@ -1620,6 +1620,16 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_function_single_base(self.base_l.scale(-1))
 
     def generic_test_function(self, b1, b2, mode):
+        b1n = pi.normalize_base(b1)
+        prod = vectorize_scalar_product(
+            b1n.fractions, b1n.fractions, b1n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+        b2n = pi.normalize_base(b2)
+        prod = vectorize_scalar_product(
+            b2n.fractions, b2n.fractions, b2n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
         b1n, b2n = pi.normalize_base(b1, b2, mode)
         prod = vectorize_scalar_product(
             b1n.fractions, b2n.fractions, b1n.scalar_product_hint())[0]
@@ -1634,6 +1644,8 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_function(b1, b2, mode="right")
         self.generic_test_function(b1, b2, mode="left")
         self.generic_test_function(b1, b2, mode="both")
+        with self.assertRaises(ValueError):
+            self.generic_test_function(b1, b2, mode="special")
 
     def test_scale(self):
         self.generic_test_wrapper(self.base_f, self.base_l)
@@ -1671,6 +1683,38 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_wrapper(base_g, base_l.scale(1j))
         self.generic_test_wrapper(base_g.scale(1 + 2j),
                                   base_l.scale(1j))
+
+    def test_broken_inner_product(self):
+        def my_very_special_dot_product_l2(first, second):
+            from pyinduct.core import domain_intersection
+            nonzero = domain_intersection(first.nonzero, second.nonzero)
+            areas = domain_intersection(first.domain, nonzero)
+
+            def func(z):
+                # derived by rule of thumb and guaranteed to fail
+                return first(z) * second(z)
+
+            from pyinduct.core import integrate_function
+            result, error = integrate_function(func, areas)
+            return result
+
+        class SpecialFunction(pi.Function):
+            def scalar_product_hint(self):
+                return my_very_special_dot_product_l2
+
+        g = SpecialFunction(np.cos, domain=(0, np.pi))
+        l = SpecialFunction(np.exp, domain=(0, np.pi))
+
+        base_g = pi.Base(g)
+        base_l = pi.Base(l)
+
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g, base_l)
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g, base_l.scale(1j))
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g.scale(1 + 2j),
+                                      base_l.scale(1j))
 
     def test_culprits(self):
         # orthogonal
