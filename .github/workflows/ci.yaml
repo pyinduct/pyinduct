@@ -33,4 +33,4 @@ jobs:
       run: |
         mkdir tmp;
         cd tmp;
-        xvfb-run `which coverage` coverage run --omit="pyinduct/tests/*" -m pyinduct.run_tests --no-plots;
+        xvfb-run `which coverage` run --omit="pyinduct/tests/*" -m pyinduct.run_tests --no-plots;
