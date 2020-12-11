@@ -1232,8 +1232,16 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
     def test_complex(self):
         self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), 40j)
         # swapping of args will return the conjugated expression
-        self.assertAlmostEqual(core.dot_product_l2(self.g2, self.g1),
-                               np.conj(40j))
+        # and should raise a warning since the behaviour has changed
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            r = core.dot_product_l2(self.g2, self.g1)
+            # we should have produced one warning
+            self.assertEqual(len(w), 1)
+            # we expect a user warning
+            self.assertTrue(issubclass(w[0].category, UserWarning))
+            self.assertIn("complex conjugation", str(w[0].message))
+        self.assertAlmostEqual(r, np.conj(40j))
 
     def test_linearity(self):
         factor = 2+1j

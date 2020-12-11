@@ -1358,12 +1358,12 @@ def dot_product_l2(first, second):
     for area in areas:
         test_points = np.linspace(area[0], area[1])
         first_num = first(test_points)
-        second_num = second(test_points)
-        if np.iscomplexobj(first_num) or np.iscomplexobj(second_num):
-            warnings.warn("Relevant if you used pyinduct<=0.5.* before:\n"
-            "The built-in l2 dot product (dot_product_l2) of pyinduct no \n"
-            "longer takes complex conjugation of the first argument but of\n"
-            "the second.")
+        if np.iscomplexobj(first_num):
+            warnings.warn(
+                "The built-in l2 dot product (dot_product_l2) of pyinduct no \n"
+                "longer takes complex conjugation of the first argument but "
+                "of the second."
+            )
 
     result, error = integrate_function(func, areas)
     return result
