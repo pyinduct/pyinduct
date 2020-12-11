@@ -1903,7 +1903,7 @@ def normalize_base(b1, b2=None, mode="right"):
         ...     print("dot product: ", generic_scalar_product(b1n, b2n))
 
         is different by means of the normalized base *b1n* and *b2n*
-        but coinsides by the value of dot product:
+        but coincides by the value of dot product:
 
         >>> print_normalized_bases("right")
         ... # b1 normalized:  2
