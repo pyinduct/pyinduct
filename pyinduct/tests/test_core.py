@@ -1606,6 +1606,7 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.base_f = pi.Base(self.f)
         self.base_g = pi.Base(self.g)
         self.base_l = pi.Base(self.l)
+        self.base_fgl = pi.Base([self.f, self.g, self.l])
 
     def generic_test_function_single_base(self, b):
         bn = pi.normalize_base(b)
@@ -1617,6 +1618,7 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.generic_test_function_single_base(self.base_f)
         self.generic_test_function_single_base(self.base_g)
         self.generic_test_function_single_base(self.base_l)
+        self.generic_test_function_single_base(self.base_fgl)
         self.generic_test_function_single_base(self.base_l.scale(-1))
 
     def generic_test_function(self, b1, b2, mode):
@@ -1649,6 +1651,8 @@ class NormalizeBaseTestCase(unittest.TestCase):
 
     def test_scale(self):
         self.generic_test_wrapper(self.base_f, self.base_l)
+        self.generic_test_wrapper(self.base_fgl, self.base_fgl)
+        self.generic_test_wrapper(self.base_fgl, self.base_fgl.scale(4))
 
     def test_complex(self):
         self.generic_test_wrapper(self.base_g, self.base_l)

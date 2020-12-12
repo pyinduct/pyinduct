@@ -1952,10 +1952,11 @@ def normalize_base(b1, b2=None, mode="right"):
     conj_factor = np.conj(factor)
     sc_1c = generic_scalar_product(b1.scale(factor), b2)
     sc_2c = generic_scalar_product(b1, b2.scale(factor))
-    if np.isclose(sc_1c, factor * res) and np.isclose(sc_2c, conj_factor * res):
+    if np.isclose(sc_1c, factor * res).all() \
+        and np.isclose(sc_2c, conj_factor * res).all():
         variant = "second_conjugated"
-    elif np.isclose(sc_1c, conj_factor * res) \
-            and np.isclose(sc_2c, factor * res):
+    elif np.isclose(sc_1c, conj_factor * res).all() \
+            and np.isclose(sc_2c, factor * res).all():
         variant = "first_conjugated"
     else:
         raise ValueError("Provided bases defines irregular scalar product")
