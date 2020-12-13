@@ -279,6 +279,28 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
     def test_apply_operator(self):
+        def linear_op(f):
+            return f * 2
+
+        def nonlinear_op(f):
+            return np.sqrt(f)
+
+        f = pi.Function(lambda z: np.exp(2 * z), domain=(0, 7),
+                        derivative_handles=[
+                            lambda z: 2 * np.exp(2 * z),
+                            lambda z: 4 * np.exp(2 * z)])
+        z_test = np.linspace(0, 7)
+
+        f_lin = f._apply_operator(linear_op, linear=True)
+        np.testing.assert_array_almost_equal(f_lin(z_test), 2 * f(z_test))
+        np.testing.assert_array_almost_equal(f_lin.derive(2)(z_test),
+                                             2 * f.derive(2)(z_test))
+
+        f_nli = f._apply_operator(nonlinear_op)
+        np.testing.assert_array_almost_equal(f_nli(z_test), np.sqrt(f(z_test)))
+        self.assertEqual(len(f_nli.derivative_handles), 0)
+
+    def test_real_imag_conj(self):
         lam = 2 + 3j
         lam_r = np.real(lam)
         lam_i = np.imag(lam)
@@ -361,11 +383,12 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         self.scalars = [f(7) for f in self.functions]
 
         self.lam = 3 + 4j
-        self.functions_complex = [pi.Function(lambda x: self.lam),
-                                  pi.Function(lambda x: self.lam * x),
-                                  pi.Function(lambda x: (self.lam * x) ** 2),
-                                  pi.Function(lambda x: np.sin(self.lam * x))
-                                  ]
+        self.functions_complex = [
+            pi.Function(lambda x: self.lam),
+            pi.Function(lambda x: self.lam * x),
+            pi.Function(lambda x: (self.lam * x) ** 2),
+            pi.Function(lambda x: np.sin(self.lam * x), derivative_handles=[
+                lambda x: self.lam * np.cos(self.lam * x)])]
         self.scalars_complex = [self.lam ** i for i in range(3)]
 
     def test_init(self):
@@ -464,6 +487,27 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         np.testing.assert_array_equal(res, ret)
 
     def test_apply_operator(self):
+        def linear_op(f):
+            return f * 2
+
+        def nonlinear_op(f):
+            return np.sqrt(f)
+
+        v = pi.ComposedFunctionVector(self.functions_complex,
+                                      self.scalars_complex)
+        v_lin = v._apply_operator(linear_op, linear=True)
+        v_nli = v._apply_operator(nonlinear_op)
+        z_test = 7
+        np.testing.assert_array_almost_equal(v_lin(z_test), 2 * v(z_test))
+        np.testing.assert_array_almost_equal(v_nli(z_test), np.sqrt(v(z_test)))
+
+        # check if derivatives are discarded in the nonlinear case
+        self.assertTrue(any([len(f.derivative_handles) > 0
+                             for f in v.members["funcs"]]))
+        self.assertTrue(all([len(f.derivative_handles) == 0
+                             for f in v_nli.members["funcs"]]))
+
+    def test_real_imag_conj(self):
         vect = pi.ComposedFunctionVector(self.functions_complex,
                                          self.scalars_complex)
         for z in np.linspace(0, 20):
