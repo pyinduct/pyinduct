@@ -157,7 +157,9 @@ class BaseFraction:
 
         In other words: `self + ret_val == self`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
 
     def mul_neutral_element(self):
         """
@@ -165,7 +167,9 @@ class BaseFraction:
 
         In other words: `self * ret_val == self`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
 
     def evaluation_hint(self, values):
         """
@@ -195,7 +199,9 @@ class BaseFraction:
                 relation G(f + h) = G(f) + G(h) holds. If the operator is
                 not additive the derivatives will be discarded.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
 
     def real(self):
         """
