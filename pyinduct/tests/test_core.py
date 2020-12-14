@@ -32,10 +32,52 @@ class BaseFractionTestCase(unittest.TestCase):
 
     def test_derive(self):
         f = pi.BaseFraction(np.sin)
-        self.assertEqual(f.members, np.sin)
-
         f_d0 = f.derive(0)
         self.assertEqual(f, f_d0)
+        self._test_virtual("derive", 1)
+
+    def test_raise_to(self):
+        f = pi.BaseFraction(np.sin)
+        f_p0 = f.raise_to(1)
+        self.assertEqual(f, f_p0)
+
+    def test_evaluation_hint(self):
+        f = pi.BaseFraction(np.sin)
+        # default eval hint should use default __call__ routine
+        msg_1 = None
+        try:
+            f.evaluation_hint([1, 2, 3])
+        except Exception as e1:
+            msg_1 = str(e1)
+        try:
+            f([1, 2, 3])
+        except Exception as e2:
+            self.assertEqual(msg_1, str(e2))
+
+    def test_virtual_methods(self):
+        self._test_virtual("scale", 1)
+        self._test_virtual("raise_to", 2)
+        self._test_virtual("get_member", 1)
+        self._test_virtual("__call__", 1)
+        self._test_virtual("add_neutral_element")
+        self._test_virtual("mul_neutral_element")
+        self._test_virtual("_apply_operator", np.cos)
+        self._test_virtual("real")
+        self._test_virtual("imag")
+        self._test_virtual("conj")
+
+    def _test_virtual(self, method, arg=None):
+        f = pi.BaseFraction(None)
+        meth = getattr(f, method)
+        try:
+            if arg is None:
+                meth()
+            else:
+                meth(arg)
+            raise AssertionError("NotImplementError not raised.")
+        except NotImplementedError as e:
+            # should have an error message
+            assert str(e) != ""
 
 
 class FunctionTestCase(unittest.TestCase):
