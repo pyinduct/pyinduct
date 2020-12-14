@@ -39,20 +39,11 @@ if not release:
     version = full_version
 """
     project_root = os.path.dirname(os.path.abspath(__file__))
-    filenames = [
-        # for access when installed
-        os.path.join(project_root, "pyinduct", "version.py"),
-        # for access from docs
-        os.path.join(project_root, "__version__.py")
-    ]
-    for f in filenames:
-        a = open(f, 'w')
-        try:
-            a.write(cnt % {'version': VERSION,
-                           'full_version': FULL_VERSION,
-                           'isrelease': str(IS_RELEASED)})
-        finally:
-            a.close()
+    filename = os.path.join(project_root, "pyinduct", "version.py")
+    with open(filename, "w") as f:
+        f.write(cnt % {'version': VERSION,
+                       'full_version': FULL_VERSION,
+                       'isrelease': str(IS_RELEASED)})
 
 
 def setup_package():
