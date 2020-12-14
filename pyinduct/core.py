@@ -41,7 +41,7 @@ def sanitize_input(input_object, allowed_type):
         input_object
     """
     input_object = np.atleast_1d(input_object)
-    for obj in np.nditer(input_object, flags=["refs_ok"]):
+    for obj in np.nditer(input_object, flags=["refs_ok", "zerosize_ok"]):
         if not isinstance(obj.item(), allowed_type):
             raise TypeError("Only objects of type: {0} accepted.".format(allowed_type))
 
@@ -980,15 +980,30 @@ class Base(ApproximationBasis):
 
     def scale(self, factor):
         """
-        Factory method to obtain instances of this base, scaled by the given factor.
+        Return a scaled instance of this base.
+
+        If factor is iterable, each element will be scaled independently.
+        Otherwise, a common scaling is applied to all fractions.
 
         Args:
-            factor: factor or function to scale this base with.
+            factor: Single factor or iterable of factors (float or callable) to
+                scale this base with.
         """
-        if factor == 1:
-            return self
-        else:
-            return self.__class__([f.scale(factor) for f in self.fractions])
+        try:
+            if len(factor) != len(self.fractions):
+                raise ValueError("If factor is an iterable, its length has to"
+                                 "match the number of base fractions. "
+                                 "len(factor)={} but len(fractions)={}"
+                                 .format(len(factor), len(self.fractions)))
+            return self.__class__([
+                f.scale(s) for f, s in zip(self.fractions, factor)
+            ])
+        except TypeError:
+            # factor is not iterable
+            if factor == 1:
+                return self
+            else:
+                return self.__class__([f.scale(factor) for f in self.fractions])
 
     def raise_to(self, power):
         """
@@ -1300,7 +1315,8 @@ def complex_quadrature(func, a, b, **kwargs):
 
 def dot_product(first, second):
     """
-    Calculate the inner product of two vectors.
+    Calculate the inner product of two vectors. Uses numpy.inner but with
+    complex conjugation of the second argument.
 
     Args:
         first (:obj:`numpy.ndarray`): first vector
@@ -1309,24 +1325,24 @@ def dot_product(first, second):
     Return:
         inner product
     """
-    return np.inner(first, second)
+    return np.inner(first, np.conj(second))
 
 
 def dot_product_l2(first, second):
     r"""
     Calculate the inner product on L2.
 
-    Given two functions :math:`\varphi(z)` and :math:`\psi(z)` this functions
-    calculates
+    Given two functions :math:`\varphi(z)` (*first*) and :math:`\psi(z)`
+    (*second*) this functions calculates
 
     .. math::
         \left< \varphi(z) | \psi(z) \right> =
             \int\limits_{\Gamma_0}^{\Gamma_1}
-            \bar\varphi(\zeta) \psi(\zeta) \,\textup{d}\zeta \:.
+            \varphi(\zeta) \bar\psi(\zeta) \,\textup{d}\zeta \:.
 
     Args:
-        first (:py:class:`.Function`): first function
-        second (:py:class:`.Function`): second function
+        first (:py:class:`.Function`): first function :math:`\varphi(z)`
+        second (:py:class:`.Function`): second function :math:`\psi(z)`
 
     Return:
         inner product
@@ -1341,11 +1357,6 @@ def dot_product_l2(first, second):
     nonzero = domain_intersection(first.nonzero, second.nonzero)
     areas = domain_intersection(first.domain, nonzero)
 
-    # try some shortcuts
-    if first == second:
-        if hasattr(first, "quad_int"):
-            return first.quad_int()
-
     if 0:
         # TODO let Function Class handle product to gain more speed
         if type(first) is type(second):
@@ -1354,10 +1365,24 @@ def dot_product_l2(first, second):
     # standard case
     def func(z):
         """
-        Take the complex conjugate of the first element and multiply it
-        by the second.
+        Take the complex conjugate of the second element and multiply it
+        by the first.
         """
-        return np.conj(first(z)) * second(z)
+        return first(z) * np.conj(second(z))
+
+    for area in areas:
+        test_point = area[0]
+        if test_point == -np.inf:
+            test_point = area[1]
+        if test_point == np.inf:
+            test_point = 0
+        first_num = first(test_point)
+        if np.iscomplexobj(first_num):
+            warnings.warn(
+                "The built-in l2 dot product (dot_product_l2) of pyinduct no \n"
+                "longer takes complex conjugation of the first argument but "
+                "of the second."
+            )
 
     result, error = integrate_function(func, areas)
     return result
@@ -1854,7 +1879,7 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
     return v_mat
 
 
-def normalize_base(b1, b2=None):
+def normalize_base(b1, b2=None, mode="right"):
     r"""
     Takes two :py:class:`.ApproximationBase`'s :math:`\boldsymbol{b}_1` ,
     :math:`\boldsymbol{b}_1` and normalizes them so that
@@ -1866,6 +1891,10 @@ def normalize_base(b1, b2=None):
     Args:
         b1 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_1`
         b2 (:py:class:`.ApproximationBase`): :math:`\boldsymbol{b}_2`
+        mode (str): If *mode* is
+            * *right* (default): b2 will be scaled
+            * *left*: b1 will be scaled
+            * *both*: b1 and b2 will be scaled
 
     Raises:
         ValueError: If :math:`\boldsymbol{b}_1`
@@ -1874,33 +1903,85 @@ def normalize_base(b1, b2=None):
     Return:
         :py:class:`.ApproximationBase` : if *b2* is None,
         otherwise: Tuple of 2 :py:class:`.ApproximationBase`'s.
+
+    Examples:
+        Consider the following two bases with only one finite
+        dimensional vector/fraction
+
+        >>> import pyinduct as pi
+        >>> b1 = pi.Base(pi.ComposedFunctionVector([], [2]))
+        >>> b2 = pi.Base(pi.ComposedFunctionVector([], [2j]))
+
+        depending on the *mode* kwarg the result of the normalization
+
+        >>> from pyinduct.core import generic_scalar_product
+        ... def print_normalized_bases(mode):
+        ...     b1n, b2n = pi.normalize_base(b1, b2, mode=mode)
+        ...     print("b1 normalized: ", b1n[0].get_member(0))
+        ...     print("b2 normalized: ", b2n[0].get_member(0))
+        ...     print("dot product: ", generic_scalar_product(b1n, b2n))
+
+        is different by means of the normalized base *b1n* and *b2n*
+        but coincides by the value of dot product:
+
+        >>> print_normalized_bases("right")
+        ... # b1 normalized:  2
+        ... # b2 normalized:  (0.5-0j)
+        ... # dot product:  [1.]
+
+        >>> print_normalized_bases("left")
+        ... # b1 normalized:  (-0+0.5j)
+        ... # b2 normalized:  2j
+        ... # dot product:  [1.]
+
+        >>> print_normalized_bases("both")
+        ... # b1 normalized:  (0.7071067811865476+0.7071067811865476j)
+        ... # b2 normalized:  (0.7071067811865476+0.7071067811865476j)
+        ... # dot product:  [1.]
     """
-    auto_normalization = False
-    if b2 is None:
-        auto_normalization = True
-
     res = generic_scalar_product(b1, b2)
+    if any(np.abs(res) < np.finfo(float).eps):
+        raise ValueError("Given base fractions are orthogonal, "
+                         "no normalization possible.")
+    if b2 is None:
+        scale_factors = np.real_if_close(np.sqrt(1 / res.astype(complex)))
+        return b1.scale(scale_factors)
 
-    if any(res < np.finfo(float).eps):
-        if any(np.isclose(res, 0)):
-            raise ValueError("given base fractions are orthogonal. "
-                             "no normalization possible.")
-        else:
-            raise ValueError("imaginary scale required. "
-                             "no normalization possible.")
-
-    scale_factors = np.sqrt(1 / res)
-    b1_scaled = b1.__class__(
-        [frac.scale(factor)
-         for frac, factor in zip(b1.fractions, scale_factors)])
-
-    if auto_normalization:
-        return b1_scaled
+    # test provided scalar product
+    factor = 1 + 1j
+    conj_factor = np.conj(factor)
+    sc_1c = generic_scalar_product(b1.scale(factor), b2)
+    sc_2c = generic_scalar_product(b1, b2.scale(factor))
+    if np.isclose(sc_1c, factor * res).all() \
+        and np.isclose(sc_2c, conj_factor * res).all():
+        variant = "second_conjugated"
+    elif np.isclose(sc_1c, conj_factor * res).all() \
+            and np.isclose(sc_2c, factor * res).all():
+        variant = "first_conjugated"
     else:
-        b2_scaled = b2.__class__(
-            [frac.scale(factor)
-             for frac, factor in zip(b2.fractions, scale_factors)])
-        return b1_scaled, b2_scaled
+        raise ValueError("Provided bases defines irregular scalar product")
+
+    # compute scaling
+    scale_factors = 1 / res
+    if mode == "both":
+        scale_factors = np.real_if_close(np.sqrt(scale_factors.astype(complex)))
+    if variant == "first_conjugated":
+        scale_factors = np.conj(scale_factors)
+
+    # scale the bases
+    if mode == "left":
+        ret1 = b1.scale(scale_factors)
+        ret2 = b2
+    elif mode == "right":
+        ret1 = b1
+        ret2 = b2.scale(np.conj(scale_factors))
+    elif mode == "both":
+        ret1 = b1.scale(scale_factors)
+        ret2 = b2.scale(np.conj(scale_factors))
+    else:
+        raise ValueError("Unknown mode '{}'".format(mode))
+
+    return ret1, ret2
 
 
 def generic_scalar_product(b1, b2=None, scalar_product=None):

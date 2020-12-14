@@ -9,7 +9,7 @@ from numbers import Number
 import numpy as np
 import pyinduct as pi
 import pyinduct.core as core
-from pyinduct.core import vectorize_scalar_product
+from pyinduct.core import vectorize_scalar_product, dot_product
 from pyinduct.tests import show_plots, test_timings
 from pyinduct.registry import clear_registry
 import pyqtgraph as pg
@@ -20,6 +20,9 @@ class SanitizeInputTestCase(unittest.TestCase):
         self.assertRaises(TypeError, core.sanitize_input, 1.0, int)
         pi.sanitize_input(1, int)
         pi.sanitize_input(1.0, float)
+
+    def test_zerosize(self):
+        pi.sanitize_input([], int)
 
 
 class BaseFractionTestCase(unittest.TestCase):
@@ -351,6 +354,11 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         self.assertEqual(v.members["funcs"], [self.functions[0]])
         self.assertEqual(v.members["scalars"], [self.scalars[0]])
 
+        # test degenerated cases
+        pi.ComposedFunctionVector(self.functions[0], [])
+        # and also the more important one
+        pi.ComposedFunctionVector([], self.scalars[0])
+
     def test_get_member(self):
         v = pi.ComposedFunctionVector(self.functions, self.scalars)
         self.assertEqual(v.get_member(0), self.functions[0])
@@ -531,6 +539,15 @@ class BaseTestCase(unittest.TestCase):
         g2 = f.scale(factor)
         for a, b in zip(f.fractions, g2.fractions):
             np.testing.assert_array_equal(10 * a(values), b(values))
+
+        # if factors is iterable, then it has to match the number of fractions
+        with self.assertRaises(ValueError):
+            f.scale([1, 2])
+
+        factors = list(range(5))
+        g3 = f.scale(factors)
+        for a, b, s in zip(f.fractions, g3.fractions, factors):
+            np.testing.assert_array_equal(s * a(values), b(values))
 
     def test_scalar_product_hint(self):
         f = pi.Base(self.fractions)
@@ -1222,17 +1239,34 @@ class ScalarDotProductL2TestCase(unittest.TestCase):
         self.assertAlmostEqual(core.dot_product_l2(self.f7, self.f6), 1 / 6)
 
     def test_complex(self):
-        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), -40j)
+        self.assertAlmostEqual(core.dot_product_l2(self.g1, self.g2), 40j)
         # swapping of args will return the conjugated expression
-        self.assertAlmostEqual(core.dot_product_l2(self.g2, self.g1),
-                               np.conj(-40j))
+        # and should raise a warning since the behaviour has changed
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            r = core.dot_product_l2(self.g2, self.g1)
+            # we should have produced one warning
+            self.assertEqual(len(w), 1)
+            # we expect a user warning
+            self.assertTrue(issubclass(w[0].category, UserWarning))
+            self.assertIn("complex conjugation", str(w[0].message))
+        self.assertAlmostEqual(r, np.conj(40j))
 
     def test_linearity(self):
         factor = 2+1j
         s = self.g1.scale(factor)
-        res = core.dot_product_l2(s, self.g2)
-        part = core.dot_product_l2(self.g1, self.g2)
+        res = core.dot_product_l2(self.g2, s)
+        part = core.dot_product_l2(self.g2, self.g1)
         np.testing.assert_almost_equal(np.conjugate(factor)*part, res)
+
+
+class DotProductTestCase(unittest.TestCase):
+    def test_product(self):
+        self.assertEqual(dot_product(2, 3), 6)
+
+    def test_sesquilinear(self):
+        self.assertEqual(dot_product(3, 2j), -6j)
+        self.assertEqual(dot_product(3j, 2), 6j)
 
 
 class DotProductL2TestCase(unittest.TestCase):
@@ -1251,6 +1285,12 @@ class DotProductL2TestCase(unittest.TestCase):
                                           self.fem_base.fractions,
                                           self.fem_base.scalar_product_hint())
         np.testing.assert_almost_equal(res, [1/3] + [2/3]*9 + [1/3])
+
+    def test_complex(self):
+        res = vectorize_scalar_product(self.fem_base.fractions,
+                                       self.fem_base.scale(1j).fractions,
+                                       self.fem_base.scalar_product_hint())
+        np.testing.assert_almost_equal(res, [-1j/3] + [-2j/3]*9 + [-1j/3])
 
 
 class CalculateScalarProductMatrixTestCase(unittest.TestCase):
@@ -1566,25 +1606,124 @@ class NormalizeBaseTestCase(unittest.TestCase):
         self.base_f = pi.Base(self.f)
         self.base_g = pi.Base(self.g)
         self.base_l = pi.Base(self.l)
+        self.base_fgl = pi.Base([self.f, self.g, self.l])
+
+    def generic_test_function_single_base(self, b):
+        bn = pi.normalize_base(b)
+        prod = vectorize_scalar_product(
+            bn.fractions, bn.fractions, bn.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
 
     def test_self_scale(self):
-        f = pi.normalize_base(self.base_f)
+        self.generic_test_function_single_base(self.base_f)
+        self.generic_test_function_single_base(self.base_g)
+        self.generic_test_function_single_base(self.base_l)
+        self.generic_test_function_single_base(self.base_fgl)
+        self.generic_test_function_single_base(self.base_l.scale(-1))
+
+    def generic_test_function(self, b1, b2, mode):
+        b1n = pi.normalize_base(b1)
         prod = vectorize_scalar_product(
-            f.fractions, f.fractions, f.scalar_product_hint())[0]
+            b1n.fractions, b1n.fractions, b1n.scalar_product_hint())[0]
         self.assertAlmostEqual(prod, 1)
+
+        b2n = pi.normalize_base(b2)
+        prod = vectorize_scalar_product(
+            b2n.fractions, b2n.fractions, b2n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+        b1n, b2n = pi.normalize_base(b1, b2, mode)
+        prod = vectorize_scalar_product(
+            b1n.fractions, b2n.fractions, b1n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+        b1n, b2n = pi.normalize_base(b2, b1, mode)
+        prod = vectorize_scalar_product(
+            b1n.fractions, b2n.fractions, b2n.scalar_product_hint())[0]
+        self.assertAlmostEqual(prod, 1)
+
+    def generic_test_wrapper(self, b1, b2):
+        self.generic_test_function(b1, b2, mode="right")
+        self.generic_test_function(b1, b2, mode="left")
+        self.generic_test_function(b1, b2, mode="both")
+        with self.assertRaises(ValueError):
+            self.generic_test_function(b1, b2, mode="special")
 
     def test_scale(self):
-        f, l = pi.normalize_base(self.base_f, self.base_l)
-        prod = vectorize_scalar_product(
-            f.fractions, l.fractions, f.scalar_product_hint())[0]
-        self.assertAlmostEqual(prod, 1)
+        self.generic_test_wrapper(self.base_f, self.base_l)
+        self.generic_test_wrapper(self.base_fgl, self.base_fgl)
+        self.generic_test_wrapper(self.base_fgl, self.base_fgl.scale(4))
+
+    def test_complex(self):
+        self.generic_test_wrapper(self.base_g, self.base_l)
+        self.generic_test_wrapper(self.base_g, self.base_l.scale(1j))
+        self.generic_test_wrapper(self.base_g.scale(1 + 2j),
+                                  self.base_l.scale(1j))
+
+    def test_user_inner_product(self):
+        def my_dot_product_l2(first, second):
+            from pyinduct.core import domain_intersection
+            nonzero = domain_intersection(first.nonzero, second.nonzero)
+            areas = domain_intersection(first.domain, nonzero)
+
+            def func(z):
+                return np.conj(first(z)) * second(z)
+
+            from pyinduct.core import integrate_function
+            result, error = integrate_function(func, areas)
+            return result
+
+        class MyFunction(pi.Function):
+            def scalar_product_hint(self):
+                return my_dot_product_l2
+
+        g = MyFunction(np.cos, domain=(0, np.pi))
+        l = MyFunction(np.exp, domain=(0, np.pi))
+
+        base_g = pi.Base(g)
+        base_l = pi.Base(l)
+
+        self.generic_test_wrapper(base_g, base_l)
+        self.generic_test_wrapper(base_g, base_l.scale(1j))
+        self.generic_test_wrapper(base_g.scale(1 + 2j),
+                                  base_l.scale(1j))
+
+    def test_broken_inner_product(self):
+        def my_very_special_dot_product_l2(first, second):
+            from pyinduct.core import domain_intersection
+            nonzero = domain_intersection(first.nonzero, second.nonzero)
+            areas = domain_intersection(first.domain, nonzero)
+
+            def func(z):
+                # derived by rule of thumb and guaranteed to fail
+                return first(z) * second(z)
+
+            from pyinduct.core import integrate_function
+            result, error = integrate_function(func, areas)
+            return result
+
+        class SpecialFunction(pi.Function):
+            def scalar_product_hint(self):
+                return my_very_special_dot_product_l2
+
+        g = SpecialFunction(np.cos, domain=(0, np.pi))
+        l = SpecialFunction(np.exp, domain=(0, np.pi))
+
+        base_g = pi.Base(g)
+        base_l = pi.Base(l)
+
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g, base_l)
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g, base_l.scale(1j))
+        with self.assertRaises(ValueError):
+            self.generic_test_wrapper(base_g.scale(1 + 2j),
+                                      base_l.scale(1j))
 
     def test_culprits(self):
-        # not possible
-        self.assertRaises(ValueError, pi.normalize_base, self.base_g, self.base_l)
-
         # orthogonal
-        self.assertRaises(ValueError, pi.normalize_base, self.base_f, self.base_g)
+        with self.assertRaises(ValueError):
+            pi.normalize_base(self.base_f, self.base_g)
 
 
 class FindRootsTestCase(unittest.TestCase):
