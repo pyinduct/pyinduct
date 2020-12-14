@@ -184,13 +184,16 @@ class BaseFraction:
         """
         return self(values)
 
-    def _apply_operator(self, operator, linear=False):
+    def _apply_operator(self, operator, additive=False):
         """
         Return a new base fraction with the given operator applied.
 
         Args:
             operator: Object that can be applied to the base fraction.
-            linear: Define if the given operator is linear. Default: False.
+            additive: Define if the given operator is additive. Default: False.
+                For an additive operator G and two base fractions f, h the
+                relation G(f + h) = G(f) + G(h) holds. If the operator is
+                not additive the derivatives will be discarded.
         """
         raise NotImplementedError()
 
@@ -198,19 +201,19 @@ class BaseFraction:
         """
         Return the real part of the base fraction.
         """
-        return self._apply_operator(np.real, linear=True)
+        return self._apply_operator(np.real, additive=True)
 
     def imag(self):
         """
         Return the imaginary port of the base fraction.
         """
-        return self._apply_operator(np.imag, linear=True)
+        return self._apply_operator(np.imag, additive=True)
 
     def conj(self):
         """
         Return the complex conjugated base fraction.
         """
-        return self._apply_operator(np.conj, linear=True)
+        return self._apply_operator(np.conj, additive=True)
 
 
 class Function(BaseFraction):
@@ -540,9 +543,10 @@ class Function(BaseFraction):
     def mul_neutral_element(self):
         return ConstantFunction(1, domain=self.domain)
 
-    def _apply_operator(self, operator, linear=False):
+    def _apply_operator(self, operator, additive=False):
         """
         Return a new function with the given operator applied.
+        See docstring of :py:meth:`.BaseFraction._apply_operator`.
         """
         def apply(func):
             def handle(z):
@@ -551,11 +555,11 @@ class Function(BaseFraction):
 
         new_obj = deepcopy(self)
         new_obj.function_handle = apply(self.function_handle)
-        if linear:
+        if additive:
             new_obj.derivative_handles = [
                 apply(f) for f in self.derivative_handles]
         else:
-            new_obj.derivative_handles = []
+            new_obj.derivative_handles = None
 
         return new_obj
 
@@ -734,11 +738,12 @@ class ComposedFunctionVector(BaseFraction):
         neut = ComposedFunctionVector(funcs, scalar_constants)
         return neut
 
-    def _apply_operator(self, operator, linear=False):
+    def _apply_operator(self, operator, additive=False):
         """
         Return a new composed function vector with the given operator applied.
+        See docstring of :py:meth:`.BaseFraction._apply_operator`.
         """
-        funcs = [f._apply_operator(operator, linear=linear)
+        funcs = [f._apply_operator(operator, additive=additive)
                  for f in self.members["funcs"]]
         scalar_constants = [operator(s) for s in self.members["scalars"]]
         new_obj = ComposedFunctionVector(funcs, scalar_constants)

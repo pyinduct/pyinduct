@@ -279,26 +279,28 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
     def test_apply_operator(self):
-        def linear_op(f):
-            return f * 2
+        def additive_op(f):
+            return f * 2 + np.conj(f)
 
-        def nonlinear_op(f):
+        def nonadditive_op(f):
             return np.sqrt(f)
 
-        f = pi.Function(lambda z: np.exp(2 * z), domain=(0, 7),
+        lam = 2 + 1j
+        f = pi.Function(lambda z: np.exp(lam * z), domain=(0, 7),
                         derivative_handles=[
-                            lambda z: 2 * np.exp(2 * z),
-                            lambda z: 4 * np.exp(2 * z)])
+                            lambda z: lam * np.exp(lam * z),
+                            lambda z: lam ** 2 * np.exp(lam * z)])
         z_test = np.linspace(0, 7)
 
-        f_lin = f._apply_operator(linear_op, linear=True)
-        np.testing.assert_array_almost_equal(f_lin(z_test), 2 * f(z_test))
-        np.testing.assert_array_almost_equal(f_lin.derive(2)(z_test),
-                                             2 * f.derive(2)(z_test))
+        f_add = f._apply_operator(additive_op, additive=True)
+        np.testing.assert_array_almost_equal(f_add(z_test),
+                                             2 * f(z_test) + np.conj(f(z_test)))
+        np.testing.assert_array_almost_equal(f_add.derive(2)(z_test),
+                                             additive_op(f.derive(2)(z_test)))
 
-        f_nli = f._apply_operator(nonlinear_op)
-        np.testing.assert_array_almost_equal(f_nli(z_test), np.sqrt(f(z_test)))
-        self.assertEqual(len(f_nli.derivative_handles), 0)
+        f_nad = f._apply_operator(nonadditive_op)
+        np.testing.assert_array_almost_equal(f_nad(z_test), np.sqrt(f(z_test)))
+        self.assertEqual(len(f_nad.derivative_handles), 0)
 
     def test_real_imag_conj(self):
         lam = 2 + 3j
@@ -495,7 +497,7 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
 
         v = pi.ComposedFunctionVector(self.functions_complex,
                                       self.scalars_complex)
-        v_lin = v._apply_operator(linear_op, linear=True)
+        v_lin = v._apply_operator(linear_op, additive=True)
         v_nli = v._apply_operator(nonlinear_op)
         z_test = 7
         np.testing.assert_array_almost_equal(v_lin(z_test), 2 * v(z_test))
