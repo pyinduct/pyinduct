@@ -157,7 +157,9 @@ class BaseFraction:
 
         In other words: `self + ret_val == self`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
 
     def mul_neutral_element(self):
         """
@@ -165,7 +167,9 @@ class BaseFraction:
 
         In other words: `self * ret_val == self`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
 
     def evaluation_hint(self, values):
         """
@@ -183,6 +187,39 @@ class BaseFraction:
             numpy.ndarray: Evaluation results.
         """
         return self(values)
+
+    def _apply_operator(self, operator, additive=False):
+        """
+        Return a new base fraction with the given operator applied.
+
+        Args:
+            operator: Object that can be applied to the base fraction.
+            additive: Define if the given operator is additive. Default: False.
+                For an additive operator G and two base fractions f, h the
+                relation G(f + h) = G(f) + G(h) holds. If the operator is
+                not additive the derivatives will be discarded.
+        """
+        raise NotImplementedError(
+            "This is an empty function. Overwrite it in your implementation "
+            "to use this functionality.")
+
+    def real(self):
+        """
+        Return the real part of the base fraction.
+        """
+        return self._apply_operator(np.real, additive=True)
+
+    def imag(self):
+        """
+        Return the imaginary port of the base fraction.
+        """
+        return self._apply_operator(np.imag, additive=True)
+
+    def conj(self):
+        """
+        Return the complex conjugated base fraction.
+        """
+        return self._apply_operator(np.conj, additive=True)
 
 
 class Function(BaseFraction):
@@ -512,6 +549,26 @@ class Function(BaseFraction):
     def mul_neutral_element(self):
         return ConstantFunction(1, domain=self.domain)
 
+    def _apply_operator(self, operator, additive=False):
+        """
+        Return a new function with the given operator applied.
+        See docstring of :py:meth:`.BaseFraction._apply_operator`.
+        """
+        def apply(func):
+            def handle(z):
+                return operator(func(z))
+            return handle
+
+        new_obj = deepcopy(self)
+        new_obj.function_handle = apply(self.function_handle)
+        if additive:
+            new_obj.derivative_handles = [
+                apply(f) for f in self.derivative_handles]
+        else:
+            new_obj.derivative_handles = None
+
+        return new_obj
+
 
 class ConstantFunction(Function):
     """
@@ -686,6 +743,17 @@ class ComposedFunctionVector(BaseFraction):
         scalar_constants = [0 for f in self.members["scalars"]]
         neut = ComposedFunctionVector(funcs, scalar_constants)
         return neut
+
+    def _apply_operator(self, operator, additive=False):
+        """
+        Return a new composed function vector with the given operator applied.
+        See docstring of :py:meth:`.BaseFraction._apply_operator`.
+        """
+        funcs = [f._apply_operator(operator, additive=additive)
+                 for f in self.members["funcs"]]
+        scalar_constants = [operator(s) for s in self.members["scalars"]]
+        new_obj = ComposedFunctionVector(funcs, scalar_constants)
+        return new_obj
 
 
 class ConstantComposedFunctionVector(ComposedFunctionVector):

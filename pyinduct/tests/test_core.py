@@ -35,10 +35,52 @@ class BaseFractionTestCase(unittest.TestCase):
 
     def test_derive(self):
         f = pi.BaseFraction(np.sin)
-        self.assertEqual(f.members, np.sin)
-
         f_d0 = f.derive(0)
         self.assertEqual(f, f_d0)
+        self._test_virtual("derive", 1)
+
+    def test_raise_to(self):
+        f = pi.BaseFraction(np.sin)
+        f_p0 = f.raise_to(1)
+        self.assertEqual(f, f_p0)
+
+    def test_evaluation_hint(self):
+        f = pi.BaseFraction(np.sin)
+        # default eval hint should use default __call__ routine
+        msg_1 = None
+        try:
+            f.evaluation_hint([1, 2, 3])
+        except Exception as e1:
+            msg_1 = str(e1)
+        try:
+            f([1, 2, 3])
+        except Exception as e2:
+            self.assertEqual(msg_1, str(e2))
+
+    def test_virtual_methods(self):
+        self._test_virtual("scale", 1)
+        self._test_virtual("raise_to", 2)
+        self._test_virtual("get_member", 1)
+        self._test_virtual("__call__", 1)
+        self._test_virtual("add_neutral_element")
+        self._test_virtual("mul_neutral_element")
+        self._test_virtual("_apply_operator", np.cos)
+        self._test_virtual("real")
+        self._test_virtual("imag")
+        self._test_virtual("conj")
+
+    def _test_virtual(self, method, arg=None):
+        f = pi.BaseFraction(None)
+        meth = getattr(f, method)
+        try:
+            if arg is None:
+                meth()
+            else:
+                meth(arg)
+            raise AssertionError("NotImplementError not raised.")
+        except NotImplementedError as e:
+            # should have an error message
+            assert str(e) != ""
 
 
 class FunctionTestCase(unittest.TestCase):
@@ -281,6 +323,56 @@ class FunctionTestCase(unittest.TestCase):
         g = pi.Function(np.sin, domain=(-17, 10))
         self.assertEqual(g.scalar_product_hint(), f.scalar_product_hint())
 
+    def test_apply_operator(self):
+        def additive_op(f):
+            return f * 2 + np.conj(f)
+
+        def nonadditive_op(f):
+            return np.sqrt(f)
+
+        lam = 2 + 1j
+        f = pi.Function(lambda z: np.exp(lam * z), domain=(0, 7),
+                        derivative_handles=[
+                            lambda z: lam * np.exp(lam * z),
+                            lambda z: lam ** 2 * np.exp(lam * z)])
+        z_test = np.linspace(0, 7)
+
+        f_add = f._apply_operator(additive_op, additive=True)
+        np.testing.assert_array_almost_equal(f_add(z_test),
+                                             2 * f(z_test) + np.conj(f(z_test)))
+        np.testing.assert_array_almost_equal(f_add.derive(2)(z_test),
+                                             additive_op(f.derive(2)(z_test)))
+
+        f_nad = f._apply_operator(nonadditive_op)
+        np.testing.assert_array_almost_equal(f_nad(z_test), np.sqrt(f(z_test)))
+        self.assertEqual(len(f_nad.derivative_handles), 0)
+
+    def test_real_imag_conj(self):
+        lam = 2 + 3j
+        lam_r = np.real(lam)
+        lam_i = np.imag(lam)
+        f = pi.Function(lambda z: np.exp(lam * z), domain=(0, 7),
+                        derivative_handles=[
+                            lambda z: lam * np.exp(lam * z),
+                            lambda z: lam ** 2 * np.exp(lam * z)])
+        fr = f.real()
+        fr_d = lambda z: np.exp(lam_r*z) * np.cos(lam_i*z)
+        d_fr_d = lambda z: np.real(lam * np.exp(lam * z))
+        dd_fr_d = lambda z: np.real(lam ** 2 * np.exp(lam * z))
+        fi = f.imag()
+        fi_d = lambda z: np.exp(lam_r*z) * np.sin(lam_i*z)
+        fc = f.conj()
+        fc_d = lambda z: np.exp(np.conj(lam) * z)
+
+        z_test = np.linspace(0, 7)
+        np.testing.assert_array_almost_equal(fr(z_test), fr_d(z_test))
+        np.testing.assert_array_almost_equal(
+            fr.derive()(z_test), d_fr_d(z_test))
+        np.testing.assert_array_almost_equal(
+            fr.derive(2)(z_test), dd_fr_d(z_test))
+        np.testing.assert_array_almost_equal(fi(z_test), fi_d(z_test))
+        np.testing.assert_array_almost_equal(fc(z_test), fc_d(z_test))
+
 
 class ConstantFunctionTestCase(unittest.TestCase):
 
@@ -336,6 +428,15 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
                           pi.Function(lambda x: np.sin(x))
                           ]
         self.scalars = [f(7) for f in self.functions]
+
+        self.lam = 3 + 4j
+        self.functions_complex = [
+            pi.Function(lambda x: self.lam),
+            pi.Function(lambda x: self.lam * x),
+            pi.Function(lambda x: (self.lam * x) ** 2),
+            pi.Function(lambda x: np.sin(self.lam * x), derivative_handles=[
+                lambda x: self.lam * np.cos(self.lam * x)])]
+        self.scalars_complex = [self.lam ** i for i in range(3)]
 
     def test_init(self):
         with self.assertRaises(TypeError):
@@ -436,6 +537,39 @@ class ComposedFunctionVectorTestCase(unittest.TestCase):
         ret = np.array([[2]*len(inp), 2 * inp, [2]*len(inp), [14]*len(inp)])
         res = v1(inp)
         np.testing.assert_array_equal(res, ret)
+
+    def test_apply_operator(self):
+        def linear_op(f):
+            return f * 2
+
+        def nonlinear_op(f):
+            return np.sqrt(f)
+
+        v = pi.ComposedFunctionVector(self.functions_complex,
+                                      self.scalars_complex)
+        v_lin = v._apply_operator(linear_op, additive=True)
+        v_nli = v._apply_operator(nonlinear_op)
+        z_test = 7
+        np.testing.assert_array_almost_equal(v_lin(z_test), 2 * v(z_test))
+        np.testing.assert_array_almost_equal(v_nli(z_test), np.sqrt(v(z_test)))
+
+        # check if derivatives are discarded in the nonlinear case
+        self.assertTrue(any([len(f.derivative_handles) > 0
+                             for f in v.members["funcs"]]))
+        self.assertTrue(all([len(f.derivative_handles) == 0
+                             for f in v_nli.members["funcs"]]))
+
+    def test_real_imag_conj(self):
+        vect = pi.ComposedFunctionVector(self.functions_complex,
+                                         self.scalars_complex)
+        for z in np.linspace(0, 20):
+            np.testing.assert_array_almost_equal(
+                vect.real()(z), np.real(vect(z)))
+            np.testing.assert_array_almost_equal(
+                vect.imag()(z), np.imag(vect(z)))
+            np.testing.assert_array_almost_equal(
+                vect.conj()(z), np.conj(vect(z)))
+
 
 
 def check_compatibility_and_scalar_product(b1, b2):
