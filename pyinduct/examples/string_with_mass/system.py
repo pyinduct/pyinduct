@@ -1,6 +1,6 @@
 from pyinduct.examples.string_with_mass.utils import *
 from pyinduct.core import integrate_function
-import collections
+from collections.abc import Iterable
 import pyinduct as pi
 
 
@@ -541,7 +541,7 @@ class SwmBaseCanonicalFraction(pi.ComposedFunctionVector):
                         [f(z) for f in self.members["funcs"]])
 
     def evaluation_hint(self, values):
-        if isinstance(values, (collections.Iterable, pi.Domain)):
+        if isinstance(values, (Iterable, pi.Domain)):
             res = list()
             for val in values:
                 res.append(self(val))

@@ -7,7 +7,7 @@ the predefined eigenfunctions in order to handle transformations and reduce
 effort within the controller implementation.
 """
 
-import collections
+from collections.abc import Callable
 from abc import ABCMeta, abstractstaticmethod
 from functools import partial
 from numbers import Number
@@ -1126,7 +1126,7 @@ class TransformedSecondOrderEigenfunction(Function):
 
         if (not len(dgl_coefficients) == 3
             and isinstance(dgl_coefficients, (list, tuple))
-            and all([isinstance(coef, collections.Callable)
+            and all([isinstance(coef, Callable)
                      or isinstance(coef, (int, float))
                      for coef in dgl_coefficients])):
             raise TypeError
@@ -1249,7 +1249,7 @@ class FiniteTransformFunction(Function):
 
     def __init__(self, function, M, l, scale_func=None, nested_lambda=False):
 
-        if not isinstance(function, collections.Callable):
+        if not isinstance(function, Callable):
             raise TypeError
         if (not isinstance(M, np.ndarray) or len(M.shape) != 2
             or np.diff(M.shape) != 0 or M.shape[0] % 1 != 0):

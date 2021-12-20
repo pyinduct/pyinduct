@@ -5,7 +5,8 @@ and functions for postprocessing of simulation data.
 
 import warnings
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict, Callable
+from collections import OrderedDict
+from collections.abc import Callable
 from copy import copy
 from itertools import chain
 

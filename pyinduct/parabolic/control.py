@@ -1,4 +1,3 @@
-import collections
 import copy as cp
 from numbers import Number
 
@@ -238,7 +237,7 @@ def get_parabolic_robin_backstepping_controller(state,
 
 # TODO: change to factory, rename: function_wrapper
 # def _convert_to_function(coef):
-#     if not isinstance(coef, collections.Callable):
+#     if not isinstance(coef, Callable):
 #         return lambda z: coef
 #     else:
 #         return coef
