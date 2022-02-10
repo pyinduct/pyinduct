@@ -29,7 +29,7 @@ if not any([arg in {"--no-np-strict-mode"} for arg in sys.argv]):
 # Then force it and uncomment the respective line:
 # test_timings = False
 # test_all_examples = False
-show_plots = False
+# show_plots = False
 
 
 def get_test_resource_path(res_name):
