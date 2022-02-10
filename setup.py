@@ -16,11 +16,13 @@ Programming Language :: Python :: 3.5
 Programming Language :: Python :: 3.6
 Programming Language :: Python :: 3.7
 Programming Language :: Python :: 3.8
+Programming Language :: Python :: 3.9
+Programming Language :: Python :: 3.10
 """
 
 MAJOR = 0
 MINOR = 5
-MICRO = 1
+MICRO = 2
 RC_INDEX = 0
 IS_RELEASED = True
 VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
