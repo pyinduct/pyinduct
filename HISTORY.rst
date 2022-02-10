@@ -127,10 +127,6 @@ Bugfixes:
 * Fix `project_on_base` for Base with only on Fraction (#104)
 * Add sesquilinear property to dot_product
 * Remove faulty dot product shortcut
-
-
-
-
 * Fix broken imports from collections module
 
 CI related changes:
