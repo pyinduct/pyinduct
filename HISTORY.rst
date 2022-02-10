@@ -107,3 +107,32 @@ CI related changes:
 * restructured test suite
 * test now run on the installed package instead of the source tree
 * updated rtd config to enable building the documentation again
+
+
+0.5.2 (2022-02-10)
+---------------------
+Changes:
+
+* Switch complex conjugated element in inner product
+* Allow complex scales in normalize_base
+* Improve robustness of normalize_base
+* Add `apply_operator()` method to `BaseFraction` (#102)
+* Add missing tests for BaseFraction
+* Added tab10 coloring to `visualize_functions`
+* Add support for Python 3.10
+
+Bugfixes:
+
+* Fix Some points about scalar product spaces (#101)
+* Fix `project_on_base` for Base with only on Fraction (#104)
+* Add sesquilinear property to dot_product
+* Remove faulty dot product shortcut
+
+
+
+
+* Fix broken imports from collections module
+
+CI related changes:
+
+* Migrated to CI pipeline to Github Actions
