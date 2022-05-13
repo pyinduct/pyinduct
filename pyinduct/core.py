@@ -302,27 +302,29 @@ class Function(BaseFraction):
         test_value = next(iter(self.domain))[1]
         if test_value is np.inf:
             test_value = 1
-        if not isinstance(eval_handle(test_value), Number):
-            print(test_value)
-            print(type(eval_handle(test_value)))
-            raise TypeError("callable must return number when called with scalar")
+        ret = eval_handle(test_value)
+        if np.ndim(ret) != 0:
+            raise TypeError("Callable must return scalar when called with "
+                            "scalar. Call with {0} returnedv {1}".format(
+                test_value, ret
+            ))
 
         self._function_handle = eval_handle
 
         # test vectorial input
         test_data = np.array([test_value] * 10)
         try:
-            res = eval_handle(test_data)
+            ret = eval_handle(test_data)
         except BaseException as e:
             # looks like the function does _not_ handle vectorial input
             self._vectorial = False
             return
 
-        if not isinstance(res, np.ndarray):
+        if not isinstance(ret, np.ndarray):
             # raise TypeError("callable must return np.ndarray when called with vector")
             self._vectorial = False
             return
-        if res.shape != test_data.shape:
+        if ret.shape != test_data.shape:
             # raise TypeError("result of call with vector must be of same shape")
             self._vectorial = False
             return
