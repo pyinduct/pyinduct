@@ -1565,6 +1565,8 @@ class ProjectionTest(unittest.TestCase):
         ])
         self.lag_base = pi.LagrangeFirstOrder.cure_interval(self.nodes)
         pi.register_base("lag_base", self.lag_base, overwrite=True)
+        self.lag2_base = pi.LagrangeSecondOrder.cure_interval(self.nodes)
+        pi.register_base("lag2_base", self.lag_base, overwrite=True)
 
         # "real" functions
         # because we are smarter
@@ -1683,8 +1685,21 @@ class ProjectionTest(unittest.TestCase):
                                                  a(self.z_values) * scale,
                                                  decimal=1)
 
+        complex_base2 = pi.Base([f.scale(1j if i < len(self.lag2_base) else 1)
+                                 for i, f in enumerate(self.lag2_base)])
+        weights_trafo = [
+            pi.change_projection_base(w, complex_base, complex_base2)
+            for w in weights]
+        approxs_trafo = [pi.back_project_from_base(w, complex_base2)
+                         for w in weights_trafo]
+        for i, (f, a) in enumerate(zip(self.functions, approxs_trafo)):
+            scale = 1 / 100 if i == 2 else 1
+            np.testing.assert_array_almost_equal(f(self.z_values) * scale,
+                                                 a(self.z_values) * scale,
+                                                 decimal=1)
+
         if show_plots:
-            for f, a in zip(self.functions, approxs):
+            for f, a in zip(self.functions * 2, approxs + approxs_trafo):
                 import matplotlib.pyplot as plt
                 plt.plot(self.z_values, f(self.z_values))
                 plt.plot(self.z_values, a(self.z_values))
