@@ -1617,7 +1617,7 @@ def project_on_base(state, base):
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(base, base)
 
-    res = np.linalg.inv(scale_mat) @ projections.T
+    res = np.linalg.inv(scale_mat.T) @ projections.T
     return np.reshape(res, (scale_mat.shape[0],))
 
 
