@@ -1940,9 +1940,9 @@ def calculate_base_transformation_matrix(src_base, dst_base, scalar_product=None
         raise TypeError("Source and destination base must be from the same "
                         "type.")
 
-    p_mat = calculate_scalar_product_matrix(dst_base, src_base, scalar_product)
+    p_mat = calculate_scalar_product_matrix(src_base, dst_base, scalar_product).T
 
-    q_mat = calculate_scalar_product_matrix(dst_base, dst_base, scalar_product)
+    q_mat = calculate_scalar_product_matrix(dst_base, dst_base, scalar_product).T
 
     # compute V matrix, where V = inv(Q)*P
     v_mat = np.dot(np.linalg.inv(q_mat), p_mat)
