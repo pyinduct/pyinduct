@@ -1672,6 +1672,24 @@ class ProjectionTest(unittest.TestCase):
                         symbol="+")
                 pi.show(show_mpl=False)
 
+    def test_complex_valued_base(self):
+        complex_base = pi.Base([f.scale(1j if i % 2 == 0 else 1)
+                                for i, f in enumerate(self.lag_base)])
+        weights = [pi.project_on_base(f, complex_base) for f in self.functions]
+        approxs = [pi.back_project_from_base(w, complex_base) for w in weights]
+        for i, (f, a) in enumerate(zip(self.functions, approxs)):
+            scale = 1 / 100 if i == 2 else 1
+            np.testing.assert_array_almost_equal(f(self.z_values) * scale,
+                                                 a(self.z_values) * scale,
+                                                 decimal=1)
+
+        if show_plots:
+            for f, a in zip(self.functions, approxs):
+                import matplotlib.pyplot as plt
+                plt.plot(self.z_values, f(self.z_values))
+                plt.plot(self.z_values, a(self.z_values))
+                plt.show()
+
     def tearDown(self):
         pi.deregister_base("lag_base")
         pi.deregister_base("comp_lag_base")
