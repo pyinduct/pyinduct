@@ -1569,7 +1569,7 @@ def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
     if optimize and base_a == base_b:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
-        output = np.zeros((dim, dim), dtype=np.complex)
+        output = np.zeros((dim, dim), dtype=complex)
         i, j = np.mgrid[0:dim, 0:dim]
 
         # compute only upper half

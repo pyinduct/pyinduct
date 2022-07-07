@@ -1437,9 +1437,22 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         self.initial_functions2 = pi.LagrangeFirstOrder.cure_interval(
             self.nodes2)
 
+        def fourier_factory(_k):
+            def cmplx_fnc(_z):
+                angle = 2 * np.pi * _k * _z / interval[1]
+                return _z * np.exp(1j * angle)
+            return cmplx_fnc
+
+        self.complex_functions1 = pi.Base([pi.Function(fourier_factory(k),
+                                                       domain=interval)
+                                           for k in range(dim1)])
+        self.complex_functions2 = pi.Base([pi.Function(fourier_factory(k),
+                                                       domain=interval)
+                                           for k in range(dim2)])
+
         self.optimization = False
 
-    def test_quadratic(self):
+    def test_quadratic1(self):
         res_quad1 = np.zeros([len(self.initial_functions1)]*2)
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions1):
@@ -1451,6 +1464,7 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
                                    len(self.initial_functions1)))
         np.testing.assert_almost_equal(r, res_quad1)
 
+    def test_quadratic2(self):
         res_quad2 = np.zeros([len(self.initial_functions2)]*2)
         for idx1, frac1 in enumerate(self.initial_functions2):
             for idx2, frac2 in enumerate(self.initial_functions2):
@@ -1462,15 +1476,26 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
                                    len(self.initial_functions2)))
         np.testing.assert_almost_equal(r, res_quad2)
 
-    def test_rectangular(self):
-        res = np.zeros((len(self.initial_functions1),
-                        len(self.initial_functions2)))
+    def test_quadratic_complex1(self):
+        res_c1 = np.zeros([len(self.complex_functions1)] * 2,
+                          dtype=complex)
+        for idx1, frac1 in enumerate(self.complex_functions1):
+            # inverse the list to avoid getting the unity matrix
+            for idx2, frac2 in enumerate(self.complex_functions1):
+                res_c1[idx1, idx2] = core.dot_product_l2(frac1, frac2)
+
+        r, t = self.quadratic_complex_case1()
+        self.assertTrue(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.initial_functions1),
+                                   len(self.initial_functions1)))
+        np.testing.assert_almost_equal(r, res_c1)
+
+    def test_rectangular1(self):
+        res_rect1 = np.zeros((len(self.initial_functions1),
+                              len(self.initial_functions2)))
         for idx1, frac1 in enumerate(self.initial_functions1):
             for idx2, frac2 in enumerate(self.initial_functions2):
-                res[idx1, idx2] = core.dot_product_l2(frac1, frac2)
-
-        res_rect1 = res.copy()
-        res_rect2 = np.conjugate(res).T
+                res_rect1[idx1, idx2] = core.dot_product_l2(frac1, frac2)
 
         r, t = self.rectangular_case_1()
         self.assertFalse(np.iscomplexobj(r))
@@ -1478,14 +1503,34 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
                                    len(self.initial_functions2)))
         np.testing.assert_almost_equal(r, res_rect1)
 
+    def test_rectangular2(self):
+        res_rect2 = np.zeros((len(self.initial_functions2),
+                              len(self.initial_functions1)))
+        for idx1, frac1 in enumerate(self.initial_functions2):
+            for idx2, frac2 in enumerate(self.initial_functions1):
+                res_rect2[idx1, idx2] = core.dot_product_l2(frac1, frac2)
+
         r, t = self.rectangular_case_2()
         self.assertFalse(np.iscomplexobj(r))
         self.assertEqual(r.shape, (len(self.initial_functions2),
                                    len(self.initial_functions1)))
         np.testing.assert_almost_equal(r, res_rect2)
 
+    def test_rectangular_complex1(self):
+        res_rect2 = np.zeros((len(self.complex_functions1),
+                              len(self.complex_functions2)),
+                             dtype=complex)
+        for idx1, frac1 in enumerate(self.complex_functions1):
+            for idx2, frac2 in enumerate(self.complex_functions2):
+                res_rect2[idx1, idx2] = core.dot_product_l2(frac1, frac2)
+
+        r, t = self.rectangular_complex_case_1()
+        self.assertTrue(np.iscomplexobj(r))
+        self.assertEqual(r.shape, (len(self.complex_functions1),
+                                   len(self.complex_functions2)))
+        np.testing.assert_almost_equal(r, res_rect2)
+
     def quadratic_case1(self):
-        # result is quadratic
         t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions1,
@@ -1494,7 +1539,6 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         return mat, t_calc
 
     def quadratic_case2(self):
-        # result is quadratic
         t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions2,
@@ -1502,8 +1546,15 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         t_calc = time.process_time() - t0
         return mat, t_calc
 
+    def quadratic_complex_case1(self):
+        t0 = time.process_time()
+        mat = pi.calculate_scalar_product_matrix(self.complex_functions1,
+                                                 self.complex_functions1,
+                                                 optimize=self.optimization)
+        t_calc = time.process_time() - t0
+        return mat, t_calc
+
     def rectangular_case_1(self):
-        # rect1
         t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions1,
                                                  self.initial_functions2,
@@ -1512,10 +1563,17 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
         return mat, t_calc
 
     def rectangular_case_2(self):
-        # rect2
         t0 = time.process_time()
         mat = pi.calculate_scalar_product_matrix(self.initial_functions2,
                                                  self.initial_functions1,
+                                                 optimize=self.optimization)
+        t_calc = time.process_time() - t0
+        return mat, t_calc
+
+    def rectangular_complex_case_1(self):
+        t0 = time.process_time()
+        mat = pi.calculate_scalar_product_matrix(self.complex_functions1,
+                                                 self.complex_functions2,
                                                  optimize=self.optimization)
         t_calc = time.process_time() - t0
         return mat, t_calc
@@ -1530,7 +1588,9 @@ class CalculateScalarProductMatrixTestCase(unittest.TestCase):
             self.quadratic_case1,
             self.quadratic_case2,
             self.rectangular_case_1,
-            self.rectangular_case_2
+            self.rectangular_case_2,
+            self.quadratic_complex_case1,
+            self.rectangular_complex_case_1,
         ]
         variants = [False, True]
         run_cnt = 5
