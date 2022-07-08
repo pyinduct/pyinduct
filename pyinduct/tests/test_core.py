@@ -1657,9 +1657,7 @@ class ProjectionTest(unittest.TestCase):
         np.testing.assert_array_almost_equal(w, [2])
 
     def test_projection_on_lag1st(self):
-        weights = [pi.project_on_base(self.functions[1], self.lag_base),
-                   pi.project_on_base(self.functions[2], self.lag_base),
-                   pi.project_on_base(self.functions[3], self.lag_base)]
+        weights = pi.project_on_base(self.functions[1:], self.lag_base).T
 
         # linear function -> should be fitted exactly
         np.testing.assert_array_almost_equal(weights[0],
@@ -1700,9 +1698,8 @@ class ProjectionTest(unittest.TestCase):
             pi.show(show_mpl=False)
 
     def test_projection_on_composed_function_vector(self):
-        weights = [pi.project_on_base(self.func_vectors[idx],
-                                      self.comp_lag_base)
-                   for idx in [1, 2, 3]]
+        weights = pi.project_on_base(self.func_vectors[1:],
+                                     self.comp_lag_base).T
 
         # linear function -> should be fitted exactly
         np.testing.assert_array_almost_equal(weights[0],
@@ -1737,7 +1734,7 @@ class ProjectionTest(unittest.TestCase):
     def test_complex_valued_base(self):
         complex_base = pi.Base([f.scale(1j if i % 2 == 0 else 1)
                                 for i, f in enumerate(self.lag_base)])
-        weights = [pi.project_on_base(f, complex_base) for f in self.functions]
+        weights = pi.project_on_base(self.functions, complex_base).T
         approxs = [pi.back_project_from_base(w, complex_base) for w in weights]
         for i, (f, a) in enumerate(zip(self.functions, approxs)):
             scale = 1 / 100 if i == 2 else 1

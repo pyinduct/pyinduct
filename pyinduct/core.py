@@ -1596,12 +1596,12 @@ def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
         return res.reshape(fractions_i.shape)
 
 
-def project_on_base(state, base):
+def project_on_base(state_vector, base):
     """
     Projects a *state* on a basis given by *base*.
 
     Args:
-        state (array_like): List of functions to approximate.
+        state_vector (array_like): List of functions to approximate.
         base (:py:class:`.ApproximationBase`): Basis to project onto.
 
     Return:
@@ -1611,14 +1611,14 @@ def project_on_base(state, base):
         raise TypeError("Projection only possible on approximation bases.")
 
     # compute <x(z, t), phi_i(z)> (vector)
-    projections = calculate_scalar_product_matrix(base.__class__(state),
+    projections = calculate_scalar_product_matrix(base.__class__(state_vector),
                                                   base)
 
     # compute <phi_i(z), phi_j(z)> for 0 < i, j < n (matrix)
     scale_mat = calculate_scalar_product_matrix(base, base)
 
     res = np.linalg.inv(scale_mat.T) @ projections.T
-    return np.reshape(res, (scale_mat.shape[0],))
+    return res.squeeze()
 
 
 def project_on_bases(states, canonical_equations):
