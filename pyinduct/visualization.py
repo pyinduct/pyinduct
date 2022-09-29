@@ -85,7 +85,7 @@ def get_colors(cnt, scheme="tab10", samples=10):
     Return:
         List of `np.Array` holding the rgb values.
     """
-    s_colors = cm.get_cmap(scheme)(np.linspace(0, 1, samples), bytes=True)
+    s_colors = mpl.colormaps[scheme](np.linspace(0, 1, samples), bytes=True)
     clrs = [s_colors[idx % len(s_colors)] for idx in range(cnt)]
     return clrs
 
@@ -434,7 +434,7 @@ class PgSurfacePlot(PgDataPlot):
             self.scales = scales
 
         # setup color map
-        cmap = cm.get_cmap(color_map)
+        cmap = mpl.colormaps[color_map]
         norm = mpl.colors.Normalize(vmin=self.extrema[0, -1],
                                     vmax=self.extrema[1, -1])
         self.mapping = cm.ScalarMappable(norm, cmap)
@@ -679,7 +679,7 @@ class MplSurfacePlot(DataPlot):
                 rcount=len(x), ccount=len(y),
                 # rstride=len(x), cstride=len(y),
                 # rstride=2, cstride=2,
-                cmap=mpl.cm.get_cmap("viridis"),
+                cmap=mpl.colormaps["viridis"],
                 antialiased=False
             )
 
