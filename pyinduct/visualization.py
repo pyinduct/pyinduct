@@ -559,6 +559,8 @@ class PgSurfacePlot(PgDataPlot):
 class PgSlicePlot(PgDataPlot):
     """
     Plot selected slice of given DataSets.
+
+    This class is a work in progress.
     """
 
     # TODO think about a nice slice strategy see pyqtgraph for inspiration
@@ -566,12 +568,12 @@ class PgSlicePlot(PgDataPlot):
         PgDataPlot.__init__(self, data)
         self.dim = self._data[0].output_data.shape
 
-        self.win = pg.QtGui.QMainWindow()
+        self.win = pg.QtWidgets.QMainWindow()
         self.win.resize(800, 800)
         self.win.setWindowTitle("PgSlicePlot: {}".format(title))
-        self.cw = pg.QtGui.QWidget()
+        self.cw = pg.QtWidgets.QWidget()
         self.win.setCentralWidget(self.cw)
-        self.l = pg.QtGui.QGridLayout()
+        self.l = pg.QtWidgets.QGridLayout()
         self.cw.setLayout(self.l)
         self.image_view = pg.ImageView(name="img_view")
         self.l.addWidget(self.image_view, 0, 0)
@@ -655,8 +657,8 @@ class MplSurfacePlot(DataPlot):
 
             # figure
             fig = plt.figure(figsize=fig_size, facecolor='white')
-            fig.canvas.set_window_title(name)
-            ax = fig.gca(projection='3d')
+            fig.canvas.manager.set_window_title(name)
+            ax = fig.add_subplot(projection='3d')
             if keep_aspect:
                 ax.set_aspect('equal', 'box')
             ax.xaxis.set_pane_color((1, 1, 1, 1))
