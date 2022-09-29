@@ -196,12 +196,12 @@ class LagrangeNthOrder(ShapeFunction):
                                  .5 * l_poly.deriv(der_order), .5 * r_poly.deriv(der_order)]
 
         def function(zz):
-            z = np.array(zz, dtype=np.float_)
+            z = np.array(zz, dtype=float)
             # HACK convert single entry arrays to scalars
             cl = [c[0] for c in cond_list(z)]
             res = np.piecewise(z, cl, func_list)
             if np.ndim(zz) == 0:
-                return np.float_(res)
+                return float(res)
             else:
                 return res.flatten()
 

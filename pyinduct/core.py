@@ -535,7 +535,7 @@ class Function(BaseFraction):
         def wrapper(z):
             res = interp(z)
             if res.size == 1:
-                return np.float(res)
+                return float(res)
             return res
 
         func = Function(eval_handle=wrapper,
@@ -1569,7 +1569,7 @@ def calculate_scalar_product_matrix(base_a, base_b, scalar_product=None,
     if optimize and base_a == base_b:
         # since the scalar_product commutes whe can save some operations
         dim = fractions_a.shape[0]
-        output = np.zeros((dim, dim), dtype=np.complex)
+        output = np.zeros((dim, dim), dtype=complex)
         i, j = np.mgrid[0:dim, 0:dim]
 
         # compute only upper half
@@ -2238,7 +2238,7 @@ def complex_wrapper(func):
     """
 
     def wrapper(x):
-        val = func(np.complex(x[0], x[1]))
+        val = func(complex(x[0], x[1]))
         return np.array([np.real(val),
                          np.imag(val)])
 

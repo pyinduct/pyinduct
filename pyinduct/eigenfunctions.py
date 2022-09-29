@@ -346,8 +346,8 @@ class SecondOrderEigenVector(ShapeFunction):
                 if _z in cache:
                     return cache[_z]
                 else:
-                    lim_p = np.float(sp.limit(char_eq, nu, _z, dir="+"))
-                    lim_m = np.float(sp.limit(char_eq, nu, _z, dir="-"))
+                    lim_p = float(sp.limit(char_eq, nu, _z, dir="+"))
+                    lim_m = float(sp.limit(char_eq, nu, _z, dir="-"))
                     if np.isclose(lim_p, lim_m):
                         cache[_z] = lim_m
                         return lim_m

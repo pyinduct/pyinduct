@@ -45,9 +45,9 @@ class FlatString(SimulationInput):
 
         # create vectorized functions
         self.control_input = np.vectorize(self._control_input,
-                                          otypes=[np.float])
+                                          otypes=[float])
         self.system_state = np.vectorize(self._system_sate,
-                                         otypes=[np.float])
+                                         otypes=[float])
 
     def _control_input(self, t):
         """
