@@ -40,64 +40,120 @@ import pyinduct as pi
 l = 6  # [] = m
 R = 0  # [] = ohm
 G = 0  # [] = 1/ohm
-L = 241e-6  # [] = H
+L = 241e-9  # [] = H
 C = 100e-12  # [] = F
 Z = 10
 Ue = 12
 
-t_end = 10e-6
+t_end = 1e-6
 
 
 def run(show_plots):
     spat_bounds = (0, l)
-    spat_domain = pi.Domain(bounds=spat_bounds, num=51)
+    spat_domain = pi.Domain(bounds=spat_bounds, num=101)
     temp_domain = pi.Domain(bounds=(0, t_end), num=1000)
 
-    base_u = pi.LagrangeFirstOrder.cure_interval(spat_domain)
-    red_base_u = base_u[1:]
-    pi.register_base("base_u", red_base_u)
+    # voltage
+    # base_u = pi.LagrangeFirstOrder.cure_interval(spat_domain)
+    base_u = pi.LagrangeSecondOrder.cure_interval(spat_domain)
+    base_u0 = pi.Base(base_u[0])
+    base_ub = pi.Base(base_u[1:])
+    pi.register_base("base_ub", base_ub)
+    pi.register_base("base_u0", base_u0)
+
+    # current
     base_i = pi.LagrangeFirstOrder.cure_interval(spat_domain)
-    red_base_i = base_i[:-1]
-    pi.register_base("base_i", red_base_i)
+    base_ib = pi.Base(base_i[:-1])
+    base_il = pi.Base(base_i[-1])
+    pi.register_base("base_ib", base_ib)
+    pi.register_base("base_il", base_il)
 
-    d = pi.SimulationInputSum([
-        # pi.SignalGenerator("square", temp_domain, frequency=.01,
-        #                    scale=Ue, offset=0, phase_shift=0),
-        pi.ConstantTrajectory(Ue)
-    ])
+    d = pi.ConstantTrajectory(Ue)
 
-    u = pi.FieldVariable("base_u")
-    psi_u = pi.TestFunction("base_u")
-    i = pi.FieldVariable("base_i")
-    psi_i = pi.TestFunction("base_i")
+    ub = pi.FieldVariable("base_ub")
+    psi_u0 = pi.ScalarFunction("base_u0")
+    psi_ub = pi.TestFunction("base_ub")
+    ib = pi.FieldVariable("base_ib")
+    psi_ib = pi.TestFunction("base_ib")
+    psi_il = pi.ScalarFunction("base_il")
 
-    weak_form1 = pi.WeakFormulation(
+    inp = pi.Input(d)
+
+    weak_form_u = pi.WeakFormulation(
         [
-            pi.IntegralTerm(pi.Product(u.derive(temp_order=1), psi_u),
+            # homogeneous part
+            pi.IntegralTerm(pi.Product(ub.derive(temp_order=1), psi_ub),
                             limits=spat_bounds,
                             scale=C),
-            pi.IntegralTerm(pi.Product(u, psi_u),
+            pi.IntegralTerm(pi.Product(ub, psi_ub),
                             limits=spat_bounds,
                             scale=G),
-            pi.ScalarTerm(pi.Product(i(0), psi_u(0)), scale=-1),
-            pi.ScalarTerm(pi.Product(u(l), psi_u(l)), scale=1/Z),
-            pi.IntegralTerm(pi.Product(i, psi_u.derive(1)),
+            pi.ScalarTerm(pi.Product(ib(0), psi_ub(0)), scale=-1),
+            pi.ScalarTerm(pi.Product(ib(l), psi_ub(l)), scale=1),
+            pi.IntegralTerm(pi.Product(ib, psi_ub.derive(1)),
                             limits=spat_bounds,
                             scale=-1),
+
+            # inhomogeneous part (input derivative is ignored)
+            # pi.IntegralTerm(pi.Product(inp.derive(temp_order=1), psi_ub),
+            #                 limits=spat_bounds,
+            #                 scale=C),
+            pi.IntegralTerm(pi.Product(pi.Product(psi_u0, psi_ub),
+                                       inp),
+                            limits=spat_bounds,
+                            scale=G),
+            pi.ScalarTerm(pi.Product(pi.Product(ub(l), psi_il(0)),
+                                     psi_ub(0)), scale=-1/Z),
+            pi.ScalarTerm(pi.Product(pi.Product(ub(l), psi_il(l)),
+                                     psi_ub(l)), scale=1/Z),
+            pi.IntegralTerm(pi.Product(pi.Product(ub(l), psi_il),
+                                       psi_ub.derive(1)),
+                            limits=spat_bounds,
+                            scale=-1/Z),
         ],
         name="line voltage"
     )
-    weak_form2 = pi.WeakFormulation(
+    weak_form_i = pi.WeakFormulation(
         [
-            pi.IntegralTerm(pi.Product(i.derive(temp_order=1), psi_i),
+            # homogeneous part
+            pi.IntegralTerm(pi.Product(ib.derive(temp_order=1), psi_ib),
                             limits=spat_bounds,
                             scale=L),
-            pi.IntegralTerm(pi.Product(i, psi_i),
+            pi.IntegralTerm(pi.Product(ib, psi_ib),
                             limits=spat_bounds,
                             scale=R),
-            pi.ScalarTerm(pi.Product(pi.Input(d), psi_i(0)), scale=-1),
-            pi.ScalarTerm(pi.Product(u(l), psi_i(l)), scale=1),
-            pi.IntegralTerm(pi.Product(u, psi_i.derive(1)),
+            pi.ScalarTerm(pi.Product(ub(0), psi_ib(0)), scale=-1),
+            pi.ScalarTerm(pi.Product(ub(l), psi_ib(l)), scale=1),
+            pi.IntegralTerm(pi.Product(ub, psi_ib.derive(1)),
+                            limits=spat_bounds,
+                            scale=-1),
+
+            # inhomogeneous part
+            # pi.IntegralTerm(pi.Product(pi.Product(ub(l), psi_il),
+            #                            psi_ib),
+            #                 limits=spat_bounds,
+            #                 scale=G/C * L/Z),
+            # pi.IntegralTerm(pi.Product(pi.Product(ub.derive(spat_order=1)(l),
+            #                                       psi_il),
+            #                            psi_ib),
+            #                 limits=spat_bounds,
+            #                 scale=1/(C * Z) * L/Z),
+            # pi.IntegralTerm(pi.Product(pi.Product(ib.derive(spat_order=1)(l),
+            #                                       psi_il),
+            #                            psi_ib),
+            #                 limits=spat_bounds,
+            #                 scale=1/C * L/Z),
+            pi.IntegralTerm(pi.Product(pi.Product(ub(l), psi_il), psi_ib),
+                            limits=spat_bounds,
+                            scale=R/Z),
+            pi.ScalarTerm(pi.Product(pi.Product(psi_u0(0), psi_ib(0)),
+                                     inp),
+                          scale=-1),
+            pi.ScalarTerm(pi.Product(pi.Product(psi_u0(l), psi_ib(l)),
+                                     inp),
+                          scale=1),
+            pi.IntegralTerm(pi.Product(pi.Product(psi_u0, psi_ib.derive(1)),
+                                       inp),
                             limits=spat_bounds,
                             scale=-1),
         ],
@@ -105,26 +161,41 @@ def run(show_plots):
     )
 
     ics = {
-        weak_form1.name: [pi.Function(lambda z: 0, domain=spat_bounds)],
-        weak_form2.name: [pi.Function(lambda z: 0, domain=spat_bounds)]
+        weak_form_u.name: [pi.Function(lambda z: 0, domain=spat_bounds)],
+        weak_form_i.name: [pi.Function(lambda z: 0, domain=spat_bounds)]
     }
     spat_domains = {
-        weak_form1.name: spat_domain,
-        weak_form2.name: spat_domain
+        weak_form_u.name: spat_domain,
+        weak_form_i.name: spat_domain
     }
-    evald1, evald2 = pi.simulate_systems([weak_form1, weak_form2],
+    eval_ub, eval_ib = pi.simulate_systems([weak_form_u, weak_form_i],
                                          ics,
                                          temp_domain,
                                          spat_domains)
-    pi.tear_down(["base_u", "base_i"])
+
+    # add the inhomogeneous parts
+    u0_weights = np.reshape(d.get_results(temp_domain), (len(temp_domain), 1))
+    eval_u0 = pi.evaluate_approximation("base_u0", u0_weights,
+                                        temp_domain, spat_domain, spat_order=0)
+    eval_u = eval_u0 + eval_ub
+    il_weights = eval_u.output_data[:, -1:] / Z
+    eval_il = pi.evaluate_approximation("base_il", il_weights,
+                                        temp_domain, spat_domain, spat_order=0)
+    eval_i = eval_ib + eval_il
 
     if show_plots:
-        win1 = pi.PgAnimatedPlot([evald1, evald2], labels=dict(bottom='z'),
-                                 replay_gain=1e-6)
-        win3 = pi.surface_plot(evald1, title=weak_form1.name)
-        win4 = pi.surface_plot(evald2, title=weak_form2.name)
+        win1 = pi.PgAnimatedPlot([eval_u, eval_i], labels=dict(bottom='z'),
+                                 replay_gain=t_end/5)
+        win2 = pi.surface_plot(eval_u0, title=weak_form_u.name)
+        win3 = pi.surface_plot(eval_ub, title=weak_form_u.name)
+        win4 = pi.surface_plot(eval_u, title=weak_form_u.name)
+        win5 = pi.surface_plot(eval_ib, title=weak_form_i.name)
+        win6 = pi.surface_plot(eval_il, title=weak_form_i.name)
+        win7 = pi.surface_plot(eval_i, title=weak_form_i.name)
         pi.show()
 
+    # cleanup
+    pi.tear_down(["base_u0", "base_ub", "base_ib", "base_il"])
 
 if __name__ == "__main__":
     run(True)
