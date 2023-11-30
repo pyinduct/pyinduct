@@ -1,18 +1,15 @@
 PyInduct
 ========
 
-.. image:: https://img.shields.io/travis/pyinduct/pyinduct.svg
-    :target: https://travis-ci.org/pyinduct/pyinduct
-
-.. image:: https://readthedocs.org/projects/pyinduct/badge
-    :target: http://pyinduct.rtfd.io
-
+.. image:: https://readthedocs.org/projects/pyinduct/badge/?version=master
+    :target: https://pyinduct.readthedocs.io/en/master/?badge=master
+    :alt: Documentation Status
 .. image:: https://codecov.io/gh/pyinduct/pyinduct/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/pyinduct/pyinduct
-
+    :alt: Code Coverage
 .. image:: https://img.shields.io/pypi/v/pyinduct.svg
     :target: https://pypi.python.org/pypi/pyinduct
-
+    :alt: PyPi Version
 
 PyInduct is a python toolbox for control and observer design for infinite dimensional systems.
 
